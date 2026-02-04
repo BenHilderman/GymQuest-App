@@ -1,0 +1,910 @@
+//
+//  SquadView.swift
+//  GymQuest
+//
+//  Squad system UI for GymQuest 2.0.
+//  Create/join squads, view leaderboards, manage challenges.
+//
+
+import SwiftUI
+import SwiftData
+
+struct SquadView: View {
+    @EnvironmentObject var featureFlags: FeatureFlags
+    @Environment(\.modelContext) private var modelContext
+    @Query private var squads: [Squad]
+
+    let profile: UserProfile
+
+    @State private var showingCreateSquad = false
+    @State private var showingJoinSquad = false
+    @State private var selectedSquad: Squad?
+
+    var userSquads: [Squad] {
+        squads.filter { $0.memberIds.contains(profile.id) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    if userSquads.isEmpty {
+                        EmptySquadView(
+                            onCreateSquad: { showingCreateSquad = true },
+                            onJoinSquad: { showingJoinSquad = true }
+                        )
+                    } else {
+                        ForEach(userSquads) { squad in
+                            SquadCardView(
+                                squad: squad,
+                                profile: profile
+                            )
+                            .onTapGesture {
+                                selectedSquad = squad
+                            }
+                        }
+
+                        // Add another squad button
+                        if userSquads.count < 3 {
+                            HStack(spacing: 12) {
+                                Button {
+                                    showingCreateSquad = true
+                                } label: {
+                                    Label("Create", systemImage: "plus.circle.fill")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(Color.blue.opacity(0.3))
+                                        .cornerRadius(10)
+                                }
+
+                                Button {
+                                    showingJoinSquad = true
+                                } label: {
+                                    Label("Join", systemImage: "person.badge.plus")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(Color.green.opacity(0.3))
+                                        .cornerRadius(10)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    Spacer(minLength: 100)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Squads")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .sheet(isPresented: $showingCreateSquad) {
+                CreateSquadSheet(profile: profile)
+            }
+            .sheet(isPresented: $showingJoinSquad) {
+                JoinSquadSheet(profile: profile)
+            }
+            .sheet(item: $selectedSquad) { squad in
+                SquadDetailView(squad: squad, profile: profile)
+            }
+        }
+    }
+}
+
+// MARK: - Empty Squad View
+
+struct EmptySquadView: View {
+    let onCreateSquad: () -> Void
+    let onJoinSquad: () -> Void
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "person.3.fill")
+                .font(.system(size: 60))
+                .foregroundColor(.blue.opacity(0.5))
+                .padding(.top, 40)
+
+            VStack(spacing: 8) {
+                Text("No Squads Yet")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+
+                Text("Create or join a squad to train with friends and compete in weekly challenges")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+            }
+
+            VStack(spacing: 12) {
+                Button(action: onCreateSquad) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Create a Squad")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.white)
+                    .cornerRadius(12)
+                }
+
+                Button(action: onJoinSquad) {
+                    HStack {
+                        Image(systemName: "person.badge.plus")
+                        Text("Join with Code")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.blue.opacity(0.3))
+                    .cornerRadius(12)
+                }
+            }
+            .padding(.horizontal, 40)
+            .padding(.top, 8)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Squad Card View
+
+struct SquadCardView: View {
+    @Environment(\.modelContext) private var modelContext
+    let squad: Squad
+    let profile: UserProfile
+
+    @State private var leaderboard: [SquadMemberStats] = []
+    @State private var activeChallenge: SquadChallenge?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(squad.name)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+
+                    HStack(spacing: 8) {
+                        Label("\(squad.memberCount)/6", systemImage: "person.2.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+
+                        if squad.streakWeeks > 0 {
+                            HStack(spacing: 4) {
+                                Image(systemName: "flame.fill")
+                                    .foregroundColor(.orange)
+                                Text("\(squad.streakWeeks)w")
+                            }
+                            .font(.system(size: 12))
+                            .foregroundColor(.orange)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14))
+                    .foregroundColor(.gray)
+            }
+
+            // Active Challenge (if any)
+            if let challenge = activeChallenge {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text(challenge.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+
+                        Spacer()
+
+                        Text("+\(challenge.xpReward) XP")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.green)
+                    }
+
+                    // Progress bar
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color.white.opacity(0.1))
+                                .frame(height: 6)
+
+                            Capsule()
+                                .fill(Color.blue)
+                                .frame(width: geo.size.width * min(1.0, Double(challenge.currentValue) / Double(challenge.targetValue)), height: 6)
+                        }
+                    }
+                    .frame(height: 6)
+
+                    HStack {
+                        Text("\(challenge.currentValue)/\(challenge.targetValue)")
+                            .font(.system(size: 11))
+                            .foregroundColor(.gray)
+
+                        Spacer()
+
+                        Text(challenge.endDate, style: .relative)
+                            .font(.system(size: 11))
+                            .foregroundColor(.gray)
+                    }
+                }
+                .padding(12)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(10)
+            }
+
+            // Mini Leaderboard (top 3)
+            if !leaderboard.isEmpty {
+                VStack(spacing: 8) {
+                    ForEach(Array(leaderboard.prefix(3).enumerated()), id: \.element.id) { index, stats in
+                        HStack(spacing: 10) {
+                            // Rank
+                            Text("\(index + 1)")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(index == 0 ? .yellow : .gray)
+                                .frame(width: 20)
+
+                            // Avatar
+                            if let photoData = stats.profilePhotoData,
+                               let uiImage = UIImage(data: photoData) {
+                                Image(uiImage: uiImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 28, height: 28)
+                                    .clipShape(Circle())
+                            } else {
+                                Circle()
+                                    .fill(Color.white.opacity(0.1))
+                                    .frame(width: 28, height: 28)
+                                    .overlay(
+                                        Text(String(stats.username.prefix(1)))
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(.white)
+                                    )
+                            }
+
+                            Text(stats.username)
+                                .font(.system(size: 13))
+                                .foregroundColor(stats.userId == profile.id ? .blue : .white)
+
+                            Spacer()
+
+                            Text("\(stats.sessionsThisWeek) sessions")
+                                .font(.system(size: 12))
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(Color(white: 0.08))
+        .cornerRadius(16)
+        .onAppear {
+            loadSquadData()
+        }
+    }
+
+    private func loadSquadData() {
+        let service = SquadService.shared
+        service.configure(modelContext: modelContext)
+        leaderboard = service.getSquadLeaderboard(squadId: squad.id)
+        activeChallenge = service.getActiveChallenge(squadId: squad.id)
+    }
+}
+
+// MARK: - Create Squad Sheet
+
+struct CreateSquadSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let profile: UserProfile
+
+    @State private var squadName = ""
+    @State private var weeklyTarget = 3
+    @State private var goalType: WeeklyGoalType = .sessionsPerWeek
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Squad Info") {
+                    TextField("Squad Name", text: $squadName)
+                }
+
+                Section("Weekly Goal") {
+                    Picker("Goal Type", selection: $goalType) {
+                        ForEach(WeeklyGoalType.allCases, id: \.self) { type in
+                            Text(type.rawValue).tag(type)
+                        }
+                    }
+
+                    Stepper("Target: \(weeklyTarget) sessions", value: $weeklyTarget, in: 1...7)
+                }
+
+                Section {
+                    Text("You can invite up to 5 friends using the invite code generated after creating the squad.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                }
+            }
+            .navigationTitle("Create Squad")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        createSquad()
+                    }
+                    .disabled(squadName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func createSquad() {
+        let service = SquadService.shared
+        service.configure(modelContext: modelContext)
+
+        let goal = WeeklyGoal(type: goalType, target: weeklyTarget)
+        _ = service.createSquad(name: squadName, creatorId: profile.id, weeklyGoal: goal)
+
+        dismiss()
+    }
+}
+
+// MARK: - Join Squad Sheet
+
+struct JoinSquadSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let profile: UserProfile
+
+    @State private var inviteCode = ""
+    @State private var errorMessage: String?
+    @State private var joinedSquad: Squad?
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                VStack(spacing: 8) {
+                    Text("Enter Invite Code")
+                        .font(.headline)
+                        .foregroundColor(.white)
+
+                    Text("Ask your friend for their squad's 6-character code")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.top, 20)
+
+                TextField("CODE", text: $inviteCode)
+                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                    .multilineTextAlignment(.center)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .padding()
+                    .background(Color(white: 0.1))
+                    .cornerRadius(12)
+                    .padding(.horizontal, 40)
+                    .onChange(of: inviteCode) { _, newValue in
+                        inviteCode = String(newValue.prefix(6)).uppercased()
+                    }
+
+                if let error = errorMessage {
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundColor(.red)
+                }
+
+                if let squad = joinedSquad {
+                    VStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(.green)
+
+                        Text("Joined \(squad.name)!")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .padding(.top, 20)
+                }
+
+                Spacer()
+
+                Button {
+                    joinSquad()
+                } label: {
+                    Text("Join Squad")
+                        .font(.headline)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(inviteCode.count == 6 ? Color.white : Color.gray)
+                        .cornerRadius(12)
+                }
+                .disabled(inviteCode.count != 6)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
+            }
+            .buttonStyle(.plain)
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Join Squad")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func joinSquad() {
+        let service = SquadService.shared
+        service.configure(modelContext: modelContext)
+
+        let result = service.joinSquad(inviteCode: inviteCode, userId: profile.id)
+
+        if result.success {
+            joinedSquad = result.squad
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1500))
+                dismiss()
+            }
+        } else {
+            errorMessage = result.error
+        }
+    }
+}
+
+// MARK: - Squad Detail View
+
+struct SquadDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let squad: Squad
+    let profile: UserProfile
+
+    @State private var leaderboard: [SquadMemberStats] = []
+    @State private var activeChallenge: SquadChallenge?
+    @State private var showingCreateChallenge = false
+    @State private var showingInviteCode = false
+    @State private var showingLeaveConfirm = false
+
+    var isCreator: Bool {
+        squad.creatorId == profile.id
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // Squad Header
+                    VStack(spacing: 12) {
+                        Text(squad.name)
+                            .font(.title)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+
+                        HStack(spacing: 16) {
+                            StatBadge(value: "\(squad.memberCount)/6", label: "Members")
+                            StatBadge(value: "\(squad.streakWeeks)w", label: "Streak")
+                            StatBadge(value: "\(squad.weeklyGoal.target)", label: "Goal")
+                        }
+                    }
+                    .padding(.top, 12)
+
+                    // Invite Code Section
+                    VStack(spacing: 8) {
+                        Text("INVITE CODE")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(0.5)
+
+                        Text(squad.inviteCode)
+                            .font(.system(size: 32, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+
+                        Button {
+                            UIPasteboard.general.string = squad.inviteCode
+                            showingInviteCode = true
+                        } label: {
+                            Label("Copy Code", systemImage: "doc.on.doc")
+                                .font(.system(size: 13))
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .padding(20)
+                    .background(Color(white: 0.08))
+                    .cornerRadius(16)
+
+                    // Active Challenge
+                    if let challenge = activeChallenge {
+                        ActiveChallengeCard(challenge: challenge)
+                    } else if isCreator {
+                        Button {
+                            showingCreateChallenge = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "flag.fill")
+                                Text("Start Weekly Challenge")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.purple.opacity(0.3))
+                            .cornerRadius(12)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Leaderboard
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("THIS WEEK'S LEADERBOARD")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(0.5)
+
+                        ForEach(Array(leaderboard.enumerated()), id: \.element.id) { index, stats in
+                            LeaderboardRow(
+                                rank: index + 1,
+                                stats: stats,
+                                isCurrentUser: stats.userId == profile.id
+                            )
+                        }
+                    }
+                    .padding(16)
+                    .background(Color(white: 0.08))
+                    .cornerRadius(16)
+
+                    // Leave/Delete Squad
+                    if isCreator {
+                        Button(role: .destructive) {
+                            showingLeaveConfirm = true
+                        } label: {
+                            Text("Delete Squad")
+                                .font(.subheadline)
+                                .foregroundColor(.red)
+                        }
+                    } else {
+                        Button(role: .destructive) {
+                            showingLeaveConfirm = true
+                        } label: {
+                            Text("Leave Squad")
+                                .font(.subheadline)
+                                .foregroundColor(.red)
+                        }
+                    }
+
+                    Spacer(minLength: 40)
+                }
+                .padding(.horizontal, 16)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Squad")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .sheet(isPresented: $showingCreateChallenge) {
+                CreateChallengeSheet(squad: squad)
+            }
+            .alert("Code Copied!", isPresented: $showingInviteCode) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Share this code with friends to invite them to your squad.")
+            }
+            .alert(isCreator ? "Delete Squad?" : "Leave Squad?", isPresented: $showingLeaveConfirm) {
+                Button("Cancel", role: .cancel) { }
+                Button(isCreator ? "Delete" : "Leave", role: .destructive) {
+                    leaveOrDeleteSquad()
+                }
+            } message: {
+                Text(isCreator ? "This will permanently delete the squad for all members." : "You can rejoin later with the invite code.")
+            }
+            .onAppear {
+                loadSquadData()
+            }
+        }
+    }
+
+    private func loadSquadData() {
+        let service = SquadService.shared
+        service.configure(modelContext: modelContext)
+        leaderboard = service.getSquadLeaderboard(squadId: squad.id)
+        activeChallenge = service.getActiveChallenge(squadId: squad.id)
+    }
+
+    private func leaveOrDeleteSquad() {
+        let service = SquadService.shared
+        service.configure(modelContext: modelContext)
+
+        if isCreator {
+            _ = service.deleteSquad(squadId: squad.id, userId: profile.id)
+        } else {
+            _ = service.leaveSquad(squadId: squad.id, userId: profile.id)
+        }
+
+        dismiss()
+    }
+}
+
+// MARK: - Supporting Views
+
+struct StatBadge: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(.gray)
+        }
+        .frame(width: 70)
+    }
+}
+
+struct LeaderboardRow: View {
+    let rank: Int
+    let stats: SquadMemberStats
+    let isCurrentUser: Bool
+
+    var rankColor: Color {
+        switch rank {
+        case 1: return .yellow
+        case 2: return .gray
+        case 3: return .orange
+        default: return .white.opacity(0.5)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Rank
+            Text("\(rank)")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(rankColor)
+                .frame(width: 24)
+
+            // Avatar
+            if let photoData = stats.profilePhotoData,
+               let uiImage = UIImage(data: photoData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 36, height: 36)
+                    .clipShape(Circle())
+            } else {
+                Circle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Text(String(stats.username.prefix(1)))
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                    )
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(stats.username)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(isCurrentUser ? .blue : .white)
+
+                Text("Lv. \(stats.level)")
+                    .font(.system(size: 11))
+                    .foregroundColor(.gray)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(stats.sessionsThisWeek)")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+
+                Text("sessions")
+                    .font(.system(size: 10))
+                    .foregroundColor(.gray)
+            }
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+struct ActiveChallengeCard: View {
+    let challenge: SquadChallenge
+
+    var progress: Double {
+        guard challenge.targetValue > 0 else { return 0 }
+        return min(1.0, Double(challenge.currentValue) / Double(challenge.targetValue))
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ACTIVE CHALLENGE")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.purple.opacity(0.8))
+                        .tracking(0.5)
+
+                    Text(challenge.title)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                Text("+\(challenge.xpReward) XP")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.green.opacity(0.15))
+                    .cornerRadius(8)
+            }
+
+            Text(challenge.challengeDescription)
+                .font(.system(size: 13))
+                .foregroundColor(.gray)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Progress
+            VStack(spacing: 8) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.1))
+                            .frame(height: 10)
+
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.purple, .blue],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geo.size.width * progress, height: 10)
+                    }
+                }
+                .frame(height: 10)
+
+                HStack {
+                    Text("\(challenge.currentValue)/\(challenge.targetValue)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock")
+                        Text(challenge.endDate, style: .relative)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(.gray)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            LinearGradient(
+                colors: [Color.purple.opacity(0.2), Color.blue.opacity(0.1)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color.purple.opacity(0.3), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Create Challenge Sheet
+
+struct CreateChallengeSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let squad: Squad
+
+    @State private var title = "Weekly Warrior"
+    @State private var description = "Complete workouts together as a squad"
+    @State private var targetValue = 15
+    @State private var xpReward = 100
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Challenge Info") {
+                    TextField("Title", text: $title)
+                    TextField("Description", text: $description)
+                }
+
+                Section("Goal") {
+                    Stepper("Target: \(targetValue) total sessions", value: $targetValue, in: 5...50, step: 5)
+                    Stepper("XP Reward: \(xpReward)", value: $xpReward, in: 50...500, step: 25)
+                }
+
+                Section {
+                    Text("Challenge runs for 1 week. All squad members contribute to the shared goal.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                }
+            }
+            .navigationTitle("New Challenge")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Start") {
+                        createChallenge()
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func createChallenge() {
+        let service = SquadService.shared
+        service.configure(modelContext: modelContext)
+
+        _ = service.startChallenge(
+            squadId: squad.id,
+            title: title,
+            description: description,
+            targetValue: targetValue,
+            xpReward: xpReward
+        )
+
+        dismiss()
+    }
+}
+
+#Preview {
+    SquadView(profile: UserProfile(name: "Ben", username: "ben"))
+        .environmentObject(FeatureFlags.shared)
+        .preferredColorScheme(.dark)
+}

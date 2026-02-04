@@ -1,0 +1,23 @@
+# Environment
+.env
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Python backend
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,1070 @@
+//
+//  HomeView.swift
+//  GymQuest
+//
+//  GymQuest 2.0 - Bold & Energetic Home Screen
+//  Hero card dominates, horizontal stat pills, minimal cards
+//  Inspired by: Nike Training Club, Peloton, Strava
+//
+
+import SwiftUI
+import SwiftData
+
+struct HomeView: View {
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var featureFlags: FeatureFlags
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
+    @Query(sort: \QuestProgress.updatedAt, order: .reverse) private var questProgress: [QuestProgress]
+
+    let profile: UserProfile
+
+    @State private var todayWorkout: Workout?
+    @State private var streak: Int = 0
+    @State private var weeklyProgress: (completed: Int, target: Int) = (0, 0)
+    @State private var readinessLevel: ReadinessLevel = .good
+    @State private var latestPR: PRMoment?
+    @State private var activeQuest: (quest: Quest, progress: QuestProgress)?
+    @State private var activeSquad: Squad?
+    @State private var squadChallenge: SquadChallenge?
+    @State private var showingSquadView = false
+    @State private var showingMealLog = false
+    @State private var showingWorkoutTypePicker = false
+    @State private var showingActiveWorkout = false
+    @State private var selectedWorkoutType: WorkoutType = .push
+    @State private var totalSets: Int = 0
+    @State private var totalXP: Int = 0
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    // DATE HEADER WITH GREETING
+                    VStack(spacing: 4) {
+                        Text("Hi, \(profile.name)")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(.white)
+
+                        HStack(spacing: 6) {
+                            Text(Date().formatted(.dateTime.weekday(.wide)))
+                            Text("•")
+                            Text(Date().formatted(.dateTime.month(.abbreviated).day()))
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
+
+                    // WEEK OVERVIEW
+                    WeeklyProgressCard(
+                        weeklyProgress: weeklyProgress,
+                        readinessLevel: readinessLevel,
+                        workouts: workouts
+                    )
+                    .padding(.horizontal, 16)
+
+                    // MAIN ACTIONS - 3 Big Buttons
+                    VStack(spacing: 12) {
+                        // Start Workout - Primary
+                        HomeActionButton(
+                            icon: "figure.strengthtraining.traditional",
+                            title: "Start Workout",
+                            subtitle: todayWorkout != nil ? "Completed today" : "Begin a live session",
+                            accentColor: GQColors.vividPurple,
+                            isPrimary: true
+                        ) {
+                            showingWorkoutTypePicker = true
+                        }
+
+                        // Log Food
+                        HomeActionButton(
+                            icon: "fork.knife",
+                            title: "Log Food",
+                            subtitle: "Track nutrition",
+                            accentColor: GQColors.cyanSpark,
+                            isPrimary: false
+                        ) {
+                            showingMealLog = true
+                        }
+
+                        // View Progress
+                        HomeActionButton(
+                            icon: "chart.line.uptrend.xyaxis",
+                            title: "View Progress",
+                            subtitle: "\(streak) day streak",
+                            accentColor: GQColors.success,
+                            isPrimary: false
+                        ) {
+                            appState.selectedTab = .progress
+                        }
+                    }
+                    .padding(.horizontal, 16)
+
+                    Spacer(minLength: 100)
+                }
+                .padding(.top, 12)
+            }
+            .background(EnergyBackground())
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    NavBarLogo()
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        appState.selectedTab = .profile
+                    } label: {
+                        ProfileAvatarButton(profile: profile)
+                    }
+                }
+            }
+            .onAppear {
+                loadHomeData()
+            }
+            .sheet(isPresented: $showingSquadView) {
+                SquadView(profile: profile)
+            }
+            .sheet(isPresented: $showingMealLog) {
+                MealLogView(profile: profile)
+            }
+            .sheet(isPresented: $showingWorkoutTypePicker) {
+                StartWorkoutSheet(
+                    selectedType: $selectedWorkoutType,
+                    onStart: {
+                        showingWorkoutTypePicker = false
+                        showingActiveWorkout = true
+                    }
+                )
+                .presentationDetents([.medium])
+            }
+            .fullScreenCover(isPresented: $showingActiveWorkout) {
+                ActiveWorkoutView(profile: profile, workoutType: selectedWorkoutType)
+            }
+        }
+    }
+
+    private func loadHomeData() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        // Check for today's workout
+        todayWorkout = workouts.first { calendar.isDate($0.date, inSameDayAs: today) }
+
+        // Calculate streak
+        streak = calculateStreak()
+
+        // Calculate weekly progress
+        let weekStart = calendar.startOfWeek(for: Date())
+        let weeklyWorkouts = workouts.filter { $0.date >= weekStart }
+        weeklyProgress = (weeklyWorkouts.count, profile.daysPerWeek)
+
+        // Calculate total sets
+        totalSets = workouts.reduce(0) { $0 + $1.totalSets }
+
+        // Determine readiness
+        readinessLevel = determineReadiness()
+
+        // Get latest PR
+        loadLatestPR()
+
+        // Get active quest
+        loadActiveQuest()
+
+        // Get active squad
+        loadActiveSquad()
+    }
+
+    private func calculateStreak() -> Int {
+        let calendar = Calendar.current
+        var streak = 0
+        var checkDate = calendar.startOfDay(for: Date())
+
+        for _ in 0..<365 {
+            let hasSession = workouts.contains { calendar.isDate($0.date, inSameDayAs: checkDate) }
+            if hasSession {
+                streak += 1
+            } else if streak > 0 {
+                break
+            }
+            checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate
+        }
+        return streak
+    }
+
+    private func determineReadiness() -> ReadinessLevel {
+        let calendar = Calendar.current
+        let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: Date()) ?? Date()
+        let recentWorkouts = workouts.filter { $0.date >= threeDaysAgo }
+
+        if recentWorkouts.count >= 3 {
+            let avgRPE = Double(recentWorkouts.reduce(0) { $0 + $1.rpe }) / Double(recentWorkouts.count)
+            if avgRPE >= 8 { return .needsRest }
+        }
+
+        if recentWorkouts.isEmpty { return .fresh }
+
+        return .good
+    }
+
+    private func loadLatestPR() {
+        let descriptor = FetchDescriptor<PRMoment>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        latestPR = (try? modelContext.fetch(descriptor))?.first
+    }
+
+    private func loadActiveQuest() {
+        guard featureFlags.questsEnabled else { return }
+
+        let questService = QuestService.shared
+        questService.configure(modelContext: modelContext)
+        questService.seedDefaultQuests()
+
+        if let todaysQuest = questService.getTodaysQuest(userId: profile.id) {
+            activeQuest = todaysQuest
+        }
+
+        let descriptor = FetchDescriptor<Reaction>()
+        let reactions = (try? modelContext.fetch(descriptor)) ?? []
+
+        let mealDescriptor = FetchDescriptor<MealLog>()
+        let meals = (try? modelContext.fetch(mealDescriptor)) ?? []
+
+        let learningDescriptor = FetchDescriptor<LearningProgress>()
+        let learning = (try? modelContext.fetch(learningDescriptor)) ?? []
+
+        questService.evaluateProgress(
+            userId: profile.id,
+            workouts: Array(workouts),
+            reactions: reactions,
+            mealLogs: meals,
+            learningProgress: learning
+        )
+
+        if let updatedQuest = questService.getTodaysQuest(userId: profile.id) {
+            activeQuest = updatedQuest
+        }
+    }
+
+    private func loadActiveSquad() {
+        guard featureFlags.squadsEnabled else { return }
+
+        let squadService = SquadService.shared
+        squadService.configure(modelContext: modelContext)
+
+        let userSquads = squadService.getUserSquads(userId: profile.id)
+        if let squad = userSquads.first {
+            activeSquad = squad
+            squadChallenge = squadService.getActiveChallenge(squadId: squad.id)
+        }
+    }
+}
+
+// MARK: - Readiness Level
+
+enum ReadinessLevel {
+    case fresh
+    case good
+    case needsRest
+
+    var color: Color {
+        switch self {
+        case .fresh: return GQColors.success
+        case .good: return GQColors.cyanSpark
+        case .needsRest: return GQColors.coralRed
+        }
+    }
+
+    var text: String {
+        switch self {
+        case .fresh: return "Fresh & Ready"
+        case .good: return "Good to Go"
+        case .needsRest: return "Consider Rest"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .fresh: return "bolt.fill"
+        case .good: return "checkmark.circle.fill"
+        case .needsRest: return "bed.double.fill"
+        }
+    }
+}
+
+// MARK: - Hero Action Card
+
+struct HeroActionCard: View {
+    let todayWorkout: Workout?
+    let weeklyProgress: (completed: Int, target: Int)
+    let onLogWorkout: () -> Void
+
+    @State private var gradientRotation: Double = 0
+
+    var progressPercentage: Double {
+        guard weeklyProgress.target > 0 else { return 0 }
+        return min(1.0, Double(weeklyProgress.completed) / Double(weeklyProgress.target))
+    }
+
+    var body: some View {
+        HeroCard {
+            VStack(spacing: 20) {
+                // Header
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("TODAY")
+                            .font(GQTypography.sectionHeader)
+                            .foregroundColor(GQColors.textTertiary)
+                            .tracking(1.5)
+
+                        Text(Date().formatted(.dateTime.weekday(.wide).month().day()))
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+
+                    Spacer()
+
+                    if todayWorkout != nil {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title3)
+                                .foregroundColor(GQColors.success)
+                            Text("Done")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(GQColors.success)
+                        }
+                    }
+                }
+
+                // CTA Button - Clear button with gradient border
+                Button(action: onLogWorkout) {
+                    HStack(spacing: 12) {
+                        Image(systemName: todayWorkout == nil ? "plus" : "arrow.right")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white.opacity(0.6))
+
+                        Text(todayWorkout == nil ? "Start Workout" : "Log Another")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white.opacity(0.6))
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    .padding(.vertical, 16)
+                    .padding(.horizontal, 18)
+                    .background(
+                        ZStack {
+                            // Shadow for 3D
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color.black)
+                                .shadow(color: .black.opacity(0.5), radius: 10, y: 5)
+
+                            // Dark fill
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color(white: 0.16), Color(white: 0.08)],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+
+                            // Top highlight
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.white.opacity(0.1), Color.clear],
+                                        startPoint: .top,
+                                        endPoint: .center
+                                    )
+                                )
+                        }
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 2
+                            )
+                    )
+                }
+                .buttonStyle(ScaleButtonStyle())
+
+                // Weekly progress mini bar
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("This Week")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.textTertiary)
+
+                        Spacer()
+
+                        Text("\(weeklyProgress.completed)/\(weeklyProgress.target) sessions")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+
+                    AnimatedProgressBar(
+                        progress: progressPercentage,
+                        height: 5,
+                        colors: [progressPercentage >= 1.0 ? GQColors.success : GQColors.accent]
+                    )
+                }
+            }
+            .padding(20)
+        }
+        .padding(.horizontal, 16)
+    }
+}
+
+// MARK: - Home Action Button
+
+struct HomeActionButton: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let accentColor: Color
+    let isPrimary: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(accentColor.opacity(0.15))
+                        .frame(width: 50, height: 50)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(accentColor)
+                }
+
+                // Text
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(white: 0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        isPrimary ?
+                            LinearGradient(
+                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ) :
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                        lineWidth: isPrimary ? 1.5 : 1
+                    )
+            )
+        }
+        .buttonStyle(ScaleButtonStyle())
+    }
+}
+
+// MARK: - Weekly Progress Card
+
+struct WeeklyProgressCard: View {
+    let weeklyProgress: (completed: Int, target: Int)
+    let readinessLevel: ReadinessLevel
+    let workouts: [Workout]
+
+    var weekDates: [Date] {
+        let cal = Calendar.current
+        let monday = cal.startOfWeek(for: Date())
+        return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: monday) }
+    }
+
+    var weekData: [Bool] {
+        let cal = Calendar.current
+        return weekDates.map { date in
+            workouts.contains { cal.isDate($0.date, inSameDayAs: date) }
+        }
+    }
+
+    var completedCount: Int {
+        weekData.filter { $0 }.count
+    }
+
+    let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Header with count
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("THIS WEEK")
+                        .font(GQTypography.sectionHeader)
+                        .foregroundColor(GQColors.textTertiary)
+                        .tracking(1)
+
+                    Text("\(completedCount) of 7 days")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                // Streak or motivational badge
+                if completedCount > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 12))
+                        Text("\(completedCount)")
+                    }
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.orange.opacity(0.15))
+                    .cornerRadius(8)
+                }
+            }
+
+            // Week dots
+            HStack(spacing: 0) {
+                ForEach(0..<7, id: \.self) { index in
+                    let isToday = Calendar.current.isDateInToday(weekDates[index])
+                    let isPast = weekDates[index] < Calendar.current.startOfDay(for: Date())
+                    let hasWorkout = weekData[index]
+
+                    VStack(spacing: 8) {
+                        // Day indicator
+                        ZStack {
+                            // Base circle
+                            Circle()
+                                .fill(
+                                    hasWorkout
+                                        ? LinearGradient(colors: [GQColors.success, GQColors.success.opacity(0.8)], startPoint: .top, endPoint: .bottom)
+                                        : isPast
+                                            ? LinearGradient(colors: [Color.white.opacity(0.05), Color.white.opacity(0.02)], startPoint: .top, endPoint: .bottom)
+                                            : LinearGradient(colors: [Color.white.opacity(0.08), Color.white.opacity(0.04)], startPoint: .top, endPoint: .bottom)
+                                )
+                                .frame(width: 36, height: 36)
+
+                            // Content
+                            if hasWorkout {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.black)
+                            } else if isPast {
+                                // Missed day - subtle dash
+                                Image(systemName: "minus")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(Color.white.opacity(0.2))
+                            } else if !isToday {
+                                // Future day - subtle dot
+                                Circle()
+                                    .fill(Color.white.opacity(0.15))
+                                    .frame(width: 6, height: 6)
+                            }
+
+                            // Today highlight ring
+                            if isToday {
+                                Circle()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 2.5
+                                    )
+                                    .frame(width: 36, height: 36)
+
+                                if !hasWorkout {
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(
+                                            LinearGradient(
+                                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                }
+                            }
+                        }
+
+                        Text(dayLabels[index])
+                            .font(.system(size: 11, weight: isToday ? .bold : .medium))
+                            .foregroundColor(isToday ? .white : hasWorkout ? GQColors.success : GQColors.textTertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(18)
+        .background(Color(white: 0.08))
+        .cornerRadius(16)
+    }
+}
+
+// MARK: - Active Quest Card
+
+struct ActiveQuestCard: View {
+    let quest: Quest
+    let progress: QuestProgress
+
+    var body: some View {
+        VStack(spacing: 14) {
+            HStack {
+                Image(systemName: quest.category.icon)
+                    .font(.title3)
+                    .foregroundColor(Color(quest.category.color))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ACTIVE QUEST")
+                        .font(GQTypography.sectionHeader)
+                        .foregroundColor(GQColors.textTertiary)
+                        .tracking(1)
+
+                    Text(quest.title)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                // XP reward badge
+                HStack(spacing: 4) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 10))
+                    Text("+\(quest.xpReward)")
+                }
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(GQColors.cyanSpark)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(GQColors.cyanSpark.opacity(0.15))
+                .cornerRadius(8)
+            }
+
+            // Progress
+            VStack(spacing: 8) {
+                AnimatedProgressBar(
+                    progress: progress.progressPercentage,
+                    height: 8,
+                    colors: [GQColors.vividPurple, GQColors.deepBlue]
+                )
+
+                HStack {
+                    Text("\(progress.progressValue)/\(progress.targetValue)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+
+                    Spacer()
+
+                    if progress.isComplete {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Complete!")
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.success)
+                    }
+                }
+            }
+        }
+        .padding(18)
+    }
+}
+
+// MARK: - Latest PR Card V2
+
+struct LatestPRCardV2: View {
+    let prMoment: PRMoment
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(GQColors.cyanSpark.opacity(0.2))
+                    .frame(width: 48, height: 48)
+
+                Image(systemName: "trophy.fill")
+                    .font(.title3)
+                    .foregroundColor(GQColors.cyanSpark)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("RECENT PR")
+                    .font(GQTypography.sectionHeader)
+                    .foregroundColor(GQColors.cyanSpark.opacity(0.8))
+                    .tracking(1)
+
+                if let exercise = prMoment.exerciseName {
+                    Text(exercise)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+
+                Text(prMoment.value)
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+
+            Spacer()
+
+            if let improvement = prMoment.improvement {
+                Text(improvement)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(GQColors.success)
+            }
+        }
+        .padding(16)
+    }
+}
+
+// MARK: - Squad Highlight Card V2
+
+struct SquadHighlightCardV2: View {
+    let squad: Squad
+    let challenge: SquadChallenge?
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 14) {
+                HStack {
+                    Image(systemName: "person.3.fill")
+                        .font(.title3)
+                        .foregroundColor(GQColors.deepBlue)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("YOUR SQUAD")
+                            .font(GQTypography.sectionHeader)
+                            .foregroundColor(GQColors.textTertiary)
+                            .tracking(1)
+
+                        Text(squad.name)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 8) {
+                        if squad.streakWeeks > 0 {
+                            HStack(spacing: 3) {
+                                Image(systemName: "flame.fill")
+                                    .foregroundColor(GQColors.success)
+                                Text("\(squad.streakWeeks)w")
+                                    .foregroundColor(GQColors.success)
+                            }
+                            .font(.system(size: 11, weight: .semibold))
+                        }
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+
+                // Challenge preview
+                if let challenge = challenge {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(challenge.title)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white.opacity(0.9))
+
+                            AnimatedProgressBar(
+                                progress: min(1.0, Double(challenge.currentValue) / Double(challenge.targetValue)),
+                                height: 4,
+                                colors: [GQColors.deepBlue, GQColors.cyanSpark]
+                            )
+                        }
+
+                        Text("\(challenge.currentValue)/\(challenge.targetValue)")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(GQColors.deepBlue)
+                    }
+                    .padding(12)
+                    .background(GQColors.deepBlue.opacity(0.1))
+                    .cornerRadius(10)
+                }
+            }
+            .padding(16)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Profile Avatar Button
+
+struct ProfileAvatarButton: View {
+    let profile: UserProfile
+
+    var body: some View {
+        if let photoData = profile.profilePhotoData,
+           let uiImage = UIImage(data: photoData) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 32, height: 32)
+                .clipShape(Circle())
+                .overlay(
+                    Circle()
+                        .stroke(GQGradients.glassBorder, lineWidth: 1)
+                )
+        } else {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Group {
+                        if let firstChar = profile.name.first {
+                            Text(String(firstChar).uppercased())
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(.white)
+                        } else {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(.white)
+                        }
+                    }
+                )
+                .overlay(
+                    Circle()
+                        .stroke(GQGradients.glassBorder, lineWidth: 1)
+                )
+        }
+    }
+}
+
+// MARK: - Legacy Support Cards
+
+struct TodayActionCard: View {
+    let todayWorkout: Workout?
+    let onLogWorkout: () -> Void
+    let onContinueSession: () -> Void
+
+    var body: some View {
+        HeroActionCard(
+            todayWorkout: todayWorkout,
+            weeklyProgress: (0, 0),
+            onLogWorkout: todayWorkout == nil ? onLogWorkout : onContinueSession
+        )
+    }
+}
+
+struct InsightCard: View {
+    let weeklyProgress: (completed: Int, target: Int)
+    let readinessLevel: ReadinessLevel
+    let streak: Int
+
+    var body: some View {
+        GlassCard(accentColor: GQColors.deepBlue, showGlow: false) {
+            WeeklyProgressCard(
+                weeklyProgress: weeklyProgress,
+                readinessLevel: readinessLevel,
+                workouts: []
+            )
+        }
+    }
+}
+
+struct QuestCard: View {
+    let quest: Quest
+    let progress: QuestProgress
+
+    var body: some View {
+        GlassCard(accentColor: GQColors.vividPurple) {
+            ActiveQuestCard(quest: quest, progress: progress)
+        }
+    }
+}
+
+struct LatestPRCard: View {
+    let prMoment: PRMoment
+
+    var body: some View {
+        GlassCard(accentColor: GQColors.cyanSpark) {
+            LatestPRCardV2(prMoment: prMoment)
+        }
+    }
+}
+
+struct QuickStatsRow: View {
+    let totalWorkouts: Int
+    let streak: Int
+    let level: Int
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                StatPill(icon: "dumbbell.fill", value: "\(totalWorkouts)", label: "Workouts", color: GQColors.vividPurple)
+                StatPill(icon: "flame.fill", value: "\(streak)", label: "Streak", color: GQColors.success)
+                StatPill(icon: "trophy.fill", value: "Lv.\(level)", label: "Level", color: GQColors.cyanSpark)
+            }
+        }
+    }
+}
+
+struct SquadHighlightCard: View {
+    let squad: Squad
+    let challenge: SquadChallenge?
+    let onTap: () -> Void
+
+    var body: some View {
+        GlassCard(accentColor: GQColors.deepBlue, showGlow: false) {
+            SquadHighlightCardV2(squad: squad, challenge: challenge, onTap: onTap)
+        }
+    }
+}
+
+// MARK: - Scale Button Style (Satisfying press feedback)
+
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .brightness(configuration.isPressed ? -0.05 : 0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed {
+                    #if canImport(UIKit)
+                    let impact = UIImpactFeedbackGenerator(style: .light)
+                    impact.impactOccurred()
+                    #endif
+                }
+            }
+    }
+}
+
+// MARK: - Start Workout Sheet
+
+struct StartWorkoutSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedType: WorkoutType
+    let onStart: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Text("What are you training today?")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .padding(.top, 8)
+
+                // Workout type grid
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(WorkoutType.allCases, id: \.self) { type in
+                        WorkoutTypeCard(
+                            type: type,
+                            isSelected: selectedType == type,
+                            onSelect: { selectedType = type }
+                        )
+                    }
+                }
+                .padding(.horizontal)
+
+                Spacer()
+
+                // Start button
+                Button {
+                    onStart()
+                } label: {
+                    HStack {
+                        Image(systemName: "play.fill")
+                        Text("Start \(selectedType.rawValue) Workout")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(14)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal)
+                .padding(.bottom)
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Start Workout")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+struct WorkoutTypeCard: View {
+    let type: WorkoutType
+    let isSelected: Bool
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 12) {
+                Image(systemName: type.icon)
+                    .font(.system(size: 28))
+                    .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+
+                Text(type.rawValue)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+            .background(
+                isSelected ?
+                    LinearGradient(colors: [GQColors.vividPurple, GQColors.cyanSpark], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                    LinearGradient(colors: [Color.white.opacity(0.08), Color.white.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            )
+            .cornerRadius(16)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isSelected ? Color.clear : Color.white.opacity(0.1), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+#Preview {
+    HomeView(profile: UserProfile(name: "Ben", username: "ben"))
+        .environmentObject(AppState())
+        .environmentObject(FeatureFlags.shared)
+        .preferredColorScheme(.dark)
+}
