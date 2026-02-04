@@ -1,0 +1,223 @@
+//
+//  ContentView.swift
+//  GymQuest
+//
+//  created by Benjamin Hilderman
+//
+//  Main app container with floating glass tab bar
+//  Bold & Energetic design with animated gradient accents
+//
+
+import SwiftUI
+import SwiftData
+
+struct ContentView: View {
+    @EnvironmentObject var appState: AppState
+    @EnvironmentObject var featureFlags: FeatureFlags
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
+    @Query(filter: #Predicate<UserProfile> { $0.isAuthenticated == true }) private var authenticatedProfiles: [UserProfile]
+    @StateObject private var aiService = AIService()
+
+    private var profile: UserProfile? {
+        authenticatedProfiles.first
+    }
+
+    var body: some View {
+        Group {
+            if let profile = profile {
+                mainContent(profile: profile)
+            } else {
+                // Loading state while profile loads
+                ZStack {
+                    EnergyBackground()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(1.2)
+                        Text("Loading...")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func mainContent(profile: UserProfile) -> some View {
+        ZStack {
+            // Background extends to all edges
+            Color(white: 0.05)
+                .ignoresSafeArea(.all)
+
+            // main content
+            switch appState.selectedTab {
+            case .home:
+                HomeView(profile: profile)
+            case .feed:
+                FeedView(profile: profile)
+            case .coach:
+                CoachView(profile: profile, workouts: workouts, aiService: aiService)
+            case .progress:
+                TrainingProgressView(profile: profile, workouts: workouts, aiService: aiService)
+            case .profile:
+                ProfileView(profile: profile)
+            }
+        }
+        .ignoresSafeArea(.keyboard)
+        .safeAreaInset(edge: .bottom) {
+            FloatingTabBar()
+        }
+        .sheet(isPresented: $appState.showingLogWorkout) {
+            LogWorkoutView(profile: profile)
+        }
+        .sheet(item: $appState.selectedSession) { session in
+            SessionDetailView(session: session)
+        }
+        .onAppear {
+            AnalyticsService.shared.configure(modelContext: modelContext)
+        }
+    }
+}
+
+// MARK: - Floating Glass Tab Bar
+
+struct FloatingTabBar: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                FloatingTabButton(tab: .home, icon: "house", label: "Home")
+
+                FloatingTabButton(tab: .feed, icon: "rectangle.stack", label: "Feed")
+
+                // Center add button - clean with gradient border
+                Button {
+                    #if canImport(UIKit)
+                    let impact = UIImpactFeedbackGenerator(style: .medium)
+                    impact.impactOccurred()
+                    #endif
+                    appState.showingLogWorkout = true
+                } label: {
+                    ZStack {
+                        // Subtle glow
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [GQColors.vividPurple.opacity(0.3), Color.clear],
+                                    center: .center,
+                                    startRadius: 15,
+                                    endRadius: 30
+                                )
+                            )
+                            .frame(width: 54, height: 54)
+
+                        // Dark solid fill
+                        Circle()
+                            .fill(Color(white: 0.05))
+                            .frame(width: 46, height: 46)
+
+                        // Gradient border
+                        Circle()
+                            .stroke(
+                                LinearGradient(
+                                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 2
+                            )
+                            .frame(width: 46, height: 46)
+
+                        // Plus icon
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+                .offset(y: -6)
+
+                FloatingTabButton(tab: .progress, icon: "chart.bar", label: "Stats")
+
+                FloatingTabButton(tab: .profile, icon: "person", label: "Profile")
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 2)
+        }
+        .background(
+            Color(white: 0.05)
+                .overlay(
+                    Rectangle()
+                        .fill(Color.white.opacity(0.1))
+                        .frame(height: 0.5),
+                    alignment: .top
+                )
+        )
+        .ignoresSafeArea(.container, edges: .bottom)
+    }
+}
+
+// MARK: - Floating Tab Button
+
+struct FloatingTabButton: View {
+    @EnvironmentObject var appState: AppState
+    let tab: AppState.Tab
+    let icon: String
+    let label: String
+
+    var isSelected: Bool { appState.selectedTab == tab }
+
+    var tabColor: Color {
+        return .white
+    }
+
+    var body: some View {
+        Button {
+            appState.selectedTab = tab
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: isSelected ? "\(icon).fill" : icon)
+                    .font(.system(size: 20))
+                    .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
+
+                Text(label)
+                    .font(.system(size: 10, weight: isSelected ? .medium : .regular))
+                    .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Legacy Tab Bar (for backwards compatibility)
+
+struct TabBar: View {
+    var body: some View {
+        FloatingTabBar()
+    }
+}
+
+struct TabButton: View {
+    @EnvironmentObject var appState: AppState
+    let tab: AppState.Tab
+    let icon: String
+    let label: String
+
+    var body: some View {
+        FloatingTabButton(tab: tab, icon: icon, label: label)
+    }
+}
+
+#Preview {
+    ContentView()
+        .environmentObject(AppState())
+        .environmentObject(FeatureFlags.shared)
+        .modelContainer(for: [Workout.self, UserProfile.self], inMemory: true)
+        .preferredColorScheme(.dark)
+}
