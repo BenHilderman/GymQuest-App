@@ -1,0 +1,202 @@
+{
+  "exercises": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "name": "Barbell Bench Press",
+      "pattern": "horizontalPush",
+      "equipment": "barbell",
+      "difficulty": 2,
+      "cues": [
+        "Retract and depress shoulder blades",
+        "Plant feet firmly on floor",
+        "Lower bar to mid-chest",
+        "Drive through full range",
+        "Lock out at the top"
+      ],
+      "faults": [
+        {
+          "mistake": "Flared elbows at 90°",
+          "fix": "Tuck elbows to 45-75° angle"
+        },
+        {
+          "mistake": "Bouncing bar off chest",
+          "fix": "Pause briefly at chest"
+        },
+        {
+          "mistake": "Hips coming off bench",
+          "fix": "Maintain arch, keep glutes down"
+        }
+      ],
+      "mediaSet": {
+        "version": 1,
+        "defaultAngle": "45",
+        "clips": [
+          {
+            "type": "loop",
+            "angle": "45",
+            "hlsURL": "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8",
+            "overlayURL": null,
+            "duration": 12.0,
+            "chapters": null
+          },
+          {
+            "type": "breakdown",
+            "angle": "45",
+            "hlsURL": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8",
+            "overlayURL": "https://example.com/bench-press-overlays.json",
+            "duration": 75.0,
+            "chapters": [
+              { "title": "Setup", "time": 0.0, "order": 1 },
+              { "title": "Unrack", "time": 15.0, "order": 2 },
+              { "title": "Descent", "time": 30.0, "order": 3 },
+              { "title": "Press", "time": 50.0, "order": 4 },
+              { "title": "Lockout", "time": 65.0, "order": 5 }
+            ]
+          },
+          {
+            "type": "coachEye",
+            "angle": "side",
+            "hlsURL": "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8",
+            "overlayURL": null,
+            "duration": 90.0,
+            "chapters": null
+          }
+        ]
+      },
+      "variations": [
+        {
+          "kind": "easier",
+          "targetId": "550e8400-e29b-41d4-a716-446655440010"
+        },
+        {
+          "kind": "harder",
+          "targetId": "550e8400-e29b-41d4-a716-446655440011"
+        }
+      ]
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440002",
+      "name": "Barbell Back Squat",
+      "pattern": "squat",
+      "equipment": "barbell",
+      "difficulty": 2,
+      "cues": [
+        "Brace core before descent",
+        "Break at hips and knees together",
+        "Keep knees tracking over toes",
+        "Drive through full foot",
+        "Stand tall at the top"
+      ],
+      "faults": [
+        {
+          "mistake": "Knees caving inward",
+          "fix": "Push knees out over pinky toe"
+        },
+        {
+          "mistake": "Butt wink at bottom",
+          "fix": "Work on hip mobility, stop before wink"
+        },
+        {
+          "mistake": "Forward lean / good morning squat",
+          "fix": "Keep chest up, strengthen quads"
+        }
+      ],
+      "mediaSet": {
+        "version": 1,
+        "defaultAngle": "45",
+        "clips": [
+          {
+            "type": "loop",
+            "angle": "45",
+            "hlsURL": "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8",
+            "overlayURL": null,
+            "duration": 10.0,
+            "chapters": null
+          },
+          {
+            "type": "breakdown",
+            "angle": "side",
+            "hlsURL": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8",
+            "overlayURL": null,
+            "duration": 80.0,
+            "chapters": [
+              { "title": "Stance & Setup", "time": 0.0, "order": 1 },
+              { "title": "Brace & Unrack", "time": 12.0, "order": 2 },
+              { "title": "Walkout", "time": 22.0, "order": 3 },
+              { "title": "Descent", "time": 35.0, "order": 4 },
+              { "title": "Hole Position", "time": 50.0, "order": 5 },
+              { "title": "Drive Up", "time": 62.0, "order": 6 }
+            ]
+          }
+        ]
+      },
+      "variations": null
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440003",
+      "name": "Conventional Deadlift",
+      "pattern": "hinge",
+      "equipment": "barbell",
+      "difficulty": 3,
+      "cues": [
+        "Bar over mid-foot",
+        "Grip just outside knees",
+        "Chest up, lats engaged",
+        "Push floor away",
+        "Lock out hips at top"
+      ],
+      "faults": [
+        {
+          "mistake": "Rounded lower back",
+          "fix": "Brace harder, reduce weight if needed"
+        },
+        {
+          "mistake": "Bar drifting forward",
+          "fix": "Keep bar close, drag up thighs"
+        },
+        {
+          "mistake": "Hitching at lockout",
+          "fix": "Drive hips through smoothly"
+        }
+      ],
+      "mediaSet": {
+        "version": 1,
+        "defaultAngle": "side",
+        "clips": [
+          {
+            "type": "loop",
+            "angle": "side",
+            "hlsURL": "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8",
+            "overlayURL": null,
+            "duration": 12.0,
+            "chapters": null
+          },
+          {
+            "type": "breakdown",
+            "angle": "side",
+            "hlsURL": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8",
+            "overlayURL": null,
+            "duration": 85.0,
+            "chapters": [
+              { "title": "Approach & Stance", "time": 0.0, "order": 1 },
+              { "title": "Grip Setup", "time": 15.0, "order": 2 },
+              { "title": "Hip Hinge & Brace", "time": 28.0, "order": 3 },
+              { "title": "First Pull", "time": 42.0, "order": 4 },
+              { "title": "Lockout", "time": 60.0, "order": 5 },
+              { "title": "Controlled Descent", "time": 72.0, "order": 6 }
+            ]
+          },
+          {
+            "type": "coachEye",
+            "angle": "45",
+            "hlsURL": "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8",
+            "overlayURL": null,
+            "duration": 95.0,
+            "chapters": null
+          }
+        ]
+      },
+      "variations": null
+    }
+  ]
+}

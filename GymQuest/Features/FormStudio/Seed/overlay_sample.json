@@ -1,0 +1,62 @@
+[
+  {
+    "start": 0.0,
+    "end": 3.0,
+    "text": "Set seat so handles align with mid-chest",
+    "anchor": "top"
+  },
+  {
+    "start": 4.0,
+    "end": 7.0,
+    "text": "Retract shoulder blades - squeeze them together",
+    "anchor": "center"
+  },
+  {
+    "start": 8.0,
+    "end": 11.0,
+    "text": "Plant feet firmly on the floor",
+    "anchor": "bottom"
+  },
+  {
+    "start": 15.0,
+    "end": 18.0,
+    "text": "Unrack with straight arms, position over chest",
+    "anchor": "top"
+  },
+  {
+    "start": 30.0,
+    "end": 34.0,
+    "text": "Lower bar in controlled arc to mid-chest",
+    "anchor": "center"
+  },
+  {
+    "start": 35.0,
+    "end": 38.0,
+    "text": "Elbows at 45-75° angle, not 90°",
+    "anchor": "bottom"
+  },
+  {
+    "start": 50.0,
+    "end": 54.0,
+    "text": "Drive through the full range of motion",
+    "anchor": "center"
+  },
+  {
+    "start": 55.0,
+    "end": 58.0,
+    "text": "Keep tension in chest throughout",
+    "anchor": "bottom"
+  },
+  {
+    "start": 65.0,
+    "end": 69.0,
+    "text": "Lock out at the top - arms straight",
+    "anchor": "top"
+  },
+  {
+    "start": 70.0,
+    "end": 74.0,
+    "text": "Maintain shoulder blade position",
+    "anchor": "center"
+  }
+]
