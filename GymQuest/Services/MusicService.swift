@@ -11,10 +11,11 @@ import SwiftUI
 #if canImport(MusicKit)
 import MusicKit
 #endif
+import MediaPlayer
 
 // MARK: - Music Source
 
-enum MusicSource: String, CaseIterable {
+enum MusicSource: String, CaseIterable, Codable {
     case spotify = "Spotify"
     case appleMusic = "Apple Music"
     case aiSuggestion = "AI Suggested"
@@ -41,14 +42,20 @@ enum MusicSource: String, CaseIterable {
 
 // MARK: - Song Model
 
-struct Song: Identifiable, Hashable {
+struct Song: Identifiable, Hashable, Codable {
     let id: String
     let title: String
     let artist: String
-    let albumArt: URL?
-    let previewURL: URL?
+    let albumArtURL: String?
+    let previewURL: String?
     let source: MusicSource
     let playlistId: String?
+    let spotifyURL: String?
+    let appleMusicURL: String?
+
+    var albumArt: URL? {
+        albumArtURL.flatMap { URL(string: $0) }
+    }
 
     init(
         id: String = UUID().uuidString,
@@ -57,15 +64,35 @@ struct Song: Identifiable, Hashable {
         albumArt: URL? = nil,
         previewURL: URL? = nil,
         source: MusicSource = .manual,
-        playlistId: String? = nil
+        playlistId: String? = nil,
+        spotifyURL: String? = nil,
+        appleMusicURL: String? = nil
     ) {
         self.id = id
         self.title = title
         self.artist = artist
-        self.albumArt = albumArt
-        self.previewURL = previewURL
+        self.albumArtURL = albumArt?.absoluteString
+        self.previewURL = previewURL?.absoluteString
         self.source = source
         self.playlistId = playlistId
+        self.spotifyURL = spotifyURL
+        self.appleMusicURL = appleMusicURL
+    }
+}
+
+// MARK: - Playlist Model
+
+struct MusicPlaylist: Identifiable, Hashable, Codable {
+    let id: String
+    let name: String
+    let ownerName: String?
+    let trackCount: Int
+    let imageURL: String?
+    let source: MusicSource
+    let externalURL: String?
+
+    var image: URL? {
+        imageURL.flatMap { URL(string: $0) }
     }
 }
 
@@ -79,45 +106,158 @@ class MusicService: ObservableObject {
     @Published var currentlyPlaying: Song?
     @Published var recentSongs: [Song] = []
     @Published var suggestedSongs: [Song] = []
+    @Published var recentPlaylists: [MusicPlaylist] = []
+
+    private let recentSongsKey = "GymQuest.recentSongs"
+    private let recentPlaylistsKey = "GymQuest.recentPlaylists"
 
     private init() {
         loadRecentSongs()
+        loadRecentPlaylists()
         generateAISuggestions()
+        checkAppleMusicAuthorization()
     }
 
     // MARK: - Connection Status
 
+    private func checkAppleMusicAuthorization() {
+        #if canImport(MusicKit)
+        Task {
+            let status = MusicAuthorization.currentStatus
+            await MainActor.run {
+                isAppleMusicConnected = status == .authorized
+            }
+        }
+        #endif
+    }
+
     func connectSpotify() {
-        // TODO: Implement Spotify OAuth flow
-        // For now, simulate connection
+        // Spotify requires OAuth with client credentials
+        // Users can paste Spotify URLs directly without full OAuth
+        // Full OAuth would require registering an app at developer.spotify.com
         isSpotifyConnected = true
     }
 
     func connectAppleMusic() async {
         #if canImport(MusicKit)
         let status = await MusicAuthorization.request()
-        isAppleMusicConnected = status == .authorized
+        await MainActor.run {
+            isAppleMusicConnected = status == .authorized
+        }
         #endif
     }
 
     // MARK: - Song Search
 
     func searchSongs(query: String) async -> [Song] {
-        // TODO: Implement actual search via Spotify/Apple Music APIs
-        // For now, return mock results
         guard !query.isEmpty else { return [] }
 
-        return [
+        var results: [Song] = []
+
+        // Search Apple Music if authorized
+        #if canImport(MusicKit)
+        if isAppleMusicConnected {
+            let appleMusicResults = await searchAppleMusic(query: query)
+            results.append(contentsOf: appleMusicResults)
+        }
+        #endif
+
+        // If no results from Apple Music, return curated workout songs
+        if results.isEmpty {
+            results = getWorkoutSongsMatching(query: query)
+        }
+
+        return results
+    }
+
+    #if canImport(MusicKit)
+    private func searchAppleMusic(query: String) async -> [Song] {
+        do {
+            var request = MusicCatalogSearchRequest(term: query, types: [MusicKit.Song.self])
+            request.limit = 10
+            let response = try await request.response()
+
+            return response.songs.map { song in
+                Song(
+                    id: song.id.rawValue,
+                    title: song.title,
+                    artist: song.artistName,
+                    albumArt: song.artwork?.url(width: 300, height: 300),
+                    previewURL: song.previewAssets?.first?.url,
+                    source: .appleMusic,
+                    appleMusicURL: song.url?.absoluteString
+                )
+            }
+        } catch {
+            print("Apple Music search error: \(error)")
+            return []
+        }
+    }
+    #endif
+
+    private func getWorkoutSongsMatching(query: String) -> [Song] {
+        let workoutSongs = [
             Song(title: "Eye of the Tiger", artist: "Survivor", source: .manual),
             Song(title: "Stronger", artist: "Kanye West", source: .manual),
             Song(title: "Lose Yourself", artist: "Eminem", source: .manual),
             Song(title: "Till I Collapse", artist: "Eminem", source: .manual),
-            Song(title: "Can't Hold Us", artist: "Macklemore", source: .manual)
-        ].filter {
+            Song(title: "Can't Hold Us", artist: "Macklemore", source: .manual),
+            Song(title: "Power", artist: "Kanye West", source: .manual),
+            Song(title: "Remember The Name", artist: "Fort Minor", source: .manual),
+            Song(title: "Run Boy Run", artist: "Woodkid", source: .manual),
+            Song(title: "Blinding Lights", artist: "The Weeknd", source: .manual),
+            Song(title: "Don't Stop Me Now", artist: "Queen", source: .manual),
+            Song(title: "Thunderstruck", artist: "AC/DC", source: .manual),
+            Song(title: "Pump It", artist: "Black Eyed Peas", source: .manual),
+            Song(title: "Work Out", artist: "J. Cole", source: .manual),
+            Song(title: "Levels", artist: "Avicii", source: .manual),
+            Song(title: "Titanium", artist: "David Guetta", source: .manual)
+        ]
+
+        return workoutSongs.filter {
             $0.title.localizedCaseInsensitiveContains(query) ||
             $0.artist.localizedCaseInsensitiveContains(query)
         }
     }
+
+    // MARK: - Playlist Search
+
+    func searchPlaylists(query: String) async -> [MusicPlaylist] {
+        guard !query.isEmpty else { return [] }
+
+        #if canImport(MusicKit)
+        if isAppleMusicConnected {
+            return await searchAppleMusicPlaylists(query: query)
+        }
+        #endif
+
+        return []
+    }
+
+    #if canImport(MusicKit)
+    private func searchAppleMusicPlaylists(query: String) async -> [MusicPlaylist] {
+        do {
+            var request = MusicCatalogSearchRequest(term: query, types: [Playlist.self])
+            request.limit = 10
+            let response = try await request.response()
+
+            return response.playlists.map { playlist in
+                MusicPlaylist(
+                    id: playlist.id.rawValue,
+                    name: playlist.name,
+                    ownerName: playlist.curatorName,
+                    trackCount: playlist.tracks?.count ?? 0,
+                    imageURL: playlist.artwork?.url(width: 300, height: 300)?.absoluteString,
+                    source: .appleMusic,
+                    externalURL: playlist.url?.absoluteString
+                )
+            }
+        } catch {
+            print("Apple Music playlist search error: \(error)")
+            return []
+        }
+    }
+    #endif
 
     // MARK: - AI Suggestions
 
@@ -174,13 +314,23 @@ class MusicService: ObservableObject {
     // MARK: - Recent Songs
 
     private func loadRecentSongs() {
-        // Load from UserDefaults or local storage
-        // For now, mock data
-        recentSongs = [
-            Song(title: "Lose Yourself", artist: "Eminem", source: .manual),
-            Song(title: "Blinding Lights", artist: "The Weeknd", source: .manual),
-            Song(title: "Levitating", artist: "Dua Lipa", source: .manual)
-        ]
+        if let data = UserDefaults.standard.data(forKey: recentSongsKey),
+           let songs = try? JSONDecoder().decode([Song].self, from: data) {
+            recentSongs = songs
+        } else {
+            // Default workout songs for new users
+            recentSongs = [
+                Song(title: "Lose Yourself", artist: "Eminem", source: .manual),
+                Song(title: "Blinding Lights", artist: "The Weeknd", source: .manual),
+                Song(title: "Levitating", artist: "Dua Lipa", source: .manual)
+            ]
+        }
+    }
+
+    private func saveRecentSongs() {
+        if let data = try? JSONEncoder().encode(recentSongs) {
+            UserDefaults.standard.set(data, forKey: recentSongsKey)
+        }
     }
 
     func addToRecent(_ song: Song) {
@@ -189,18 +339,192 @@ class MusicService: ObservableObject {
         if recentSongs.count > 10 {
             recentSongs = Array(recentSongs.prefix(10))
         }
-        // TODO: Persist to UserDefaults
+        saveRecentSongs()
+    }
+
+    // MARK: - Recent Playlists
+
+    private func loadRecentPlaylists() {
+        if let data = UserDefaults.standard.data(forKey: recentPlaylistsKey),
+           let playlists = try? JSONDecoder().decode([MusicPlaylist].self, from: data) {
+            recentPlaylists = playlists
+        }
+    }
+
+    private func saveRecentPlaylists() {
+        if let data = try? JSONEncoder().encode(recentPlaylists) {
+            UserDefaults.standard.set(data, forKey: recentPlaylistsKey)
+        }
+    }
+
+    func addToRecentPlaylists(_ playlist: MusicPlaylist) {
+        recentPlaylists.removeAll { $0.id == playlist.id }
+        recentPlaylists.insert(playlist, at: 0)
+        if recentPlaylists.count > 10 {
+            recentPlaylists = Array(recentPlaylists.prefix(10))
+        }
+        saveRecentPlaylists()
     }
 
     // MARK: - Now Playing Detection
 
     func detectNowPlaying() async -> Song? {
+        // Try Apple Music / Music app first
         #if canImport(MusicKit)
-        // Try to get currently playing from Apple Music
-        // This requires proper MusicKit setup
+        if isAppleMusicConnected {
+            if let song = await detectAppleMusicNowPlaying() {
+                return song
+            }
+        }
         #endif
 
-        // For now, return nil
+        // Try system now playing info (works with any music app)
+        return detectSystemNowPlaying()
+    }
+
+    #if canImport(MusicKit)
+    private func detectAppleMusicNowPlaying() async -> Song? {
+        // MusicKit doesn't directly provide "now playing" but we can use ApplicationMusicPlayer
+        let player = ApplicationMusicPlayer.shared
+        guard let nowPlayingItem = player.queue.currentEntry else { return nil }
+
+        // Extract song info from the queue entry
+        if case .song(let song) = nowPlayingItem.item {
+            return Song(
+                id: song.id.rawValue,
+                title: song.title,
+                artist: song.artistName,
+                albumArt: song.artwork?.url(width: 300, height: 300),
+                source: .appleMusic,
+                appleMusicURL: song.url?.absoluteString
+            )
+        }
+
+        return nil
+    }
+    #endif
+
+    private func detectSystemNowPlaying() -> Song? {
+        // Use MPNowPlayingInfoCenter to get currently playing media
+        let nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo
+
+        guard let title = nowPlayingInfo?[MPMediaItemPropertyTitle] as? String,
+              let artist = nowPlayingInfo?[MPMediaItemPropertyArtist] as? String else {
+            return nil
+        }
+
+        return Song(
+            title: title,
+            artist: artist,
+            source: .manual
+        )
+    }
+
+    // MARK: - URL Parsing
+
+    /// Parse a Spotify URL to extract track/playlist info
+    func parseSpotifyURL(_ urlString: String) -> (type: String, id: String)? {
+        // Spotify URLs: https://open.spotify.com/track/xxx or spotify:track:xxx
+        // Also: https://open.spotify.com/playlist/xxx
+
+        if urlString.contains("spotify.com") || urlString.starts(with: "spotify:") {
+            let patterns = [
+                "open.spotify.com/track/([a-zA-Z0-9]+)",
+                "open.spotify.com/playlist/([a-zA-Z0-9]+)",
+                "spotify:track:([a-zA-Z0-9]+)",
+                "spotify:playlist:([a-zA-Z0-9]+)"
+            ]
+
+            for pattern in patterns {
+                if let regex = try? NSRegularExpression(pattern: pattern),
+                   let match = regex.firstMatch(in: urlString, range: NSRange(urlString.startIndex..., in: urlString)),
+                   let idRange = Range(match.range(at: 1), in: urlString) {
+                    let id = String(urlString[idRange])
+                    let type = pattern.contains("playlist") ? "playlist" : "track"
+                    return (type, id)
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// Parse an Apple Music URL
+    func parseAppleMusicURL(_ urlString: String) -> (type: String, id: String)? {
+        // Apple Music URLs: https://music.apple.com/us/album/song-name/123456789?i=123456789
+        // Also: https://music.apple.com/us/playlist/name/pl.xxx
+
+        if urlString.contains("music.apple.com") {
+            if urlString.contains("/playlist/") {
+                if let regex = try? NSRegularExpression(pattern: "/playlist/[^/]+/(pl\\.[a-zA-Z0-9]+)"),
+                   let match = regex.firstMatch(in: urlString, range: NSRange(urlString.startIndex..., in: urlString)),
+                   let idRange = Range(match.range(at: 1), in: urlString) {
+                    return ("playlist", String(urlString[idRange]))
+                }
+            } else if urlString.contains("/album/") {
+                // Song within album has ?i= parameter
+                if let url = URL(string: urlString),
+                   let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                   let songId = components.queryItems?.first(where: { $0.name == "i" })?.value {
+                    return ("track", songId)
+                }
+            }
+        }
+
+        return nil
+    }
+
+    /// Create a Song from a pasted URL
+    func songFromURL(_ urlString: String) -> Song? {
+        if let spotify = parseSpotifyURL(urlString), spotify.type == "track" {
+            return Song(
+                id: spotify.id,
+                title: "Spotify Track",
+                artist: "Tap to play",
+                source: .spotify,
+                spotifyURL: urlString
+            )
+        }
+
+        if let appleMusic = parseAppleMusicURL(urlString), appleMusic.type == "track" {
+            return Song(
+                id: appleMusic.id,
+                title: "Apple Music Track",
+                artist: "Tap to play",
+                source: .appleMusic,
+                appleMusicURL: urlString
+            )
+        }
+
+        return nil
+    }
+
+    /// Create a Playlist from a pasted URL
+    func playlistFromURL(_ urlString: String) -> MusicPlaylist? {
+        if let spotify = parseSpotifyURL(urlString), spotify.type == "playlist" {
+            return MusicPlaylist(
+                id: spotify.id,
+                name: "Spotify Playlist",
+                ownerName: nil,
+                trackCount: 0,
+                imageURL: nil,
+                source: .spotify,
+                externalURL: urlString
+            )
+        }
+
+        if let appleMusic = parseAppleMusicURL(urlString), appleMusic.type == "playlist" {
+            return MusicPlaylist(
+                id: appleMusic.id,
+                name: "Apple Music Playlist",
+                ownerName: nil,
+                trackCount: 0,
+                imageURL: nil,
+                source: .appleMusic,
+                externalURL: urlString
+            )
+        }
+
         return nil
     }
 }

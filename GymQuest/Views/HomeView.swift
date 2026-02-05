@@ -34,7 +34,7 @@ struct HomeView: View {
     @State private var selectedWorkoutType: WorkoutType = .push
     @State private var totalSets: Int = 0
     @State private var totalXP: Int = 0
-    @State private var headerAppeared = false
+    @State private var headerAppeared = true
 
     // Extract first name from full name
     var firstName: String {
@@ -121,6 +121,7 @@ struct HomeView: View {
                 }
                 .padding(.top, 12)
             }
+            .scrollContentBackground(.hidden)
             .background(EnergyBackground())
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -136,10 +137,6 @@ struct HomeView: View {
             }
             .onAppear {
                 loadHomeData()
-                // Trigger header animation
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    headerAppeared = true
-                }
             }
             .sheet(isPresented: $showingSquadView) {
                 SquadView(profile: profile)
@@ -147,15 +144,8 @@ struct HomeView: View {
             .sheet(isPresented: $showingMealLog) {
                 MealLogView(profile: profile)
             }
-            .sheet(isPresented: $showingWorkoutTypePicker) {
-                StartWorkoutSheet(
-                    selectedType: $selectedWorkoutType,
-                    onStart: {
-                        showingWorkoutTypePicker = false
-                        showingActiveWorkout = true
-                    }
-                )
-                .presentationDetents([.medium])
+            .fullScreenCover(isPresented: $showingWorkoutTypePicker) {
+                WorkoutTypeSelectionView(profile: profile)
             }
             .fullScreenCover(isPresented: $showingActiveWorkout) {
                 ActiveWorkoutView(profile: profile, workoutType: selectedWorkoutType)
@@ -552,29 +542,28 @@ struct DayTileView: View {
     let isPast: Bool
     let workout: Workout?
     let workoutTypeLabel: (WorkoutType) -> String
+    var onTap: (() -> Void)? = nil
 
     var hasWorkout: Bool { workout != nil }
     var isRest: Bool { workout?.type == .rest }
+    var isCompletedWorkout: Bool { hasWorkout && !isRest }
 
     var body: some View {
         VStack(spacing: 4) {
             // The tile box
             ZStack {
-                // Base rectangle
+                // Base rectangle with gradient for completed workouts
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(
-                        hasWorkout
-                            ? (isRest
-                                ? Color.white.opacity(0.08)
-                                : workout!.type.color.opacity(0.2))
-                            : (isToday
-                                ? Color.clear
-                                : Color.white.opacity(isPast ? 0.03 : 0.06))
-                    )
+                    .fill(tileBackground)
                     .frame(height: 44)
+                    .shadow(
+                        color: isCompletedWorkout ? Color.black.opacity(0.3) : Color.clear,
+                        radius: 4,
+                        y: 2
+                    )
 
                 // Animated border only for today
-                if isToday {
+                if isToday && !hasWorkout {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.clear)
                         .frame(height: 44)
@@ -593,29 +582,33 @@ struct DayTileView: View {
                         VStack(spacing: 2) {
                             Image(systemName: "moon.zzz.fill")
                                 .font(.system(size: 14))
-                                .foregroundColor(GQColors.textTertiary)
+                                .foregroundColor(.white.opacity(0.7))
                             Text("Rest")
                                 .font(.system(size: 7, weight: .medium))
-                                .foregroundColor(GQColors.textTertiary)
+                                .foregroundColor(.white.opacity(0.7))
                         }
                     } else {
-                        // Workout type icon with checkmark and label
+                        // Workout type icon with checkmark and label - white for contrast
                         VStack(spacing: 2) {
                             ZStack {
                                 Image(systemName: workout!.type.icon)
                                     .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(workout!.type.color)
+                                    .foregroundColor(.white)
 
-                                // Small checkmark badge
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 8))
-                                    .foregroundColor(GQColors.success)
-                                    .background(Circle().fill(Color.black).frame(width: 10, height: 10))
-                                    .offset(x: 8, y: -8)
+                                // Larger checkmark badge with white background
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white)
+                                        .frame(width: 14, height: 14)
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(GQColors.success)
+                                }
+                                .offset(x: 10, y: -8)
                             }
                             Text(workoutTypeLabel(workout!.type))
-                                .font(.system(size: 7, weight: .medium))
-                                .foregroundColor(workout!.type.color)
+                                .font(.system(size: 7, weight: .semibold))
+                                .foregroundColor(.white)
                                 .lineLimit(1)
                         }
                     }
@@ -648,11 +641,30 @@ struct DayTileView: View {
                 }
             }
             .frame(height: 44)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onTap?()
+            }
 
             // Date number below the box
             Text("\(dayNumber)")
                 .font(.system(size: 11, weight: isToday ? .bold : .medium))
-                .foregroundColor(isToday ? .white : hasWorkout ? workout!.type.color : GQColors.textTertiary)
+                .foregroundColor(isToday ? .white : isCompletedWorkout ? .white : GQColors.textTertiary)
+        }
+    }
+
+    // Computed property for tile background
+    private var tileBackground: AnyShapeStyle {
+        if hasWorkout {
+            if isRest {
+                return AnyShapeStyle(GQGradients.workoutGradient(for: .rest))
+            } else {
+                return AnyShapeStyle(GQGradients.workoutGradient(for: workout!.type))
+            }
+        } else if isToday {
+            return AnyShapeStyle(Color.clear)
+        } else {
+            return AnyShapeStyle(Color.white.opacity(isPast ? 0.03 : 0.06))
         }
     }
 }
@@ -668,6 +680,8 @@ struct WeeklyProgressCard: View {
     var onRestTap: (() -> Void)? = nil
 
     @State private var showingDayOptions = false
+    @State private var selectedWorkoutForReview: Workout? = nil
+    @State private var showingWorkoutReview = false
 
     var weekDates: [Date] {
         let cal = Calendar.current
@@ -776,13 +790,17 @@ struct WeeklyProgressCard: View {
                             isToday: isToday,
                             isPast: isPast,
                             workout: workout,
-                            workoutTypeLabel: workoutTypeLabel
-                        )
-                        .onTapGesture {
-                            if isToday && !hasWorkout {
-                                showingDayOptions = true
+                            workoutTypeLabel: workoutTypeLabel,
+                            onTap: {
+                                if isToday && !hasWorkout {
+                                    showingDayOptions = true
+                                } else if hasWorkout && workout?.type != .rest {
+                                    // Tap on completed workout - show review
+                                    selectedWorkoutForReview = workout
+                                    showingWorkoutReview = true
+                                }
                             }
-                        }
+                        )
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -800,6 +818,220 @@ struct WeeklyProgressCard: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .sheet(isPresented: $showingWorkoutReview) {
+            if let workout = selectedWorkoutForReview {
+                WorkoutReviewSheet(workout: workout)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
+        }
+    }
+}
+
+// MARK: - Workout Review Sheet
+
+struct WorkoutReviewSheet: View {
+    let workout: Workout
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Header with workout type and date
+                    HStack(spacing: 16) {
+                        // Workout type icon with gradient background
+                        ZStack {
+                            Circle()
+                                .fill(GQGradients.workoutGradient(for: workout.type))
+                                .frame(width: 56, height: 56)
+
+                            Image(systemName: workout.type.icon)
+                                .font(.system(size: 24, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(workout.title ?? workout.type.rawValue)
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(.white)
+
+                            Text(workout.date.formatted(.dateTime.weekday(.wide).month().day()))
+                                .font(.system(size: 14))
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+
+                    // Stats row
+                    HStack(spacing: 12) {
+                        WorkoutStatBadge(
+                            icon: "clock.fill",
+                            value: "\(workout.duration)",
+                            label: "min",
+                            color: GQColors.cyanSpark
+                        )
+
+                        WorkoutStatBadge(
+                            icon: "number",
+                            value: "\(workout.totalSets)",
+                            label: "sets",
+                            color: GQColors.vividPurple
+                        )
+
+                        WorkoutStatBadge(
+                            icon: "scalemass.fill",
+                            value: formatVolume(workout.totalVolume),
+                            label: "lbs",
+                            color: GQColors.sunsetOrange
+                        )
+
+                        WorkoutStatBadge(
+                            icon: "gauge.high",
+                            value: "\(workout.rpe)",
+                            label: "RPE",
+                            color: workout.rpe >= 8 ? GQColors.coralRed : GQColors.success
+                        )
+                    }
+                    .padding(.horizontal)
+
+                    // Exercises list
+                    if !workout.exercises.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("EXERCISES")
+                                .font(GQTypography.sectionHeader)
+                                .foregroundColor(GQColors.textTertiary)
+                                .tracking(1)
+                                .padding(.horizontal)
+
+                            VStack(spacing: 8) {
+                                ForEach(workout.exercises.sorted(by: { $0.order < $1.order })) { exercise in
+                                    ExerciseReviewRow(exercise: exercise)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+
+                    // Notes section
+                    if !workout.notes.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("NOTES")
+                                .font(GQTypography.sectionHeader)
+                                .foregroundColor(GQColors.textTertiary)
+                                .tracking(1)
+
+                            Text(workout.notes)
+                                .font(.system(size: 14))
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal)
+                    }
+
+                    Spacer(minLength: 40)
+                }
+                .padding(.top, 20)
+            }
+            .scrollContentBackground(.hidden)
+            .background(Color(white: 0.05).ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(GQColors.cyanSpark)
+                }
+            }
+        }
+    }
+
+    private func formatVolume(_ volume: Double) -> String {
+        if volume >= 1000 {
+            return String(format: "%.1fk", volume / 1000)
+        }
+        return "\(Int(volume))"
+    }
+}
+
+// MARK: - Workout Stat Badge
+
+struct WorkoutStatBadge: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(color.opacity(0.15))
+        )
+    }
+}
+
+// MARK: - Exercise Review Row
+
+struct ExerciseReviewRow: View {
+    let exercise: Exercise
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(exercise.name)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                Text("\(exercise.sets.count) sets")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+
+            // Sets summary
+            HStack(spacing: 8) {
+                ForEach(exercise.sets.sorted(by: { $0.order < $1.order })) { set in
+                    Text(setDisplayString(set))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(GQColors.textSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.white.opacity(0.08))
+                        )
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.white.opacity(0.05))
+        )
+    }
+
+    private func setDisplayString(_ set: ExerciseSet) -> String {
+        if set.weight > 0 {
+            return "\(set.reps)×\(Int(set.weight))"
+        }
+        return "\(set.reps) reps"
     }
 }
 
@@ -1190,7 +1422,7 @@ struct StartWorkoutSheet: View {
                 .padding(.horizontal)
                 .padding(.bottom)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(Color(white: 0.05).ignoresSafeArea())
             .navigationTitle("Start Workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
