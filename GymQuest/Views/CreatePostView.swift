@@ -71,6 +71,10 @@ struct CreatePostView: View {
     // Activity detection
     @State private var detectedActivity: DetectedActivity?
 
+    // Error handling
+    @State private var showSaveError = false
+    @State private var saveErrorMessage = ""
+
     private let quickTags = ["Protein", "Vegetables", "Carbs", "Healthy Fats", "Fiber", "Fruit", "Dairy", "Whole Grains"]
 
     enum MediaType {
@@ -238,6 +242,11 @@ struct CreatePostView: View {
                     activityType: detectedActivity?.rawValue ?? workout?.type.rawValue
                 )
             }
+            .alert("Save Failed", isPresented: $showSaveError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(saveErrorMessage)
+            }
         }
     }
 
@@ -312,8 +321,13 @@ struct CreatePostView: View {
         }
 
         modelContext.insert(post)
-        try? modelContext.save()
-        dismiss()
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            saveErrorMessage = "Failed to save post. Please try again."
+            showSaveError = true
+        }
     }
 }
 

@@ -696,10 +696,12 @@ struct SettingsView: View {
     @State private var aiProvider: AIProvider = .demo
     @State private var apiKey: String = ""
     @State private var ollamaModel: String = "llama3.2"
+    @State private var ollamaHost: String = "localhost"
     @State private var showingLogoutAlert = false
     @State private var isTestingConnection = false
     @State private var connectionStatus: String?
     @State private var showingConnectionAlert = false
+    @State private var showingSaveError = false
 
     @StateObject private var authService = AuthService()
 
@@ -741,6 +743,26 @@ struct SettingsView: View {
                             Text("Strava")
                         }
                     }
+
+                    NavigationLink {
+                        NotificationSettingsView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "bell.fill")
+                                .foregroundColor(GQColors.sunsetOrange)
+                            Text("Notifications")
+                        }
+                    }
+
+                    NavigationLink {
+                        BodyMeasurementsView(profile: profile)
+                    } label: {
+                        HStack {
+                            Image(systemName: "ruler")
+                                .foregroundColor(GQColors.electricGold)
+                            Text("Body Measurements")
+                        }
+                    }
                 }
 
                 Section("AI") {
@@ -755,6 +777,12 @@ struct SettingsView: View {
                         }
                     }
                     if aiProvider == .ollama {
+                        TextField("Host IP (e.g. 192.168.1.100)", text: $ollamaHost)
+                            .textContentType(.URL)
+                            #if os(iOS)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            #endif
                         TextField("Model Name (e.g. llama3.2)", text: $ollamaModel)
                         Button {
                             testOllamaConnection()
@@ -820,8 +848,13 @@ struct SettingsView: View {
                         profile.aiProvider = aiProvider
                         profile.apiKey = apiKey
                         profile.ollamaModel = ollamaModel
-                        try? modelContext.save()
-                        dismiss()
+                        profile.ollamaHost = ollamaHost
+                        do {
+                            try modelContext.save()
+                            dismiss()
+                        } catch {
+                            showingSaveError = true
+                        }
                     }
                     .fontWeight(.semibold)
                 }
@@ -842,12 +875,18 @@ struct SettingsView: View {
             } message: {
                 Text(connectionStatus ?? "Unknown status")
             }
+            .alert("Save Failed", isPresented: $showingSaveError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Could not save settings. Please try again.")
+            }
             .onAppear {
                 name = profile.name
                 username = profile.username
                 aiProvider = profile.aiProvider
                 apiKey = profile.apiKey
                 ollamaModel = profile.ollamaModel
+                ollamaHost = profile.ollamaHost
             }
         }
     }
@@ -857,8 +896,8 @@ struct SettingsView: View {
         isTestingConnection = true
 
         Task {
-            let ollamaHost = "192.168.2.48" // local network IP
-            let urlString = "http://\(ollamaHost):11434/api/tags"
+            let host = ollamaHost.isEmpty ? "localhost" : ollamaHost
+            let urlString = "http://\(host):11434/api/tags"
 
             guard let url = URL(string: urlString) else {
                 await MainActor.run {

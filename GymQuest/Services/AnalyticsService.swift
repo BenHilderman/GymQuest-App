@@ -28,7 +28,9 @@ class AnalyticsService: ObservableObject {
         metadata: [String: Any]? = nil
     ) {
         guard let context = modelContext else {
+            #if DEBUG
             print("AnalyticsService: ModelContext not configured")
+            #endif
             return
         }
 

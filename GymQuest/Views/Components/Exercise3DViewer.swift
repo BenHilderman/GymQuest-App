@@ -12,6 +12,57 @@ import SceneKit
 import UIKit
 #endif
 
+// MARK: - View Angle
+
+enum ViewAngle: String, CaseIterable {
+    case front = "front"
+    case side = "side"
+    case back = "back"
+    case angle45 = "45°"
+
+    var displayName: String {
+        switch self {
+        case .front: return "Front View"
+        case .side: return "Side View"
+        case .back: return "Back View"
+        case .angle45: return "45° Angle"
+        }
+    }
+
+    var rotationY: Float {
+        switch self {
+        case .front: return 0
+        case .side: return Float.pi / 2
+        case .back: return Float.pi
+        case .angle45: return Float.pi / 4
+        }
+    }
+}
+
+// MARK: - Exercise Demo 3D Model
+
+struct ExerciseDemo3D {
+    let modelFileName: String
+    let cues: [String]
+    let keyJoints: [JointType]
+    let tempo: String
+    let preferredStartAngle: ViewAngle
+
+    init(
+        modelFileName: String,
+        cues: [String] = [],
+        keyJoints: [JointType] = [],
+        tempo: String = "3-0-2-0",
+        preferredStartAngle: ViewAngle = .side
+    ) {
+        self.modelFileName = modelFileName
+        self.cues = cues
+        self.keyJoints = keyJoints
+        self.tempo = tempo
+        self.preferredStartAngle = preferredStartAngle
+    }
+}
+
 // MARK: - Exercise 3D Viewer
 
 struct Exercise3DViewer: View {

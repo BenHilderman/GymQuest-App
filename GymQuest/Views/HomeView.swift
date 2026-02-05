@@ -34,6 +34,12 @@ struct HomeView: View {
     @State private var selectedWorkoutType: WorkoutType = .push
     @State private var totalSets: Int = 0
     @State private var totalXP: Int = 0
+    @State private var headerAppeared = false
+
+    // Extract first name from full name
+    var firstName: String {
+        profile.name.components(separatedBy: " ").first ?? profile.name
+    }
 
     var body: some View {
         NavigationStack {
@@ -41,7 +47,7 @@ struct HomeView: View {
                 VStack(spacing: 24) {
                     // DATE HEADER WITH GREETING
                     VStack(spacing: 4) {
-                        Text("Hi, \(profile.name)")
+                        Text("Hi, \(firstName)!")
                             .font(.system(size: 24, weight: .bold))
                             .foregroundColor(.white)
 
@@ -55,12 +61,22 @@ struct HomeView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
+                    .offset(y: headerAppeared ? 0 : -20)
+                    .opacity(headerAppeared ? 1 : 0)
+                    .animation(.easeOut(duration: 0.5), value: headerAppeared)
 
                     // WEEK OVERVIEW
                     WeeklyProgressCard(
                         weeklyProgress: weeklyProgress,
                         readinessLevel: readinessLevel,
-                        workouts: workouts
+                        workouts: workouts,
+                        targetDays: profile.daysPerWeek,
+                        onTodayTap: {
+                            showingWorkoutTypePicker = true
+                        },
+                        onRestTap: {
+                            logRestDay()
+                        }
                     )
                     .padding(.horizontal, 16)
 
@@ -120,6 +136,10 @@ struct HomeView: View {
             }
             .onAppear {
                 loadHomeData()
+                // Trigger header animation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    headerAppeared = true
+                }
             }
             .sheet(isPresented: $showingSquadView) {
                 SquadView(profile: profile)
@@ -257,6 +277,23 @@ struct HomeView: View {
             activeSquad = squad
             squadChallenge = squadService.getActiveChallenge(squadId: squad.id)
         }
+    }
+
+    private func logRestDay() {
+        let restWorkout = Workout(
+            date: Date(),
+            type: .rest,
+            duration: 0,
+            rpe: 1,
+            notes: "Rest day",
+            exercises: [],
+            title: "Rest Day",
+            source: .manual,
+            privacy: .privateOnly
+        )
+        modelContext.insert(restWorkout)
+        try? modelContext.save()
+        loadHomeData()
     }
 }
 
@@ -473,22 +510,150 @@ struct HomeActionButton: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
-                        isPrimary ?
-                            LinearGradient(
-                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ) :
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                        lineWidth: isPrimary ? 1.5 : 1
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
                     )
+                    .opacity(isPrimary ? 0 : 1)
             )
+            .modifier(ConditionalAnimatedBorder(isActive: isPrimary, cornerRadius: 16))
         }
         .buttonStyle(ScaleButtonStyle())
+    }
+}
+
+// Helper for conditional animated border
+struct ConditionalAnimatedBorder: ViewModifier {
+    let isActive: Bool
+    let cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        if isActive {
+            content.animatedGradientBorder(
+                cornerRadius: cornerRadius,
+                lineWidth: 2,
+                colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                duration: 4.0
+            )
+        } else {
+            content
+        }
+    }
+}
+
+// MARK: - Day Tile View (for weekly calendar)
+
+struct DayTileView: View {
+    let dayNumber: Int
+    let isToday: Bool
+    let isPast: Bool
+    let workout: Workout?
+    let workoutTypeLabel: (WorkoutType) -> String
+
+    var hasWorkout: Bool { workout != nil }
+    var isRest: Bool { workout?.type == .rest }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            // The tile box
+            ZStack {
+                // Base rectangle
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        hasWorkout
+                            ? (isRest
+                                ? Color.white.opacity(0.08)
+                                : workout!.type.color.opacity(0.2))
+                            : (isToday
+                                ? Color.clear
+                                : Color.white.opacity(isPast ? 0.03 : 0.06))
+                    )
+                    .frame(height: 44)
+
+                // Animated border only for today
+                if isToday {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.clear)
+                        .frame(height: 44)
+                        .animatedGradientBorder(
+                            cornerRadius: 10,
+                            lineWidth: 2,
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                            duration: 4.0
+                        )
+                }
+
+                // Content inside the box
+                if hasWorkout {
+                    if isRest {
+                        // Sleep icon for rest day
+                        VStack(spacing: 2) {
+                            Image(systemName: "moon.zzz.fill")
+                                .font(.system(size: 14))
+                                .foregroundColor(GQColors.textTertiary)
+                            Text("Rest")
+                                .font(.system(size: 7, weight: .medium))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                    } else {
+                        // Workout type icon with checkmark and label
+                        VStack(spacing: 2) {
+                            ZStack {
+                                Image(systemName: workout!.type.icon)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(workout!.type.color)
+
+                                // Small checkmark badge
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(GQColors.success)
+                                    .background(Circle().fill(Color.black).frame(width: 10, height: 10))
+                                    .offset(x: 8, y: -8)
+                            }
+                            Text(workoutTypeLabel(workout!.type))
+                                .font(.system(size: 7, weight: .medium))
+                                .foregroundColor(workout!.type.color)
+                                .lineLimit(1)
+                        }
+                    }
+                } else if isPast {
+                    // Missed day - sleep icon (they rested)
+                    VStack(spacing: 2) {
+                        Image(systemName: "moon.zzz.fill")
+                            .font(.system(size: 14))
+                            .foregroundColor(Color.white.opacity(0.2))
+                        Text("Rest")
+                            .font(.system(size: 7, weight: .medium))
+                            .foregroundColor(Color.white.opacity(0.2))
+                    }
+                } else if isToday {
+                    // Today - plus icon
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                } else {
+                    // Future day - empty or subtle indicator
+                    Circle()
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .frame(height: 44)
+
+            // Date number below the box
+            Text("\(dayNumber)")
+                .font(.system(size: 11, weight: isToday ? .bold : .medium))
+                .foregroundColor(isToday ? .white : hasWorkout ? workout!.type.color : GQColors.textTertiary)
+        }
     }
 }
 
@@ -498,6 +663,11 @@ struct WeeklyProgressCard: View {
     let weeklyProgress: (completed: Int, target: Int)
     let readinessLevel: ReadinessLevel
     let workouts: [Workout]
+    var targetDays: Int = 4
+    var onTodayTap: (() -> Void)? = nil
+    var onRestTap: (() -> Void)? = nil
+
+    @State private var showingDayOptions = false
 
     var weekDates: [Date] {
         let cal = Calendar.current
@@ -505,22 +675,44 @@ struct WeeklyProgressCard: View {
         return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: monday) }
     }
 
-    var weekData: [Bool] {
+    // Get workout for a specific date
+    func workoutForDate(_ date: Date) -> Workout? {
         let cal = Calendar.current
-        return weekDates.map { date in
-            workouts.contains { cal.isDate($0.date, inSameDayAs: date) }
-        }
+        return workouts.first { cal.isDate($0.date, inSameDayAs: date) }
     }
 
-    var completedCount: Int {
-        weekData.filter { $0 }.count
+    // Count only actual workouts (not rest days)
+    var completedWorkouts: Int {
+        weekDates.filter { date in
+            guard let workout = workoutForDate(date) else { return false }
+            return workout.type != .rest
+        }.count
+    }
+
+    var progressPercentage: Double {
+        guard targetDays > 0 else { return 0 }
+        return min(1.0, Double(completedWorkouts) / Double(targetDays))
     }
 
     let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
 
+    // Short label for workout type
+    func workoutTypeLabel(_ type: WorkoutType) -> String {
+        switch type {
+        case .push: return "Push"
+        case .pull: return "Pull"
+        case .legs: return "Legs"
+        case .upper: return "Upper"
+        case .lower: return "Lower"
+        case .fullBody: return "Full"
+        case .cardio: return "Cardio"
+        case .rest: return "Rest"
+        }
+    }
+
     var body: some View {
         VStack(spacing: 16) {
-            // Header with count
+            // Header with count and progress circle
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("THIS WEEK")
@@ -528,97 +720,69 @@ struct WeeklyProgressCard: View {
                         .foregroundColor(GQColors.textTertiary)
                         .tracking(1)
 
-                    Text("\(completedCount) of 7 days")
+                    Text("\(completedWorkouts) of \(targetDays) days")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                 }
 
                 Spacer()
 
-                // Streak or motivational badge
-                if completedCount > 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 12))
-                        Text("\(completedCount)")
-                    }
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.orange)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.orange.opacity(0.15))
-                    .cornerRadius(8)
+                // Progress circle
+                ZStack {
+                    // Background circle
+                    Circle()
+                        .stroke(Color.white.opacity(0.1), lineWidth: 4)
+                        .frame(width: 44, height: 44)
+
+                    // Progress arc with animated gradient
+                    Circle()
+                        .trim(from: 0, to: progressPercentage)
+                        .stroke(
+                            LinearGradient(
+                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                        )
+                        .frame(width: 44, height: 44)
+                        .rotationEffect(.degrees(-90))
+
+                    // Percentage text
+                    Text("\(Int(progressPercentage * 100))%")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
                 }
             }
 
-            // Week dots
-            HStack(spacing: 0) {
+            // Week calendar - rectangle style
+            HStack(spacing: 6) {
                 ForEach(0..<7, id: \.self) { index in
                     let isToday = Calendar.current.isDateInToday(weekDates[index])
                     let isPast = weekDates[index] < Calendar.current.startOfDay(for: Date())
-                    let hasWorkout = weekData[index]
+                    let workout = workoutForDate(weekDates[index])
+                    let hasWorkout = workout != nil
+                    let dayNumber = Calendar.current.component(.day, from: weekDates[index])
 
-                    VStack(spacing: 8) {
-                        // Day indicator
-                        ZStack {
-                            // Base circle
-                            Circle()
-                                .fill(
-                                    hasWorkout
-                                        ? LinearGradient(colors: [GQColors.success, GQColors.success.opacity(0.8)], startPoint: .top, endPoint: .bottom)
-                                        : isPast
-                                            ? LinearGradient(colors: [Color.white.opacity(0.05), Color.white.opacity(0.02)], startPoint: .top, endPoint: .bottom)
-                                            : LinearGradient(colors: [Color.white.opacity(0.08), Color.white.opacity(0.04)], startPoint: .top, endPoint: .bottom)
-                                )
-                                .frame(width: 36, height: 36)
+                    VStack(spacing: 2) {
+                        // Day label (M, T, W...)
+                        Text(dayLabels[index])
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(GQColors.textTertiary)
 
-                            // Content
-                            if hasWorkout {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.black)
-                            } else if isPast {
-                                // Missed day - subtle dash
-                                Image(systemName: "minus")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(Color.white.opacity(0.2))
-                            } else if !isToday {
-                                // Future day - subtle dot
-                                Circle()
-                                    .fill(Color.white.opacity(0.15))
-                                    .frame(width: 6, height: 6)
-                            }
-
-                            // Today highlight ring
-                            if isToday {
-                                Circle()
-                                    .stroke(
-                                        LinearGradient(
-                                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 2.5
-                                    )
-                                    .frame(width: 36, height: 36)
-
-                                if !hasWorkout {
-                                    Image(systemName: "plus")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(
-                                            LinearGradient(
-                                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                }
+                        // Day tile - smooth rectangle with date below
+                        DayTileView(
+                            dayNumber: dayNumber,
+                            isToday: isToday,
+                            isPast: isPast,
+                            workout: workout,
+                            workoutTypeLabel: workoutTypeLabel
+                        )
+                        .onTapGesture {
+                            if isToday && !hasWorkout {
+                                showingDayOptions = true
                             }
                         }
-
-                        Text(dayLabels[index])
-                            .font(.system(size: 11, weight: isToday ? .bold : .medium))
-                            .foregroundColor(isToday ? .white : hasWorkout ? GQColors.success : GQColors.textTertiary)
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -627,6 +791,15 @@ struct WeeklyProgressCard: View {
         .padding(18)
         .background(Color(white: 0.08))
         .cornerRadius(16)
+        .confirmationDialog("What would you like to do?", isPresented: $showingDayOptions, titleVisibility: .visible) {
+            Button("Start Workout") {
+                onTodayTap?()
+            }
+            Button("Log Rest Day") {
+                onRestTap?()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 }
 

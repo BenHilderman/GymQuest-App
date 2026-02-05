@@ -398,6 +398,19 @@ enum WorkoutType: String, Codable, CaseIterable {
         case .rest: return "leaf.fill"
         }
     }
+
+    var color: Color {
+        switch self {
+        case .push: return GQColors.vividPurple
+        case .pull: return GQColors.cyanSpark
+        case .legs: return GQColors.success
+        case .upper: return GQColors.deepBlue
+        case .lower: return Color.orange
+        case .fullBody: return GQColors.coralRed
+        case .cardio: return Color.pink
+        case .rest: return GQColors.success.opacity(0.7)
+        }
+    }
 }
 
 @Model
@@ -575,6 +588,7 @@ final class UserProfile {
     var aiProvider: AIProvider
     var apiKey: String
     var ollamaModel: String      // separate field for Ollama model name
+    var ollamaHost: String       // host IP/hostname for Ollama server
 
     // auth fields
     var isAuthenticated: Bool
@@ -597,6 +611,7 @@ final class UserProfile {
         aiProvider: AIProvider = .demo,
         apiKey: String = "",
         ollamaModel: String = "llama3.2",
+        ollamaHost: String = "localhost",
         isAuthenticated: Bool = false,
         authMethod: String? = nil,
         email: String? = nil,
@@ -616,6 +631,7 @@ final class UserProfile {
         self.aiProvider = aiProvider
         self.apiKey = apiKey
         self.ollamaModel = ollamaModel
+        self.ollamaHost = ollamaHost
         self.isAuthenticated = isAuthenticated
         self.authMethod = authMethod
         self.email = email
@@ -847,19 +863,22 @@ final class Friend {
 @Model
 final class Like {
     var id: UUID
-    var odId: UUID
-    var odName: String
+    var postId: UUID
+    var userId: UUID
+    var userName: String
     var timestamp: Date
 
     init(
         id: UUID = UUID(),
-        odId: UUID = UUID(),
-        odName: String = "",
+        postId: UUID,
+        userId: UUID,
+        userName: String = "",
         timestamp: Date = Date()
     ) {
         self.id = id
-        self.odId = odId
-        self.odName = odName
+        self.postId = postId
+        self.userId = userId
+        self.userName = userName
         self.timestamp = timestamp
     }
 }
@@ -1824,6 +1843,76 @@ final class MealLog {
 
     var mealTags: [MealTag] {
         tags.compactMap { MealTag(rawValue: $0) }
+    }
+}
+
+// MARK: - Body Measurements (GymQuest 2.0)
+
+enum MeasurementType: String, Codable, CaseIterable {
+    case weight = "Weight"
+    case bodyFat = "Body Fat %"
+    case chest = "Chest"
+    case waist = "Waist"
+    case hips = "Hips"
+    case bicepsLeft = "Biceps (L)"
+    case bicepsRight = "Biceps (R)"
+    case thighsLeft = "Thighs (L)"
+    case thighsRight = "Thighs (R)"
+    case calvesLeft = "Calves (L)"
+    case calvesRight = "Calves (R)"
+    case shoulders = "Shoulders"
+    case neck = "Neck"
+
+    var unit: String {
+        switch self {
+        case .weight: return "lbs"
+        case .bodyFat: return "%"
+        default: return "in"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .weight: return "scalemass"
+        case .bodyFat: return "percent"
+        case .chest: return "figure.arms.open"
+        case .waist: return "circle.dashed"
+        case .hips: return "figure.stand"
+        case .bicepsLeft, .bicepsRight: return "figure.strengthtraining.traditional"
+        case .thighsLeft, .thighsRight: return "figure.walk"
+        case .calvesLeft, .calvesRight: return "figure.run"
+        case .shoulders: return "figure.arms.open"
+        case .neck: return "person.bust"
+        }
+    }
+}
+
+@Model
+final class BodyMeasurement {
+    var id: UUID
+    var userId: UUID
+    var type: MeasurementType
+    var value: Double
+    var date: Date
+    var notes: String?
+    var photoData: Data?
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID,
+        type: MeasurementType,
+        value: Double,
+        date: Date = Date(),
+        notes: String? = nil,
+        photoData: Data? = nil
+    ) {
+        self.id = id
+        self.userId = userId
+        self.type = type
+        self.value = value
+        self.date = date
+        self.notes = notes
+        self.photoData = photoData
     }
 }
 

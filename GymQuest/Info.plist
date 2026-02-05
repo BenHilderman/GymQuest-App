@@ -27,8 +27,6 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
 	<key>GIDClientID</key>
 	<string>672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo.apps.googleusercontent.com</string>
 </dict>

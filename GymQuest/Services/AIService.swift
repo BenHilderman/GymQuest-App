@@ -222,7 +222,8 @@ class AIService: ObservableObject {
             response = try await callOllama(
                 systemPrompt: systemPrompt,
                 userPrompt: prompt,
-                model: profile.ollamaModel
+                model: profile.ollamaModel,
+                host: profile.ollamaHost
             )
         }
 
@@ -311,8 +312,10 @@ class AIService: ObservableObject {
         }
 
         if httpResponse.statusCode != 200 {
+            #if DEBUG
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
             print("Groq API error (\(httpResponse.statusCode)): \(errorBody)")
+            #endif
             throw AIError.apiError("Groq API error: \(httpResponse.statusCode)")
         }
 
@@ -327,12 +330,14 @@ class AIService: ObservableObject {
     }
 
     /// Ollama - local LLM inference (requires Ollama running on network)
-    private func callOllama(systemPrompt: String, userPrompt: String, model: String) async throws -> String {
+    private func callOllama(systemPrompt: String, userPrompt: String, model: String, host: String) async throws -> String {
         let modelName = model.isEmpty ? "llama3.2" : model
-        let ollamaHost = "192.168.2.48"  // Local network IP for iOS device access
-        let baseURL = "http://\(ollamaHost):11434/api/chat" //local host rather than service
+        let ollamaHost = host.isEmpty ? "localhost" : host
+        let baseURL = "http://\(ollamaHost):11434/api/chat"
 
+        #if DEBUG
         print("Ollama: Connecting to \(baseURL) with model \(modelName)")
+        #endif
 
         guard let url = URL(string: baseURL) else {
             throw AIError.apiError("Invalid Ollama URL: \(baseURL)")
@@ -360,7 +365,9 @@ class AIService: ObservableObject {
         do {
             (data, response) = try await URLSession.shared.data(for: request)
         } catch let networkError {
+            #if DEBUG
             print("Ollama network error: \(networkError)")
+            #endif
             throw AIError.apiError("Network error: \(networkError.localizedDescription). Check WiFi and that Ollama is running with OLLAMA_HOST=0.0.0.0")
         }
 
@@ -368,23 +375,31 @@ class AIService: ObservableObject {
             throw AIError.apiError("No HTTP response from Ollama")
         }
 
+        #if DEBUG
         print("Ollama response status: \(httpResponse.statusCode)")
+        #endif
 
         if httpResponse.statusCode != 200 {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
+            #if DEBUG
             print("Ollama API error (\(httpResponse.statusCode)): \(errorBody)")
+            #endif
             throw AIError.apiError("Ollama error \(httpResponse.statusCode): \(errorBody)")
         }
 
         let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         guard let message = json?["message"] as? [String: Any],
               let content = message["content"] as? String else {
+            #if DEBUG
             let responseStr = String(data: data, encoding: .utf8) ?? "nil"
             print("Ollama parse error. Response: \(responseStr)")
+            #endif
             throw AIError.apiError("Failed to parse Ollama response")
         }
 
+        #if DEBUG
         print("Ollama success: got \(content.count) chars")
+        #endif
         return content
     }
 
@@ -487,7 +502,7 @@ class AIService: ObservableObject {
             case .groq:
                 return try await callGroq(systemPrompt: systemPrompt, userPrompt: userPrompt, apiKey: profile.apiKey)
             case .ollama:
-                return try await callOllama(systemPrompt: systemPrompt, userPrompt: userPrompt, model: profile.ollamaModel)
+                return try await callOllama(systemPrompt: systemPrompt, userPrompt: userPrompt, model: profile.ollamaModel, host: profile.ollamaHost)
             case .demo:
                 return getDemoTakeaway(workout: workout, context: context, hasPR: hasPR)
             }

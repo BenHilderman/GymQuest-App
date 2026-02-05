@@ -26,6 +26,12 @@ class RobotDemoService: ObservableObject {
         return exerciseDemos[exerciseName.lowercased()] != nil
     }
 
+    /// Get 3D model for an exercise (stub - 3D models not yet available)
+    func get3DModel(for exerciseName: String) -> ExerciseDemo3D? {
+        // 3D models are not yet implemented - return nil
+        return nil
+    }
+
     // MARK: - Exercise Demo Database
 
     private let exerciseDemos: [String: ExerciseDemo] = [

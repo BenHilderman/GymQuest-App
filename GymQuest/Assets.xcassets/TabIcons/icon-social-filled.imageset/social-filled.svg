@@ -1,0 +1,8 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left person -->
+  <circle cx="8" cy="7" r="3" fill="black"/>
+  <path d="M3 21V18C3 15.7909 4.79086 14 7 14H9C11.2091 14 13 15.7909 13 18V21" fill="black" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Right person -->
+  <circle cx="16" cy="7" r="3" fill="black"/>
+  <path d="M11 21V18C11 15.7909 12.7909 14 15 14H17C19.2091 14 21 15.7909 21 18V21" fill="black" stroke="black" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

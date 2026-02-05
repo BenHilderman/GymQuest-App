@@ -115,7 +115,7 @@ struct CardHeader: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text("+\(xpEarned) XP")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.green)
+                    .foregroundColor(GQColors.success)
             }
         }
         .padding(16)
@@ -157,12 +157,12 @@ struct PRCallout: View {
                 HStack(spacing: 10) {
                     Image(systemName: "trophy.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(.yellow)
+                        .foregroundColor(GQColors.electricGold)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("NEW PR")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.yellow)
+                            .foregroundColor(GQColors.electricGold)
 
                         HStack(spacing: 4) {
                             if let exercise = pr.exerciseName {
@@ -176,14 +176,14 @@ struct PRCallout: View {
                         if let improvement = pr.improvement {
                             Text(improvement)
                                 .font(.system(size: 12))
-                                .foregroundColor(.green)
+                                .foregroundColor(GQColors.success)
                         }
                     }
 
                     Spacer()
                 }
                 .padding(12)
-                .background(Color.yellow.opacity(0.1))
+                .background(GQColors.electricGold.opacity(0.1))
                 .cornerRadius(12)
             }
         }
@@ -260,7 +260,7 @@ struct CoachTakeawaySection: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "brain.head.profile")
                 .font(.system(size: 16))
-                .foregroundColor(.cyan)
+                .foregroundColor(GQColors.cyanSpark)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -277,7 +277,7 @@ struct CoachTakeawaySection: View {
             Spacer()
         }
         .padding(12)
-        .background(Color.cyan.opacity(0.08))
+        .background(GQColors.cyanSpark.opacity(0.08))
         .cornerRadius(12)
         .padding(.horizontal, 16)
         .padding(.bottom, 12)

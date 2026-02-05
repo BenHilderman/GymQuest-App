@@ -167,6 +167,122 @@ struct GQGradients {
     )
 }
 
+// MARK: - Animated Gradient Circle
+
+/// A circle with a full gradient border that rotates smoothly around
+struct AnimatedGradientCircle: View {
+    let size: CGFloat
+    let lineWidth: CGFloat
+    let colors: [Color]
+    let duration: Double
+
+    @State private var rotation: Double = 0
+
+    init(
+        size: CGFloat = 40,
+        lineWidth: CGFloat = 2,
+        colors: [Color] = [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+        duration: Double = 8.0
+    ) {
+        self.size = size
+        self.lineWidth = lineWidth
+        self.colors = colors
+        self.duration = duration
+    }
+
+    var body: some View {
+        Circle()
+            .stroke(
+                AngularGradient(
+                    gradient: Gradient(colors: [
+                        colors[0],
+                        colors[1],
+                        colors[0]
+                    ]),
+                    center: .center
+                ),
+                lineWidth: lineWidth
+            )
+            .frame(width: size, height: size)
+            .rotationEffect(.degrees(rotation))
+            .onAppear {
+                withAnimation(
+                    .linear(duration: duration)
+                    .repeatForever(autoreverses: false)
+                ) {
+                    rotation = 360
+                }
+            }
+    }
+}
+
+/// View modifier to add an animated gradient border to any shape
+struct AnimatedGradientBorder: ViewModifier {
+    let cornerRadius: CGFloat
+    let lineWidth: CGFloat
+    let colors: [Color]
+    let duration: Double
+
+    @State private var phase: CGFloat = 0
+
+    init(
+        cornerRadius: CGFloat = 16,
+        lineWidth: CGFloat = 2,
+        colors: [Color] = [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+        duration: Double = 8.0
+    ) {
+        self.cornerRadius = cornerRadius
+        self.lineWidth = lineWidth
+        self.colors = colors
+        self.duration = duration
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(
+                        AngularGradient(
+                            gradient: Gradient(colors: [
+                                colors[0],
+                                colors[1],
+                                colors[0]
+                            ]),
+                            center: .center,
+                            startAngle: .degrees(phase),
+                            endAngle: .degrees(phase + 360)
+                        ),
+                        lineWidth: lineWidth
+                    )
+            )
+            .onAppear {
+                withAnimation(
+                    .linear(duration: duration)
+                    .repeatForever(autoreverses: false)
+                ) {
+                    phase = 360
+                }
+            }
+    }
+}
+
+extension View {
+    /// Adds a slowly rotating gradient border to any view
+    func animatedGradientBorder(
+        cornerRadius: CGFloat = 16,
+        lineWidth: CGFloat = 2,
+        colors: [Color] = [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+        duration: Double = 8.0
+    ) -> some View {
+        modifier(AnimatedGradientBorder(
+            cornerRadius: cornerRadius,
+            lineWidth: lineWidth,
+            colors: colors,
+            duration: duration
+        ))
+    }
+}
+
 // MARK: - Typography
 
 struct GQTypography {
@@ -291,7 +407,7 @@ struct HeroCard<Content: View>: View {
     }
 }
 
-// MARK: - Stat Pill (3D LED style)
+// MARK: - Stat Pill (Glass morphism style)
 
 struct StatPill: View {
     let icon: String
@@ -301,25 +417,25 @@ struct StatPill: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            // LED icon with glow
+            // Icon with subtle glow
             ZStack {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(color)
-                    .blur(radius: 4)
-                    .opacity(0.6)
+                // Soft glow behind icon
+                Circle()
+                    .fill(color.opacity(0.2))
+                    .frame(width: 28, height: 28)
+                    .blur(radius: 6)
 
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(color)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(value)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
                 Text(label)
-                    .font(.system(size: 11, weight: .regular))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundColor(GQColors.textTertiary)
             }
         }
@@ -327,26 +443,20 @@ struct StatPill: View {
         .padding(.vertical, 10)
         .background(
             ZStack {
-                // Outer shadow for 3D lift
+                // Glass base - frosted effect
                 Capsule()
-                    .fill(Color.black)
-                    .shadow(color: .black.opacity(0.6), radius: 8, y: 4)
+                    .fill(.ultraThinMaterial)
+                    .environment(\.colorScheme, .dark)
 
-                // Main fill with 3D gradient
+                // Subtle color tint from the icon color
+                Capsule()
+                    .fill(color.opacity(0.08))
+
+                // Top highlight for glass reflection
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [Color(white: 0.16), Color(white: 0.08)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
-                // Inner highlight for 3D curve
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.08), Color.clear],
+                            colors: [Color.white.opacity(0.15), Color.white.opacity(0.02), Color.clear],
                             startPoint: .top,
                             endPoint: .center
                         )
@@ -354,16 +464,23 @@ struct StatPill: View {
             }
         )
         .overlay(
+            // Glass border with gradient shine
             Capsule()
                 .stroke(
                     LinearGradient(
-                        colors: [Color.white.opacity(0.2), Color.white.opacity(0.02)],
-                        startPoint: .top,
-                        endPoint: .bottom
+                        colors: [
+                            Color.white.opacity(0.3),
+                            Color.white.opacity(0.1),
+                            Color.white.opacity(0.05),
+                            Color.white.opacity(0.15)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
                 )
         )
+        .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
     }
 }
 

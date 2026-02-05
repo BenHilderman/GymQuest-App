@@ -18,6 +18,7 @@ import GoogleSignIn
 @main
 struct GymQuestApp: App {
     let container: ModelContainer
+    let databaseError: String?  // Non-nil if database failed to initialize
     @StateObject private var appState = AppState()
     @StateObject private var featureFlags = FeatureFlags.shared
 
@@ -76,10 +77,13 @@ struct GymQuestApp: App {
 
         do {
             container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+            databaseError = nil
         } catch {
             // If migration fails, delete the old store and try again
+            #if DEBUG
             print("SwiftData migration failed: \(error)")
             print("Attempting to delete and recreate database...")
+            #endif
 
             // Get the default store URL
             let url = URL.applicationSupportDirectory.appending(path: "default.store")
@@ -94,25 +98,40 @@ struct GymQuestApp: App {
             // Try again with fresh database
             do {
                 container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+                databaseError = nil
+                #if DEBUG
                 print("Successfully created fresh database")
+                #endif
             } catch {
-                fatalError("Could not initialize ModelContainer even after reset: \(error)")
+                // Last resort: use in-memory container so the app can at least show an error
+                #if DEBUG
+                print("Database initialization failed completely: \(error)")
+                #endif
+                let inMemoryConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                container = try! ModelContainer(for: schema, configurations: [inMemoryConfig])
+                databaseError = "Unable to access your workout data. Please restart the app or contact support if this persists."
             }
         }
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environmentObject(appState)
-                .environmentObject(featureFlags)
-                .modelContainer(container)
-                .preferredColorScheme(.dark)
-                .onOpenURL { url in
-                    #if canImport(GoogleSignIn)
-                    GIDSignIn.sharedInstance.handle(url)
-                    #endif
-                }
+            if let errorMessage = databaseError {
+                // Show error state when database couldn't initialize
+                DatabaseErrorView(message: errorMessage)
+                    .preferredColorScheme(.dark)
+            } else {
+                RootView()
+                    .environmentObject(appState)
+                    .environmentObject(featureFlags)
+                    .modelContainer(container)
+                    .preferredColorScheme(.dark)
+                    .onOpenURL { url in
+                        #if canImport(GoogleSignIn)
+                        GIDSignIn.sharedInstance.handle(url)
+                        #endif
+                    }
+            }
         }
         #if os(macOS)
         .windowStyle(.hiddenTitleBar)
@@ -138,7 +157,7 @@ class AppState: ObservableObject {
     // where we are in the auth flow
     enum AuthState {
         case notAuthenticated
-        case onboarding(authMethod: String, email: String?, googleId: String?)
+        case onboarding(authMethod: String, email: String?, googleId: String?, tempPassword: String?)
         case authenticated
     }
 
@@ -157,6 +176,54 @@ class AppState: ObservableObject {
             case .coach: return "bubble.left.and.bubble.right.fill"
             case .progress: return "chart.bar.fill"
             case .profile: return "person.fill"
+            }
+        }
+    }
+}
+
+// MARK: - Database Error View
+
+/// Shown when the app's database cannot initialize
+struct DatabaseErrorView: View {
+    let message: String
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            VStack(spacing: 24) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.orange)
+
+                Text("Something Went Wrong")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+
+                Text(message)
+                    .font(.body)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+
+                Button {
+                    // Restart the app by crashing - user will relaunch
+                    // In production, could use exit(0) or guide user to Settings
+                    #if DEBUG
+                    fatalError("User requested app restart after database error")
+                    #endif
+                } label: {
+                    Text("Try Again")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.orange)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal, 32)
+                .padding(.top, 16)
             }
         }
     }

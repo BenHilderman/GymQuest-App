@@ -77,6 +77,11 @@ final class FeatureFlags: ObservableObject {
         didSet { save("repeatWorkoutEnabled", value: repeatWorkoutEnabled) }
     }
 
+    /// Dev mode: skip authentication (for testing)
+    @Published var devSkipAuth: Bool {
+        didSet { save("devSkipAuth", value: devSkipAuth) }
+    }
+
     // MARK: - Initialization
 
     private let defaults = UserDefaults.standard
@@ -99,6 +104,7 @@ final class FeatureFlags: ObservableObject {
         self.stravaImportEnabled = defaults.object(forKey: prefix + "stravaImportEnabled") as? Bool ?? false
         self.robotDemosEnabled = defaults.object(forKey: prefix + "robotDemosEnabled") as? Bool ?? true
         self.nutritionEnabled = defaults.object(forKey: prefix + "nutritionEnabled") as? Bool ?? true
+        self.devSkipAuth = defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? true
     }
 
     private func save(_ key: String, value: Bool) {
