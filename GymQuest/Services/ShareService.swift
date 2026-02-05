@@ -140,7 +140,9 @@ class ShareService: ObservableObject {
         }.flatMap { String(data: $0, encoding: .utf8) }
 
         // Note: In a real app, this would save to AnalyticsEvent model
+        #if DEBUG
         print("ShareService: \(eventType.rawValue) - \(metadataString ?? "")")
+        #endif
     }
 }
 

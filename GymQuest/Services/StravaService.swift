@@ -9,6 +9,64 @@
 import Foundation
 import SwiftData
 import AuthenticationServices
+import Security
+
+// MARK: - Keychain Helper for Secure Token Storage
+
+private enum KeychainHelper {
+    static let service = "com.gymquest.strava"
+
+    static func save(_ data: String, forKey key: String) {
+        guard let data = data.data(using: .utf8) else { return }
+
+        // Delete any existing item first
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+
+        // Add new item
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+        SecItemAdd(addQuery as CFDictionary, nil)
+    }
+
+    static func load(forKey key: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let string = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return string
+    }
+
+    static func delete(forKey key: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+}
 
 @MainActor
 class StravaService: ObservableObject {
@@ -17,9 +75,22 @@ class StravaService: ObservableObject {
     private var modelContext: ModelContext?
 
     // Strava API configuration
-    // In production, these would be loaded from secure config
-    private let clientId = "YOUR_STRAVA_CLIENT_ID"
-    private let clientSecret = "YOUR_STRAVA_CLIENT_SECRET"
+    // To use Strava integration:
+    // 1. Create an app at https://www.strava.com/settings/api
+    // 2. Add these keys to Info.plist:
+    //    - STRAVA_CLIENT_ID: Your app's Client ID
+    //    - STRAVA_CLIENT_SECRET: Your app's Client Secret
+    // 3. Set the Authorization Callback Domain to: gymquest
+    private var clientId: String {
+        Bundle.main.infoDictionary?["STRAVA_CLIENT_ID"] as? String ?? ""
+    }
+    private var clientSecret: String {
+        Bundle.main.infoDictionary?["STRAVA_CLIENT_SECRET"] as? String ?? ""
+    }
+
+    var isConfigured: Bool {
+        !clientId.isEmpty && !clientSecret.isEmpty
+    }
     private let redirectUri = "gymquest://strava-callback"
     private let scope = "activity:read_all"
 
@@ -42,18 +113,20 @@ class StravaService: ObservableObject {
     // MARK: - Connection Status
 
     private func checkConnectionStatus() {
-        let token = defaults.string(forKey: accessTokenKey)
-        isConnected = token != nil && !token!.isEmpty
+        let token = KeychainHelper.load(forKey: accessTokenKey)
+        isConnected = !(token?.isEmpty ?? true)
     }
 
     var accessToken: String? {
-        defaults.string(forKey: accessTokenKey)
+        KeychainHelper.load(forKey: accessTokenKey)
     }
 
     // MARK: - OAuth Authentication
 
     /// Generate the Strava OAuth authorization URL
+    /// Returns nil if Strava credentials are not configured in Info.plist
     func getAuthorizationURL() -> URL? {
+        guard isConfigured else { return nil }
         var components = URLComponents(string: "https://www.strava.com/oauth/mobile/authorize")
         components?.queryItems = [
             URLQueryItem(name: "client_id", value: clientId),
@@ -77,7 +150,9 @@ class StravaService: ObservableObject {
 
     /// Exchange authorization code for access token
     private func exchangeCodeForToken(code: String) async -> Bool {
-        let tokenURL = URL(string: "https://www.strava.com/oauth/token")!
+        guard let tokenURL = URL(string: "https://www.strava.com/oauth/token") else {
+            return false
+        }
 
         var request = URLRequest(url: tokenURL)
         request.httpMethod = "POST"
@@ -103,10 +178,10 @@ class StravaService: ObservableObject {
 
             let tokenResponse = try JSONDecoder().decode(StravaTokenResponse.self, from: data)
 
-            // Store tokens
-            defaults.set(tokenResponse.accessToken, forKey: accessTokenKey)
-            defaults.set(tokenResponse.refreshToken, forKey: refreshTokenKey)
-            defaults.set(tokenResponse.expiresAt, forKey: tokenExpiryKey)
+            // Store tokens securely in Keychain
+            KeychainHelper.save(tokenResponse.accessToken, forKey: accessTokenKey)
+            KeychainHelper.save(tokenResponse.refreshToken, forKey: refreshTokenKey)
+            defaults.set(tokenResponse.expiresAt, forKey: tokenExpiryKey)  // Expiry timestamp is not sensitive
 
             // Store athlete info
             athleteProfile = tokenResponse.athlete
@@ -121,7 +196,7 @@ class StravaService: ObservableObject {
 
     /// Refresh access token if expired
     private func refreshTokenIfNeeded() async -> Bool {
-        guard let refreshToken = defaults.string(forKey: refreshTokenKey) else {
+        guard let refreshToken = KeychainHelper.load(forKey: refreshTokenKey) else {
             return false
         }
 
@@ -131,7 +206,9 @@ class StravaService: ObservableObject {
             return true
         }
 
-        let tokenURL = URL(string: "https://www.strava.com/oauth/token")!
+        guard let tokenURL = URL(string: "https://www.strava.com/oauth/token") else {
+            return false
+        }
 
         var request = URLRequest(url: tokenURL)
         request.httpMethod = "POST"
@@ -157,9 +234,9 @@ class StravaService: ObservableObject {
 
             let tokenResponse = try JSONDecoder().decode(StravaRefreshResponse.self, from: data)
 
-            // Update tokens
-            defaults.set(tokenResponse.accessToken, forKey: accessTokenKey)
-            defaults.set(tokenResponse.refreshToken, forKey: refreshTokenKey)
+            // Update tokens securely in Keychain
+            KeychainHelper.save(tokenResponse.accessToken, forKey: accessTokenKey)
+            KeychainHelper.save(tokenResponse.refreshToken, forKey: refreshTokenKey)
             defaults.set(tokenResponse.expiresAt, forKey: tokenExpiryKey)
 
             return true
@@ -171,8 +248,8 @@ class StravaService: ObservableObject {
 
     /// Disconnect Strava account
     func disconnect() {
-        defaults.removeObject(forKey: accessTokenKey)
-        defaults.removeObject(forKey: refreshTokenKey)
+        KeychainHelper.delete(forKey: accessTokenKey)
+        KeychainHelper.delete(forKey: refreshTokenKey)
         defaults.removeObject(forKey: tokenExpiryKey)
         isConnected = false
         athleteProfile = nil
@@ -230,13 +307,18 @@ class StravaService: ObservableObject {
 
     /// Fetch activities from Strava API
     private func fetchStravaActivities(token: String, after: Date) async throws -> [StravaActivity] {
-        var components = URLComponents(string: "https://www.strava.com/api/v3/athlete/activities")!
+        guard var components = URLComponents(string: "https://www.strava.com/api/v3/athlete/activities") else {
+            throw StravaError.apiError
+        }
         components.queryItems = [
             URLQueryItem(name: "after", value: "\(Int(after.timeIntervalSince1970))"),
             URLQueryItem(name: "per_page", value: "100")
         ]
 
-        var request = URLRequest(url: components.url!)
+        guard let url = components.url else {
+            throw StravaError.apiError
+        }
+        var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -499,10 +581,21 @@ struct StravaSettingsView: View {
                             .foregroundColor(.gray)
                     }
 
-                    Button("Connect with Strava") {
-                        showingWebAuth = true
+                    if stravaService.isConfigured {
+                        Button("Connect with Strava") {
+                            showingWebAuth = true
+                        }
+                        .foregroundColor(.orange)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Strava integration requires setup")
+                                .font(.subheadline)
+                                .foregroundColor(.orange)
+                            Text("Add STRAVA_CLIENT_ID and STRAVA_CLIENT_SECRET to Info.plist")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
                     }
-                    .foregroundColor(.orange)
                 }
 
             } header: {

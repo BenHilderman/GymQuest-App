@@ -89,11 +89,11 @@ struct FloatingTabBar: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                FloatingTabButton(tab: .home, icon: "house", label: "Home")
+                FloatingTabButton(tab: .home, icon: "icon-home", selectedIcon: "icon-home-filled", label: "Home", isCustomIcon: true)
 
-                FloatingTabButton(tab: .feed, icon: "rectangle.stack", label: "Feed")
+                FloatingTabButton(tab: .feed, icon: "icon-social", selectedIcon: "icon-social-filled", label: "Social", isCustomIcon: true)
 
-                // Center add button - clean with gradient border
+                // Center add button - with animated gradient border
                 Button {
                     #if canImport(UIKit)
                     let impact = UIImpactFeedbackGenerator(style: .medium)
@@ -119,17 +119,13 @@ struct FloatingTabBar: View {
                             .fill(Color(white: 0.05))
                             .frame(width: 46, height: 46)
 
-                        // Gradient border
-                        Circle()
-                            .stroke(
-                                LinearGradient(
-                                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 2
-                            )
-                            .frame(width: 46, height: 46)
+                        // Animated gradient border
+                        AnimatedGradientCircle(
+                            size: 46,
+                            lineWidth: 2,
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                            duration: 4.0
+                        )
 
                         // Plus icon
                         Image(systemName: "plus")
@@ -140,10 +136,12 @@ struct FloatingTabBar: View {
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
                 .offset(y: -6)
+                .accessibilityLabel("Log workout")
+                .accessibilityHint("Double tap to start logging a new workout")
 
-                FloatingTabButton(tab: .progress, icon: "chart.bar", label: "Stats")
+                FloatingTabButton(tab: .progress, icon: "icon-stats", selectedIcon: "icon-stats-filled", label: "Stats", isCustomIcon: true)
 
-                FloatingTabButton(tab: .profile, icon: "person", label: "Profile")
+                FloatingTabButton(tab: .profile, icon: "person", selectedIcon: "person.fill", label: "Profile")
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
@@ -168,7 +166,9 @@ struct FloatingTabButton: View {
     @EnvironmentObject var appState: AppState
     let tab: AppState.Tab
     let icon: String
+    var selectedIcon: String? = nil
     let label: String
+    var isCustomIcon: Bool = false
 
     var isSelected: Bool { appState.selectedTab == tab }
 
@@ -176,14 +176,30 @@ struct FloatingTabButton: View {
         return .white
     }
 
+    var displayIcon: String {
+        if isSelected {
+            return selectedIcon ?? "\(icon).fill"
+        }
+        return icon
+    }
+
     var body: some View {
         Button {
             appState.selectedTab = tab
         } label: {
             VStack(spacing: 4) {
-                Image(systemName: isSelected ? "\(icon).fill" : icon)
-                    .font(.system(size: 20))
-                    .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
+                if isCustomIcon {
+                    Image(displayIcon)
+                        .renderingMode(.template)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 22, height: 22)
+                        .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
+                } else {
+                    Image(systemName: displayIcon)
+                        .font(.system(size: 20))
+                        .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
+                }
 
                 Text(label)
                     .font(.system(size: 10, weight: isSelected ? .medium : .regular))
@@ -192,6 +208,9 @@ struct FloatingTabButton: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(label) tab")
+        .accessibilityHint(isSelected ? "Currently selected" : "Double tap to switch to \(label)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -207,10 +226,11 @@ struct TabButton: View {
     @EnvironmentObject var appState: AppState
     let tab: AppState.Tab
     let icon: String
+    var selectedIcon: String? = nil
     let label: String
 
     var body: some View {
-        FloatingTabButton(tab: tab, icon: icon, label: label)
+        FloatingTabButton(tab: tab, icon: icon, selectedIcon: selectedIcon, label: label)
     }
 }
 

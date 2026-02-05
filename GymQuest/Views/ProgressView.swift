@@ -300,7 +300,7 @@ struct HealthStatsSection: View {
 
     private func loadHealthData() {
         let healthKit = HealthKitService.shared
-        healthKit.requestAuthorization()
+        healthKit.requestAuthorizationSync()
         healthKit.fetchTodayData()
 
         // Update after fetch completes
@@ -392,7 +392,7 @@ struct TodayStatsRow: View {
 
     private func loadHealthData() {
         let healthKit = HealthKitService.shared
-        healthKit.requestAuthorization()
+        healthKit.requestAuthorizationSync()
         healthKit.fetchTodayData()
 
         // Update after a delay to allow fetch to complete
@@ -516,7 +516,7 @@ struct HealthMetricsGrid: View {
             )
         }
         .onAppear {
-            healthKit.requestAuthorization()
+            healthKit.requestAuthorizationSync()
             healthKit.fetchTodayData()
         }
     }

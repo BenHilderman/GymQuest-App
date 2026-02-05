@@ -55,7 +55,7 @@ struct SquadView: View {
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(Color.blue.opacity(0.3))
+                                        .background(GQColors.deepBlue.opacity(0.3))
                                         .cornerRadius(10)
                                 }
 
@@ -67,7 +67,7 @@ struct SquadView: View {
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(Color.green.opacity(0.3))
+                                        .background(GQColors.success.opacity(0.3))
                                         .cornerRadius(10)
                                 }
                             }
@@ -108,7 +108,7 @@ struct EmptySquadView: View {
         VStack(spacing: 24) {
             Image(systemName: "person.3.fill")
                 .font(.system(size: 60))
-                .foregroundColor(.blue.opacity(0.5))
+                .foregroundColor(GQColors.deepBlue.opacity(0.5))
                 .padding(.top, 40)
 
             VStack(spacing: 8) {
@@ -147,7 +147,7 @@ struct EmptySquadView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.blue.opacity(0.3))
+                    .background(GQColors.deepBlue.opacity(0.3))
                     .cornerRadius(12)
                 }
             }
@@ -213,7 +213,7 @@ struct SquadCardView: View {
 
                         Text("+\(challenge.xpReward) XP")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.green)
+                            .foregroundColor(GQColors.success)
                     }
 
                     // Progress bar
@@ -224,7 +224,7 @@ struct SquadCardView: View {
                                 .frame(height: 6)
 
                             Capsule()
-                                .fill(Color.blue)
+                                .fill(GQColors.deepBlue)
                                 .frame(width: geo.size.width * min(1.0, Double(challenge.currentValue) / Double(challenge.targetValue)), height: 6)
                         }
                     }
@@ -243,7 +243,7 @@ struct SquadCardView: View {
                     }
                 }
                 .padding(12)
-                .background(Color.blue.opacity(0.1))
+                .background(GQColors.deepBlue.opacity(0.1))
                 .cornerRadius(10)
             }
 
@@ -422,7 +422,7 @@ struct JoinSquadSheet: View {
                     VStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 48))
-                            .foregroundColor(.green)
+                            .foregroundColor(GQColors.success)
 
                         Text("Joined \(squad.name)!")
                             .font(.headline)
@@ -536,7 +536,7 @@ struct SquadDetailView: View {
                         } label: {
                             Label("Copy Code", systemImage: "doc.on.doc")
                                 .font(.system(size: 13))
-                                .foregroundColor(.blue)
+                                .foregroundColor(GQColors.cyanSpark)
                         }
                     }
                     .padding(20)
@@ -558,7 +558,7 @@ struct SquadDetailView: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color.purple.opacity(0.3))
+                            .background(GQColors.vividPurple.opacity(0.3))
                             .cornerRadius(12)
                         }
                         .buttonStyle(.plain)
@@ -771,10 +771,10 @@ struct ActiveChallengeCard: View {
 
                 Text("+\(challenge.xpReward) XP")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.green)
+                    .foregroundColor(GQColors.success)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(Color.green.opacity(0.15))
+                    .background(GQColors.success.opacity(0.15))
                     .cornerRadius(8)
             }
 
@@ -823,7 +823,7 @@ struct ActiveChallengeCard: View {
         .padding(16)
         .background(
             LinearGradient(
-                colors: [Color.purple.opacity(0.2), Color.blue.opacity(0.1)],
+                colors: [GQColors.vividPurple.opacity(0.2), GQColors.deepBlue.opacity(0.1)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -831,7 +831,7 @@ struct ActiveChallengeCard: View {
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.purple.opacity(0.3), lineWidth: 1)
+                .strokeBorder(GQColors.vividPurple.opacity(0.3), lineWidth: 1)
         )
     }
 }

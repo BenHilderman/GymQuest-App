@@ -279,16 +279,9 @@ struct Exercise3DDemoSheet: View {
         // Set initial angle based on exercise type
         if let model = model {
             currentAngle = model.preferredStartAngle
-        } else if let demo = RobotDemoService.shared.getDemoAnimation(for: exerciseName) {
-            // Infer from 2D demo orientation
-            switch demo.bodyOrientation {
-            case .standingSideView, .bentOver, .lyingOnBench, .inclineBench, .lyingFaceDown:
-                currentAngle = .side
-            case .standingFrontView, .hanging:
-                currentAngle = .front
-            default:
-                currentAngle = .side
-            }
+        } else {
+            // Default to side view for 2D demos
+            currentAngle = .side
         }
     }
 }

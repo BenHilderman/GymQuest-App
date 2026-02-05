@@ -85,13 +85,14 @@ class HealthKitService: ObservableObject {
         }
 
         let status = healthStore.authorizationStatus(for: HKObjectType.workoutType())
-        isAuthorized = status == .sharingAuthorized || status == .notDetermined
+        // Note: .notDetermined means we haven't asked yet, not that we have permission
+        isAuthorized = status == .sharingAuthorized
     }
 
-    /// Request authorization (sync wrapper)
-    func requestAuthorization() {
+    /// Request authorization (fire-and-forget wrapper for non-async contexts)
+    func requestAuthorizationSync() {
         Task {
-            _ = await requestAuthorization() as Bool
+            _ = await requestAuthorization()
         }
     }
 

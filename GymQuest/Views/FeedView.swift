@@ -70,6 +70,7 @@ struct FeedView: View {
                                     PostCardV2(
                                         post: post,
                                         currentUserId: profile.id,
+                                        currentUserName: profile.name,
                                         onLearnThis: { exerciseName in
                                             selectedExerciseForLearn = exerciseName
                                             showLearnPanel = true
@@ -188,6 +189,7 @@ struct FeedTabsView: View {
 struct PostCardV2: View {
     let post: Post
     let currentUserId: UUID
+    var currentUserName: String = ""
     let onLearnThis: (String) -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -302,7 +304,9 @@ struct PostCardV2: View {
                     if let highlight = post.exerciseHighlight {
                         onLearnThis(highlight)
                     }
-                } : nil
+                } : nil,
+                currentUserId: currentUserId,
+                currentUserName: currentUserName
             )
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
@@ -326,8 +330,12 @@ struct PostCardV2: View {
             }
         }
         .sheet(isPresented: $showComments) {
-            CommentsSheet(post: post, currentUserId: currentUserId)
-                .presentationDetents([.medium, .large])
+            CommentsSheet(
+                post: post,
+                currentUserId: currentUserId,
+                currentUserName: currentUserName
+            )
+            .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showWorkoutDetail) {
             if let workout = sharedWorkout {
@@ -678,7 +686,10 @@ struct PostActionsRowAnimated: View {
     @Binding var isLiked: Bool
     @Binding var showComments: Bool
     let onLearnThis: (() -> Void)?
+    var currentUserId: UUID = UUID()
+    var currentUserName: String = ""
 
+    @Environment(\.modelContext) private var modelContext
     @State private var heartScale: CGFloat = 1.0
     @State private var showParticles = false
     @State private var displayedLikeCount: Int = 0
@@ -765,6 +776,7 @@ struct PostActionsRowAnimated: View {
         .onAppear {
             displayedLikeCount = post.likeCount
             displayedCommentCount = post.commentCount
+            checkIfLiked()
         }
     }
 
@@ -776,6 +788,30 @@ struct PostActionsRowAnimated: View {
             isLiked.toggle()
             post.likeCount += isLiked ? 1 : -1
         }
+
+        // Persist the like/unlike to database
+        if isLiked {
+            // Create new Like record
+            let like = Like(
+                postId: post.id,
+                userId: currentUserId,
+                userName: currentUserName
+            )
+            modelContext.insert(like)
+        } else {
+            // Remove existing Like record
+            let postId = post.id
+            let userId = currentUserId
+            let descriptor = FetchDescriptor<Like>(
+                predicate: #Predicate { $0.postId == postId && $0.userId == userId }
+            )
+            if let existingLikes = try? modelContext.fetch(descriptor) {
+                for like in existingLikes {
+                    modelContext.delete(like)
+                }
+            }
+        }
+        try? modelContext.save()
 
         // Heart scale burst animation
         withAnimation(.spring(response: 0.2, dampingFraction: 0.4)) {
@@ -802,6 +838,17 @@ struct PostActionsRowAnimated: View {
         // Update displayed count with animation
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             displayedLikeCount = post.likeCount
+        }
+    }
+
+    private func checkIfLiked() {
+        let postId = post.id
+        let userId = currentUserId
+        let descriptor = FetchDescriptor<Like>(
+            predicate: #Predicate { $0.postId == postId && $0.userId == userId }
+        )
+        if let likes = try? modelContext.fetch(descriptor), !likes.isEmpty {
+            isLiked = true
         }
     }
 }
@@ -1350,6 +1397,8 @@ struct LearnThisPanel: View {
 struct CommentsSheet: View {
     let post: Post
     let currentUserId: UUID
+    var currentUserName: String = ""
+    var currentUsername: String = ""
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Query private var comments: [Comment]
@@ -1416,8 +1465,8 @@ struct CommentsSheet: View {
         let comment = Comment(
             postId: post.id,
             authorId: currentUserId,
-            authorName: "You", // Would use actual profile
-            authorUsername: "",
+            authorName: currentUserName.isEmpty ? "User" : currentUserName,
+            authorUsername: currentUsername,
             content: newComment,
             timestamp: Date()
         )

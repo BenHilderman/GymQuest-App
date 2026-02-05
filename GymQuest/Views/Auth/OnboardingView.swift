@@ -20,15 +20,16 @@ struct OnboardingView: View {
     let authMethod: String
     let email: String?
     let googleId: String?
+    let tempPassword: String?
 
     @State private var currentStep = 0
     @State private var name = ""
     @State private var username = ""
     @State private var dateOfBirth = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
 
-    // Get password from UserDefaults if it was set during email signup
+    // Password is now passed in directly, not stored in UserDefaults
     private var storedPassword: String {
-        UserDefaults.standard.string(forKey: "temp_signup_password") ?? ""
+        tempPassword ?? ""
     }
 
     // Get name from Google Sign-In if available
@@ -160,8 +161,7 @@ struct OnboardingView: View {
                 email: email,
                 password: storedPassword
             )
-            // Clear the temporary password
-            UserDefaults.standard.removeObject(forKey: "temp_signup_password")
+            // Password is now passed in-memory through AuthState, no cleanup needed
         }
 
         if profile != nil {
@@ -298,6 +298,6 @@ struct PasswordStepView: View {
 }
 
 #Preview {
-    OnboardingView(authMethod: "email", email: "test@example.com", googleId: nil)
+    OnboardingView(authMethod: "email", email: "test@example.com", googleId: nil, tempPassword: nil)
         .environmentObject(AppState())
 }

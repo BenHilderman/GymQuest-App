@@ -112,6 +112,8 @@ struct ChatSection: View {
 
     @State private var inputText: String = ""
     @State private var keyboardHeight: CGFloat = 0 // manual keyboard tracking for tab bar
+    @State private var keyboardShowObserver: NSObjectProtocol?
+    @State private var keyboardHideObserver: NSObjectProtocol?
 
     // preset prompts for common questions
     let quickPrompts = [
@@ -282,15 +284,18 @@ struct ChatSection: View {
         .onAppear {
             setupKeyboardObservers()
         }
+        .onDisappear {
+            removeKeyboardObservers()
+        }
     }
 
     private func setupKeyboardObservers() {
         #if canImport(UIKit)
-        NotificationCenter.default.addObserver(
+        keyboardShowObserver = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillShowNotification,
             object: nil,
             queue: .main
-        ) { notification in
+        ) { [self] notification in
             if let keyboardFrame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
                 withAnimation(.easeOut(duration: 0.25)) {
                     keyboardHeight = keyboardFrame.height
@@ -298,14 +303,27 @@ struct ChatSection: View {
             }
         }
 
-        NotificationCenter.default.addObserver(
+        keyboardHideObserver = NotificationCenter.default.addObserver(
             forName: UIResponder.keyboardWillHideNotification,
             object: nil,
             queue: .main
-        ) { _ in
+        ) { [self] _ in
             withAnimation(.easeOut(duration: 0.25)) {
                 keyboardHeight = 0
             }
+        }
+        #endif
+    }
+
+    private func removeKeyboardObservers() {
+        #if canImport(UIKit)
+        if let showObserver = keyboardShowObserver {
+            NotificationCenter.default.removeObserver(showObserver)
+            keyboardShowObserver = nil
+        }
+        if let hideObserver = keyboardHideObserver {
+            NotificationCenter.default.removeObserver(hideObserver)
+            keyboardHideObserver = nil
         }
         #endif
     }

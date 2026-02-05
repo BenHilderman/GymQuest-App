@@ -178,7 +178,7 @@ struct LoginView: View {
                     UserDefaults.standard.set(name, forKey: "google_signup_name")
                 }
                 withAnimation {
-                    appState.authState = .onboarding(authMethod: "google", email: googleEmail, googleId: googleId)
+                    appState.authState = .onboarding(authMethod: "google", email: googleEmail, googleId: googleId, tempPassword: nil)
                 }
             }
         }
@@ -217,12 +217,10 @@ struct LoginView: View {
                 return
             }
 
-            // new user - go to onboarding (password stored temporarily for after onboarding)
+            // new user - go to onboarding (password passed through AuthState, not persisted)
             showingEmailSheet = false
-            // Store password in UserDefaults temporarily (cleared after registration)
-            UserDefaults.standard.set(password, forKey: "temp_signup_password")
             withAnimation {
-                appState.authState = .onboarding(authMethod: "email", email: email, googleId: nil)
+                appState.authState = .onboarding(authMethod: "email", email: email, googleId: nil, tempPassword: password)
             }
         } else {
             // login flow

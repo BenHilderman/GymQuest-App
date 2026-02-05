@@ -35,11 +35,12 @@ struct RootView: View {
                     }
                 }
 
-            case .onboarding(let authMethod, let email, let googleId):
+            case .onboarding(let authMethod, let email, let googleId, let tempPassword):
                 OnboardingView(
                     authMethod: authMethod,
                     email: email,
-                    googleId: googleId
+                    googleId: googleId,
+                    tempPassword: tempPassword
                 )
 
             case .authenticated:

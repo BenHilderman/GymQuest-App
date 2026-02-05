@@ -166,7 +166,7 @@ struct MealLogView: View {
                             } label: {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.title2)
-                                    .foregroundColor(.blue)
+                                    .foregroundColor(GQColors.cyanSpark)
                             }
                             .disabled(customTag.isEmpty)
                         }
@@ -315,11 +315,11 @@ struct TagChip: View {
                 .foregroundColor(isSelected ? .white : .gray)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(isSelected ? Color.blue.opacity(0.4) : Color.white.opacity(0.08))
+                .background(isSelected ? GQColors.cyanSpark.opacity(0.4) : Color.white.opacity(0.08))
                 .cornerRadius(16)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(isSelected ? Color.blue : Color.clear, lineWidth: 1)
+                        .strokeBorder(isSelected ? GQColors.cyanSpark : Color.clear, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -452,12 +452,12 @@ struct MealLogCard: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(Color.green.opacity(0.2))
+                        .fill(GQColors.success.opacity(0.2))
                         .frame(width: 44, height: 44)
 
                     Image(systemName: "fork.knife")
                         .font(.title3)
-                        .foregroundColor(.green)
+                        .foregroundColor(GQColors.success)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -478,11 +478,11 @@ struct MealLogCard: View {
                     .foregroundColor(.green.opacity(0.6))
             }
             .padding(16)
-            .background(Color.green.opacity(0.08))
+            .background(GQColors.success.opacity(0.08))
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(Color.green.opacity(0.2), lineWidth: 1)
+                    .strokeBorder(GQColors.success.opacity(0.2), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
