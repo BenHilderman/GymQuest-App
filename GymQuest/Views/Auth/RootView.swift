@@ -14,6 +14,7 @@ import SwiftData
 
 struct RootView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var featureFlags: FeatureFlags
     @Environment(\.modelContext) private var modelContext
     @StateObject private var authService = AuthService()
 
@@ -53,6 +54,14 @@ struct RootView: View {
     private func checkAuth() {
         authService.setModelContext(modelContext)
 
+        // Dev mode: skip auth and create/use test user
+        if featureFlags.devSkipAuth {
+            createOrFetchDevUser()
+            appState.authState = .authenticated
+            hasCheckedAuth = true
+            return
+        }
+
         if let profile = authService.checkExistingAuth() {
             appState.authState = .authenticated
         } else {
@@ -60,6 +69,39 @@ struct RootView: View {
         }
 
         hasCheckedAuth = true
+    }
+
+    private func createOrFetchDevUser() {
+        // Check if dev user already exists
+        let descriptor = FetchDescriptor<UserProfile>(
+            predicate: #Predicate { $0.email == "dev@gymquest.app" }
+        )
+
+        do {
+            let existing = try modelContext.fetch(descriptor)
+            if let profile = existing.first {
+                profile.isAuthenticated = true
+                try modelContext.save()
+                return
+            }
+        } catch {
+            print("Error checking for dev user: \(error)")
+        }
+
+        // Create dev user
+        let devUser = UserProfile(
+            name: "Dev User",
+            username: "devuser",
+            isAuthenticated: true,
+            authMethod: "dev",
+            email: "dev@gymquest.app",
+            passwordHash: "",
+            dateOfBirth: Date()
+        )
+        devUser.aiProvider = .demo
+
+        modelContext.insert(devUser)
+        try? modelContext.save()
     }
 }
 
