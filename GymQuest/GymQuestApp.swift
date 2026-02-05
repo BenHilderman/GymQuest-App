@@ -70,7 +70,19 @@ struct GymQuestApp: App {
             WeeklyRecap.self,
 
             // Analytics (GymQuest 2.0)
-            AnalyticsEvent.self
+            AnalyticsEvent.self,
+
+            // Form Studio
+            FormExercise.self,
+            FormMediaSet.self,
+            FormClip.self,
+            FormChapter.self,
+            FormCue.self,
+            FormFault.self,
+            VariationEdge.self,
+            PatternMastery.self,
+            ExerciseMastery.self,
+            ConfidenceRating.self
         ])
 
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)

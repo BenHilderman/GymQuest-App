@@ -35,6 +35,9 @@ struct HomeView: View {
     @State private var totalSets: Int = 0
     @State private var totalXP: Int = 0
     @State private var headerAppeared = true
+    @State private var showingFormStudio = false
+    @State private var formStudioExercise: FormExercise?
+    @State private var showingVideoGenerator = false
 
     // Extract first name from full name
     var firstName: String {
@@ -114,6 +117,24 @@ struct HomeView: View {
                         ) {
                             appState.selectedTab = .progress
                         }
+
+                        // Form Studio
+                        HomeActionButton(
+                            icon: "play.rectangle.on.rectangle",
+                            title: "Form Studio",
+                            subtitle: "Learn perfect technique",
+                            accentColor: GQColors.electricBlue,
+                            isPrimary: false
+                        ) {
+                            openFormStudio()
+                        }
+                        .contextMenu {
+                            Button {
+                                showingVideoGenerator = true
+                            } label: {
+                                Label("Generate Videos (AI)", systemImage: "sparkles")
+                            }
+                        }
                     }
                     .padding(.horizontal, 16)
 
@@ -147,6 +168,16 @@ struct HomeView: View {
             .fullScreenCover(isPresented: $showingWorkoutTypePicker) {
                 WorkoutTypeSelectionView(profile: profile)
             }
+            .sheet(isPresented: $showingFormStudio) {
+                if let exercise = formStudioExercise {
+                    NavigationStack {
+                        FormStudioView(oduserId: profile.id.uuidString, exercise: exercise)
+                    }
+                }
+            }
+            .sheet(isPresented: $showingVideoGenerator) {
+                VideoGeneratorView()
+            }
             .fullScreenCover(isPresented: $showingActiveWorkout) {
                 ActiveWorkoutView(profile: profile, workoutType: selectedWorkoutType)
             }
@@ -154,6 +185,9 @@ struct HomeView: View {
     }
 
     private func loadHomeData() {
+        // Seed Form Studio content if needed
+        try? FormContentSeeder.seedIfNeeded(modelContext: modelContext)
+
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
@@ -182,6 +216,29 @@ struct HomeView: View {
 
         // Get active squad
         loadActiveSquad()
+    }
+
+    private func openFormStudio() {
+        // Ensure Form Studio content is seeded
+        FormContentSeeder.seedIfNeeded(modelContext: modelContext)
+
+        let repo = FormRepository(modelContext: modelContext)
+        let exercises = repo.allExercises()
+        print("Form Studio: Found \(exercises.count) exercises")
+
+        if let first = exercises.first {
+            formStudioExercise = first
+            showingFormStudio = true
+        } else {
+            // Fallback: seed sample data and try again
+            FormContentSeeder.seedSampleData(modelContext: modelContext)
+            let refreshedExercises = repo.allExercises()
+            print("Form Studio after fallback: Found \(refreshedExercises.count) exercises")
+            if let first = refreshedExercises.first {
+                formStudioExercise = first
+                showingFormStudio = true
+            }
+        }
     }
 
     private func calculateStreak() -> Int {

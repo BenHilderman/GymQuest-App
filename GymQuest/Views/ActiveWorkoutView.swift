@@ -24,6 +24,8 @@ struct ActiveWorkoutView: View {
     @State private var workoutStartTime = Date()
     @State private var showingAddExercise = false
     @State private var showingFormDemo: ActiveExercise?
+    @State private var showingFormPeek = false
+    @State private var formPeekExercise: FormExercise?
     @State private var showingCompletion = false
     @State private var elapsedTime = 0
     @State private var timer: Timer?
@@ -57,7 +59,7 @@ struct ActiveWorkoutView: View {
                         ForEach($exercises) { $exercise in
                             ActiveExerciseCard(
                                 exercise: $exercise,
-                                onShowDemo: { showingFormDemo = exercise }
+                                onShowDemo: { showFormPeek(for: exercise.name) }
                             )
                         }
 
@@ -83,6 +85,13 @@ struct ActiveWorkoutView: View {
         }
         .sheet(item: $showingFormDemo) { exercise in
             ExerciseFormDemoSheet(exerciseName: exercise.name)
+        }
+        .sheet(isPresented: $showingFormPeek) {
+            if let exercise = formPeekExercise {
+                FormPeekSheet(exercise: exercise)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
         }
         .sheet(isPresented: $showingCompletion) {
             WorkoutSessionCompletionSheet(
@@ -262,6 +271,50 @@ struct ActiveWorkoutView: View {
     private func finishWorkout() {
         timer?.invalidate()
         showingCompletion = true
+    }
+
+    private func showFormPeek(for exerciseName: String) {
+        // Seed Form Studio content if needed
+        FormContentSeeder.seedIfNeeded(modelContext: modelContext)
+
+        let repo = FormRepository(modelContext: modelContext)
+        var allExercises = repo.allExercises()
+
+        // If no exercises found, force seed sample data
+        if allExercises.isEmpty {
+            FormContentSeeder.seedSampleData(modelContext: modelContext)
+            allExercises = repo.allExercises()
+            print("Form Peek fallback: seeded \(allExercises.count) exercises")
+        }
+
+        // Try to find matching FormExercise by name (fuzzy match)
+        let searchName = exerciseName.lowercased()
+        let searchWords = searchName.split(separator: " ").map { String($0) }
+
+        if let found = allExercises.first(where: { formEx in
+            let formName = formEx.name.lowercased()
+            // Check if search name is contained in form name or vice versa
+            if formName.contains(searchName) || searchName.contains(formName) {
+                return true
+            }
+            // Check if key words match (e.g., "bench" matches "barbell bench press")
+            for word in searchWords {
+                if word.count >= 4 && formName.contains(word) {
+                    return true
+                }
+            }
+            return false
+        }) {
+            formPeekExercise = found
+            showingFormPeek = true
+            print("Form Peek: showing '\(found.name)' for '\(exerciseName)'")
+        } else {
+            // Fall back to old demo sheet
+            print("Form Peek: no match for '\(exerciseName)', falling back to demo")
+            if let activeEx = exercises.first(where: { $0.name == exerciseName }) {
+                showingFormDemo = activeEx
+            }
+        }
     }
 }
 
