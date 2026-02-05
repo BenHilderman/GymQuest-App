@@ -393,23 +393,14 @@ enum WorkoutType: String, Codable, CaseIterable {
         case .legs: return "figure.walk"
         case .upper: return "figure.arms.open"
         case .lower: return "figure.stand"
-        case .fullBody: return "figure.mixed.cardio"
-        case .cardio: return "heart.fill"
+        case .fullBody: return "figure.strengthtraining.traditional"
+        case .cardio: return "figure.run"
         case .rest: return "leaf.fill"
         }
     }
 
     var color: Color {
-        switch self {
-        case .push: return GQColors.vividPurple
-        case .pull: return GQColors.cyanSpark
-        case .legs: return GQColors.success
-        case .upper: return GQColors.deepBlue
-        case .lower: return Color.orange
-        case .fullBody: return GQColors.coralRed
-        case .cardio: return Color.pink
-        case .rest: return GQColors.success.opacity(0.7)
-        }
+        return Color(red: 0.0, green: 0.9, blue: 0.9) // Cyan accent
     }
 }
 
@@ -732,6 +723,45 @@ enum MessageRole: String, Codable {
     case system
 }
 
+// MARK: - Post Media (Exercise-Specific Media)
+
+/// Media item that can be associated with a specific exercise in a post
+struct PostMedia: Codable, Identifiable {
+    var id: UUID = UUID()
+    var exerciseName: String?           // nil = general post media (not exercise-specific)
+    var exerciseIndex: Int?             // Index in the workout for ordering
+    var mediaType: PostMediaType
+    var data: Data?                     // Actual media bytes
+    var thumbnailData: Data?            // Video thumbnail for preview
+    var caption: String?                // Optional per-media caption
+    var timestamp: Date = Date()
+
+    enum PostMediaType: String, Codable {
+        case photo
+        case video
+    }
+
+    init(
+        id: UUID = UUID(),
+        exerciseName: String? = nil,
+        exerciseIndex: Int? = nil,
+        mediaType: PostMediaType = .photo,
+        data: Data? = nil,
+        thumbnailData: Data? = nil,
+        caption: String? = nil,
+        timestamp: Date = Date()
+    ) {
+        self.id = id
+        self.exerciseName = exerciseName
+        self.exerciseIndex = exerciseIndex
+        self.mediaType = mediaType
+        self.data = data
+        self.thumbnailData = thumbnailData
+        self.caption = caption
+        self.timestamp = timestamp
+    }
+}
+
 // this is what shows up in the feed - a shareable workout moment
 // users can post with or without exact stats, add a photo, caption, and tag friends
 @Model
@@ -774,6 +804,21 @@ final class Post {
     var likeCount: Int
     var commentCount: Int
 
+    // Enhanced media (GymQuest 2.0 - exercise-aligned media)
+    var mediaItemsData: Data?           // JSON-encoded [PostMedia]
+
+    // Location tagging
+    var locationName: String?           // e.g., "The ARC - Queen's University"
+    var locationId: UUID?               // Link to Community if from known gym
+
+    // Squad/Group tagging
+    var taggedSquadIds: [UUID]          // Squads this post is shared with
+    var taggedSquadNames: [String]      // Display names for rendering
+
+    // Enhanced music (playlist URLs)
+    var spotifyPlaylistURL: String?     // Full Spotify playlist URL
+    var appleMusicPlaylistURL: String?  // Full Apple Music playlist URL
+
     init(
         id: UUID = UUID(),
         authorId: UUID = UUID(),
@@ -799,7 +844,14 @@ final class Post {
         inspiredByName: String? = nil,
         taggedUsernames: [String] = [],
         likeCount: Int = 0,
-        commentCount: Int = 0
+        commentCount: Int = 0,
+        mediaItemsData: Data? = nil,
+        locationName: String? = nil,
+        locationId: UUID? = nil,
+        taggedSquadIds: [UUID] = [],
+        taggedSquadNames: [String] = [],
+        spotifyPlaylistURL: String? = nil,
+        appleMusicPlaylistURL: String? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -826,12 +878,40 @@ final class Post {
         self.taggedUsernames = taggedUsernames
         self.likeCount = likeCount
         self.commentCount = commentCount
+        self.mediaItemsData = mediaItemsData
+        self.locationName = locationName
+        self.locationId = locationId
+        self.taggedSquadIds = taggedSquadIds
+        self.taggedSquadNames = taggedSquadNames
+        self.spotifyPlaylistURL = spotifyPlaylistURL
+        self.appleMusicPlaylistURL = appleMusicPlaylistURL
     }
 
     /// Decode shared workout data for follow feature
     func getSharedWorkout() -> SharedWorkoutData? {
         guard let data = sharedWorkoutData else { return nil }
         return try? JSONDecoder().decode(SharedWorkoutData.self, from: data)
+    }
+
+    /// Get/set decoded media items for exercise-aligned media
+    var mediaItems: [PostMedia] {
+        get {
+            guard let data = mediaItemsData else { return [] }
+            return (try? JSONDecoder().decode([PostMedia].self, from: data)) ?? []
+        }
+        set {
+            mediaItemsData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    /// Check if post has exercise-specific media
+    var hasExerciseMedia: Bool {
+        mediaItems.contains { $0.exerciseName != nil }
+    }
+
+    /// Check if post has any media (including legacy photoData/videoData)
+    var hasMedia: Bool {
+        !mediaItems.isEmpty || photoData != nil || videoData != nil
     }
 }
 

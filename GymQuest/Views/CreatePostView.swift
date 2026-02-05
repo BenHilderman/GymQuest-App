@@ -308,7 +308,7 @@ struct CreatePostView: View {
             exerciseHighlight: nil,
             songTitle: selectedSong?.title,
             artistName: selectedSong?.artist,
-            songPreviewURL: selectedSong?.previewURL?.absoluteString,
+            songPreviewURL: selectedSong?.previewURL,
             musicSource: selectedSong?.source.rawValue,
             playlistId: selectedSong?.playlistId,
             detectedActivity: detectedActivity?.rawValue,
@@ -984,11 +984,11 @@ struct QuickTagButton: View {
                 .foregroundColor(isSelected ? .white : .gray)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(isSelected ? Color.green.opacity(0.4) : Color.white.opacity(0.08))
+                .background(isSelected ? GQColors.cyanSpark.opacity(0.4) : Color.white.opacity(0.08))
                 .cornerRadius(14)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(isSelected ? Color.green : Color.clear, lineWidth: 1)
+                        .strokeBorder(isSelected ? GQColors.cyanSpark : Color.clear, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)

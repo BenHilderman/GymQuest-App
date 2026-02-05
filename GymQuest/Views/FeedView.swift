@@ -58,15 +58,18 @@ struct FeedView: View {
                 // Content based on selected tab
                 if selectedTab == .communities {
                     CommunityFeedView(profile: profile)
+                } else if selectedTab == .discover {
+                    // TikTok-style full screen feed for Discover
+                    TikTokFeedView(profile: profile)
+                        .ignoresSafeArea()
                 } else {
+                    // Traditional feed for Friends
                     ScrollView {
                         LazyVStack(spacing: 0) {
-                            let displayPosts = selectedTab == .friends ? friendsPosts : discoverPosts
-
-                            if displayPosts.isEmpty {
+                            if friendsPosts.isEmpty {
                                 EmptyFeedView(onCreatePost: { appState.showingLogWorkout = true })
                             } else {
-                                ForEach(displayPosts) { post in
+                                ForEach(friendsPosts) { post in
                                     PostCardV2(
                                         post: post,
                                         currentUserId: profile.id,
@@ -140,12 +143,13 @@ struct FeedView: View {
 
 struct FeedTabsView: View {
     @Binding var selectedTab: FeedTab
+    @Namespace private var tabNamespace
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(FeedTab.allCases, id: \.self) { tab in
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         selectedTab = tab
                     }
                 } label: {
@@ -154,23 +158,28 @@ struct FeedTabsView: View {
                             .font(.system(size: 16, weight: selectedTab == tab ? .semibold : .medium))
                             .foregroundColor(selectedTab == tab ? .white : GQColors.textTertiary)
 
-                        // Underline indicator
-                        Rectangle()
-                            .fill(
-                                selectedTab == tab ?
-                                    LinearGradient(
-                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    ) :
-                                    LinearGradient(
-                                        colors: [Color.clear, Color.clear],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
+                        // Sliding underline indicator
+                        ZStack {
+                            // Invisible spacer to maintain layout
+                            Rectangle()
+                                .fill(Color.clear)
+                                .frame(height: 2)
+
+                            // Animated underline
+                            if selectedTab == tab {
+                                Rectangle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
                                     )
-                            )
-                            .frame(height: 2)
-                            .cornerRadius(1)
+                                    .frame(height: 2)
+                                    .cornerRadius(1)
+                                    .matchedGeometryEffect(id: "underline", in: tabNamespace)
+                            }
+                        }
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -253,6 +262,9 @@ struct PostCardV2: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
             }
+
+            // Tagged users, location, and squads
+            PostTagsRow(post: post)
 
             // Media (photo or video) with activity badge overlay - EDGE TO EDGE
             ZStack(alignment: .topTrailing) {
@@ -1157,7 +1169,7 @@ struct LearnThisPanel: View {
                 }
                 .padding(16)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(Color(white: 0.05).ignoresSafeArea())
             .navigationTitle("Learn This")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -1446,7 +1458,7 @@ struct CommentsSheet: View {
                 }
                 .padding(16)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(Color(white: 0.05).ignoresSafeArea())
             .navigationTitle("Comments")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -2652,7 +2664,7 @@ struct CommunityDetailView: View {
                     Spacer(minLength: 40)
                 }
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(Color(white: 0.05).ignoresSafeArea())
             .navigationTitle("Community")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -2815,6 +2827,189 @@ struct NewCommunityPostSheet: View {
         modelContext.insert(post)
         try? modelContext.save()
         dismiss()
+    }
+}
+
+// MARK: - Post Tags Row (Shows tagged users, location, squads)
+
+struct PostTagsRow: View {
+    let post: Post
+
+    var hasAnyTags: Bool {
+        !post.taggedUsernames.isEmpty ||
+        post.locationName != nil ||
+        !post.taggedSquadIds.isEmpty ||
+        post.spotifyPlaylistURL != nil ||
+        post.appleMusicPlaylistURL != nil
+    }
+
+    var body: some View {
+        if hasAnyTags {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    // Tagged users
+                    ForEach(post.taggedUsernames, id: \.self) { username in
+                        PostTagBadge(
+                            icon: "at",
+                            text: username,
+                            color: GQColors.cyanSpark
+                        )
+                    }
+
+                    // Location
+                    if let location = post.locationName {
+                        PostTagBadge(
+                            icon: "location.fill",
+                            text: location,
+                            color: GQColors.success
+                        )
+                    }
+
+                    // Squads
+                    ForEach(Array(zip(post.taggedSquadIds, post.taggedSquadNames)), id: \.0) { _, squadName in
+                        PostTagBadge(
+                            icon: "person.3.fill",
+                            text: squadName,
+                            color: GQColors.vividPurple
+                        )
+                    }
+
+                    // Spotify playlist link
+                    if post.spotifyPlaylistURL != nil {
+                        PostTagBadge(
+                            icon: "music.note",
+                            text: "Spotify Playlist",
+                            color: Color(hex: "1DB954")
+                        )
+                    }
+
+                    // Apple Music playlist link
+                    if post.appleMusicPlaylistURL != nil {
+                        PostTagBadge(
+                            icon: "music.note",
+                            text: "Apple Music",
+                            color: Color(hex: "FC3C44")
+                        )
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+            .padding(.bottom, 8)
+        }
+    }
+}
+
+// MARK: - Post Tag Badge
+
+struct PostTagBadge: View {
+    let icon: String
+    let text: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+
+            Text(text)
+                .font(.system(size: 12, weight: .medium))
+                .lineLimit(1)
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(color.opacity(0.25))
+        .cornerRadius(14)
+    }
+}
+
+// MARK: - Exercise Media Carousel (for posts with exercise-specific media)
+
+struct ExerciseMediaCarousel: View {
+    let mediaItems: [PostMedia]
+    @State private var selectedIndex = 0
+
+    var body: some View {
+        if !mediaItems.isEmpty {
+            VStack(spacing: 8) {
+                TabView(selection: $selectedIndex) {
+                    ForEach(Array(mediaItems.enumerated()), id: \.element.id) { index, media in
+                        ZStack(alignment: .bottomLeading) {
+                            // Media content
+                            if let data = media.data, let image = UIImage(data: data) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .clipped()
+                            }
+
+                            // Exercise label overlay
+                            if let exerciseName = media.exerciseName {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "dumbbell.fill")
+                                        .font(.system(size: 10))
+                                    Text(exerciseName)
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.black.opacity(0.6))
+                                .cornerRadius(8)
+                                .padding(12)
+                            }
+
+                            // Video indicator
+                            if media.mediaType == .video {
+                                VStack {
+                                    HStack {
+                                        Spacer()
+                                        Image(systemName: "play.circle.fill")
+                                            .font(.system(size: 24))
+                                            .foregroundColor(.white)
+                                            .shadow(radius: 4)
+                                            .padding(12)
+                                    }
+                                    Spacer()
+                                }
+                            }
+                        }
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .automatic))
+                .frame(height: 300)
+
+                // Exercise indicator pills
+                if mediaItems.count > 1 {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(Array(mediaItems.enumerated()), id: \.element.id) { index, media in
+                                Button {
+                                    withAnimation {
+                                        selectedIndex = index
+                                    }
+                                } label: {
+                                    Text(media.exerciseName ?? "General")
+                                        .font(.system(size: 11, weight: selectedIndex == index ? .semibold : .regular))
+                                        .foregroundColor(selectedIndex == index ? .white : GQColors.textSecondary)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(
+                                            selectedIndex == index
+                                                ? GQColors.vividPurple
+                                                : Color.white.opacity(0.1)
+                                        )
+                                        .cornerRadius(12)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -20,6 +20,10 @@ struct GQColors {
     static let deepBlue = Color(hex: "4158D0")     // Deep Blue
     static let cyanSpark = Color(hex: "00D9FF")    // Cyan Spark
 
+    // Primary accent (used in TikTok-style components)
+    static let primary = vividPurple
+    static let secondary = cyanSpark
+
     // Backwards compatibility with old names
     static let coral = coralRed
     static let peach = sunsetOrange
@@ -41,8 +45,8 @@ struct GQColors {
     // Backgrounds - pure dark
     static let deepBlack = Color(hex: "000000")
     static let darkSurface = Color(hex: "0A0A0A")
-    static let cardBackground = Color(hex: "0F0F0F")
-    static let elevatedSurface = Color(hex: "161616")
+    static let cardBackground = Color(hex: "121212")
+    static let elevatedSurface = Color(hex: "1A1A1A")
 
     // Text
     static let textPrimary = Color.white
@@ -165,6 +169,70 @@ struct GQGradients {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
+    // MARK: - Workout Type Gradients
+
+    /// Returns a vibrant gradient for completed workout tiles based on workout type
+    static func workoutGradient(for type: WorkoutType) -> LinearGradient {
+        switch type {
+        case .push:
+            // Purple to Cyan - primary app gradient
+            return LinearGradient(
+                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .pull:
+            // Cyan to Deep Blue
+            return LinearGradient(
+                colors: [GQColors.cyanSpark, GQColors.deepBlue],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .legs:
+            // Orange to Gold - warm energy
+            return LinearGradient(
+                colors: [GQColors.sunsetOrange, GQColors.electricGold],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .upper:
+            // Purple to Deep Blue
+            return LinearGradient(
+                colors: [GQColors.vividPurple, GQColors.deepBlue],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .lower:
+            // Sunset Orange to Coral Red
+            return LinearGradient(
+                colors: [GQColors.sunsetOrange, GQColors.coralRed],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .fullBody:
+            // Success Green to Cyan
+            return LinearGradient(
+                colors: [GQColors.success, GQColors.cyanSpark],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .cardio:
+            // Success green gradient
+            return LinearGradient(
+                colors: [GQColors.success, GQColors.success.opacity(0.7)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .rest:
+            // Subtle gray/white gradient for rest days
+            return LinearGradient(
+                colors: [Color.white.opacity(0.15), Color.white.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
 }
 
 // MARK: - Animated Gradient Circle
