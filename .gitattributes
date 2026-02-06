@@ -1,4 +1,4 @@
-# Language detection
+# GitHub language detection overrides
 *.yml linguist-detectable=false
 *.yaml linguist-detectable=false
 *.xcodeproj/** linguist-generated
