@@ -1,0 +1,13 @@
+{
+  "token_type": "Bearer",
+  "access_token": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "refresh_token": "f6e5d4c3b2a1f6e5d4c3b2a1f6e5d4c3b2a1f6e5",
+  "expires_at": 1705449600,
+  "athlete": {
+    "id": 98765432,
+    "username": "testathlete",
+    "firstname": "Test",
+    "lastname": "Athlete",
+    "profile_medium": "https://example.com/avatar.jpg"
+  }
+}

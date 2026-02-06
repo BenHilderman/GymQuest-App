@@ -1,0 +1,49 @@
+name: Nightly Performance Baselines
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 4 AM UTC daily
+  workflow_dispatch:       # Manual trigger
+
+jobs:
+  performance:
+    name: Performance Baselines
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 15
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        working-directory: GymQuest-iOS
+        run: xcodegen generate
+
+      - name: Resolve SPM Dependencies
+        working-directory: GymQuest-iOS
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -scheme GymQuest \
+            -clonedSourcePackagesDirPath .spm-cache
+
+      - name: Run Performance Tests
+        working-directory: GymQuest-iOS
+        run: |
+          xcodebuild test \
+            -scheme GymQuestPerformanceTests \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            -clonedSourcePackagesDirPath .spm-cache \
+            -resultBundlePath PerformanceResults.xcresult \
+            | xcpretty --color
+
+      - name: Upload Performance Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results-${{ github.run_number }}
+          path: GymQuest-iOS/PerformanceResults.xcresult
+          retention-days: 90

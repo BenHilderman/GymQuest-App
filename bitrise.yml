@@ -1,0 +1,183 @@
+# ─────────────────────────────────────────────────────────────────────
+# Bitrise Configuration for GymQuest iOS
+# ─────────────────────────────────────────────────────────────────────
+# Mobile-first CI/CD with Bitrise step library.
+# Workflows: pr (on PRs), primary (on push to main), nightly (scheduled)
+# ─────────────────────────────────────────────────────────────────────
+
+---
+format_version: "11"
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: ios
+
+app:
+  envs:
+    - BITRISE_PROJECT_PATH: GymQuest-iOS/GymQuest.xcodeproj
+      opts:
+        is_expand: false
+    - BITRISE_SCHEME: GymQuest
+      opts:
+        is_expand: false
+    - SIMULATOR_DEVICE: "iPhone 16"
+      opts:
+        is_expand: false
+    - WORKING_DIR: GymQuest-iOS
+      opts:
+        is_expand: false
+
+trigger_map:
+  - push_branch: main
+    workflow: primary
+  - push_branch: develop
+    workflow: primary
+  - pull_request_source_branch: "*"
+    workflow: pr
+
+# ── Workflows ────────────────────────────────────────────────────────
+
+workflows:
+
+  # ── PR Quality Gate ──────────────────────────────────────────────
+
+  pr:
+    envs:
+      - WORKFLOW_NAME: "PR Quality Gate"
+    steps:
+      - git-clone@8: {}
+
+      - script@1:
+          title: Install XcodeGen & Generate Project
+          inputs:
+            - content: |
+                #!/bin/bash
+                set -e
+                which xcodegen || brew install xcodegen
+                cd $WORKING_DIR
+                xcodegen generate
+                echo "--- Project generated successfully"
+
+      - script@1:
+          title: Resolve SPM Dependencies
+          inputs:
+            - content: |
+                #!/bin/bash
+                set -e
+                cd $WORKING_DIR
+                xcodebuild -resolvePackageDependencies \
+                  -scheme $BITRISE_SCHEME \
+                  -clonedSourcePackagesDirPath .spm-cache
+
+      - xcode-test@4:
+          title: Unit + Integration Tests
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+            - scheme: GymQuestTests
+            - destination: "platform=iOS Simulator,name=$SIMULATOR_DEVICE"
+            - xcargs: "GCC_TREAT_WARNINGS_AS_ERRORS=YES -clonedSourcePackagesDirPath .spm-cache"
+            - generate_code_coverage_files: "yes"
+
+      - deploy-to-bitrise-io@2:
+          title: Upload Test Results
+          inputs:
+            - is_compress: "true"
+
+  # ── Primary (Push to main/develop) ───────────────────────────────
+
+  primary:
+    envs:
+      - WORKFLOW_NAME: "Primary Build"
+    steps:
+      - git-clone@8: {}
+
+      - script@1:
+          title: Install XcodeGen & Generate Project
+          inputs:
+            - content: |
+                #!/bin/bash
+                set -e
+                which xcodegen || brew install xcodegen
+                cd $WORKING_DIR
+                xcodegen generate
+
+      - script@1:
+          title: Resolve SPM Dependencies
+          inputs:
+            - content: |
+                #!/bin/bash
+                set -e
+                cd $WORKING_DIR
+                xcodebuild -resolvePackageDependencies \
+                  -scheme $BITRISE_SCHEME \
+                  -clonedSourcePackagesDirPath .spm-cache
+
+      - xcode-test@4:
+          title: Unit + Integration Tests
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+            - scheme: GymQuestTests
+            - destination: "platform=iOS Simulator,name=$SIMULATOR_DEVICE"
+            - xcargs: "GCC_TREAT_WARNINGS_AS_ERRORS=YES -clonedSourcePackagesDirPath .spm-cache"
+            - generate_code_coverage_files: "yes"
+
+      - xcode-test@4:
+          title: UI Smoke Tests
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+            - scheme: GymQuestUITests
+            - destination: "platform=iOS Simulator,name=$SIMULATOR_DEVICE"
+            - xcargs: "-clonedSourcePackagesDirPath .spm-cache"
+
+      - xcode-test@4:
+          title: Performance Tests
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+            - scheme: GymQuestPerformanceTests
+            - destination: "platform=iOS Simulator,name=$SIMULATOR_DEVICE"
+            - xcargs: "-clonedSourcePackagesDirPath .spm-cache"
+
+      - deploy-to-bitrise-io@2:
+          title: Upload All Results
+          inputs:
+            - is_compress: "true"
+
+  # ── Nightly Performance ──────────────────────────────────────────
+
+  nightly:
+    envs:
+      - WORKFLOW_NAME: "Nightly Performance"
+    steps:
+      - git-clone@8: {}
+
+      - script@1:
+          title: Install XcodeGen & Generate Project
+          inputs:
+            - content: |
+                #!/bin/bash
+                set -e
+                which xcodegen || brew install xcodegen
+                cd $WORKING_DIR
+                xcodegen generate
+
+      - script@1:
+          title: Resolve SPM Dependencies
+          inputs:
+            - content: |
+                #!/bin/bash
+                set -e
+                cd $WORKING_DIR
+                xcodebuild -resolvePackageDependencies \
+                  -scheme $BITRISE_SCHEME \
+                  -clonedSourcePackagesDirPath .spm-cache
+
+      - xcode-test@4:
+          title: Performance Baselines
+          inputs:
+            - project_path: $BITRISE_PROJECT_PATH
+            - scheme: GymQuestPerformanceTests
+            - destination: "platform=iOS Simulator,name=$SIMULATOR_DEVICE"
+            - xcargs: "-clonedSourcePackagesDirPath .spm-cache"
+
+      - deploy-to-bitrise-io@2:
+          title: Upload Performance Results
+          inputs:
+            - is_compress: "true"

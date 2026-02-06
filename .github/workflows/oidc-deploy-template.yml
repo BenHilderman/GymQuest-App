@@ -1,0 +1,142 @@
+# ─────────────────────────────────────────────────────────────────────
+# OIDC Cloud Deploy Template (Reusable Workflow)
+# ─────────────────────────────────────────────────────────────────────
+# Demonstrates zero-secrets cloud authentication using GitHub Actions
+# OpenID Connect (OIDC). No long-lived AWS keys stored in secrets.
+#
+# How OIDC works:
+#   1. GitHub Actions requests a short-lived JWT from its OIDC provider
+#   2. The JWT contains claims (repo, branch, environment, actor)
+#   3. AWS validates the JWT against a pre-configured IAM trust policy
+#   4. AWS issues temporary STS credentials (default: 1 hour)
+#   5. Workflow uses temporary creds — no secrets to rotate or leak
+#
+# AWS IAM Trust Policy (configure in AWS Console):
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [{
+#     "Effect": "Allow",
+#     "Principal": {
+#       "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
+#     },
+#     "Action": "sts:AssumeRoleWithWebIdentity",
+#     "Condition": {
+#       "StringEquals": {
+#         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+#       },
+#       "StringLike": {
+#         "token.actions.githubusercontent.com:sub": "repo:<ORG>/<REPO>:environment:*"
+#       }
+#     }
+#   }]
+# }
+#
+# Usage (from another workflow):
+#   jobs:
+#     deploy:
+#       uses: ./.github/workflows/oidc-deploy-template.yml
+#       with:
+#         environment: production
+#         aws-region: us-east-1
+#         role-arn: arn:aws:iam::123456789012:role/GymQuestDeploy
+# ─────────────────────────────────────────────────────────────────────
+
+name: OIDC Cloud Deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Deployment environment (staging or production)"
+        required: true
+        type: string
+      aws-region:
+        description: "AWS region to deploy to"
+        required: false
+        type: string
+        default: "us-east-1"
+      role-arn:
+        description: "IAM role ARN to assume via OIDC"
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Environment gates: requires approval for production
+    environment:
+      name: ${{ inputs.environment }}
+
+    # CRITICAL: id-token: write is required for OIDC token generation
+    permissions:
+      id-token: write    # Request OIDC JWT
+      contents: read     # Checkout code
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ── OIDC Authentication ──────────────────────────────────────────
+      # This step:
+      #   1. Requests a JWT from GitHub's OIDC provider
+      #   2. Sends the JWT to AWS STS (Security Token Service)
+      #   3. Receives temporary credentials (access key + secret + token)
+      #   4. Configures the AWS CLI with those temporary credentials
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ inputs.role-arn }}
+          aws-region: ${{ inputs.aws-region }}
+          role-session-name: GymQuest-${{ inputs.environment }}-${{ github.run_id }}
+          role-duration-seconds: 3600  # 1 hour max
+
+      # ── Verify Authentication ────────────────────────────────────────
+
+      - name: Verify AWS Identity
+        run: |
+          echo "--- AWS Identity"
+          aws sts get-caller-identity
+          echo ""
+          echo "--- Session Info"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Region:      ${{ inputs.aws-region }}"
+          echo "Role ARN:    ${{ inputs.role-arn }}"
+          echo "Run ID:      ${{ github.run_id }}"
+          echo "Actor:       ${{ github.actor }}"
+          echo "Ref:         ${{ github.ref }}"
+
+      # ── Deploy Steps ─────────────────────────────────────────────────
+      # Replace these with actual deployment commands for your use case.
+      # Examples:
+      #   - Upload to S3: aws s3 sync ./build s3://my-bucket/
+      #   - Update Lambda: aws lambda update-function-code ...
+      #   - Push to ECR: aws ecr get-login-password | docker login ...
+      #   - ECS deploy: aws ecs update-service ...
+
+      - name: Deploy Application
+        run: |
+          echo "--- Deploying to ${{ inputs.environment }}"
+          echo "This is a template — replace with actual deploy commands."
+          echo ""
+          echo "Example commands:"
+          echo "  aws s3 sync ./build s3://gymquest-${{ inputs.environment }}/"
+          echo "  aws cloudfront create-invalidation --distribution-id XXXXX --paths '/*'"
+
+      # ── Post-Deploy Verification ─────────────────────────────────────
+
+      - name: Post-Deploy Summary
+        run: |
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | \`${{ inputs.environment }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | \`${{ inputs.aws-region }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Auth Method | OIDC (zero secrets) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Actor | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Timestamp | $(date -u +"%Y-%m-%dT%H:%M:%SZ") |" >> $GITHUB_STEP_SUMMARY

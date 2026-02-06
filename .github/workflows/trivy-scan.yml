@@ -1,0 +1,119 @@
+# ─────────────────────────────────────────────────────────────────────
+# Trivy Vulnerability & Misconfiguration Scanner
+# ─────────────────────────────────────────────────────────────────────
+# Scans the repository filesystem for:
+#   1. Known vulnerabilities in dependencies (SCA)
+#   2. Infrastructure-as-Code misconfigurations in CI configs
+#   3. Embedded secrets and sensitive data
+#
+# Results are uploaded to GitHub Security tab in SARIF format.
+# ─────────────────────────────────────────────────────────────────────
+
+name: Trivy Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 3 * * 0'  # Weekly on Sunday 3 AM UTC
+
+concurrency:
+  group: trivy-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ── Filesystem Vulnerability Scan ──────────────────────────────────
+
+  vulnerability-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-fs-results.sarif"
+          severity: "CRITICAL,HIGH"
+
+      - name: Upload Trivy FS Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-fs-results.sarif"
+          category: "trivy-filesystem"
+
+  # ── IaC / CI Config Misconfiguration Scan ──────────────────────────
+
+  config-scan:
+    name: CI Config Misconfiguration Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Config Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "config"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-config-results.sarif"
+          severity: "CRITICAL,HIGH,MEDIUM"
+
+      - name: Upload Trivy Config Results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-config-results.sarif"
+          category: "trivy-config"
+
+  # ── Secret Detection ───────────────────────────────────────────────
+
+  secret-scan:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Secret Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-secret-results.sarif"
+          scanners: "secret"
+
+      - name: Upload Secret Scan Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-secret-results.sarif"
+          category: "trivy-secrets"

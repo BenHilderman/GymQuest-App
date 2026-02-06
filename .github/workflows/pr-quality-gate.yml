@@ -1,0 +1,117 @@
+name: PR Quality Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    name: Unit Tests (${{ matrix.device }})
+    runs-on: macos-14
+    strategy:
+      matrix:
+        device:
+          - "iPhone 16"
+          - "iPhone SE (3rd generation)"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 15
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        working-directory: GymQuest-iOS
+        run: xcodegen generate
+
+      - name: Resolve SPM Dependencies
+        working-directory: GymQuest-iOS
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -scheme GymQuest \
+            -clonedSourcePackagesDirPath .spm-cache
+
+      - name: Run Unit + Integration Tests
+        working-directory: GymQuest-iOS
+        run: |
+          xcodebuild test \
+            -scheme GymQuestTests \
+            -destination "platform=iOS Simulator,name=${{ matrix.device }}" \
+            -clonedSourcePackagesDirPath .spm-cache \
+            -enableCodeCoverage YES \
+            -resultBundlePath TestResults.xcresult \
+            GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            | xcpretty --color
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.device }}
+          path: GymQuest-iOS/TestResults.xcresult
+          retention-days: 30
+
+      - name: Extract Coverage
+        if: success()
+        working-directory: GymQuest-iOS
+        run: |
+          xcrun xccov view --report TestResults.xcresult --json | \
+            python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for target in data.get('targets', []):
+              if 'GymQuest' in target.get('name', '') and 'Tests' not in target.get('name', ''):
+                  pct = target.get('lineCoverage', 0) * 100
+                  print(f'Coverage: {pct:.1f}%')
+                  break
+          " || echo "Coverage extraction skipped"
+
+  ui-smoke:
+    name: UI Smoke Tests
+    runs-on: macos-14
+    needs: unit-tests
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 15
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        working-directory: GymQuest-iOS
+        run: xcodegen generate
+
+      - name: Resolve SPM Dependencies
+        working-directory: GymQuest-iOS
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -scheme GymQuest \
+            -clonedSourcePackagesDirPath .spm-cache
+
+      - name: Run UI Tests
+        working-directory: GymQuest-iOS
+        run: |
+          xcodebuild test \
+            -scheme GymQuestUITests \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            -clonedSourcePackagesDirPath .spm-cache \
+            -resultBundlePath UITestResults.xcresult \
+            | xcpretty --color
+
+      - name: Upload UI Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-results
+          path: GymQuest-iOS/UITestResults.xcresult
+          retention-days: 30

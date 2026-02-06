@@ -11,6 +11,9 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: "8.0.0"
+  SnapshotTesting:
+    url: https://github.com/pointfreeco/swift-snapshot-testing
+    from: "1.15.0"
 
 settings:
   base:
@@ -54,3 +57,49 @@ targets:
           - CFBundleURLSchemes:
               - com.googleusercontent.apps.672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo
         GIDClientID: 672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo.apps.googleusercontent.com
+
+  GymQuestTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - GymQuestTests
+    dependencies:
+      - target: GymQuest
+      - package: SnapshotTesting
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.tests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/GymQuest.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GymQuest"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        DEVELOPMENT_TEAM: 356D828QY6
+        CODE_SIGN_STYLE: Automatic
+        GCC_TREAT_WARNINGS_AS_ERRORS: YES
+
+  GymQuestUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - GymQuestUITests
+    dependencies:
+      - target: GymQuest
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.uitests
+        TEST_TARGET_NAME: GymQuest
+        DEVELOPMENT_TEAM: 356D828QY6
+        CODE_SIGN_STYLE: Automatic
+
+  GymQuestPerformanceTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - GymQuestPerformanceTests
+    dependencies:
+      - target: GymQuest
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.performancetests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/GymQuest.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/GymQuest"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        DEVELOPMENT_TEAM: 356D828QY6
+        CODE_SIGN_STYLE: Automatic

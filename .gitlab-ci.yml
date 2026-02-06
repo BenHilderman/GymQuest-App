@@ -1,0 +1,147 @@
+# ─────────────────────────────────────────────────────────────────────
+# GitLab CI/CD Pipeline for GymQuest iOS
+# ─────────────────────────────────────────────────────────────────────
+# Mirrors the GitHub Actions quality gate with GitLab-native syntax.
+# Requires a macOS runner with Xcode 15+ registered with tag "macos".
+#
+# Pipeline stages:
+#   test → ui_test → performance → security
+# ─────────────────────────────────────────────────────────────────────
+
+stages:
+  - test
+  - ui_test
+  - performance
+  - security
+
+variables:
+  XCODE_VERSION: "15.4"
+  SIMULATOR_DEVICE: "iPhone 16"
+  SPM_CACHE_DIR: ".spm-cache"
+  WORKING_DIR: "GymQuest-iOS"
+
+# ── Shared setup ─────────────────────────────────────────────────────
+
+.macos_base:
+  tags:
+    - macos
+  before_script:
+    - cd $WORKING_DIR
+    - which xcodegen || brew install xcodegen
+    - xcodegen generate
+    - xcodebuild -resolvePackageDependencies
+        -scheme GymQuest
+        -clonedSourcePackagesDirPath $SPM_CACHE_DIR
+  cache:
+    key: spm-$CI_COMMIT_REF_SLUG
+    paths:
+      - $WORKING_DIR/$SPM_CACHE_DIR/
+
+# ── Stage 1: Unit + Integration Tests ────────────────────────────────
+
+unit_tests:
+  extends: .macos_base
+  stage: test
+  script:
+    - |
+      xcodebuild test \
+        -scheme GymQuestTests \
+        -destination "platform=iOS Simulator,name=$SIMULATOR_DEVICE" \
+        -clonedSourcePackagesDirPath $SPM_CACHE_DIR \
+        -enableCodeCoverage YES \
+        -resultBundlePath TestResults.xcresult \
+        GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+        | xcpretty --color
+    - |
+      xcrun xccov view --report TestResults.xcresult --json | \
+        python3 -c "
+      import json, sys
+      data = json.load(sys.stdin)
+      for t in data.get('targets', []):
+          if 'GymQuest' in t.get('name','') and 'Tests' not in t.get('name',''):
+              print(f'Coverage: {t[\"lineCoverage\"]*100:.1f}%')
+              break
+      " || echo "Coverage extraction skipped"
+  artifacts:
+    paths:
+      - $WORKING_DIR/TestResults.xcresult
+    expire_in: 30 days
+    when: always
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(main|develop)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(main|develop)$/
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+unit_tests_se:
+  extends: unit_tests
+  variables:
+    SIMULATOR_DEVICE: "iPhone SE (3rd generation)"
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(main|develop)$/
+
+# ── Stage 2: UI Smoke Tests ──────────────────────────────────────────
+
+ui_smoke_tests:
+  extends: .macos_base
+  stage: ui_test
+  needs: ["unit_tests"]
+  script:
+    - |
+      xcodebuild test \
+        -scheme GymQuestUITests \
+        -destination "platform=iOS Simulator,name=$SIMULATOR_DEVICE" \
+        -clonedSourcePackagesDirPath $SPM_CACHE_DIR \
+        -resultBundlePath UITestResults.xcresult \
+        | xcpretty --color
+  artifacts:
+    paths:
+      - $WORKING_DIR/UITestResults.xcresult
+    expire_in: 30 days
+    when: always
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(main|develop)$/
+    - if: $CI_COMMIT_BRANCH =~ /^(main|develop)$/
+
+# ── Stage 3: Performance Baselines ───────────────────────────────────
+
+performance_tests:
+  extends: .macos_base
+  stage: performance
+  script:
+    - |
+      xcodebuild test \
+        -scheme GymQuestPerformanceTests \
+        -destination "platform=iOS Simulator,name=$SIMULATOR_DEVICE" \
+        -clonedSourcePackagesDirPath $SPM_CACHE_DIR \
+        -resultBundlePath PerformanceResults.xcresult \
+        | xcpretty --color
+  artifacts:
+    paths:
+      - $WORKING_DIR/PerformanceResults.xcresult
+    expire_in: 90 days
+    when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+
+# ── Stage 4: Security Scan ───────────────────────────────────────────
+
+semgrep_scan:
+  stage: security
+  image: returntocorp/semgrep
+  tags:
+    - docker
+  script:
+    - semgrep --config auto --sarif --output semgrep-results.sarif $WORKING_DIR/ || true
+    - semgrep --config p/security-audit --json --output semgrep-security.json $WORKING_DIR/ || true
+  artifacts:
+    paths:
+      - semgrep-results.sarif
+      - semgrep-security.json
+    expire_in: 30 days
+    when: always
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME =~ /^(main|develop)$/
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  allow_failure: true

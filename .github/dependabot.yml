@@ -1,0 +1,50 @@
+# ─────────────────────────────────────────────────────────────────────
+# Dependabot Configuration
+# ─────────────────────────────────────────────────────────────────────
+# Automated dependency updates for Swift Package Manager and
+# GitHub Actions workflow versions.
+# ─────────────────────────────────────────────────────────────────────
+
+version: 2
+updates:
+
+  # ── Swift Package Manager ──────────────────────────────────────────
+  # Monitors Package.resolved for SPM dependency updates
+  # (GoogleSignIn, SnapshotTesting, etc.)
+
+  - package-ecosystem: "swift"
+    directory: "/GymQuest-iOS"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    commit-message:
+      prefix: "chore(deps):"
+      prefix-development: "chore(deps-dev):"
+    labels:
+      - "dependencies"
+      - "swift"
+    reviewers:
+      - "benjaminhilderman"
+    open-pull-requests-limit: 5
+
+  # ── GitHub Actions ─────────────────────────────────────────────────
+  # Keeps workflow action versions up to date
+  # (actions/checkout, actions/upload-artifact, etc.)
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    commit-message:
+      prefix: "ci(deps):"
+    labels:
+      - "dependencies"
+      - "ci"
+    reviewers:
+      - "benjaminhilderman"
+    open-pull-requests-limit: 5

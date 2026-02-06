@@ -1,0 +1,94 @@
+# ─────────────────────────────────────────────────────────────────────
+# SBOM (Software Bill of Materials) Generation
+# ─────────────────────────────────────────────────────────────────────
+# Generates SBOMs in both SPDX and CycloneDX formats using Syft.
+# Enables supply-chain transparency and compliance with SLSA/EO 14028.
+#
+# - On push to main: generates SBOMs + updates dependency snapshot
+# - On release: attaches SBOMs as release assets
+# ─────────────────────────────────────────────────────────────────────
+
+name: SBOM Generation
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  generate-sbom:
+    name: Generate Software Bill of Materials
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: write       # For release asset uploads
+      actions: read
+      id-token: write       # For dependency snapshot submission
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # ── SPDX Format ─────────────────────────────────────────────────
+
+      - name: Generate SBOM (SPDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./GymQuest-iOS
+          format: spdx-json
+          output-file: sbom.spdx.json
+          upload-artifact: true
+          upload-release-assets: ${{ github.event_name == 'release' }}
+
+      # ── CycloneDX Format ─────────────────────────────────────────────
+
+      - name: Generate SBOM (CycloneDX JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./GymQuest-iOS
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          upload-artifact: true
+          upload-release-assets: ${{ github.event_name == 'release' }}
+
+      # ── Dependency Snapshot ──────────────────────────────────────────
+
+      - name: Submit Dependency Snapshot
+        uses: anchore/sbom-action@v0
+        if: github.event_name == 'push'
+        with:
+          path: ./GymQuest-iOS
+          format: spdx-json
+          output-file: sbom-snapshot.spdx.json
+          dependency-snapshot: true
+
+      # ── Upload Both Formats as Artifacts ─────────────────────────────
+
+      - name: Upload SBOM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: |
+            sbom.spdx.json
+            sbom.cdx.json
+          retention-days: 30
+
+      - name: SBOM Summary
+        run: |
+          echo "## SBOM Generation Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Format | File | Size |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|------|------|" >> $GITHUB_STEP_SUMMARY
+          if [ -f sbom.spdx.json ]; then
+            SIZE=$(du -h sbom.spdx.json | cut -f1)
+            PACKAGES=$(python3 -c "import json; d=json.load(open('sbom.spdx.json')); print(len(d.get('packages',[])))" 2>/dev/null || echo "?")
+            echo "| SPDX JSON | sbom.spdx.json | $SIZE ($PACKAGES packages) |" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -f sbom.cdx.json ]; then
+            SIZE=$(du -h sbom.cdx.json | cut -f1)
+            COMPONENTS=$(python3 -c "import json; d=json.load(open('sbom.cdx.json')); print(len(d.get('components',[])))" 2>/dev/null || echo "?")
+            echo "| CycloneDX JSON | sbom.cdx.json | $SIZE ($COMPONENTS components) |" >> $GITHUB_STEP_SUMMARY
+          fi

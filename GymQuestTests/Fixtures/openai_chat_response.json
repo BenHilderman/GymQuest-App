@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion",
+  "created": 1700000000,
+  "model": "gpt-4o-mini",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Great push session! Your bench is moving up nicely at 185 for 8. Next session, try 190 for 6-8 reps at RPE 7-8. Keep the volume on OHP steady — your shoulders are responding well to 3x10."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 450,
+    "completion_tokens": 52,
+    "total_tokens": 502
+  }
+}

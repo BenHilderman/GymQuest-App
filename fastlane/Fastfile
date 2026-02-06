@@ -1,0 +1,91 @@
+default_platform(:ios)
+
+platform :ios do
+
+  before_all do
+    # Generate Xcode project from project.yml
+    sh("cd .. && xcodegen generate")
+  end
+
+  # ─── PR Quality Gate ───────────────────────────────────────────────
+
+  desc "Run unit + integration tests with coverage (PR gate)"
+  lane :pr_tests do |options|
+    device = options[:device] || "iPhone 16"
+
+    scan(
+      scheme: "GymQuestTests",
+      device: device,
+      code_coverage: true,
+      result_bundle: true,
+      output_directory: "./fastlane/test_output",
+      xcargs: "GCC_TREAT_WARNINGS_AS_ERRORS=YES"
+    )
+  end
+
+  # ─── UI Smoke Tests ────────────────────────────────────────────────
+
+  desc "Run UI smoke tests"
+  lane :ui_smoke do |options|
+    device = options[:device] || "iPhone 16"
+
+    scan(
+      scheme: "GymQuestUITests",
+      device: device,
+      result_bundle: true,
+      output_directory: "./fastlane/test_output"
+    )
+  end
+
+  # ─── Full Device Matrix ────────────────────────────────────────────
+
+  desc "Run tests across device matrix (iPhone 16 + iPhone SE)"
+  lane :full_matrix do
+    devices = ["iPhone 16", "iPhone SE (3rd generation)"]
+
+    devices.each do |device|
+      pr_tests(device: device)
+    end
+  end
+
+  # ─── Performance Tests ─────────────────────────────────────────────
+
+  desc "Run performance baseline tests"
+  lane :performance do |options|
+    device = options[:device] || "iPhone 16"
+
+    scan(
+      scheme: "GymQuestPerformanceTests",
+      device: device,
+      result_bundle: true,
+      output_directory: "./fastlane/test_output"
+    )
+  end
+
+  # ─── Snapshot Tests ────────────────────────────────────────────────
+
+  desc "Verify snapshot tests against references"
+  lane :snapshots do
+    scan(
+      scheme: "GymQuestTests",
+      device: "iPhone 16",
+      only_testing: ["GymQuestTests/LoginViewSnapshotTests", "GymQuestTests/DesignSystemSnapshotTests"],
+      result_bundle: true,
+      output_directory: "./fastlane/test_output"
+    )
+  end
+
+  desc "Record new snapshot references (does not fail on mismatch)"
+  lane :record_snapshots do
+    scan(
+      scheme: "GymQuestTests",
+      device: "iPhone 16",
+      only_testing: ["GymQuestTests/LoginViewSnapshotTests", "GymQuestTests/DesignSystemSnapshotTests"],
+      xcargs: "SNAPSHOT_RECORD=1",
+      result_bundle: true,
+      output_directory: "./fastlane/test_output",
+      fail_build: false
+    )
+  end
+
+end

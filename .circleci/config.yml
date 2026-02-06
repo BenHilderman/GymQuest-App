@@ -1,0 +1,203 @@
+# ─────────────────────────────────────────────────────────────────────
+# CircleCI Configuration for GymQuest iOS
+# ─────────────────────────────────────────────────────────────────────
+# Uses macOS executor with Apple Silicon for Xcode builds.
+# SPM dependencies are cached between runs for faster builds.
+#
+# Workflow: build-and-test → ui-smoke → performance (main only)
+# ─────────────────────────────────────────────────────────────────────
+
+version: 2.1
+
+# ── Executors ────────────────────────────────────────────────────────
+
+executors:
+  macos-xcode:
+    macos:
+      xcode: "15.4.0"
+    resource_class: macos.m1.medium.gen1
+    environment:
+      WORKING_DIR: GymQuest-iOS
+      SIMULATOR_DEVICE: iPhone 16
+      FL_OUTPUT_DIR: output
+
+# ── Commands (reusable step groups) ──────────────────────────────────
+
+commands:
+  setup-project:
+    description: "Install xcodegen, generate project, resolve SPM"
+    steps:
+      - run:
+          name: Install XcodeGen
+          command: brew install xcodegen || true
+      - run:
+          name: Generate Xcode Project
+          command: cd $WORKING_DIR && xcodegen generate
+      - restore_cache:
+          keys:
+            - spm-v1-{{ checksum "GymQuest-iOS/project.yml" }}
+            - spm-v1-
+      - run:
+          name: Resolve SPM Dependencies
+          command: |
+            cd $WORKING_DIR
+            xcodebuild -resolvePackageDependencies \
+              -scheme GymQuest \
+              -clonedSourcePackagesDirPath .spm-cache
+      - save_cache:
+          key: spm-v1-{{ checksum "GymQuest-iOS/project.yml" }}
+          paths:
+            - GymQuest-iOS/.spm-cache
+
+# ── Jobs ─────────────────────────────────────────────────────────────
+
+jobs:
+  build-and-test:
+    executor: macos-xcode
+    steps:
+      - checkout
+      - setup-project
+
+      - run:
+          name: Run Unit + Integration Tests
+          command: |
+            cd $WORKING_DIR
+            xcodebuild test \
+              -scheme GymQuestTests \
+              -destination "platform=iOS Simulator,name=$SIMULATOR_DEVICE" \
+              -clonedSourcePackagesDirPath .spm-cache \
+              -enableCodeCoverage YES \
+              -resultBundlePath TestResults.xcresult \
+              GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+              | xcpretty --color --report junit --output test-results/results.xml
+
+      - run:
+          name: Extract Coverage
+          command: |
+            cd $WORKING_DIR
+            xcrun xccov view --report TestResults.xcresult --json | \
+              python3 -c "
+            import json, sys
+            data = json.load(sys.stdin)
+            for t in data.get('targets', []):
+                if 'GymQuest' in t.get('name','') and 'Tests' not in t.get('name',''):
+                    pct = t.get('lineCoverage', 0) * 100
+                    print(f'Coverage: {pct:.1f}%')
+                    break
+            " || echo "Coverage extraction skipped"
+          when: always
+
+      - store_test_results:
+          path: GymQuest-iOS/test-results
+      - store_artifacts:
+          path: GymQuest-iOS/TestResults.xcresult
+          destination: test-results
+
+  build-and-test-se:
+    executor: macos-xcode
+    environment:
+      SIMULATOR_DEVICE: "iPhone SE (3rd generation)"
+    steps:
+      - checkout
+      - setup-project
+
+      - run:
+          name: Run Unit Tests (iPhone SE)
+          command: |
+            cd $WORKING_DIR
+            xcodebuild test \
+              -scheme GymQuestTests \
+              -destination "platform=iOS Simulator,name=iPhone SE (3rd generation)" \
+              -clonedSourcePackagesDirPath .spm-cache \
+              -enableCodeCoverage YES \
+              -resultBundlePath TestResults-SE.xcresult \
+              GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+              | xcpretty --color --report junit --output test-results/results-se.xml
+
+      - store_test_results:
+          path: GymQuest-iOS/test-results
+      - store_artifacts:
+          path: GymQuest-iOS/TestResults-SE.xcresult
+          destination: test-results-se
+
+  ui-smoke:
+    executor: macos-xcode
+    steps:
+      - checkout
+      - setup-project
+
+      - run:
+          name: Run UI Smoke Tests
+          command: |
+            cd $WORKING_DIR
+            xcodebuild test \
+              -scheme GymQuestUITests \
+              -destination "platform=iOS Simulator,name=$SIMULATOR_DEVICE" \
+              -clonedSourcePackagesDirPath .spm-cache \
+              -resultBundlePath UITestResults.xcresult \
+              | xcpretty --color
+
+      - store_artifacts:
+          path: GymQuest-iOS/UITestResults.xcresult
+          destination: ui-test-results
+
+  performance:
+    executor: macos-xcode
+    steps:
+      - checkout
+      - setup-project
+
+      - run:
+          name: Run Performance Tests
+          command: |
+            cd $WORKING_DIR
+            xcodebuild test \
+              -scheme GymQuestPerformanceTests \
+              -destination "platform=iOS Simulator,name=$SIMULATOR_DEVICE" \
+              -clonedSourcePackagesDirPath .spm-cache \
+              -resultBundlePath PerformanceResults.xcresult \
+              | xcpretty --color
+
+      - store_artifacts:
+          path: GymQuest-iOS/PerformanceResults.xcresult
+          destination: performance-results
+
+# ── Workflows ────────────────────────────────────────────────────────
+
+workflows:
+  build-test-deploy:
+    jobs:
+      # Unit tests run in parallel on two devices
+      - build-and-test:
+          filters:
+            branches:
+              only:
+                - main
+                - develop
+                - /^feature\/.*/
+                - /^fix\/.*/
+      - build-and-test-se:
+          filters:
+            branches:
+              only:
+                - main
+                - develop
+
+      # UI smoke after unit tests pass
+      - ui-smoke:
+          requires:
+            - build-and-test
+          filters:
+            branches:
+              only:
+                - main
+                - develop
+
+      # Performance only on main
+      - performance:
+          requires:
+            - build-and-test
+          filters:
+            branches:
+              only:
+                - main
