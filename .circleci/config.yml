@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────
 # CircleCI Configuration for GymQuest iOS
 # ─────────────────────────────────────────────────────────────────────
-# Uses macOS executor with Apple Silicon for Xcode builds.
-# SPM dependencies are cached between runs for faster builds.
+# Apple Silicon macOS executor with SPM dependency caching.
+# Parallel device testing on iPhone 16 and iPhone SE.
 #
 # Workflow: build-and-test → ui-smoke → performance (main only)
 # ─────────────────────────────────────────────────────────────────────
