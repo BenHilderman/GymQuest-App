@@ -1,6 +1,6 @@
 # GymQuest
 
-A gamified fitness app for iOS with real time workout tracking, multi provider AI coaching, and RPG style progression.
+Gamified fitness app for iOS. Real time workout tracking, multi provider AI coaching, RPG style progression.
 
 > SwiftUI · SwiftData · Swift 5.9 · iOS 17+ · XcodeGen
 
@@ -11,8 +11,6 @@ A gamified fitness app for iOS with real time workout tracking, multi provider A
 </p>
 
 ---
-
-## Repo Structure
 
 ```
 GymQuest/                        ← The App
@@ -32,33 +30,28 @@ Tests/                           ← Quality Engineering
 
 ---
 
-## Features
+**Workout Engine** · Live set tracking, auto PR detection, rest timers with haptics, RPE, ghost data, milestone celebrations
 
-**Workout Engine** · Live set tracking, auto PR detection (weight / rep / volume / est. 1RM), smart rest timers with haptics, RPE capture, ghost data from previous sessions, milestone celebrations
+**AI Coach** · Context aware coaching via OpenAI, Groq, Ollama, or offline demo mode
 
-**AI Coach** · Packages workout history, streaks, weekly volume, and deload signals into structured JSON. Supports OpenAI, Groq, Ollama (local), and an offline demo mode
+**Gamification** · 11 XP levels, quests, squad challenges, forgiveness tokens
 
-**Gamification** · XP system across 11 levels, quest categories with difficulty tiers, squad challenges, forgiveness tokens
+**Social** · Workout cards, coach takeaways, media posts, fist bumps, pod accountability
 
-**Social** · Workout cards, coach takeaways, media posts, "Follow this workout", fist bumps, pod based accountability groups
-
-**Design System** · Glassmorphism components (`GlassCard`, `StatPill`, `AnimatedProgressBar`), gradient typography, neon buttons, dark first palette
+**Design System** · Glassmorphism (`GlassCard`, `StatPill`), gradient type, neon buttons
 
 ---
 
-## Tests & CI
+**Tests** · 50+ methods across unit, integration, snapshot, UI, and performance targets
 
-50+ test methods across three Xcode targets. Six CI platform configs (GitHub Actions, GitLab, Buildkite, CircleCI, Xcode Cloud, Bitrise) plus Fastlane with 6 lanes. Security scanning via CodeQL, Dependabot, Semgrep, Trivy, and Syft SBOM generation.
+**CI/CD** · GitHub Actions · GitLab · Buildkite · CircleCI · Xcode Cloud · Bitrise · Fastlane
+
+**Security** · CodeQL · Dependabot · Semgrep · Trivy · Syft SBOM
 
 ---
-
-## Getting Started
 
 ```bash
-brew install xcodegen
-cd GymQuest-iOS
-xcodegen generate
-open GymQuest.xcodeproj
+brew install xcodegen && cd GymQuest-iOS && xcodegen generate && open GymQuest.xcodeproj
 ```
 
 AI setup is optional. The app runs in Demo Mode without API keys.
