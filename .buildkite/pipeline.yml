@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────
 # Buildkite Pipeline for GymQuest iOS
 # ─────────────────────────────────────────────────────────────────────
-# Runs on self-hosted or Buildkite-hosted macOS agents.
-# Steps execute sequentially with `wait` barriers between phases.
+# Runs on Buildkite macOS agents with sequential `wait` barriers
+# between phases: generate → test → UI smoke → performance → coverage.
 #
 # Agent requirements: macOS with Xcode 15+, Homebrew, xcodegen
 # ─────────────────────────────────────────────────────────────────────
