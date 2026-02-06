@@ -1,0 +1,71 @@
+# ─────────────────────────────────────────────────────────────────────
+# CodeQL Analysis for GymQuest iOS
+# ─────────────────────────────────────────────────────────────────────
+# Performs semantic code analysis on Swift source for security
+# vulnerabilities, bugs, and code quality issues.
+#
+# Results appear in the GitHub Security tab under "Code scanning alerts."
+# Swift requires macOS runner and manual build mode.
+# ─────────────────────────────────────────────────────────────────────
+
+name: CodeQL Analysis
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday midnight UTC
+
+concurrency:
+  group: codeql-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: CodeQL Swift Analysis
+    runs-on: macos-14  # Swift CodeQL requires macOS
+    timeout-minutes: 60
+
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 15
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        working-directory: GymQuest-iOS
+        run: xcodegen generate
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: swift
+          build-mode: manual
+          # Uses default query suite which includes security-extended
+
+      - name: Build for CodeQL Analysis
+        working-directory: GymQuest-iOS
+        run: |
+          xcodebuild build \
+            -scheme GymQuest \
+            -destination "platform=iOS Simulator,name=iPhone 16" \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty --color || true
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:swift"

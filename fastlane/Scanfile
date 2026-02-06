@@ -1,0 +1,5 @@
+scheme("GymQuest")
+output_directory("./fastlane/test_output")
+result_bundle(true)
+code_coverage(true)
+clean(true)

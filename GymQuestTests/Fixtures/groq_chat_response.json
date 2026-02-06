@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-groq-xyz789",
+  "object": "chat.completion",
+  "created": 1700000000,
+  "model": "llama-3.3-70b-versatile",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Solid pull day! Your deadlift volume is up 12% this week. Keep hitting back twice a week — you're on track for that 315 pull. Focus on lat engagement during rows."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 380,
+    "completion_tokens": 45,
+    "total_tokens": 425
+  }
+}

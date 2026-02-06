@@ -1,0 +1,35 @@
+[
+  {
+    "id": 12345678901,
+    "name": "Morning Run",
+    "type": "Run",
+    "start_date": "2024-01-15T07:30:00Z",
+    "moving_time": 1800,
+    "distance": 5000.0,
+    "average_speed": 2.78,
+    "average_heartrate": 145.0,
+    "suffer_score": 45
+  },
+  {
+    "id": 12345678902,
+    "name": "Evening Strength",
+    "type": "WeightTraining",
+    "start_date": "2024-01-15T18:00:00Z",
+    "moving_time": 3600,
+    "distance": 0.0,
+    "average_speed": 0.0,
+    "average_heartrate": 130.0,
+    "suffer_score": 65
+  },
+  {
+    "id": 12345678903,
+    "name": "Cycling Session",
+    "type": "Ride",
+    "start_date": "2024-01-14T10:00:00Z",
+    "moving_time": 5400,
+    "distance": 25000.0,
+    "average_speed": 4.63,
+    "average_heartrate": 138.0,
+    "suffer_score": 55
+  }
+]
