@@ -1,7 +1,7 @@
 """
-main.py - FastAPI server for GymQuest
+main.py · FastAPI server for GymQuest
 
-this is the backend that powers the AI coach. two main things:
+Backend that powers the AI coach. Two main components:
 1. training load math (ACWR, strain) - see training_load.py
 2. AI responses via LangChain + Groq - see coach.py
 
