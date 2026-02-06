@@ -256,6 +256,442 @@ class RobotDemoService: ObservableObject {
             ],
             keyJoints: [.shoulder, .elbow],
             tempo: "1-1-3-0"
+        ),
+
+        // MARK: - Additional Exercises
+
+        "dumbbell curl": ExerciseDemo(
+            name: "Dumbbell Curl",
+            category: .pull,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.35, angle: 0),
+                        .elbow: JointPosition(x: 0.5, y: 0.5, angle: 175),
+                        .wrist: JointPosition(x: 0.5, y: 0.65, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 175)
+                    ],
+                    cues: ["Arms at sides", "Palms forward", "Stand tall"]
+                ),
+                DemoKeyframe(
+                    position: .mid,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.35, angle: 0),
+                        .elbow: JointPosition(x: 0.52, y: 0.48, angle: 90),
+                        .wrist: JointPosition(x: 0.52, y: 0.42, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 175)
+                    ],
+                    cues: ["Elbows stay pinned", "Control the movement", "No swinging"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.35, angle: 0),
+                        .elbow: JointPosition(x: 0.52, y: 0.42, angle: 30),
+                        .wrist: JointPosition(x: 0.52, y: 0.32, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 175)
+                    ],
+                    cues: ["Squeeze at top", "Keep tension", "Controlled lowering"]
+                )
+            ],
+            keyJoints: [.elbow, .wrist],
+            tempo: "2-1-2-0"
+        ),
+
+        "tricep pushdown": ExerciseDemo(
+            name: "Tricep Pushdown",
+            category: .push,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.35, angle: 0),
+                        .elbow: JointPosition(x: 0.5, y: 0.45, angle: 90),
+                        .wrist: JointPosition(x: 0.5, y: 0.38, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 170)
+                    ],
+                    cues: ["Elbows at sides", "Slight lean forward", "Core braced"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.35, angle: 0),
+                        .elbow: JointPosition(x: 0.5, y: 0.5, angle: 170),
+                        .wrist: JointPosition(x: 0.5, y: 0.6, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 170)
+                    ],
+                    cues: ["Full extension", "Squeeze triceps", "Elbows stay stationary"]
+                )
+            ],
+            keyJoints: [.elbow, .wrist],
+            tempo: "2-1-2-0"
+        ),
+
+        "lat pulldown": ExerciseDemo(
+            name: "Lat Pulldown",
+            category: .pull,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.28, angle: 170),
+                        .elbow: JointPosition(x: 0.55, y: 0.2, angle: 170),
+                        .wrist: JointPosition(x: 0.6, y: 0.15, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.6, angle: 95),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 90)
+                    ],
+                    cues: ["Arms extended overhead", "Slight lean back", "Chest up"]
+                ),
+                DemoKeyframe(
+                    position: .mid,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.32, angle: 90),
+                        .elbow: JointPosition(x: 0.55, y: 0.38, angle: 90),
+                        .wrist: JointPosition(x: 0.55, y: 0.32, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.6, angle: 95),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 90)
+                    ],
+                    cues: ["Pull elbows down", "Squeeze shoulder blades", "Bar to chest"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.35, angle: 30),
+                        .elbow: JointPosition(x: 0.52, y: 0.45, angle: 60),
+                        .wrist: JointPosition(x: 0.5, y: 0.38, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.6, angle: 95),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 90)
+                    ],
+                    cues: ["Bar below chin", "Full contraction", "Control the release"]
+                )
+            ],
+            keyJoints: [.shoulder, .elbow],
+            tempo: "2-1-3-0"
+        ),
+
+        "leg press": ExerciseDemo(
+            name: "Leg Press",
+            category: .legs,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.45, y: 0.35, angle: 45),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 90),
+                        .knee: JointPosition(x: 0.55, y: 0.6, angle: 90),
+                        .ankle: JointPosition(x: 0.6, y: 0.5, angle: 90)
+                    ],
+                    cues: ["Back flat on pad", "Feet shoulder-width", "Knees bent 90°"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.45, y: 0.35, angle: 45),
+                        .hip: JointPosition(x: 0.5, y: 0.52, angle: 160),
+                        .knee: JointPosition(x: 0.55, y: 0.5, angle: 170),
+                        .ankle: JointPosition(x: 0.65, y: 0.42, angle: 90)
+                    ],
+                    cues: ["Push through heels", "Don't lock knees", "Control the descent"]
+                )
+            ],
+            keyJoints: [.knee, .hip],
+            tempo: "2-0-2-0"
+        ),
+
+        "leg curl": ExerciseDemo(
+            name: "Leg Curl",
+            category: .legs,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.3, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.5, angle: 180),
+                        .knee: JointPosition(x: 0.5, y: 0.65, angle: 180),
+                        .ankle: JointPosition(x: 0.5, y: 0.85, angle: 90)
+                    ],
+                    cues: ["Lie flat", "Pad above heels", "Grip handles"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.3, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.5, angle: 180),
+                        .knee: JointPosition(x: 0.5, y: 0.65, angle: 60),
+                        .ankle: JointPosition(x: 0.5, y: 0.55, angle: 90)
+                    ],
+                    cues: ["Curl to glutes", "Squeeze hamstrings", "Controlled release"]
+                )
+            ],
+            keyJoints: [.knee, .ankle],
+            tempo: "2-1-3-0"
+        ),
+
+        "leg extension": ExerciseDemo(
+            name: "Leg Extension",
+            category: .legs,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.45, y: 0.32, angle: 10),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 90),
+                        .knee: JointPosition(x: 0.55, y: 0.7, angle: 90),
+                        .ankle: JointPosition(x: 0.45, y: 0.8, angle: 90)
+                    ],
+                    cues: ["Sit back in seat", "Knees at 90°", "Hold handles"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.45, y: 0.32, angle: 10),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 90),
+                        .knee: JointPosition(x: 0.55, y: 0.7, angle: 175),
+                        .ankle: JointPosition(x: 0.7, y: 0.68, angle: 90)
+                    ],
+                    cues: ["Full extension", "Squeeze quads", "Slow negative"]
+                )
+            ],
+            keyJoints: [.knee, .ankle],
+            tempo: "2-1-3-0"
+        ),
+
+        "shoulder press": ExerciseDemo(
+            name: "Shoulder Press",
+            category: .push,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.35, angle: 90),
+                        .elbow: JointPosition(x: 0.6, y: 0.4, angle: 90),
+                        .wrist: JointPosition(x: 0.6, y: 0.3, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.6, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 175)
+                    ],
+                    cues: ["Dumbbells at shoulders", "Elbows out", "Core engaged"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.3, angle: 175),
+                        .elbow: JointPosition(x: 0.5, y: 0.2, angle: 175),
+                        .wrist: JointPosition(x: 0.5, y: 0.12, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.6, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.75, angle: 175)
+                    ],
+                    cues: ["Press overhead", "Full lockout", "Control descent"]
+                )
+            ],
+            keyJoints: [.shoulder, .elbow],
+            tempo: "2-0-2-0"
+        ),
+
+        "dumbbell row": ExerciseDemo(
+            name: "Dumbbell Row",
+            category: .pull,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.55, y: 0.4, angle: 30),
+                        .elbow: JointPosition(x: 0.6, y: 0.55, angle: 170),
+                        .wrist: JointPosition(x: 0.6, y: 0.65, angle: 0),
+                        .hip: JointPosition(x: 0.45, y: 0.55, angle: 100),
+                        .knee: JointPosition(x: 0.5, y: 0.72, angle: 150)
+                    ],
+                    cues: ["Support on bench", "Back flat", "Arm extended"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.38, angle: -15),
+                        .elbow: JointPosition(x: 0.55, y: 0.45, angle: 70),
+                        .wrist: JointPosition(x: 0.55, y: 0.4, angle: 0),
+                        .hip: JointPosition(x: 0.45, y: 0.55, angle: 100),
+                        .knee: JointPosition(x: 0.5, y: 0.72, angle: 150)
+                    ],
+                    cues: ["Pull to hip", "Squeeze back", "Elbow past body"]
+                )
+            ],
+            keyJoints: [.elbow, .shoulder],
+            tempo: "1-1-3-0"
+        ),
+
+        "chest fly": ExerciseDemo(
+            name: "Chest Fly",
+            category: .push,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.4, angle: 90),
+                        .elbow: JointPosition(x: 0.75, y: 0.4, angle: 160),
+                        .wrist: JointPosition(x: 0.85, y: 0.35, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.6, angle: 170),
+                        .knee: JointPosition(x: 0.55, y: 0.75, angle: 100)
+                    ],
+                    cues: ["Arms wide", "Slight elbow bend", "Chest stretched"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.4, angle: 0),
+                        .elbow: JointPosition(x: 0.55, y: 0.35, angle: 160),
+                        .wrist: JointPosition(x: 0.5, y: 0.3, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.6, angle: 170),
+                        .knee: JointPosition(x: 0.55, y: 0.75, angle: 100)
+                    ],
+                    cues: ["Bring together", "Squeeze chest", "Control the arc"]
+                )
+            ],
+            keyJoints: [.shoulder, .elbow],
+            tempo: "2-1-2-0"
+        ),
+
+        "plank": ExerciseDemo(
+            name: "Plank",
+            category: .core,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.3, y: 0.35, angle: 90),
+                        .elbow: JointPosition(x: 0.3, y: 0.55, angle: 90),
+                        .hip: JointPosition(x: 0.5, y: 0.35, angle: 180),
+                        .knee: JointPosition(x: 0.7, y: 0.35, angle: 180),
+                        .ankle: JointPosition(x: 0.85, y: 0.35, angle: 90)
+                    ],
+                    cues: ["Elbows under shoulders", "Body straight", "Core braced"]
+                ),
+                DemoKeyframe(
+                    position: .mid,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.3, y: 0.35, angle: 90),
+                        .elbow: JointPosition(x: 0.3, y: 0.55, angle: 90),
+                        .hip: JointPosition(x: 0.5, y: 0.35, angle: 180),
+                        .knee: JointPosition(x: 0.7, y: 0.35, angle: 180),
+                        .ankle: JointPosition(x: 0.85, y: 0.35, angle: 90)
+                    ],
+                    cues: ["Hold position", "Breathe steadily", "Squeeze glutes"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.3, y: 0.35, angle: 90),
+                        .elbow: JointPosition(x: 0.3, y: 0.55, angle: 90),
+                        .hip: JointPosition(x: 0.5, y: 0.35, angle: 180),
+                        .knee: JointPosition(x: 0.7, y: 0.35, angle: 180),
+                        .ankle: JointPosition(x: 0.85, y: 0.35, angle: 90)
+                    ],
+                    cues: ["Maintain alignment", "Don't sag hips", "Keep neutral spine"]
+                )
+            ],
+            keyJoints: [.shoulder, .hip],
+            tempo: "Hold"
+        ),
+
+        "lunge": ExerciseDemo(
+            name: "Lunge",
+            category: .legs,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.3, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.5, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.7, angle: 175),
+                        .ankle: JointPosition(x: 0.5, y: 0.9, angle: 90)
+                    ],
+                    cues: ["Stand tall", "Feet hip-width", "Core engaged"]
+                ),
+                DemoKeyframe(
+                    position: .mid,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.35, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 160),
+                        .knee: JointPosition(x: 0.55, y: 0.7, angle: 130),
+                        .ankle: JointPosition(x: 0.5, y: 0.9, angle: 80)
+                    ],
+                    cues: ["Step forward", "Lower controlled", "Keep torso upright"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.4, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.6, angle: 120),
+                        .knee: JointPosition(x: 0.6, y: 0.75, angle: 90),
+                        .ankle: JointPosition(x: 0.5, y: 0.9, angle: 70)
+                    ],
+                    cues: ["Front knee 90°", "Back knee near floor", "Push through front heel"]
+                )
+            ],
+            keyJoints: [.hip, .knee],
+            tempo: "2-0-2-0"
+        ),
+
+        "romanian deadlift": ExerciseDemo(
+            name: "Romanian Deadlift",
+            category: .legs,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.3, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.5, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.7, angle: 170),
+                        .ankle: JointPosition(x: 0.5, y: 0.9, angle: 90)
+                    ],
+                    cues: ["Stand tall", "Weight in hands", "Slight knee bend"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.6, y: 0.45, angle: 30),
+                        .hip: JointPosition(x: 0.5, y: 0.55, angle: 90),
+                        .knee: JointPosition(x: 0.52, y: 0.72, angle: 160),
+                        .ankle: JointPosition(x: 0.5, y: 0.9, angle: 85)
+                    ],
+                    cues: ["Hinge at hips", "Bar close to legs", "Feel hamstring stretch"]
+                )
+            ],
+            keyJoints: [.hip, .knee],
+            tempo: "3-1-2-0"
+        ),
+
+        "calf raise": ExerciseDemo(
+            name: "Calf Raise",
+            category: .legs,
+            keyframes: [
+                DemoKeyframe(
+                    position: .start,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.3, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.5, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.7, angle: 175),
+                        .ankle: JointPosition(x: 0.5, y: 0.9, angle: 90)
+                    ],
+                    cues: ["Feet on edge", "Heels dropped", "Hold support"]
+                ),
+                DemoKeyframe(
+                    position: .end,
+                    joints: [
+                        .shoulder: JointPosition(x: 0.5, y: 0.28, angle: 0),
+                        .hip: JointPosition(x: 0.5, y: 0.48, angle: 175),
+                        .knee: JointPosition(x: 0.5, y: 0.68, angle: 175),
+                        .ankle: JointPosition(x: 0.5, y: 0.88, angle: 130)
+                    ],
+                    cues: ["Rise on toes", "Squeeze calves", "Full contraction"]
+                )
+            ],
+            keyJoints: [.ankle, .knee],
+            tempo: "2-1-2-1"
         )
     ]
 }

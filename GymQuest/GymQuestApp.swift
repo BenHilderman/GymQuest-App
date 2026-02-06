@@ -166,6 +166,11 @@ class AppState: ObservableObject {
     @Published var showingCreatePost = false
     @Published var authState: AuthState = .notAuthenticated
 
+    // Active workout — persists across tab navigation so users can browse feed during rest
+    // activeWorkoutViewModel != nil means a workout is active (Home tab becomes the workout view)
+    var activeWorkoutViewModel: ActiveWorkoutViewModel?
+    @Published var showingWorkoutLaunch = false
+
     // where we are in the auth flow
     enum AuthState {
         case notAuthenticated
