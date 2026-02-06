@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────
 # GitLab CI/CD Pipeline for GymQuest iOS
 # ─────────────────────────────────────────────────────────────────────
-# Mirrors the GitHub Actions quality gate with GitLab-native syntax.
+# Four stage macOS pipeline: test → ui_test → performance → security.
 # Requires a macOS runner with Xcode 15+ registered with tag "macos".
 #
 # Pipeline stages:
