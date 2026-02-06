@@ -105,6 +105,15 @@ struct SharedWorkoutData: Codable, Identifiable {
         )
     }
 
+    /// Convert to ActiveExercise array for launching a real workout
+    func toActiveExercises() -> [ActiveExercise] {
+        exercises.map { ex in
+            let mg = MuscleGroup(rawValue: ex.muscleGroup) ?? .chest
+            let sets = ex.sets.map { ActiveSet(reps: $0.reps, weight: $0.weight) }
+            return ActiveExercise(name: ex.name, muscleGroup: mg, sets: sets)
+        }
+    }
+
     /// Encode to Data for storage
     func encode() -> Data? {
         try? JSONEncoder().encode(self)

@@ -65,6 +65,12 @@ struct FeedView: View {
                 } else {
                     // Traditional feed for Friends
                     ScrollView {
+                        // "Working Out Now" stories row
+                        if appState.liveWorkoutStatus != nil {
+                            WorkingOutNowRow()
+                                .padding(.top, 8)
+                        }
+
                         LazyVStack(spacing: 0) {
                             if friendsPosts.isEmpty {
                                 EmptyFeedView(onCreatePost: { appState.showingLogWorkout = true })
@@ -202,13 +208,14 @@ struct PostCardV2: View {
     let onLearnThis: (String) -> Void
 
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appState: AppState
     @State private var isLiked = false
     @State private var showVideoPlayer = false
     @State private var showComments = false
     @State private var hasAppeared = false
     @State private var isPlayingMusic = false
     @State private var showWorkoutDetail = false
-    @State private var showFollowWorkout = false
+    @State private var showExercisePreview = false
 
     // Computed activity type from detected activity
     var detectedActivityType: DetectedActivity? {
@@ -298,6 +305,13 @@ struct PostCardV2: View {
                     .padding(.top, 12)
             }
 
+            // Inline exercise preview (collapsible)
+            if let workout = sharedWorkout {
+                exercisePreviewSection(workout)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+            }
+
             // Follow Workout Button (if workout data available)
             if sharedWorkout != nil {
                 FollowWorkoutButton {
@@ -353,18 +367,85 @@ struct PostCardV2: View {
             if let workout = sharedWorkout {
                 WorkoutDetailSheet(workoutData: workout) {
                     showWorkoutDetail = false
-                    showFollowWorkout = true
+                    launchFollowWorkout(workout)
                 }
             }
         }
-        .fullScreenCover(isPresented: $showFollowWorkout) {
-            if let workout = sharedWorkout {
-                FollowWorkoutView(
-                    workoutData: workout,
-                    profile: UserProfile()
-                )
+    }
+
+    @ViewBuilder
+    private func exercisePreviewSection(_ workout: SharedWorkoutData) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    showExercisePreview.toggle()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "list.bullet")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.cyanSpark)
+                    Text("\(workout.exercises.count) exercises")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
+                    Spacer()
+                    Image(systemName: showExercisePreview ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.gray)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            }
+            .buttonStyle(.plain)
+
+            if showExercisePreview {
+                VStack(alignment: .leading, spacing: 6) {
+                    let previewExercises = Array(workout.exercises.prefix(4))
+                    ForEach(previewExercises) { ex in
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(GQColors.cyanSpark.opacity(0.2))
+                                .frame(width: 6, height: 6)
+                            Text(ex.name)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white.opacity(0.9))
+                            Spacer()
+                            let setCount = ex.sets.count
+                            let firstSet = ex.sets.first
+                            if let s = firstSet {
+                                Text("\(setCount)x\(s.reps) @ \(Int(s.weight)) lbs")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                    if workout.exercises.count > 4 {
+                        Text("+ \(workout.exercises.count - 4) more")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.cyanSpark)
+                            .padding(.top, 2)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .background(Color.white.opacity(0.04))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.06), lineWidth: 0.5)
+        )
+    }
+
+    private func launchFollowWorkout(_ workout: SharedWorkoutData) {
+        let exercises = workout.toActiveExercises()
+        let workoutType = WorkoutType(rawValue: workout.workoutType) ?? .push
+        appState.preloadedExercises = exercises
+        appState.activeWorkoutType = workoutType
+        appState.workoutInspiration = "@\(workout.authorUsername)"
+        appState.selectedTab = .home
     }
 
     private func deletePost() {
@@ -411,6 +492,91 @@ struct FollowWorkoutButton: View {
             .cornerRadius(12)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Working Out Now Row
+
+struct WorkingOutNowRow: View {
+    @EnvironmentObject var appState: AppState
+
+    // Simulated friends working out (would be real-time in production)
+    private let workoutFriends: [(name: String, type: String, minutes: Int)] = [
+        ("Alex", "Push", 23),
+        ("Jordan", "Legs", 45),
+        ("Sam", "Cardio", 12),
+        ("Taylor", "Pull", 37)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(GQColors.success)
+                    .frame(width: 7, height: 7)
+                Text("WORKING OUT NOW")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1)
+            }
+            .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(workoutFriends, id: \.name) { friend in
+                        VStack(spacing: 6) {
+                            ZStack {
+                                Circle()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 2.5
+                                    )
+                                    .frame(width: 56, height: 56)
+
+                                Circle()
+                                    .fill(GQGradients.primary)
+                                    .frame(width: 48, height: 48)
+                                    .overlay(
+                                        Text(String(friend.name.prefix(1)))
+                                            .font(.system(size: 18, weight: .bold))
+                                            .foregroundColor(.white)
+                                    )
+
+                                // Workout badge
+                                VStack {
+                                    Spacer()
+                                    HStack {
+                                        Spacer()
+                                        Text(friend.type.prefix(1))
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .frame(width: 18, height: 18)
+                                            .background(GQColors.success)
+                                            .clipShape(Circle())
+                                            .overlay(Circle().stroke(Color.black, lineWidth: 1.5))
+                                    }
+                                }
+                                .frame(width: 56, height: 56)
+                            }
+
+                            Text(friend.name)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white)
+                            Text("\(friend.minutes)m")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.03))
     }
 }
 
@@ -706,35 +872,68 @@ struct PostActionsRowAnimated: View {
     @State private var showParticles = false
     @State private var displayedLikeCount: Int = 0
     @State private var displayedCommentCount: Int = 0
+    @State private var showReactionPicker = false
 
     var body: some View {
         HStack(spacing: 20) {
-            // Animated Like Button
-            Button {
-                performLikeAnimation()
-            } label: {
-                ZStack {
-                    // Particle effects
-                    if showParticles {
-                        HeartParticles()
+            // Animated Like Button with reaction picker
+            ZStack(alignment: .top) {
+                // Reaction picker overlay
+                if showReactionPicker {
+                    HStack(spacing: 8) {
+                        ForEach(ReactionType.allCases, id: \.self) { reaction in
+                            Button {
+                                addReaction(reaction)
+                                withAnimation(.spring(response: 0.2)) { showReactionPicker = false }
+                            } label: {
+                                Text(reaction.emoji)
+                                    .font(.system(size: 24))
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(.ultraThinMaterial)
+                            .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                    )
+                    .offset(y: -44)
+                    .transition(.scale(scale: 0.5, anchor: .bottom).combined(with: .opacity))
+                    .zIndex(10)
+                }
 
-                    HStack(spacing: 6) {
-                        Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .font(.system(size: 22))
-                            .foregroundColor(isLiked ? .red : .white)
-                            .scaleEffect(heartScale)
-
-                        // Animated counter
-                        if displayedLikeCount > 0 {
-                            AnimatedCounter(value: displayedLikeCount)
-                                .font(.system(size: 14))
-                                .foregroundColor(.gray)
+                Button {
+                    performLikeAnimation()
+                } label: {
+                    ZStack {
+                        if showParticles {
+                            HeartParticles()
+                        }
+                        HStack(spacing: 6) {
+                            Image(systemName: isLiked ? "heart.fill" : "heart")
+                                .font(.system(size: 22))
+                                .foregroundColor(isLiked ? .red : .white)
+                                .scaleEffect(heartScale)
+                            if displayedLikeCount > 0 {
+                                AnimatedCounter(value: displayedLikeCount)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.gray)
+                            }
                         }
                     }
                 }
+                .buttonStyle(.plain)
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.4)
+                        .onEnded { _ in
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                showReactionPicker.toggle()
+                            }
+                        }
+                )
             }
-            .buttonStyle(.plain)
 
             // Comments with animated counter
             Button {
@@ -861,6 +1060,23 @@ struct PostActionsRowAnimated: View {
         )
         if let likes = try? modelContext.fetch(descriptor), !likes.isEmpty {
             isLiked = true
+        }
+    }
+
+    private func addReaction(_ type: ReactionType) {
+        let reaction = Reaction(
+            odId: currentUserId,
+            odUsername: currentUserName,
+            targetType: "post",
+            targetId: post.id,
+            reactionType: type
+        )
+        modelContext.insert(reaction)
+        try? modelContext.save()
+
+        // Also count as a like
+        if !isLiked {
+            performLikeAnimation()
         }
     }
 }
@@ -2511,6 +2727,12 @@ struct CommunitySearchRow: View {
 
 // MARK: - Community Detail View
 
+enum CommunitySection: String, CaseIterable {
+    case feed = "Feed"
+    case leaderboard = "Leaderboard"
+    case members = "Members"
+}
+
 struct CommunityDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -2520,6 +2742,7 @@ struct CommunityDetailView: View {
     let profile: UserProfile
 
     @State private var showingNewPost = false
+    @State private var selectedSection: CommunitySection = .feed
 
     var posts: [CommunityPost] {
         communityPosts
@@ -2632,33 +2855,20 @@ struct CommunityDetailView: View {
                     .buttonStyle(.plain)
                     .padding(.horizontal, 16)
 
-                    // Posts feed
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("RECENT ACTIVITY")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(GQColors.textTertiary)
-                            .tracking(1)
-                            .padding(.horizontal, 16)
+                    // Weekly Challenge card
+                    weeklyChallengeCard
 
-                        if posts.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "text.bubble")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.gray.opacity(0.5))
-                                Text("No posts yet")
-                                    .font(.subheadline)
-                                    .foregroundColor(.gray)
-                                Text("Be the first to share something!")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 40)
-                        } else {
-                            ForEach(posts) { post in
-                                CommunityPostCard(post: post)
-                            }
-                        }
+                    // Segmented control
+                    communitySectionPicker
+
+                    // Content based on selected section
+                    switch selectedSection {
+                    case .feed:
+                        communityFeedSection
+                    case .leaderboard:
+                        communityLeaderboardSection
+                    case .members:
+                        communityMembersSection
                     }
 
                     Spacer(minLength: 40)
@@ -2677,6 +2887,245 @@ struct CommunityDetailView: View {
             .sheet(isPresented: $showingNewPost) {
                 NewCommunityPostSheet(community: community, profile: profile)
             }
+        }
+    }
+
+    // MARK: - Weekly Challenge Card
+
+    @ViewBuilder
+    private var weeklyChallengeCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "trophy.fill")
+                    .foregroundColor(.yellow)
+                Text("WEEKLY CHALLENGE")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1)
+                Spacer()
+                Text("3d left")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.sunsetOrange)
+            }
+
+            Text("Complete 20 Sets This Week")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+
+            AnimatedProgressBar(
+                progress: 0.65,
+                height: 8,
+                colors: [GQColors.vividPurple, GQColors.cyanSpark]
+            )
+
+            HStack {
+                Text("13 / 20 sets")
+                    .font(.system(size: 12))
+                    .foregroundColor(.gray)
+                Spacer()
+                Text("18 members participating")
+                    .font(.system(size: 12))
+                    .foregroundColor(.gray)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(
+                            LinearGradient(
+                                colors: [GQColors.vividPurple.opacity(0.3), GQColors.cyanSpark.opacity(0.3)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+        )
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Section Picker
+
+    @ViewBuilder
+    private var communitySectionPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(CommunitySection.allCases, id: \.self) { section in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { selectedSection = section }
+                } label: {
+                    Text(section.rawValue)
+                        .font(.system(size: 13, weight: selectedSection == section ? .bold : .medium))
+                        .foregroundColor(selectedSection == section ? .white : .gray)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            selectedSection == section ? GQColors.vividPurple.opacity(0.2) : Color.clear
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(10)
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Feed Section
+
+    @ViewBuilder
+    private var communityFeedSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if posts.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "text.bubble")
+                        .font(.system(size: 40))
+                        .foregroundColor(.gray.opacity(0.5))
+                    Text("No posts yet")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
+                    Text("Be the first to share something!")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else {
+                ForEach(posts) { post in
+                    CommunityPostCard(post: post)
+                }
+            }
+        }
+    }
+
+    // MARK: - Leaderboard Section
+
+    @ViewBuilder
+    private var communityLeaderboardSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("THIS WEEK")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+                .padding(.horizontal, 16)
+
+            ForEach(Array(leaderboardData.enumerated()), id: \.offset) { index, entry in
+                HStack(spacing: 12) {
+                    // Rank
+                    Text("#\(index + 1)")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(medalColor(for: index))
+                        .frame(width: 32)
+
+                    Circle()
+                        .fill(GQGradients.primary)
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Text(String(entry.name.prefix(1)))
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                        )
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text("\(entry.sets) sets • \(entry.workouts) workouts")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                    }
+
+                    Spacer()
+
+                    Text("\(entry.points) pts")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(GQColors.cyanSpark)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    index < 3 ? Color.white.opacity(0.04) : Color.clear
+                )
+                .cornerRadius(10)
+            }
+        }
+    }
+
+    // MARK: - Members Section
+
+    @ViewBuilder
+    private var communityMembersSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(community.memberCount) MEMBERS")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+                .padding(.horizontal, 16)
+
+            ForEach(memberData, id: \.name) { member in
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(GQGradients.primary)
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            Text(String(member.name.prefix(1)))
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                        )
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(member.name)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text(member.role)
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                    }
+
+                    Spacer()
+
+                    if member.isOnline {
+                        Circle()
+                            .fill(GQColors.success)
+                            .frame(width: 8, height: 8)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 6)
+            }
+        }
+    }
+
+    // MARK: - Data
+
+    private var leaderboardData: [(name: String, sets: Int, workouts: Int, points: Int)] {
+        [
+            ("Alex K.", 42, 5, 210),
+            ("Jordan M.", 38, 4, 190),
+            ("Sam R.", 35, 5, 175),
+            ("Taylor W.", 30, 3, 150),
+            ("Casey B.", 25, 3, 125)
+        ]
+    }
+
+    private var memberData: [(name: String, role: String, isOnline: Bool)] {
+        [
+            ("Alex K.", "Admin", true),
+            ("Jordan M.", "Member", true),
+            ("Sam R.", "Member", false),
+            ("Taylor W.", "Member", true),
+            ("Casey B.", "Member", false)
+        ]
+    }
+
+    private func medalColor(for index: Int) -> Color {
+        switch index {
+        case 0: return .yellow
+        case 1: return Color(white: 0.75)
+        case 2: return Color(red: 0.8, green: 0.5, blue: 0.2)
+        default: return .gray
         }
     }
 }

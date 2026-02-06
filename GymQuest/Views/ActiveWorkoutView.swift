@@ -8,6 +8,35 @@
 
 import SwiftUI
 import SwiftData
+import PhotosUI
+
+// MARK: - Workout Mood
+
+enum WorkoutMood: String, CaseIterable {
+    case energized = "Energized"
+    case satisfied = "Satisfied"
+    case exhausted = "Exhausted"
+    case proud = "Proud"
+
+    var emoji: String {
+        switch self {
+        case .energized: return "⚡️"
+        case .satisfied: return "😊"
+        case .exhausted: return "😮‍💨"
+        case .proud: return "💪"
+        }
+    }
+}
+
+// MARK: - Live Workout Status
+
+struct LiveWorkoutStatus {
+    let workoutType: WorkoutType
+    let startTime: Date
+    var currentExercise: String
+    var completedSets: Int
+    var totalSets: Int
+}
 
 // MARK: - Active Workout Session
 
@@ -38,10 +67,20 @@ struct ActiveWorkoutView: View {
     @State private var restTimerHidden = false
     @State private var restTimer: Timer?
 
-    init(profile: UserProfile, workoutType: WorkoutType = .push) {
+    // Music
+    @State private var workoutSong: Song? = nil
+    @State private var showMusicPicker = false
+
+    // Live broadcast
+    @State private var isSharingLive = false
+
+    var preloadedExercises: [ActiveExercise]?
+
+    init(profile: UserProfile, workoutType: WorkoutType = .push, preloadedExercises: [ActiveExercise]? = nil) {
         self.profile = profile
         self.initialWorkoutType = workoutType
         self._workoutType = State(initialValue: workoutType)
+        self.preloadedExercises = preloadedExercises
     }
 
     var completedSetsCount: Int {
@@ -52,14 +91,63 @@ struct ActiveWorkoutView: View {
         exercises.reduce(0) { $0 + $1.sets.count }
     }
 
+    private var workoutAccentColor: Color {
+        switch workoutType {
+        case .push: return GQColors.vividPurple
+        case .pull: return GQColors.cyanSpark
+        case .legs: return GQColors.sunsetOrange
+        case .upper: return GQColors.deepBlue
+        case .lower: return GQColors.coralRed
+        case .fullBody: return GQColors.success
+        case .cardio: return GQColors.success
+        case .rest: return GQColors.textSecondary
+        }
+    }
+
+    private func isCurrentExercise(_ exercise: ActiveExercise) -> Bool {
+        guard let first = exercises.first(where: { ex in
+            ex.sets.contains(where: { !$0.isCompleted })
+        }) else { return false }
+        return first.id == exercise.id
+    }
+
     var body: some View {
         ZStack {
-            // Background - pure black TikTok style
+            // Background with workout-type glow
             Color.black.ignoresSafeArea()
+            RadialGradient(
+                colors: [workoutAccentColor.opacity(0.12), Color.clear],
+                center: .top,
+                startRadius: 0,
+                endRadius: 400
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Header with timer and progress
                 workoutHeader
+
+                // "Inspired by" banner when following a shared workout
+                if let inspiration = appState.workoutInspiration {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 11))
+                        Text("Inspired by \(inspiration)")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(GQColors.cyanSpark)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(GQColors.cyanSpark.opacity(0.12))
+                            .overlay(Capsule().stroke(GQColors.cyanSpark.opacity(0.25), lineWidth: 0.5))
+                    )
+                    .padding(.top, 6)
+                }
+
+                // Music bar
+                musicBar
 
                 // Compact rest timer bar
                 if isResting && !restTimerHidden {
@@ -77,12 +165,22 @@ struct ActiveWorkoutView: View {
                 // Exercise list
                 ScrollView {
                     LazyVStack(spacing: 16) {
+                        if exercises.isEmpty {
+                            workoutEmptyState
+                        }
+
                         ForEach($exercises) { $exercise in
                             ActiveExerciseCard(
                                 exercise: $exercise,
+                                accentColor: workoutAccentColor,
+                                isActiveExercise: isCurrentExercise(exercise),
                                 onShowDemo: { showFormPeek(for: exercise.name) },
                                 onSetCompleted: { name in startRestTimer(exerciseName: name) }
                             )
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.95, anchor: .bottom)),
+                                removal: .opacity
+                            ))
                         }
 
                         // Add exercise button
@@ -90,6 +188,7 @@ struct ActiveWorkoutView: View {
                     }
                     .padding(16)
                     .padding(.bottom, 100)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: exercises.count)
                 }
 
                 // Bottom bar
@@ -98,6 +197,10 @@ struct ActiveWorkoutView: View {
         }
         .onAppear {
             startTimer()
+            if let preloaded = preloadedExercises ?? appState.preloadedExercises, exercises.isEmpty {
+                exercises = preloaded
+                appState.preloadedExercises = nil
+            }
         }
         .onDisappear {
             timer?.invalidate()
@@ -106,6 +209,9 @@ struct ActiveWorkoutView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isResting && !restTimerHidden)
         .sheet(isPresented: $showingAddExercise) {
             AddExerciseToSessionSheet(exercises: $exercises, workoutType: workoutType)
+        }
+        .sheet(isPresented: $showMusicPicker) {
+            MusicPickerSheet(selectedSong: $workoutSong, activityType: workoutType.rawValue)
         }
         .sheet(item: $showingFormDemo) { exercise in
             ExerciseFormDemoSheet(exerciseName: exercise.name)
@@ -133,104 +239,217 @@ struct ActiveWorkoutView: View {
     private var workoutHeader: some View {
         VStack(spacing: 12) {
             HStack {
-                Button {
-                    cleanupAndExit()
-                } label: {
+                Button { cleanupAndExit() } label: {
                     Image(systemName: "xmark")
-                        .font(.title3)
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
                 }
+                .buttonStyle(.plain)
+
+                // Broadcast toggle
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        isSharingLive.toggle()
+                        if isSharingLive {
+                            updateLiveStatus()
+                        } else {
+                            appState.liveWorkoutStatus = nil
+                        }
+                    }
+                } label: {
+                    Image(systemName: isSharingLive ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(isSharingLive ? GQColors.success : GQColors.textTertiary)
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(isSharingLive ? GQColors.success.opacity(0.15) : Color.white.opacity(0.08))
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(isSharingLive ? GQColors.success.opacity(0.4) : Color.clear, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
 
                 Spacer()
 
-                // Workout type picker
+                // Workout type — frosted glass pill
                 Menu {
                     ForEach(WorkoutType.allCases, id: \.self) { type in
-                        Button(type.rawValue) {
-                            workoutType = type
-                        }
+                        Button(type.rawValue) { workoutType = type }
                     }
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: workoutType.icon)
                         Text(workoutType.rawValue)
-                        Image(systemName: "chevron.down")
-                            .font(.caption)
+                        Image(systemName: "chevron.down").font(.caption)
                     }
-                    .font(.headline)
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(20)
+                    .background(
+                        ZStack {
+                            Capsule().fill(.ultraThinMaterial).environment(\.colorScheme, .dark)
+                            Capsule().fill(workoutAccentColor.opacity(0.15))
+                        }
+                    )
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule().stroke(
+                            LinearGradient(colors: [workoutAccentColor.opacity(0.5), workoutAccentColor.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            lineWidth: 1
+                        )
+                    )
                 }
 
                 Spacer()
 
-                // Timer (tap to mute/unmute)
+                // Timer — glass capsule
                 Button {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        appState.workoutTimerHidden.toggle()
-                    }
+                    withAnimation(.easeOut(duration: 0.2)) { appState.workoutTimerHidden.toggle() }
                 } label: {
-                    if appState.workoutTimerHidden {
-                        Image(systemName: "timer")
-                            .font(.system(size: 16))
-                            .foregroundColor(GQColors.textTertiary)
-                    } else {
-                        Text(formatTime(elapsedTime))
-                            .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                            .foregroundColor(GQColors.primary)
+                    Group {
+                        if appState.workoutTimerHidden {
+                            Image(systemName: "timer").font(.system(size: 16)).foregroundColor(GQColors.textTertiary)
+                        } else {
+                            Text(formatTime(elapsedTime))
+                                .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                                .foregroundColor(workoutAccentColor)
+                        }
                     }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(workoutAccentColor.opacity(0.1)))
+                    .overlay(Capsule().stroke(workoutAccentColor.opacity(0.2), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal)
 
-            // Progress bar - flat TikTok style
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.white.opacity(0.1))
-                        .frame(height: 4)
-
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(GQColors.primary)
-                        .frame(width: totalSetsCount > 0 ? geo.size.width * CGFloat(completedSetsCount) / CGFloat(totalSetsCount) : 0, height: 4)
-                }
-            }
-            .frame(height: 4)
+            // Animated progress bar
+            AnimatedProgressBar(
+                progress: totalSetsCount > 0 ? Double(completedSetsCount) / Double(totalSetsCount) : 0,
+                height: 5,
+                colors: [workoutAccentColor]
+            )
             .padding(.horizontal)
 
-            // Stats row
-            HStack(spacing: 24) {
-                Label("\(exercises.count)", systemImage: "figure.strengthtraining.traditional")
-                Label("\(completedSetsCount)/\(totalSetsCount)", systemImage: "checkmark.circle")
+            // Stats — glass pills
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    StatPill(icon: "figure.strengthtraining.traditional", value: "\(exercises.count)", label: "Exercises", color: workoutAccentColor)
+                    StatPill(icon: "checkmark.circle", value: "\(completedSetsCount)/\(totalSetsCount)", label: "Sets",
+                             color: completedSetsCount == totalSetsCount && totalSetsCount > 0 ? GQColors.success : workoutAccentColor)
+                }
+                .padding(.horizontal, 16)
             }
-            .font(.system(size: 13))
-            .foregroundColor(GQColors.textSecondary)
         }
         .padding(.vertical, 16)
-        .background(Color.black)
+        .background(
+            Color.black.opacity(0.85)
+                .background(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
+        )
+    }
+
+    // MARK: - Music Bar
+
+    @ViewBuilder
+    private var musicBar: some View {
+        if let song = workoutSong {
+            HStack(spacing: 10) {
+                MusicBadge(
+                    songTitle: song.title,
+                    artistName: song.artist,
+                    isPlaying: true,
+                    onTap: { showMusicPicker = true }
+                )
+
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { workoutSong = nil }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+        } else {
+            Button { showMusicPicker = true } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 13))
+                    Text("Add Music")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundColor(GQColors.cyanSpark)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule()
+                        .fill(GQColors.cyanSpark.opacity(0.1))
+                        .overlay(Capsule().stroke(GQColors.cyanSpark.opacity(0.2), lineWidth: 0.5))
+                )
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
     }
 
     // MARK: - Add Exercise Button
+
+    private var workoutEmptyState: some View {
+        VStack(spacing: 20) {
+            Image(systemName: workoutType.icon)
+                .font(.system(size: 48))
+                .foregroundStyle(GQGradients.workoutGradient(for: workoutType))
+                .padding(.top, 40)
+            Text("Ready to crush \(workoutType.rawValue)?")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+            Text("Add your first exercise to get started")
+                .font(.system(size: 14))
+                .foregroundColor(GQColors.textSecondary)
+            Button {
+                showingAddExercise = true
+            } label: {
+                HStack { Image(systemName: "plus.circle.fill"); Text("Add Exercise") }
+                    .font(.system(size: 16, weight: .semibold))
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .padding(.horizontal, 40)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 40)
+    }
 
     private var addExerciseButton: some View {
         Button {
             showingAddExercise = true
         } label: {
-            HStack {
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .semibold))
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(LinearGradient(colors: [workoutAccentColor, workoutAccentColor.opacity(0.6)], startPoint: .top, endPoint: .bottom))
                 Text("Add Exercise")
                     .font(.system(size: 16, weight: .semibold))
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 16)
-            .background(GQColors.cardBackground)
-            .cornerRadius(12)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.04)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [8, 6]))
+                    .foregroundColor(Color.white.opacity(0.15))
+            )
         }
         .buttonStyle(.plain)
     }
@@ -239,43 +458,50 @@ struct ActiveWorkoutView: View {
 
     private var bottomBar: some View {
         HStack(spacing: 16) {
-            // Quick add last exercise
-            if let lastExercise = exercises.last {
+            if exercises.last != nil {
                 Button {
-                    addSetToExercise(lastExercise)
+                    if let last = exercises.last { addSetToExercise(last) }
                 } label: {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("Add Set")
-                    }
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 14)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(12)
+                    HStack(spacing: 6) { Image(systemName: "plus"); Text("Add Set") }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.08))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 0.5))
+                        )
                 }
                 .buttonStyle(.plain)
             }
-
             Spacer()
-
-            // Finish workout - TikTok style solid button
-            Button {
-                finishWorkout()
-            } label: {
+            Button { finishWorkout() } label: {
                 Text("Finish")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 32)
                     .padding(.vertical, 14)
-                    .background(GQColors.primary)
-                    .cornerRadius(22)
+                    .background(
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 22).fill(
+                                LinearGradient(colors: [GQColors.vividPurple, GQColors.cyanSpark.opacity(0.8)], startPoint: .leading, endPoint: .trailing)
+                            )
+                            RoundedRectangle(cornerRadius: 22).fill(
+                                LinearGradient(colors: [Color.white.opacity(0.15), Color.clear], startPoint: .top, endPoint: .center)
+                            )
+                        }
+                    )
+                    .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 8, y: 4)
             }
             .buttonStyle(.plain)
         }
         .padding(16)
-        .background(Color.black)
+        .background(
+            ZStack {
+                Color.black.opacity(0.9).background(.ultraThinMaterial).environment(\.colorScheme, .dark)
+                VStack { Rectangle().fill(LinearGradient(colors: [Color.white.opacity(0.08), Color.white.opacity(0.02)], startPoint: .leading, endPoint: .trailing)).frame(height: 0.5); Spacer() }
+            }
+        )
     }
 
     // MARK: - Helpers
@@ -306,6 +532,7 @@ struct ActiveWorkoutView: View {
 
     private func finishWorkout() {
         timer?.invalidate()
+        appState.workoutSong = workoutSong
         showingCompletion = true
     }
 
@@ -368,13 +595,29 @@ struct ActiveWorkoutView: View {
         appState.restTimeRemaining = 0
     }
 
+    private func updateLiveStatus() {
+        let currentEx = exercises.first(where: { ex in
+            ex.sets.contains(where: { !$0.isCompleted })
+        })?.name ?? "Starting..."
+        appState.liveWorkoutStatus = LiveWorkoutStatus(
+            workoutType: workoutType,
+            startTime: workoutStartTime,
+            currentExercise: currentEx,
+            completedSets: completedSetsCount,
+            totalSets: totalSetsCount
+        )
+    }
+
     private func cleanupAndExit() {
         timer?.invalidate()
         restTimer?.invalidate()
         appState.isResting = false
         appState.restTimeRemaining = 0
         appState.workoutTimerHidden = false
+        appState.workoutInspiration = nil
+        appState.workoutSong = nil
         appState.activeWorkoutType = nil
+        appState.liveWorkoutStatus = nil
     }
 
     private func adjustRestDuration(_ seconds: Int) {
@@ -452,82 +695,91 @@ struct ActiveSet: Identifiable {
 
 struct ActiveExerciseCard: View {
     @Binding var exercise: ActiveExercise
+    var accentColor: Color = GQColors.vividPurple
+    var isActiveExercise: Bool = false
     let onShowDemo: () -> Void
     var onSetCompleted: ((String) -> Void)? = nil
 
-    var completedCount: Int {
-        exercise.sets.filter { $0.isCompleted }.count
-    }
+    var completedCount: Int { exercise.sets.filter { $0.isCompleted }.count }
+    var allComplete: Bool { !exercise.sets.isEmpty && completedCount == exercise.sets.count }
 
     var body: some View {
-        VStack(spacing: 12) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(exercise.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
-
-                    Text(exercise.muscleGroup.rawValue)
-                        .font(.system(size: 12))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-
-                Spacer()
-
-                // Form demo button
-                Button(action: onShowDemo) {
-                    Text("Form")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(GQColors.elevatedSurface)
-                        .cornerRadius(14)
-                }
-                .buttonStyle(.plain)
-
-                // Progress indicator
-                Text("\(completedCount)/\(exercise.sets.count)")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(completedCount == exercise.sets.count ? GQColors.primary : GQColors.textSecondary)
-            }
-
-            // Sets
-            VStack(spacing: 8) {
-                ForEach($exercise.sets) { $set in
-                    ActiveSetRow(
-                        set: $set,
-                        setNumber: exercise.sets.firstIndex(where: { $0.id == set.id })! + 1,
-                        onCompleted: { onSetCompleted?(exercise.name) }
-                    )
-                }
-
-                // Add set button
-                Button {
-                    let lastSet = exercise.sets.last
-                    exercise.sets.append(ActiveSet(
-                        reps: lastSet?.reps ?? 10,
-                        weight: lastSet?.weight ?? 0
-                    ))
-                } label: {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("Add Set")
+        GlassCard(accentColor: accentColor, cornerRadius: 14) {
+            VStack(spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(exercise.name)
+                            .font(.system(size: isActiveExercise ? 19 : 17, weight: .bold))
+                            .foregroundColor(.white)
+                        Text(exercise.muscleGroup.rawValue)
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textTertiary)
                     }
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(GQColors.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Color.white.opacity(0.03))
-                    .cornerRadius(8)
+                    Spacer()
+                    Button(action: onShowDemo) {
+                        Text("Form")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.08))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.white.opacity(0.1), lineWidth: 0.5))
+                            .cornerRadius(14)
+                    }
+                    .buttonStyle(.plain)
+
+                    // Progress ring
+                    ZStack {
+                        Circle().stroke(Color.white.opacity(0.1), lineWidth: 2.5).frame(width: 28, height: 28)
+                        Circle()
+                            .trim(from: 0, to: exercise.sets.isEmpty ? 0 : CGFloat(completedCount) / CGFloat(exercise.sets.count))
+                            .stroke(allComplete ? GQColors.success : accentColor, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                            .frame(width: 28, height: 28)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.spring(response: 0.4, dampingFraction: 0.7), value: completedCount)
+                        Text("\(completedCount)").font(.system(size: 11, weight: .bold)).foregroundColor(.white)
+                    }
                 }
-                .buttonStyle(.plain)
+
+                VStack(spacing: 8) {
+                    ForEach($exercise.sets) { $set in
+                        ActiveSetRow(
+                            set: $set,
+                            setNumber: exercise.sets.firstIndex(where: { $0.id == set.id })! + 1,
+                            accentColor: accentColor,
+                            onCompleted: { onSetCompleted?(exercise.name) }
+                        )
+                    }
+                    Button {
+                        let lastSet = exercise.sets.last
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            exercise.sets.append(ActiveSet(reps: lastSet?.reps ?? 10, weight: lastSet?.weight ?? 0))
+                        }
+                    } label: {
+                        HStack { Image(systemName: "plus"); Text("Add Set") }
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.03))
+                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(style: StrokeStyle(lineWidth: 0.5, dash: [4, 4])).foregroundColor(Color.white.opacity(0.08)))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
+            .padding(16)
         }
-        .padding(16)
-        .background(GQColors.cardBackground)
-        .cornerRadius(12)
+        .overlay(
+            Group {
+                if isActiveExercise && !allComplete {
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.clear, lineWidth: 0)
+                        .animatedGradientBorder(cornerRadius: 14, lineWidth: 1.5, colors: [accentColor, GQColors.cyanSpark, accentColor], duration: 6.0)
+                }
+            }
+        )
     }
 }
 
@@ -536,17 +788,19 @@ struct ActiveExerciseCard: View {
 struct ActiveSetRow: View {
     @Binding var set: ActiveSet
     let setNumber: Int
+    var accentColor: Color = GQColors.vividPurple
     var onCompleted: (() -> Void)? = nil
+
+    @State private var justCompleted = false
+    @State private var showCheckParticles = false
 
     var body: some View {
         HStack(spacing: 12) {
-            // Set number
             Text("\(setNumber)")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(set.isCompleted ? GQColors.primary : GQColors.textSecondary)
+                .foregroundColor(set.isCompleted ? GQColors.success : GQColors.textSecondary)
                 .frame(width: 24)
 
-            // Weight input
             HStack(spacing: 4) {
                 TextField("0", value: $set.weight, format: .number)
                     .keyboardType(.decimalPad)
@@ -555,14 +809,13 @@ struct ActiveSetRow: View {
                     .foregroundColor(.white)
                     .frame(width: 60)
                     .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.08))
-                    .cornerRadius(8)
-                Text("lbs")
-                    .font(.system(size: 12))
-                    .foregroundColor(GQColors.textTertiary)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(set.isCompleted ? 0.04 : 0.08))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.06), lineWidth: 0.5))
+                    )
+                Text("lbs").font(.system(size: 12)).foregroundColor(GQColors.textTertiary)
             }
 
-            // Reps input
             HStack(spacing: 4) {
                 TextField("0", value: $set.reps, format: .number)
                     .keyboardType(.numberPad)
@@ -571,32 +824,87 @@ struct ActiveSetRow: View {
                     .foregroundColor(.white)
                     .frame(width: 50)
                     .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.08))
-                    .cornerRadius(8)
-                Text("reps")
-                    .font(.system(size: 12))
-                    .foregroundColor(GQColors.textTertiary)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(set.isCompleted ? 0.04 : 0.08))
+                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.06), lineWidth: 0.5))
+                    )
+                Text("reps").font(.system(size: 12)).foregroundColor(GQColors.textTertiary)
             }
 
             Spacer()
 
-            // Complete button
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     set.isCompleted.toggle()
                     if set.isCompleted {
+                        justCompleted = true
+                        showCheckParticles = true
+                        #if canImport(UIKit)
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        #endif
                         onCompleted?()
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(600))
+                            justCompleted = false
+                            showCheckParticles = false
+                        }
                     }
                 }
             } label: {
-                Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 28))
-                    .foregroundColor(set.isCompleted ? GQColors.primary : Color.white.opacity(0.2))
+                ZStack {
+                    if showCheckParticles { SetCompleteParticles(color: GQColors.success) }
+                    Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 28))
+                        .foregroundColor(set.isCompleted ? GQColors.success : Color.white.opacity(0.2))
+                        .scaleEffect(justCompleted ? 1.3 : 1.0)
+                        .animation(.spring(response: 0.2, dampingFraction: 0.4), value: justCompleted)
+                }
             }
             .buttonStyle(.plain)
         }
         .padding(.vertical, 4)
-        .opacity(set.isCompleted ? 0.7 : 1.0)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(justCompleted ? GQColors.success.opacity(0.08) : Color.clear)
+                .animation(.easeOut(duration: 0.4), value: justCompleted)
+        )
+        .overlay(alignment: .leading) {
+            if set.isCompleted {
+                RoundedRectangle(cornerRadius: 2).fill(GQColors.success.opacity(0.5)).frame(width: 3)
+                    .transition(.opacity.combined(with: .scale(scale: 0.5)))
+            }
+        }
+    }
+}
+
+// MARK: - Set Complete Particles
+
+struct SetCompleteParticles: View {
+    let color: Color
+    @State private var particles: [ParticleData] = []
+
+    var body: some View {
+        ZStack {
+            ForEach(particles) { particle in
+                Circle().fill(particle.color).frame(width: particle.size, height: particle.size)
+                    .offset(x: particle.x, y: particle.y).opacity(particle.opacity)
+            }
+        }
+        .onAppear { createParticles() }
+    }
+
+    private func createParticles() {
+        for i in 0..<6 {
+            let angle = Double(i) * 60.0 * .pi / 180.0
+            let distance = CGFloat.random(in: 15...30)
+            let colors: [Color] = [color, color.opacity(0.7), color.opacity(0.5)]
+            particles.append(ParticleData(id: UUID(), x: 0, y: 0, targetX: cos(angle) * distance, targetY: sin(angle) * distance,
+                                          size: CGFloat.random(in: 3...6), color: colors.randomElement() ?? color, opacity: 1.0))
+        }
+        withAnimation(.easeOut(duration: 0.4)) {
+            for i in particles.indices { particles[i].x = particles[i].targetX; particles[i].y = particles[i].targetY; particles[i].opacity = 0 }
+        }
     }
 }
 
@@ -826,6 +1134,7 @@ struct ExerciseFormDemoSheet: View {
 struct WorkoutSessionCompletionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appState: AppState
 
     let exercises: [ActiveExercise]
     let duration: Int
@@ -834,10 +1143,23 @@ struct WorkoutSessionCompletionSheet: View {
     let onDismiss: () -> Void
 
     @State private var caption = ""
-    @State private var shareToFeed = true
     @State private var hasCompleted = false
-    @State private var showEnhancedEditor = false
     @State private var savedWorkout: Workout?
+    @State private var selectedMood: WorkoutMood? = nil
+
+    // Media
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    @State private var photoData: Data? = nil
+    @State private var videoData: Data? = nil
+    @State private var mediaIsVideo = false
+
+    // Music
+    @State private var selectedSong: Song? = nil
+    @State private var showMusicPicker = false
+
+    // Tags & sharing
+    @State private var taggedFriends: Set<String> = []
+    @State private var shareToCommunity = false
 
     var totalSets: Int {
         exercises.reduce(0) { $0 + $1.sets.filter { $0.isCompleted }.count }
@@ -852,87 +1174,16 @@ struct WorkoutSessionCompletionSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
-                    // Success - TikTok style
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 80))
-                        .foregroundColor(GQColors.primary)
-                        .padding(.top, 20)
-
-                    Text("Workout Complete!")
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    // Stats
-                    HStack(spacing: 24) {
-                        WorkoutStatItem(value: "\(duration)", label: "min")
-                        WorkoutStatItem(value: "\(totalSets)", label: "sets")
-                        WorkoutStatItem(value: "\(exercises.count)", label: "exercises")
-                    }
-                    .padding()
-                    .background(Color.white.opacity(0.05))
-                    .cornerRadius(16)
-
-                    // Share section
-                    VStack(spacing: 16) {
-                        Toggle(isOn: $shareToFeed) {
-                            HStack {
-                                Image(systemName: "square.and.arrow.up")
-                                Text("Share to Feed")
-                            }
-                        }
-                        .tint(GQColors.primary)
-
-                        if shareToFeed {
-                            TextField("Add a caption...", text: $caption, axis: .vertical)
-                                .lineLimit(2...4)
-                                .padding(12)
-                                .background(Color.white.opacity(0.08))
-                                .cornerRadius(12)
-
-                            // Customize Post button
-                            Button {
-                                saveWorkoutOnly()
-                                showEnhancedEditor = true
-                            } label: {
-                                HStack {
-                                    Image(systemName: "slider.horizontal.3")
-                                    Text("Customize Post")
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                }
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(GQColors.cyanSpark)
-                                .padding(12)
-                                .background(GQColors.cyanSpark.opacity(0.15))
-                                .cornerRadius(10)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding()
-                    .background(Color.white.opacity(0.03))
-                    .cornerRadius(16)
-
-                    // Save button (quick save without customization)
-                    Button {
-                        saveWorkout()
-                    } label: {
-                        HStack {
-                            Image(systemName: hasCompleted ? "checkmark.circle.fill" : "arrow.down.circle.fill")
-                            Text(hasCompleted ? "Saved!" : "Quick Save")
-                        }
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(GQColors.primary)
-                        .cornerRadius(22)
-                    }
-                    .disabled(hasCompleted)
-                    .buttonStyle(.plain)
-                    .padding(.horizontal)
-
+                VStack(spacing: 20) {
+                    completionHeader
+                    completionStats
+                    moodSelector
+                    captionSection
+                    mediaSection
+                    musicSection
+                    tagFriendsSection
+                    communityToggle
+                    actionButtons
                     Spacer(minLength: 40)
                 }
                 .padding()
@@ -942,35 +1193,441 @@ struct WorkoutSessionCompletionSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
-                        onDismiss()
-                    }
+                    Button("Done") { dismiss(); onDismiss() }
                 }
             }
-            .fullScreenCover(isPresented: $showEnhancedEditor) {
-                if let workout = savedWorkout {
-                    EnhancedPostEditorView(
-                        profile: profile,
-                        workout: workout,
-                        exercises: exercises.map { activeEx in
-                            CompletedExercise(
-                                name: activeEx.name,
-                                sets: activeEx.sets.filter { $0.isCompleted }.count,
-                                index: exercises.firstIndex(where: { $0.id == activeEx.id }) ?? 0
-                            )
-                        },
-                        duration: duration
-                    )
+            .sheet(isPresented: $showMusicPicker) {
+                MusicPickerSheet(selectedSong: $selectedSong, activityType: workoutType.rawValue)
+            }
+            .onChange(of: selectedPhotoItem) { _, newValue in
+                loadSelectedMedia(from: newValue)
+            }
+            .onAppear {
+                if let song = appState.workoutSong {
+                    selectedSong = song
                 }
             }
         }
     }
 
-    /// Save workout only (without creating a post) - used when opening enhanced editor
-    private func saveWorkoutOnly() {
-        guard savedWorkout == nil else { return }
+    // MARK: - Header
 
+    @ViewBuilder
+    private var completionHeader: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            Text("Workout Complete!")
+                .font(.title2)
+                .fontWeight(.bold)
+        }
+        .padding(.top, 12)
+    }
+
+    // MARK: - Stats
+
+    @ViewBuilder
+    private var completionStats: some View {
+        HStack(spacing: 24) {
+            WorkoutStatItem(value: "\(duration)", label: "min")
+            WorkoutStatItem(value: "\(totalSets)", label: "sets")
+            WorkoutStatItem(value: "\(exercises.count)", label: "exercises")
+        }
+        .padding()
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(16)
+    }
+
+    // MARK: - Mood
+
+    @ViewBuilder
+    private var moodSelector: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("HOW DO YOU FEEL?")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+
+            HStack(spacing: 10) {
+                ForEach(WorkoutMood.allCases, id: \.self) { mood in
+                    Button {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                            selectedMood = selectedMood == mood ? nil : mood
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(mood.emoji)
+                                .font(.system(size: 26))
+                            Text(mood.rawValue)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(selectedMood == mood ? .white : .gray)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(selectedMood == mood ? GQColors.vividPurple.opacity(0.25) : Color.white.opacity(0.04))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(selectedMood == mood ? GQColors.vividPurple.opacity(0.5) : Color.clear, lineWidth: 1)
+                        )
+                        .scaleEffect(selectedMood == mood ? 1.05 : 1.0)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    // MARK: - Caption
+
+    @ViewBuilder
+    private var captionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("CAPTION")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+
+            TextField("What's on your mind?", text: $caption, axis: .vertical)
+                .lineLimit(3...6)
+                .padding(12)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                )
+        }
+    }
+
+    // MARK: - Media
+
+    @ViewBuilder
+    private var mediaSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("MEDIA")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+
+            if let photo = photoData {
+                #if canImport(UIKit)
+                mediaThumbnail(photo)
+                #endif
+            } else {
+                PhotosPicker(selection: $selectedPhotoItem, matching: .any(of: [.images, .videos])) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 20))
+                            .foregroundColor(GQColors.cyanSpark)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Add Photo or Video")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white)
+                            Text("Show off your workout")
+                                .font(.system(size: 12))
+                                .foregroundColor(.gray)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(14)
+                    .background(Color.white.opacity(0.04))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    #if canImport(UIKit)
+    @ViewBuilder
+    private func mediaThumbnail(_ data: Data) -> some View {
+        ZStack(alignment: .topTrailing) {
+            if let uiImage = UIImage(data: data) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(height: 180)
+                    .clipped()
+                    .cornerRadius(12)
+            }
+
+            if mediaIsVideo {
+                Image(systemName: "video.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white)
+                    .padding(6)
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(6)
+                    .padding(8)
+            }
+
+            // Remove button
+            Button {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    photoData = nil
+                    videoData = nil
+                    selectedPhotoItem = nil
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(.white)
+                    .background(Circle().fill(Color.black.opacity(0.5)))
+            }
+            .buttonStyle(.plain)
+            .padding(8)
+        }
+    }
+    #endif
+
+    // MARK: - Music
+
+    @ViewBuilder
+    private var musicSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("MUSIC")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+
+            if let song = selectedSong {
+                HStack(spacing: 10) {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 14))
+                        .foregroundColor(GQColors.cyanSpark)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(song.title)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text(song.artist)
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textSecondary)
+                    }
+                    Spacer()
+                    Button {
+                        showMusicPicker = true
+                    } label: {
+                        Text("Change")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.cyanSpark)
+                    }
+                    .buttonStyle(.plain)
+                    Button {
+                        withAnimation { selectedSong = nil }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(12)
+                .background(GQColors.cyanSpark.opacity(0.08))
+                .cornerRadius(12)
+            } else {
+                Button { showMusicPicker = true } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "music.note.list")
+                            .font(.system(size: 20))
+                            .foregroundColor(GQColors.cyanSpark)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Add a Song or Playlist")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.white)
+                            Text("What did you listen to?")
+                                .font(.system(size: 12))
+                                .foregroundColor(.gray)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13))
+                            .foregroundColor(.gray)
+                    }
+                    .padding(14)
+                    .background(Color.white.opacity(0.04))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    // MARK: - Tag Friends
+
+    @ViewBuilder
+    private var tagFriendsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("TAG FRIENDS")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(recentFriends, id: \.name) { friend in
+                        let isTagged = taggedFriends.contains(friend.name)
+                        Button {
+                            withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
+                                if isTagged {
+                                    taggedFriends.remove(friend.name)
+                                } else {
+                                    taggedFriends.insert(friend.name)
+                                }
+                            }
+                        } label: {
+                            VStack(spacing: 5) {
+                                ZStack {
+                                    Circle()
+                                        .fill(isTagged ? GQGradients.primary : LinearGradient(colors: [Color.white.opacity(0.1)], startPoint: .top, endPoint: .bottom))
+                                        .frame(width: 48, height: 48)
+                                        .overlay(
+                                            Text(String(friend.name.prefix(1)))
+                                                .font(.system(size: 18, weight: .bold))
+                                                .foregroundColor(.white)
+                                        )
+
+                                    if isTagged {
+                                        Circle()
+                                            .stroke(GQColors.cyanSpark, lineWidth: 2)
+                                            .frame(width: 52, height: 52)
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(GQColors.cyanSpark)
+                                            .background(Circle().fill(Color.black).frame(width: 12, height: 12))
+                                            .offset(x: 18, y: 18)
+                                    }
+                                }
+                                Text(friend.name.split(separator: " ").first.map(String.init) ?? friend.name)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(isTagged ? .white : .gray)
+                                    .lineLimit(1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private var recentFriends: [(name: String, id: UUID)] {
+        [
+            (name: "Alex K.", id: UUID()),
+            (name: "Jordan M.", id: UUID()),
+            (name: "Sam R.", id: UUID()),
+            (name: "Taylor W.", id: UUID()),
+        ]
+    }
+
+    // MARK: - Community Toggle
+
+    @ViewBuilder
+    private var communityToggle: some View {
+        Toggle(isOn: $shareToCommunity) {
+            HStack(spacing: 10) {
+                Image(systemName: "building.2.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(GQColors.vividPurple)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Post to Community")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("Share with your gym community")
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray)
+                }
+            }
+        }
+        .tint(GQColors.vividPurple)
+        .padding(14)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(12)
+    }
+
+    // MARK: - Action Buttons
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        VStack(spacing: 12) {
+            // Primary: Share & Save
+            Button { shareAndSave() } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: hasCompleted ? "checkmark.circle.fill" : "paperplane.fill")
+                    Text(hasCompleted ? "Shared!" : "Share & Save")
+                }
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    LinearGradient(
+                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(22)
+            }
+            .disabled(hasCompleted)
+            .buttonStyle(.plain)
+
+            // Secondary: Save without sharing
+            Button { saveOnly() } label: {
+                Text("Save Without Sharing")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.gray)
+            }
+            .disabled(hasCompleted)
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Media Loading
+
+    private func loadSelectedMedia(from item: PhotosPickerItem?) {
+        guard let item = item else { return }
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                await MainActor.run {
+                    #if canImport(UIKit)
+                    if UIImage(data: data) != nil {
+                        photoData = data
+                        mediaIsVideo = false
+                    } else {
+                        videoData = data
+                        photoData = data // thumbnail placeholder
+                        mediaIsVideo = true
+                    }
+                    #endif
+                }
+            }
+        }
+    }
+
+    // MARK: - Save Actions
+
+    private func shareAndSave() {
         let workoutExercises = exercises.map { activeExercise -> Exercise in
             let sets = activeExercise.sets.filter { $0.isCompleted }.enumerated().map { index, activeSet in
                 ExerciseSet(
@@ -991,23 +1648,47 @@ struct WorkoutSessionCompletionSheet: View {
             duration: duration,
             exercises: workoutExercises
         )
-
         modelContext.insert(workout)
 
-        // Add XP
-        let xpEarned = 20 + (totalSets * 5)
+        // Build mood string for caption
+        let moodSuffix = selectedMood.map { " Feeling \($0.emoji) \($0.rawValue.lowercased())." } ?? ""
+        let captionText = caption.isEmpty
+            ? "Just finished a \(workoutType.rawValue) workout!\(moodSuffix)"
+            : caption + moodSuffix
+
+        // Create post with all the rich data
+        let post = Post(
+            authorId: profile.id,
+            authorName: profile.name,
+            authorUsername: profile.username,
+            caption: captionText,
+            photoData: photoData,
+            videoData: videoData,
+            workoutType: workoutType.rawValue,
+            duration: duration,
+            setCount: totalSets,
+            songTitle: selectedSong?.title,
+            artistName: selectedSong?.artist,
+            taggedUsernames: Array(taggedFriends)
+        )
+        modelContext.insert(post)
+
+        // Add XP (bonus for sharing)
+        let xpEarned = 25 + (totalSets * 5)
         _ = profile.addXP(xpEarned)
 
         try? modelContext.save()
-        savedWorkout = workout
 
         withAnimation {
             hasCompleted = true
         }
+
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
     }
 
-    private func saveWorkout() {
-        // Create workout
+    private func saveOnly() {
         let workoutExercises = exercises.map { activeExercise -> Exercise in
             let sets = activeExercise.sets.filter { $0.isCompleted }.enumerated().map { index, activeSet in
                 ExerciseSet(
@@ -1028,24 +1709,8 @@ struct WorkoutSessionCompletionSheet: View {
             duration: duration,
             exercises: workoutExercises
         )
-
         modelContext.insert(workout)
 
-        // Create post if sharing
-        if shareToFeed {
-            let post = Post(
-                authorId: profile.id,
-                authorName: profile.name,
-                authorUsername: profile.username,
-                caption: caption.isEmpty ? "Just finished a \(workoutType.rawValue) workout!" : caption,
-                workoutType: workoutType.rawValue,
-                duration: duration,
-                setCount: totalSets
-            )
-            modelContext.insert(post)
-        }
-
-        // Add XP
         let xpEarned = 20 + (totalSets * 5)
         _ = profile.addXP(xpEarned)
 

@@ -24,6 +24,7 @@ struct EnhancedPostEditorView: View {
     let workout: Workout?
     let exercises: [CompletedExercise]  // Exercise names and sets from the workout
     let duration: Int
+    var initialSong: Song? = nil
 
     // Core state
     @State private var caption: String = ""
@@ -197,6 +198,11 @@ struct EnhancedPostEditorView: View {
                     selectedSong: $selectedSong,
                     activityType: workout?.type.rawValue
                 )
+            }
+            .onAppear {
+                if selectedSong == nil, let song = initialSong {
+                    selectedSong = song
+                }
             }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) { }
