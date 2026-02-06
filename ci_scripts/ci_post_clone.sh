@@ -2,8 +2,8 @@
 # ─────────────────────────────────────────────────────────────────────
 # Xcode Cloud — Post Clone Script
 # ─────────────────────────────────────────────────────────────────────
-# Runs after Xcode Cloud clones the repository.
-# Installs XcodeGen and generates the .xcodeproj from project.yml.
+# Runs automatically after Xcode Cloud clones the repository.
+# Installs XcodeGen via Homebrew and generates .xcodeproj from project.yml.
 #
 # Note: Xcode Cloud does NOT have sudo access. All installs must be
 # user-level (Homebrew handles this automatically).
