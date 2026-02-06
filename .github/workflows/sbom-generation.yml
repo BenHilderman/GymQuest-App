@@ -68,7 +68,7 @@ jobs:
       # ── Upload Both Formats as Artifacts ─────────────────────────────
 
       - name: Upload SBOM Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: sbom-${{ github.sha }}
           path: |
