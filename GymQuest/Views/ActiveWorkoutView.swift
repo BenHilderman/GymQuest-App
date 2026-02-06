@@ -30,6 +30,14 @@ struct ActiveWorkoutView: View {
     @State private var elapsedTime = 0
     @State private var timer: Timer?
 
+    // Rest timer state
+    @State private var isResting = false
+    @State private var restTimeRemaining = 0
+    @State private var restTimerTotal = 60
+    @State private var selectedRestDuration = 0 // 0 = auto, once user picks it sticks
+    @State private var restTimerHidden = false
+    @State private var restTimer: Timer?
+
     init(profile: UserProfile, workoutType: WorkoutType = .push) {
         self.profile = profile
         self.initialWorkoutType = workoutType
@@ -53,13 +61,27 @@ struct ActiveWorkoutView: View {
                 // Header with timer and progress
                 workoutHeader
 
+                // Compact rest timer bar
+                if isResting && !restTimerHidden {
+                    CompactRestTimerBar(
+                        restTimeRemaining: $restTimeRemaining,
+                        restTimerTotal: $restTimerTotal,
+                        selectedRestDuration: $selectedRestDuration,
+                        onSkip: { skipRest() },
+                        onHide: { withAnimation(.easeOut(duration: 0.2)) { restTimerHidden = true } },
+                        onAdjust: { seconds in adjustRestDuration(seconds) }
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 // Exercise list
                 ScrollView {
                     LazyVStack(spacing: 16) {
                         ForEach($exercises) { $exercise in
                             ActiveExerciseCard(
                                 exercise: $exercise,
-                                onShowDemo: { showFormPeek(for: exercise.name) }
+                                onShowDemo: { showFormPeek(for: exercise.name) },
+                                onSetCompleted: { name in startRestTimer(exerciseName: name) }
                             )
                         }
 
@@ -79,7 +101,9 @@ struct ActiveWorkoutView: View {
         }
         .onDisappear {
             timer?.invalidate()
+            restTimer?.invalidate()
         }
+        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isResting && !restTimerHidden)
         .sheet(isPresented: $showingAddExercise) {
             AddExerciseToSessionSheet(exercises: $exercises, workoutType: workoutType)
         }
@@ -99,7 +123,7 @@ struct ActiveWorkoutView: View {
                 duration: elapsedTime / 60,
                 workoutType: workoutType,
                 profile: profile,
-                onDismiss: { dismiss() }
+                onDismiss: { cleanupAndExit() }
             )
         }
     }
@@ -110,8 +134,7 @@ struct ActiveWorkoutView: View {
         VStack(spacing: 12) {
             HStack {
                 Button {
-                    // Confirm cancel
-                    dismiss()
+                    cleanupAndExit()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.title3)
@@ -144,10 +167,23 @@ struct ActiveWorkoutView: View {
 
                 Spacer()
 
-                // Timer
-                Text(formatTime(elapsedTime))
-                    .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                    .foregroundColor(GQColors.primary)
+                // Timer (tap to mute/unmute)
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        appState.workoutTimerHidden.toggle()
+                    }
+                } label: {
+                    if appState.workoutTimerHidden {
+                        Image(systemName: "timer")
+                            .font(.system(size: 16))
+                            .foregroundColor(GQColors.textTertiary)
+                    } else {
+                        Text(formatTime(elapsedTime))
+                            .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                            .foregroundColor(GQColors.primary)
+                    }
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal)
 
@@ -273,6 +309,82 @@ struct ActiveWorkoutView: View {
         showingCompletion = true
     }
 
+    // MARK: - Rest Timer
+
+    private func startRestTimer(exerciseName: String) {
+        restTimer?.invalidate()
+        restTimerHidden = false
+
+        let duration: Int
+        if selectedRestDuration > 0 {
+            duration = selectedRestDuration
+        } else {
+            // Smart default based on exercise type
+            if let metadata = ExtendedExerciseDatabase.find(exerciseName) {
+                switch metadata.category {
+                case .compound: duration = 120
+                case .push, .pull: duration = 90
+                case .isolation: duration = 60
+                case .core: duration = 45
+                case .cardio: duration = 30
+                default: duration = 60
+                }
+            } else {
+                duration = 60
+            }
+        }
+
+        restTimerTotal = duration
+        restTimeRemaining = duration
+        isResting = true
+        appState.isResting = true
+        appState.restTimerTotal = duration
+        appState.restTimeRemaining = duration
+
+        restTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            Task { @MainActor in
+                restTimeRemaining -= 1
+                appState.restTimeRemaining = restTimeRemaining
+                if restTimeRemaining <= 0 {
+                    endRest()
+                    #if canImport(UIKit)
+                    let gen = UINotificationFeedbackGenerator()
+                    gen.notificationOccurred(.success)
+                    #endif
+                }
+            }
+        }
+    }
+
+    private func skipRest() {
+        endRest()
+    }
+
+    private func endRest() {
+        restTimer?.invalidate()
+        restTimer = nil
+        isResting = false
+        appState.isResting = false
+        appState.restTimeRemaining = 0
+    }
+
+    private func cleanupAndExit() {
+        timer?.invalidate()
+        restTimer?.invalidate()
+        appState.isResting = false
+        appState.restTimeRemaining = 0
+        appState.workoutTimerHidden = false
+        appState.activeWorkoutType = nil
+    }
+
+    private func adjustRestDuration(_ seconds: Int) {
+        let delta = seconds - restTimerTotal
+        restTimerTotal = seconds
+        restTimeRemaining = max(0, restTimeRemaining + delta)
+        // Persist for all future rest periods this workout
+        selectedRestDuration = seconds
+    }
+
     private func showFormPeek(for exerciseName: String) {
         // Seed Form Studio content if needed
         FormContentSeeder.seedIfNeeded(modelContext: modelContext)
@@ -341,6 +453,7 @@ struct ActiveSet: Identifiable {
 struct ActiveExerciseCard: View {
     @Binding var exercise: ActiveExercise
     let onShowDemo: () -> Void
+    var onSetCompleted: ((String) -> Void)? = nil
 
     var completedCount: Int {
         exercise.sets.filter { $0.isCompleted }.count
@@ -383,7 +496,11 @@ struct ActiveExerciseCard: View {
             // Sets
             VStack(spacing: 8) {
                 ForEach($exercise.sets) { $set in
-                    ActiveSetRow(set: $set, setNumber: exercise.sets.firstIndex(where: { $0.id == set.id })! + 1)
+                    ActiveSetRow(
+                        set: $set,
+                        setNumber: exercise.sets.firstIndex(where: { $0.id == set.id })! + 1,
+                        onCompleted: { onSetCompleted?(exercise.name) }
+                    )
                 }
 
                 // Add set button
@@ -419,6 +536,7 @@ struct ActiveExerciseCard: View {
 struct ActiveSetRow: View {
     @Binding var set: ActiveSet
     let setNumber: Int
+    var onCompleted: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -466,6 +584,9 @@ struct ActiveSetRow: View {
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     set.isCompleted.toggle()
+                    if set.isCompleted {
+                        onCompleted?()
+                    }
                 }
             } label: {
                 Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
@@ -949,6 +1070,133 @@ struct WorkoutStatItem: View {
                 .font(.caption)
                 .foregroundColor(GQColors.textSecondary)
         }
+    }
+}
+
+// MARK: - Compact Rest Timer Bar
+
+struct CompactRestTimerBar: View {
+    @Binding var restTimeRemaining: Int
+    @Binding var restTimerTotal: Int
+    @Binding var selectedRestDuration: Int
+    let onSkip: () -> Void
+    let onHide: () -> Void
+    let onAdjust: (Int) -> Void
+
+    @State private var showPills = false
+
+    var progress: CGFloat {
+        guard restTimerTotal > 0 else { return 0 }
+        return CGFloat(restTimeRemaining) / CGFloat(restTimerTotal)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                // Mini circular progress
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.1), lineWidth: 2.5)
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(GQColors.primary, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 1), value: progress)
+                }
+                .frame(width: 28, height: 28)
+
+                // Countdown
+                Text("\(restTimeRemaining)s")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .contentTransition(.numericText())
+                    .monospacedDigit()
+
+                Text("Rest")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textTertiary)
+
+                // Expand/collapse duration pills
+                Button {
+                    withAnimation(.spring(response: 0.25)) {
+                        showPills.toggle()
+                    }
+                } label: {
+                    Image(systemName: showPills ? "chevron.up" : "slider.horizontal.3")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.textSecondary)
+                        .padding(6)
+                        .background(Color.white.opacity(0.06))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                // Skip
+                Button {
+                    onSkip()
+                } label: {
+                    Text("Skip")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+                .buttonStyle(.plain)
+
+                // Hide
+                Button {
+                    onHide()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                        .padding(6)
+                        .background(Color.white.opacity(0.06))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+
+            // Duration pills — expandable
+            if showPills {
+                HStack(spacing: 6) {
+                    ForEach([30, 45, 60, 90, 120, 180], id: \.self) { seconds in
+                        Button {
+                            onAdjust(seconds)
+                        } label: {
+                            Text(seconds < 60 ? "\(seconds)s" : "\(seconds / 60):\(String(format: "%02d", seconds % 60))")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(selectedRestDuration == seconds ? .white : GQColors.textTertiary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    selectedRestDuration == seconds
+                                    ? GQColors.primary.opacity(0.4)
+                                    : Color.white.opacity(0.06)
+                                )
+                                .cornerRadius(10)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            // Thin progress bar at the bottom
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(GQColors.primary.opacity(0.5))
+                    .frame(width: geo.size.width * progress, height: 2)
+                    .animation(.linear(duration: 1), value: progress)
+            }
+            .frame(height: 2)
+        }
+        .background(Color.white.opacity(0.03))
     }
 }
 

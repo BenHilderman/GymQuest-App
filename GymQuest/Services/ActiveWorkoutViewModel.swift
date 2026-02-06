@@ -119,7 +119,8 @@ class ActiveWorkoutViewModel {
     var isResting: Bool = false
     var restTimeRemaining: Int = 0
     var restTimerTotal: Int = 60
-    var selectedRestDuration: Int = 0 // 0 = auto (smart defaults)
+    var selectedRestDuration: Int = 0 // 0 = auto (smart defaults), once user picks one it sticks
+    var restTimerHidden: Bool = false // user can hide the rest bar
     var currentRestExerciseName: String = ""
     var currentRestFormCue: String? = nil
 
@@ -301,6 +302,8 @@ class ActiveWorkoutViewModel {
         let delta = seconds - restTimerTotal
         restTimerTotal = seconds
         restTimeRemaining = max(0, restTimeRemaining + delta)
+        // Persist choice for all future rest timers this workout
+        selectedRestDuration = seconds
     }
 
     private func endRestTimer() {
