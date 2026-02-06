@@ -62,7 +62,11 @@ targets:
     type: bundle.unit-test
     platform: iOS
     sources:
-      - GymQuestTests
+      - path: Tests/Unit
+      - path: Tests/Integration
+      - path: Tests/Snapshot
+      - path: Tests/Helpers
+      - path: Tests/Fixtures
     dependencies:
       - target: GymQuest
       - package: SnapshotTesting
@@ -79,7 +83,7 @@ targets:
     type: bundle.ui-testing
     platform: iOS
     sources:
-      - GymQuestUITests
+      - path: Tests/UI
     dependencies:
       - target: GymQuest
     settings:
@@ -93,7 +97,7 @@ targets:
     type: bundle.unit-test
     platform: iOS
     sources:
-      - GymQuestPerformanceTests
+      - path: Tests/Performance
     dependencies:
       - target: GymQuest
     settings:
