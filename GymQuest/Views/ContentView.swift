@@ -71,7 +71,7 @@ struct ContentView: View {
 
             // Active workout view — kept alive outside the switch so state persists across tab changes
             if let workoutType = appState.activeWorkoutType {
-                ActiveWorkoutView(profile: profile, workoutType: workoutType)
+                ActiveWorkoutView(profile: profile, workoutType: workoutType, preloadedExercises: appState.preloadedExercises)
                     .opacity(appState.selectedTab == .home ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .home)
             }

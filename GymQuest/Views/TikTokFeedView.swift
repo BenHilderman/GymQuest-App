@@ -22,6 +22,23 @@ struct TikTokFeedView: View {
 
     @State private var currentIndex = 0
     @State private var showCreatePost = false
+    @State private var selectedCategory: String? = nil
+
+    private let categories = ["All", "Push", "Pull", "Legs", "Cardio", "PR Moments", "Form Tips", "Music"]
+
+    var filteredPosts: [Post] {
+        guard let category = selectedCategory, category != "All" else { return posts.map { $0 } }
+        if category == "PR Moments" {
+            return posts.filter { $0.caption.lowercased().contains("pr") || $0.caption.contains("🏆") }
+        }
+        if category == "Music" {
+            return posts.filter { $0.songTitle != nil }
+        }
+        if category == "Form Tips" {
+            return posts.filter { $0.caption.lowercased().contains("form") || $0.caption.lowercased().contains("tip") }
+        }
+        return posts.filter { $0.workoutType?.lowercased() == category.lowercased() }
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -29,12 +46,12 @@ struct TikTokFeedView: View {
                 // Pure black background
                 Color.black.ignoresSafeArea()
 
-                if posts.isEmpty {
+                if filteredPosts.isEmpty {
                     EmptyTikTokFeed(onCreatePost: { showCreatePost = true })
                 } else {
                     // Vertical paging TabView - TikTok style
                     TabView(selection: $currentIndex) {
-                        ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
+                        ForEach(Array(filteredPosts.enumerated()), id: \.element.id) { index, post in
                             TikTokPostCard(
                                 post: post,
                                 profile: profile,
@@ -47,15 +64,51 @@ struct TikTokFeedView: View {
                     .ignoresSafeArea()
                 }
 
-                // Top header overlay
-                VStack {
+                // Top header overlay with category filters
+                VStack(spacing: 0) {
                     TikTokHeader(currentTab: .constant(.forYou))
+                    categoryFilterPills
                     Spacer()
                 }
             }
         }
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(profile: profile)
+        }
+    }
+
+    private var categoryFilterPills: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(categories, id: \.self) { category in
+                    let isSelected = (selectedCategory ?? "All") == category
+                    Button {
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                            selectedCategory = category == "All" ? nil : category
+                            currentIndex = 0
+                        }
+                    } label: {
+                        Text(category)
+                            .font(.system(size: 12, weight: isSelected ? .bold : .medium))
+                            .foregroundColor(isSelected ? .white : .white.opacity(0.6))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                isSelected
+                                    ? AnyShapeStyle(LinearGradient(
+                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ))
+                                    : AnyShapeStyle(Color.white.opacity(0.1))
+                            )
+                            .cornerRadius(16)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
         }
     }
 }
@@ -97,12 +150,17 @@ struct TikTokPostCard: View {
     let screenHeight: CGFloat
 
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appState: AppState
     @State private var isLiked = false
     @State private var showHeartAnimation = false
     @State private var showComments = false
     @State private var showShare = false
     @State private var likeCount: Int = 0
     @State private var lastTapLocation: CGPoint = .zero
+
+    private var sharedWorkout: SharedWorkoutData? {
+        post.getSharedWorkout()
+    }
 
     var body: some View {
         ZStack {
@@ -199,16 +257,15 @@ struct TikTokPostCard: View {
                         .foregroundColor(.white.opacity(0.9))
                     }
 
-                    // Music indicator (like TikTok)
+                    // Hashtag pills (extracted from caption)
+                    hashtagPills
+
+                    // Music marquee ticker (like TikTok)
                     if let song = post.songTitle {
-                        HStack(spacing: 8) {
-                            Image(systemName: "music.note")
-                                .font(.system(size: 12))
-                            Text(song)
-                                .font(.system(size: 13))
-                                .lineLimit(1)
-                        }
-                        .foregroundColor(.white)
+                        MusicMarqueeTicker(
+                            songTitle: song,
+                            artistName: post.artistName
+                        )
                     }
                 }
                 .padding(.horizontal, 16)
@@ -253,6 +310,24 @@ struct TikTokPostCard: View {
                     ) {
                         // Save action
                     }
+
+                    // Follow Workout (only when post has shared workout data)
+                    if sharedWorkout != nil {
+                        TikTokActionButton(
+                            icon: "figure.run",
+                            count: nil,
+                            color: GQColors.cyanSpark
+                        ) {
+                            if let workout = sharedWorkout {
+                                let exercises = workout.toActiveExercises()
+                                let workoutType = WorkoutType(rawValue: workout.workoutType) ?? .push
+                                appState.preloadedExercises = exercises
+                                appState.activeWorkoutType = workoutType
+                                appState.workoutInspiration = "@\(workout.authorUsername)"
+                                appState.selectedTab = .home
+                            }
+                        }
+                    }
                 }
                 .padding(.trailing, 12)
                 .padding(.bottom, 100)
@@ -274,6 +349,32 @@ struct TikTokPostCard: View {
             TikTokShareSheet(post: post)
                 .presentationDetents([.medium])
         }
+    }
+
+    private var hashtagPills: some View {
+        let hashtags = extractHashtags(from: post.caption)
+        return Group {
+            if !hashtags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(hashtags, id: \.self) { tag in
+                            Text(tag)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.cyanSpark)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(GQColors.cyanSpark.opacity(0.15))
+                                .cornerRadius(10)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func extractHashtags(from text: String) -> [String] {
+        let words = text.split(separator: " ")
+        return words.filter { $0.hasPrefix("#") }.map { String($0) }
     }
 
     private func triggerLike() {
@@ -681,6 +782,46 @@ struct EmptyTikTokFeed: View {
                     .padding(.vertical, 14)
                     .background(GQColors.primary)
                     .cornerRadius(22)
+            }
+        }
+    }
+}
+
+// MARK: - Music Marquee Ticker
+
+struct MusicMarqueeTicker: View {
+    let songTitle: String
+    let artistName: String?
+
+    @State private var scrollOffset: CGFloat = 0
+
+    private var displayText: String {
+        if let artist = artistName {
+            return "\(songTitle) - \(artist)"
+        }
+        return songTitle
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Spinning disc icon
+            Image(systemName: "opticaldisc.fill")
+                .font(.system(size: 14))
+                .foregroundColor(.white)
+                .rotationEffect(.degrees(scrollOffset * 2))
+
+            // Scrolling text
+            Text(displayText)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .offset(x: scrollOffset)
+        }
+        .frame(maxWidth: 220, alignment: .leading)
+        .clipped()
+        .onAppear {
+            withAnimation(.linear(duration: 6).repeatForever(autoreverses: true)) {
+                scrollOffset = -30
             }
         }
     }

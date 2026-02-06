@@ -1426,60 +1426,76 @@ struct ScaleButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Workout Launch Mode
+
+enum WorkoutLaunchMode: String, CaseIterable {
+    case scratch = "From Scratch"
+    case aiGenerated = "AI Generated"
+    case repeatLast = "Repeat Last"
+    case template = "Saved Template"
+
+    var icon: String {
+        switch self {
+        case .scratch: return "square.and.pencil"
+        case .aiGenerated: return "sparkles"
+        case .repeatLast: return "arrow.counterclockwise"
+        case .template: return "bookmark"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .scratch: return "Build your own workout"
+        case .aiGenerated: return "Smart workout for you"
+        case .repeatLast: return "Load your last session"
+        case .template: return "Use a saved template"
+        }
+    }
+}
+
 // MARK: - Start Workout Sheet
 
 struct StartWorkoutSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appState: AppState
     @Binding var selectedType: WorkoutType
     let onStart: () -> Void
 
+    @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
+    @Query(sort: \WorkoutTemplate.lastUsedAt, order: .reverse) private var templates: [WorkoutTemplate]
+
+    @State private var launchMode: WorkoutLaunchMode = .scratch
+    @State private var isGenerating = false
+
+    private var lastWorkoutOfType: Workout? {
+        workouts.first(where: { $0.type == selectedType })
+    }
+
+    private var templatesForType: [WorkoutTemplate] {
+        templates.filter { $0.workoutType == selectedType }
+    }
+
+    @State private var selectedTemplate: WorkoutTemplate?
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Text("What are you training today?")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .padding(.top, 8)
+            ScrollView {
+                VStack(spacing: 24) {
+                    Text("What are you training today?")
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .padding(.top, 8)
 
-                // Workout type grid
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                    ForEach(WorkoutType.allCases, id: \.self) { type in
-                        WorkoutTypeCard(
-                            type: type,
-                            isSelected: selectedType == type,
-                            onSelect: { selectedType = type }
-                        )
-                    }
+                    typeGrid
+                    modeSelection
+                    templatePickerSection
+                    repeatLastSection
+
+                    Spacer(minLength: 20)
                 }
-                .padding(.horizontal)
-
-                Spacer()
-
-                // Start button
-                Button {
-                    onStart()
-                } label: {
-                    HStack {
-                        Image(systemName: "play.fill")
-                        Text("Start \(selectedType.rawValue) Workout")
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        LinearGradient(
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(14)
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal)
-                .padding(.bottom)
             }
+            .safeAreaInset(edge: .bottom) { startButton }
             .background(Color(white: 0.05).ignoresSafeArea())
             .navigationTitle("Start Workout")
             .navigationBarTitleDisplayMode(.inline)
@@ -1489,6 +1505,387 @@ struct StartWorkoutSheet: View {
                 }
             }
         }
+    }
+
+    // MARK: - Type Grid
+
+    @ViewBuilder
+    private var typeGrid: some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            ForEach(WorkoutType.allCases, id: \.self) { type in
+                WorkoutTypeCard(
+                    type: type,
+                    isSelected: selectedType == type,
+                    onSelect: {
+                        selectedType = type
+                        if launchMode == .repeatLast && lastWorkoutOfType == nil {
+                            launchMode = .scratch
+                        }
+                        if launchMode == .template && templatesForType.isEmpty {
+                            launchMode = .scratch
+                        }
+                        selectedTemplate = nil
+                    }
+                )
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    // MARK: - Mode Selection
+
+    @ViewBuilder
+    private var modeSelection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("How do you want to train?")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+                .padding(.horizontal)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(WorkoutLaunchMode.allCases, id: \.self) { mode in
+                        let available = modeAvailable(mode)
+                        LaunchModeCard(
+                            mode: mode,
+                            isSelected: launchMode == mode,
+                            isAvailable: available,
+                            detail: modeDetail(mode)
+                        ) {
+                            if available {
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                    launchMode = mode
+                                    if mode != .template { selectedTemplate = nil }
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal)
+            }
+        }
+    }
+
+    // MARK: - Template Picker
+
+    @ViewBuilder
+    private var templatePickerSection: some View {
+        if launchMode == .template && !templatesForType.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Pick a template")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                    .padding(.horizontal)
+
+                ForEach(templatesForType) { tmpl in
+                    templateRow(tmpl)
+                }
+            }
+            .padding(.horizontal)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    @ViewBuilder
+    private func templateRow(_ tmpl: WorkoutTemplate) -> some View {
+        let isSelected = selectedTemplate?.id == tmpl.id
+        Button { selectedTemplate = tmpl } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 16))
+                    .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        (isSelected ? GQColors.vividPurple : Color.white.opacity(0.08))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(tmpl.name.isEmpty ? "Untitled Template" : tmpl.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("\(tmpl.exercises.count) exercises")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(GQColors.vividPurple)
+                }
+            }
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(isSelected ? 0.08 : 0.04)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? GQColors.vividPurple.opacity(0.6) : Color.white.opacity(0.06), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Repeat Last Summary
+
+    @ViewBuilder
+    private var repeatLastSection: some View {
+        if launchMode == .repeatLast, let last = lastWorkoutOfType {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Your last \(selectedType.rawValue) workout")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(last.exercises.count) exercises")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                        Text(last.date.formatted(date: .abbreviated, time: .omitted))
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    Spacer()
+                    Text("\(last.totalSets) sets")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(GQColors.cyanSpark)
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.04))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(GQColors.cyanSpark.opacity(0.3), lineWidth: 1))
+                )
+            }
+            .padding(.horizontal)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    // MARK: - Start Button
+
+    @ViewBuilder
+    private var startButton: some View {
+        Button { handleStart() } label: {
+            HStack(spacing: 8) {
+                if isGenerating {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: startButtonIcon)
+                }
+                Text(startButtonText)
+            }
+            .font(.headline)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                LinearGradient(
+                    colors: startButtonEnabled ? [GQColors.vividPurple, GQColors.cyanSpark] : [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .cornerRadius(14)
+        }
+        .buttonStyle(.plain)
+        .disabled(!startButtonEnabled || isGenerating)
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+        .background(Color(white: 0.05))
+    }
+
+    // MARK: - Helpers
+
+    private var startButtonText: String {
+        switch launchMode {
+        case .scratch: return "Start from Scratch"
+        case .aiGenerated: return isGenerating ? "Generating..." : "Generate Workout"
+        case .repeatLast: return "Repeat Last \(selectedType.rawValue)"
+        case .template: return selectedTemplate != nil ? "Use Template" : "Pick a Template"
+        }
+    }
+
+    private var startButtonIcon: String {
+        switch launchMode {
+        case .scratch: return "play.fill"
+        case .aiGenerated: return "sparkles"
+        case .repeatLast: return "arrow.counterclockwise"
+        case .template: return "bookmark.fill"
+        }
+    }
+
+    private var startButtonEnabled: Bool {
+        switch launchMode {
+        case .scratch: return true
+        case .aiGenerated: return true
+        case .repeatLast: return lastWorkoutOfType != nil
+        case .template: return selectedTemplate != nil
+        }
+    }
+
+    private func modeAvailable(_ mode: WorkoutLaunchMode) -> Bool {
+        switch mode {
+        case .scratch, .aiGenerated: return true
+        case .repeatLast: return lastWorkoutOfType != nil
+        case .template: return !templatesForType.isEmpty
+        }
+    }
+
+    private func modeDetail(_ mode: WorkoutLaunchMode) -> String? {
+        switch mode {
+        case .repeatLast:
+            if let last = lastWorkoutOfType {
+                return last.date.formatted(date: .abbreviated, time: .omitted)
+            }
+            return "No history"
+        case .template:
+            let count = templatesForType.count
+            return count > 0 ? "\(count) saved" : "None saved"
+        default: return nil
+        }
+    }
+
+    private func handleStart() {
+        switch launchMode {
+        case .scratch:
+            onStart()
+
+        case .aiGenerated:
+            isGenerating = true
+            Task {
+                let generated = generateRuleBasedWorkout(type: selectedType)
+                appState.preloadedExercises = generated
+                isGenerating = false
+                onStart()
+            }
+
+        case .repeatLast:
+            if let last = lastWorkoutOfType {
+                appState.preloadedExercises = convertWorkoutToActive(last)
+                onStart()
+            }
+
+        case .template:
+            if let tmpl = selectedTemplate {
+                appState.preloadedExercises = convertTemplateToActive(tmpl)
+                onStart()
+            }
+        }
+    }
+
+    private func convertWorkoutToActive(_ workout: Workout) -> [ActiveExercise] {
+        workout.exercises.map { exercise in
+            ActiveExercise(
+                name: exercise.name,
+                muscleGroup: exercise.muscleGroup,
+                sets: exercise.sets.map { set in
+                    ActiveSet(reps: set.reps, weight: set.weight)
+                }
+            )
+        }
+    }
+
+    private func convertTemplateToActive(_ template: WorkoutTemplate) -> [ActiveExercise] {
+        template.exercises.map { tmplEx in
+            let muscleGroup = MuscleGroup(rawValue: tmplEx.muscleGroup) ?? .chest
+            let repCount = parseReps(tmplEx.suggestedReps)
+            let sets = (0..<tmplEx.suggestedSets).map { _ in
+                ActiveSet(reps: repCount, weight: tmplEx.suggestedWeight ?? 0)
+            }
+            return ActiveExercise(name: tmplEx.name, muscleGroup: muscleGroup, sets: sets)
+        }
+    }
+
+    private func parseReps(_ repString: String) -> Int {
+        // "8-12" → 10, "15" → 15
+        let parts = repString.components(separatedBy: "-")
+        if parts.count == 2, let low = Int(parts[0]), let high = Int(parts[1]) {
+            return (low + high) / 2
+        }
+        return Int(repString) ?? 10
+    }
+
+    private func generateRuleBasedWorkout(type: WorkoutType) -> [ActiveExercise] {
+        let muscleGroups: [MuscleGroup]
+        switch type {
+        case .push: muscleGroups = [.chest, .shoulders, .triceps]
+        case .pull: muscleGroups = [.back, .biceps]
+        case .legs: muscleGroups = [.quads, .hamstrings, .glutes, .calves]
+        case .upper: muscleGroups = [.chest, .back, .shoulders, .biceps, .triceps]
+        case .lower: muscleGroups = [.quads, .hamstrings, .glutes, .calves]
+        case .fullBody: muscleGroups = [.chest, .back, .quads, .shoulders, .biceps]
+        case .cardio: muscleGroups = [.cardio]
+        case .rest: muscleGroups = [.core]
+        }
+
+        let allExercises = ExtendedExerciseDatabase.exercises
+        var selected: [ActiveExercise] = []
+
+        for group in muscleGroups {
+            let matching = allExercises.filter { $0.muscleGroup == group }
+            if let pick = matching.randomElement() {
+                let sets = (0..<3).map { _ in ActiveSet(reps: 10, weight: 0) }
+                selected.append(ActiveExercise(name: pick.name, muscleGroup: group, sets: sets))
+            }
+        }
+
+        // Ensure at least 4 exercises
+        if selected.count < 4 {
+            let remaining = allExercises.filter { ex in
+                muscleGroups.contains(ex.muscleGroup) && !selected.contains(where: { $0.name == ex.name })
+            }
+            for extra in remaining.shuffled().prefix(4 - selected.count) {
+                let sets = (0..<3).map { _ in ActiveSet(reps: 10, weight: 0) }
+                selected.append(ActiveExercise(name: extra.name, muscleGroup: extra.muscleGroup, sets: sets))
+            }
+        }
+
+        return selected
+    }
+}
+
+// MARK: - Launch Mode Card
+
+struct LaunchModeCard: View {
+    let mode: WorkoutLaunchMode
+    let isSelected: Bool
+    let isAvailable: Bool
+    var detail: String?
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: mode.icon)
+                    .font(.system(size: 22))
+                    .foregroundColor(isSelected ? .white : (isAvailable ? GQColors.textSecondary : GQColors.textTertiary))
+
+                Text(mode.rawValue)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(isSelected ? .white : (isAvailable ? GQColors.textSecondary : GQColors.textTertiary))
+                    .lineLimit(1)
+
+                if let detail = detail {
+                    Text(detail)
+                        .font(.system(size: 10))
+                        .foregroundColor(isSelected ? .white.opacity(0.7) : GQColors.textTertiary)
+                        .lineLimit(1)
+                }
+            }
+            .frame(width: 95, height: 85)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isSelected ?
+                        LinearGradient(colors: [GQColors.vividPurple.opacity(0.4), GQColors.cyanSpark.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                        LinearGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.8) : Color.white.opacity(isAvailable ? 0.08 : 0.04), lineWidth: isSelected ? 1.5 : 1)
+            )
+            .opacity(isAvailable ? 1 : 0.5)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isAvailable)
     }
 }
 

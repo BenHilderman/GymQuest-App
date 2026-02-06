@@ -168,6 +168,9 @@ class AppState: ObservableObject {
 
     // Active workout state — non-nil means a workout is in progress
     @Published var activeWorkoutType: WorkoutType?
+    @Published var preloadedExercises: [ActiveExercise]?
+    @Published var workoutInspiration: String? // "@username" when following a shared workout
+    @Published var workoutSong: Song? // Music logged during workout, passed to post editor
 
     // Shared rest timer state (so mini bar can show countdown)
     @Published var isResting = false
@@ -176,6 +179,9 @@ class AppState: ObservableObject {
 
     // Timer visibility
     @Published var workoutTimerHidden = false
+
+    // Live workout broadcast (friends can see you're working out)
+    @Published var liveWorkoutStatus: LiveWorkoutStatus?
 
     // where we are in the auth flow
     enum AuthState {
