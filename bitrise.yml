@@ -2,7 +2,7 @@
 # Bitrise Configuration for GymQuest iOS
 # ─────────────────────────────────────────────────────────────────────
 # Mobile CI/CD using the Bitrise step library.
-# Three workflows: pr (on PRs), primary (push to main), nightly (scheduled)
+# Workflows: pr (on PRs), primary (push to main), nightly (scheduled)
 # ─────────────────────────────────────────────────────────────────────
 
 ---

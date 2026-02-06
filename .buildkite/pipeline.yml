@@ -4,7 +4,7 @@
 # Runs on Buildkite macOS agents with sequential `wait` barriers
 # between phases: generate → test → UI smoke → performance → coverage.
 #
-# Agent requirements: macOS with Xcode 15+, Homebrew, xcodegen
+# Requires macOS with Xcode 15+, Homebrew, xcodegen
 # ─────────────────────────────────────────────────────────────────────
 
 env:

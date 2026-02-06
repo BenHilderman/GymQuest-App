@@ -2,7 +2,7 @@
 # Dependabot Configuration
 # ─────────────────────────────────────────────────────────────────────
 # Automated dependency updates for Swift Package Manager (weekly)
-# and GitHub Actions workflow versions (monthly).
+# and GitHub Actions versions (monthly).
 # ─────────────────────────────────────────────────────────────────────
 
 version: 2

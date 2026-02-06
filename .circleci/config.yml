@@ -4,7 +4,7 @@
 # Apple Silicon macOS executor with SPM dependency caching.
 # Parallel device testing on iPhone 16 and iPhone SE.
 #
-# Workflow: build-and-test → ui-smoke → performance (main only)
+# Stages: build-and-test → ui-smoke → performance (main only)
 # ─────────────────────────────────────────────────────────────────────
 
 version: 2.1
