@@ -3,7 +3,7 @@ default_platform(:ios)
 platform :ios do
 
   before_all do
-    # Generate Xcode project from project.yml
+    # Generate the Xcode project from project.yml before every lane
     sh("cd .. && xcodegen generate")
   end
 
