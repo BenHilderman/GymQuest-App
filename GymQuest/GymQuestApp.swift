@@ -166,10 +166,16 @@ class AppState: ObservableObject {
     @Published var showingCreatePost = false
     @Published var authState: AuthState = .notAuthenticated
 
-    // Active workout — persists across tab navigation so users can browse feed during rest
-    // activeWorkoutViewModel != nil means a workout is active (Home tab becomes the workout view)
-    var activeWorkoutViewModel: ActiveWorkoutViewModel?
-    @Published var showingWorkoutLaunch = false
+    // Active workout state — non-nil means a workout is in progress
+    @Published var activeWorkoutType: WorkoutType?
+
+    // Shared rest timer state (so mini bar can show countdown)
+    @Published var isResting = false
+    @Published var restTimeRemaining = 0
+    @Published var restTimerTotal = 0
+
+    // Timer visibility
+    @Published var workoutTimerHidden = false
 
     // where we are in the auth flow
     enum AuthState {

@@ -30,7 +30,7 @@ struct HomeView: View {
     @State private var showingSquadView = false
     @State private var showingMealLog = false
     @State private var showingWorkoutTypePicker = false
-    @State private var showingActiveWorkout = false
+    // showingActiveWorkout removed — uses appState.activeWorkoutType instead
     @State private var selectedWorkoutType: WorkoutType = .push
     @State private var totalSets: Int = 0
     @State private var totalXP: Int = 0
@@ -165,8 +165,11 @@ struct HomeView: View {
             .sheet(isPresented: $showingMealLog) {
                 MealLogView(profile: profile)
             }
-            .fullScreenCover(isPresented: $showingWorkoutTypePicker) {
-                WorkoutTypeSelectionView(profile: profile)
+            .sheet(isPresented: $showingWorkoutTypePicker) {
+                StartWorkoutSheet(selectedType: $selectedWorkoutType) {
+                    showingWorkoutTypePicker = false
+                    appState.activeWorkoutType = selectedWorkoutType
+                }
             }
             .sheet(isPresented: $showingFormStudio) {
                 if let exercise = formStudioExercise {
@@ -178,9 +181,7 @@ struct HomeView: View {
             .sheet(isPresented: $showingVideoGenerator) {
                 VideoGeneratorView()
             }
-            .fullScreenCover(isPresented: $showingActiveWorkout) {
-                ActiveWorkoutView(profile: profile, workoutType: selectedWorkoutType)
-            }
+            // Active workout is now shown inline on the Home tab via ContentView
         }
     }
 
