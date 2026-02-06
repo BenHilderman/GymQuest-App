@@ -5,9 +5,9 @@ Gamified fitness app for iOS. Real time workout tracking, multi provider AI coac
 > SwiftUI · SwiftData · Swift 5.9 · iOS 17+ · XcodeGen
 
 <p align="center">
-  <img src="Screenshots/home.png" width="270" alt="Home screen" />
+  <img src=".github/screenshots/home.png" width="270" alt="Home screen" />
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="Screenshots/workout.png" width="270" alt="Active workout" />
+  <img src=".github/screenshots/workout.png" width="270" alt="Active workout" />
 </p>
 
 ---
