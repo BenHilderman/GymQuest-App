@@ -1,0 +1,7 @@
+# Language detection
+*.yml linguist-detectable=false
+*.yaml linguist-detectable=false
+*.xcodeproj/** linguist-generated
+fastlane/** linguist-vendored
+ci_scripts/** linguist-vendored
+backend/** linguist-documentation
