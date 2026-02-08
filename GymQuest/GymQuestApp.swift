@@ -166,22 +166,19 @@ class AppState: ObservableObject {
     @Published var showingCreatePost = false
     @Published var authState: AuthState = .notAuthenticated
 
-    // Active workout state — non-nil means a workout is in progress
-    @Published var activeWorkoutType: WorkoutType?
-    @Published var preloadedExercises: [ActiveExercise]?
-    @Published var workoutInspiration: String? // "@username" when following a shared workout
-    @Published var workoutSong: Song? // Music logged during workout, passed to post editor
+    // Workout state management
+    @Published var activeWorkout: ActiveWorkoutState?
+    @Published var showingWorkoutStartOptions = false
 
-    // Shared rest timer state (so mini bar can show countdown)
-    @Published var isResting = false
-    @Published var restTimeRemaining = 0
-    @Published var restTimerTotal = 0
+    var isWorkoutActive: Bool { activeWorkout != nil }
 
-    // Timer visibility
-    @Published var workoutTimerHidden = false
+    func startWorkout(type: WorkoutType, exercises: [ActiveExercise] = []) {
+        activeWorkout = ActiveWorkoutState(workoutType: type, exercises: exercises, startTime: Date())
+    }
 
-    // Live workout broadcast (friends can see you're working out)
-    @Published var liveWorkoutStatus: LiveWorkoutStatus?
+    func endWorkout() {
+        activeWorkout = nil
+    }
 
     // where we are in the auth flow
     enum AuthState {
@@ -208,6 +205,15 @@ class AppState: ObservableObject {
             }
         }
     }
+}
+
+// MARK: - Active Workout State
+
+struct ActiveWorkoutState {
+    var workoutType: WorkoutType
+    var exercises: [ActiveExercise]
+    var startTime: Date
+    var elapsedTime: Int = 0
 }
 
 // MARK: - Database Error View

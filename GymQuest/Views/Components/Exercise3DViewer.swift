@@ -514,9 +514,9 @@ struct SceneKitViewWrapper: View {
         VStack {
             Image(systemName: "cube.transparent")
                 .font(.system(size: 60))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
             Text("3D Preview")
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
             Text("Available on iOS")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -540,7 +540,7 @@ struct PlaybackControls: View {
             HStack(spacing: 8) {
                 Text("Speed")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
 
                 ForEach(speedOptions, id: \.self) { speed in
                     Button {
@@ -634,6 +634,6 @@ struct AngleButton: View {
     Exercise3DViewer(modelName: "squat")
         .frame(height: 350)
         .padding()
-        .background(Color.black)
+        .background(Color(white: 0.05))
         .preferredColorScheme(.dark)
 }

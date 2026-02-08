@@ -16,7 +16,6 @@ struct WorkoutTypeSelectionView: View {
     let profile: UserProfile
 
     @State private var selectedType: WorkoutType?
-    @State private var showingLogWorkout = false
     @State private var appearAnimation = false
 
     let workoutTypes: [(type: WorkoutType, description: String, icon: String)] = [
@@ -33,19 +32,7 @@ struct WorkoutTypeSelectionView: View {
     var body: some View {
         ZStack {
             // Background
-            Color.black.ignoresSafeArea()
-
-            // Gradient overlay
-            LinearGradient(
-                colors: [
-                    (selectedType?.color ?? GQColors.vividPurple).opacity(0.15),
-                    Color.black
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            .animation(.easeInOut(duration: 0.4), value: selectedType)
+            GQColors.background.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Custom Header
@@ -63,14 +50,7 @@ struct WorkoutTypeSelectionView: View {
 
                     Spacer()
 
-                    // Time indicator
-                    HStack(spacing: 6) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 12))
-                        Text(Date().formatted(date: .omitted, time: .shortened))
-                            .font(.system(size: 14, weight: .medium))
-                    }
-                    .foregroundColor(GQColors.textSecondary)
+                    Spacer()
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
@@ -99,12 +79,14 @@ struct WorkoutTypeSelectionView: View {
                                     description: item.description,
                                     isSelected: selectedType == item.type
                                 ) {
+                                    HapticManager.shared.impact(.medium)
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                         selectedType = item.type
                                     }
-                                    // Auto-start after brief delay
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                        showingLogWorkout = true
+                                    // Start workout via appState after brief animation
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                        appState.startWorkout(type: item.type)
+                                        dismiss()
                                     }
                                 }
                                 .opacity(appearAnimation ? 1 : 0)
@@ -128,11 +110,6 @@ struct WorkoutTypeSelectionView: View {
                 appearAnimation = true
             }
         }
-        .fullScreenCover(isPresented: $showingLogWorkout) {
-            if let type = selectedType {
-                ActiveWorkoutView(profile: profile, workoutType: type)
-            }
-        }
     }
 }
 
@@ -144,32 +121,19 @@ struct WorkoutTypeCardNew: View {
     let isSelected: Bool
     let action: () -> Void
 
-    @State private var isPressed = false
-
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 16) {
-                // Icon with colored background
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(
-                            LinearGradient(
-                                colors: [type.color, type.color.opacity(0.6)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 56, height: 56)
-
-                    Image(systemName: type.icon)
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundColor(.white)
-                }
+            HStack(spacing: 14) {
+                // Icon - clean flat style
+                Image(systemName: type.icon)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: 44, height: 44)
 
                 // Text content
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(type.rawValue)
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
 
                     Text(description)
@@ -182,35 +146,22 @@ struct WorkoutTypeCardNew: View {
 
                 // Arrow indicator
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(type.color)
-                    .frame(width: 32, height: 32)
-                    .background(type.color.opacity(0.15))
-                    .clipShape(Circle())
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color(white: 0.08))
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(GQColors.cardBackground)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(
-                        isSelected ?
-                            type.color.opacity(0.8) :
-                            Color.white.opacity(0.08),
-                        lineWidth: isSelected ? 2 : 1
-                    )
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? GQColors.primary.opacity(0.6) : Color.clear, lineWidth: 1.5)
+                    .animation(.easeInOut(duration: 0.2), value: isSelected)
             )
-            .scaleEffect(isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.2), value: isPressed)
         }
-        .buttonStyle(PlainButtonStyle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
+        .buttonStyle(ScaleButtonStyle())
     }
 }
 

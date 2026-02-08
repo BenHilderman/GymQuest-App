@@ -39,7 +39,7 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            GQColors.background.ignoresSafeArea()
 
             VStack(spacing: 32) {
                 // progress indicator
@@ -184,7 +184,7 @@ struct NameStepView: View {
 
             Text("This is how you'll appear to others")
                 .font(.subheadline)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
 
             TextField("Your name", text: $name)
                 .textFieldStyle(GymQuestTextFieldStyle())
@@ -210,12 +210,12 @@ struct UsernameStepView: View {
 
             Text("This is your unique handle")
                 .font(.subheadline)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
 
             HStack {
                 Text("@")
                     .font(.title3)
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                 TextField("username", text: $username)
                     .font(.title3)
                     #if os(iOS)
@@ -253,7 +253,7 @@ struct BirthdayStepView: View {
 
             Text("We'll use this to personalize your experience")
                 .font(.subheadline)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
 
             DatePicker(
                 "Date of Birth",
@@ -284,7 +284,7 @@ struct PasswordStepView: View {
 
             Text("At least 6 characters")
                 .font(.subheadline)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
 
             SecureField("Password", text: $password)
                 .textFieldStyle(GymQuestTextFieldStyle())

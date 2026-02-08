@@ -97,7 +97,7 @@ struct CardHeader: View {
                         .font(.system(size: 15, weight: .semibold))
 
                     Text("·")
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
 
                     Text(workout.type.rawValue)
                         .font(.system(size: 15, weight: .medium))
@@ -106,7 +106,7 @@ struct CardHeader: View {
 
                 Text("\(workout.date.formatted(date: .abbreviated, time: .omitted)) · \(workout.duration) min")
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
 
             Spacer()
@@ -115,7 +115,7 @@ struct CardHeader: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text("+\(xpEarned) XP")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(GQColors.success)
+                    .foregroundColor(GQColors.cyanSpark)
             }
         }
         .padding(16)
@@ -209,7 +209,7 @@ struct ExerciseList: View {
             if sortedExercises.count > maxExercises {
                 Text("+\(sortedExercises.count - maxExercises) more exercises")
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .padding(.top, 4)
             }
         }
@@ -301,11 +301,11 @@ struct CardFooter: View {
             HStack(spacing: 16) {
                 Label("\(workout.totalSets) sets", systemImage: "square.stack.fill")
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
 
                 Label(String(format: "RPE %.1f", avgRPE), systemImage: "gauge.medium")
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
 
                 Spacer()
             }
@@ -374,7 +374,7 @@ struct ShareableWorkoutCard: View {
                 fistBumpCount: 0
             )
         }
-        .background(Color.black)
+        .background(Color(white: 0.05))
     }
 
     #if canImport(UIKit)
@@ -451,6 +451,6 @@ private struct WorkoutCardPreviewHelper {
         }
         .padding(.vertical, 20)
     }
-    .background(Color.black)
+    .background(Color(white: 0.05))
     .preferredColorScheme(.dark)
 }

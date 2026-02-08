@@ -50,7 +50,7 @@ struct ChipBadge: View {
 
     var textColor: Color {
         switch style {
-        case .normal: return .gray
+        case .normal: return GQColors.textTertiary
         case .accent: return .white
         case .good: return .green
         case .warn: return .yellow
@@ -74,7 +74,7 @@ struct FormField<Content: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
             content
         }
     }
@@ -105,6 +105,9 @@ struct AccentButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .opacity(configuration.isPressed ? 0.8 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.tap() }
+            }
     }
 }
 
@@ -238,19 +241,19 @@ struct HomeSectionHeader: View {
                 if let icon = icon {
                     Image(systemName: icon)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Text(title)
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .tracking(0.5)
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.gray.opacity(0.7))
+                    .foregroundColor(GQColors.textTertiary.opacity(0.7))
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
             }
             .padding(.vertical, 8)
@@ -278,6 +281,9 @@ struct DangerButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .opacity(configuration.isPressed ? 0.8 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.tap() }
+            }
     }
 }
 
@@ -311,7 +317,7 @@ struct StatChip: View {
                 .fontWeight(.bold)
             Text(label)
                 .font(.caption2)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
         }
     }
 }
@@ -334,7 +340,7 @@ struct SessionDetailView: View {
                             .fontWeight(.bold)
                         Text(session.date.formatted(date: .long, time: .omitted))
                             .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
 
                     // stats row
@@ -358,7 +364,7 @@ struct SessionDetailView: View {
                                         Spacer()
                                         Text(exercise.muscleGroup.rawValue)
                                             .font(.caption)
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(GQColors.textTertiary)
                                     }
 
                                     ForEach(exercise.sets.sorted(by: { $0.order < $1.order })) { set in
@@ -368,7 +374,7 @@ struct SessionDetailView: View {
                                             if set.weight > 0 {
                                                 Text("× \(Int(set.weight)) lbs")
                                                     .font(.subheadline)
-                                                    .foregroundColor(.gray)
+                                                    .foregroundColor(GQColors.textTertiary)
                                             }
                                             Spacer()
                                         }
@@ -387,7 +393,7 @@ struct SessionDetailView: View {
                             Text("Notes")
                                 .font(.headline)
                             Text(session.notes)
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                         }
                     }
 
@@ -400,7 +406,7 @@ struct SessionDetailView: View {
                 }
                 .padding()
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Details")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -438,6 +444,8 @@ struct WorkoutCompletionView: View {
     @State private var coachTakeaway: String?
     @State private var workoutSummary: WorkoutSummary?
     @State private var isLoading = true
+    @State private var showConfetti = false
+    @State private var cardAppeared = false
     @State private var showShareSheet = false
     @State private var showPRCelebration = false
     @State private var selectedPRForShare: PRMoment?
@@ -479,6 +487,8 @@ struct WorkoutCompletionView: View {
                             coachTakeaway: coachTakeaway,
                             fistBumpCount: 0
                         )
+                        .scaleEffect(cardAppeared ? 1.0 : 0.85)
+                        .opacity(cardAppeared ? 1.0 : 0)
                     }
 
                     // Quick stats summary
@@ -490,7 +500,7 @@ struct WorkoutCompletionView: View {
                     VStack(spacing: 16) {
                         Text("SHARE YOUR WORKOUT")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                             .tracking(1)
 
                         // visibility picker
@@ -548,13 +558,28 @@ struct WorkoutCompletionView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 20)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Workout Complete")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .task {
                 await generateCardContent()
+            }
+            .overlay {
+                if showConfetti {
+                    ConfettiView()
+                        .ignoresSafeArea()
+                }
+            }
+            .onChange(of: isLoading) { _, newValue in
+                if !newValue {
+                    HapticManager.shared.workoutComplete()
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                        cardAppeared = true
+                    }
+                    showConfetti = true
+                }
             }
             #if canImport(UIKit)
             .sheet(isPresented: $showShareSheet) {
@@ -840,7 +865,7 @@ struct QuickStat: View {
                 .foregroundColor(.white)
             Text(label)
                 .font(.system(size: 10))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -887,10 +912,10 @@ struct PRShareSheet: View {
                 Button("Cancel") {
                     dismiss()
                 }
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .padding(.bottom, 32)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Share Your PR")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -1066,7 +1091,7 @@ struct StatBlock: View {
                 .fontWeight(.bold)
             Text(label)
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
         }
     }
 }

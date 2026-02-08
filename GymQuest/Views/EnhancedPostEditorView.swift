@@ -157,7 +157,7 @@ struct EnhancedPostEditorView: View {
                 .padding(.top, 16)
             }
             .scrollContentBackground(.hidden)
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Customize Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -852,7 +852,7 @@ struct UserTaggingView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Tag People")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1032,7 +1032,7 @@ struct LocationTaggingView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Add Location")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1133,7 +1133,7 @@ struct SquadTaggingView: View {
                     .scrollContentBackground(.hidden)
                 }
             }
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Share with Squads")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

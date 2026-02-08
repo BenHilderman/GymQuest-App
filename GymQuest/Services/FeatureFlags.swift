@@ -42,6 +42,11 @@ final class FeatureFlags: ObservableObject {
         didSet { save("stravaImportEnabled", value: stravaImportEnabled) }
     }
 
+    /// WHOOP recovery/strain import
+    @Published var whoopEnabled: Bool {
+        didSet { save("whoopEnabled", value: whoopEnabled) }
+    }
+
     /// Robot demo video generation
     @Published var robotDemosEnabled: Bool {
         didSet { save("robotDemosEnabled", value: robotDemosEnabled) }
@@ -102,6 +107,7 @@ final class FeatureFlags: ObservableObject {
         self.squadsEnabled = defaults.object(forKey: prefix + "squadsEnabled") as? Bool ?? true
         self.healthKitImportEnabled = defaults.object(forKey: prefix + "healthKitImportEnabled") as? Bool ?? false
         self.stravaImportEnabled = defaults.object(forKey: prefix + "stravaImportEnabled") as? Bool ?? false
+        self.whoopEnabled = defaults.object(forKey: prefix + "whoopEnabled") as? Bool ?? false
         self.robotDemosEnabled = defaults.object(forKey: prefix + "robotDemosEnabled") as? Bool ?? true
         self.nutritionEnabled = defaults.object(forKey: prefix + "nutritionEnabled") as? Bool ?? true
         self.devSkipAuth = defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? true
@@ -120,6 +126,7 @@ final class FeatureFlags: ObservableObject {
         squadsEnabled = true
         healthKitImportEnabled = true
         stravaImportEnabled = true
+        whoopEnabled = true
         robotDemosEnabled = true
         nutritionEnabled = true
         enhancedPREnabled = true
@@ -142,13 +149,14 @@ final class FeatureFlags: ObservableObject {
         squadsEnabled = true
         healthKitImportEnabled = false
         stravaImportEnabled = false
+        whoopEnabled = false
         robotDemosEnabled = true
         nutritionEnabled = true
     }
 
     /// Check if app is in demo mode (no external dependencies needed)
     var isDemoMode: Bool {
-        !healthKitImportEnabled && !stravaImportEnabled
+        !healthKitImportEnabled && !stravaImportEnabled && !whoopEnabled
     }
 }
 

@@ -8,6 +8,217 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+
+// MARK: - Haptic Manager
+
+final class HapticManager {
+    static let shared = HapticManager()
+
+    #if canImport(UIKit)
+    private let lightGenerator = UIImpactFeedbackGenerator(style: .light)
+    private let mediumGenerator = UIImpactFeedbackGenerator(style: .medium)
+    private let heavyGenerator = UIImpactFeedbackGenerator(style: .heavy)
+    private let selectionGenerator = UISelectionFeedbackGenerator()
+    private let notificationGenerator = UINotificationFeedbackGenerator()
+    #endif
+
+    private init() {
+        #if canImport(UIKit)
+        lightGenerator.prepare()
+        mediumGenerator.prepare()
+        heavyGenerator.prepare()
+        selectionGenerator.prepare()
+        notificationGenerator.prepare()
+        #endif
+    }
+
+    func tap() {
+        #if canImport(UIKit)
+        lightGenerator.impactOccurred()
+        #endif
+    }
+
+    func select() {
+        #if canImport(UIKit)
+        selectionGenerator.selectionChanged()
+        selectionGenerator.prepare()
+        #endif
+    }
+
+    func impact(_ style: HapticStyle = .medium) {
+        #if canImport(UIKit)
+        switch style {
+        case .light: lightGenerator.impactOccurred()
+        case .medium: mediumGenerator.impactOccurred()
+        case .heavy: heavyGenerator.impactOccurred()
+        }
+        #endif
+    }
+
+    func setComplete(setNumber: Int, totalSets: Int) {
+        #if canImport(UIKit)
+        // Progressive intensity: later sets get heavier haptics
+        let progress = Double(setNumber) / Double(max(totalSets, 1))
+        if progress >= 1.0 {
+            // Final set: double tap pattern
+            heavyGenerator.impactOccurred()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.heavyGenerator.impactOccurred()
+            }
+        } else if progress >= 0.5 {
+            mediumGenerator.impactOccurred()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                self.mediumGenerator.impactOccurred()
+            }
+        } else {
+            lightGenerator.impactOccurred()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+                self.lightGenerator.impactOccurred()
+            }
+        }
+        #endif
+    }
+
+    func workoutComplete() {
+        #if canImport(UIKit)
+        notificationGenerator.notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            self.heavyGenerator.impactOccurred()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            self.mediumGenerator.impactOccurred()
+        }
+        #endif
+    }
+
+    func success() {
+        #if canImport(UIKit)
+        notificationGenerator.notificationOccurred(.success)
+        #endif
+    }
+
+    func error() {
+        #if canImport(UIKit)
+        notificationGenerator.notificationOccurred(.error)
+        #endif
+    }
+
+    enum HapticStyle {
+        case light, medium, heavy
+    }
+}
+
+// MARK: - Confetti View
+
+struct ConfettiView: View {
+    @State private var particles: [ConfettiParticle] = []
+    @State private var isAnimating = false
+
+    let colors: [Color] = [
+        GQColors.vividPurple, GQColors.cyanSpark, GQColors.success,
+        GQColors.electricGold, GQColors.coralRed, GQColors.sunsetOrange
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(particles) { particle in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(particle.color)
+                        .frame(width: particle.size.width, height: particle.size.height)
+                        .rotationEffect(.degrees(isAnimating ? particle.spinEnd : particle.spinStart))
+                        .position(
+                            x: isAnimating ? particle.endX : geo.size.width / 2,
+                            y: isAnimating ? particle.endY : geo.size.height * 0.3
+                        )
+                        .opacity(isAnimating ? 0 : 1)
+                }
+            }
+            .onAppear {
+                generateParticles(in: geo.size)
+                withAnimation(.easeOut(duration: 1.5)) {
+                    isAnimating = true
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func generateParticles(in size: CGSize) {
+        particles = (0..<40).map { _ in
+            ConfettiParticle(
+                color: colors.randomElement() ?? .white,
+                size: CGSize(
+                    width: CGFloat.random(in: 4...10),
+                    height: CGFloat.random(in: 8...16)
+                ),
+                endX: CGFloat.random(in: -40...size.width + 40),
+                endY: CGFloat.random(in: size.height * 0.5...size.height + 100),
+                spinStart: Double.random(in: 0...360),
+                spinEnd: Double.random(in: 360...1080)
+            )
+        }
+    }
+}
+
+struct ConfettiParticle: Identifiable {
+    let id = UUID()
+    let color: Color
+    let size: CGSize
+    let endX: CGFloat
+    let endY: CGFloat
+    let spinStart: Double
+    let spinEnd: Double
+}
+
+// MARK: - Animated Number View
+
+struct AnimatedNumber: View {
+    let value: Int
+    let font: Font
+    let color: Color
+
+    init(_ value: Int, font: Font = .system(size: 28, weight: .bold), color: Color = .white) {
+        self.value = value
+        self.font = font
+        self.color = color
+    }
+
+    var body: some View {
+        Text("\(value)")
+            .font(font)
+            .foregroundColor(color)
+            .contentTransition(.numericText())
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: value)
+    }
+}
+
+// MARK: - Bounce Appear Modifier
+
+struct BounceAppear: ViewModifier {
+    let delay: Double
+    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(appeared ? 1.0 : 0.8)
+            .opacity(appeared ? 1.0 : 0)
+            .onAppear {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.6).delay(delay)) {
+                    appeared = true
+                }
+            }
+    }
+}
+
+extension View {
+    func bounceAppear(delay: Double = 0) -> some View {
+        modifier(BounceAppear(delay: delay))
+    }
+}
 
 // MARK: - Color Palette
 
@@ -20,19 +231,17 @@ struct GQColors {
     static let deepBlue = Color(hex: "4158D0")     // Deep Blue
     static let cyanSpark = Color(hex: "00D9FF")    // Cyan Spark
 
-    // Primary accent (used in TikTok-style components)
+    // Primary accent
     static let primary = vividPurple
     static let secondary = cyanSpark
 
-    // Backwards compatibility with old names
+    // Legacy aliases (use canonical names above instead)
     static let coral = coralRed
     static let peach = sunsetOrange
     static let gold = electricGold
     static let rose = vividPurple
     static let terracotta = Color(hex: "E07855")
     static let sand = Color(hex: "EBD2A6")
-
-    // For backwards compatibility
     static let electricBlue = cyanSpark
     static let neonPurple = vividPurple
     static let cyberCyan = cyanSpark
@@ -44,6 +253,7 @@ struct GQColors {
 
     // Backgrounds - pure dark
     static let deepBlack = Color(hex: "000000")
+    static let background = Color(white: 0.05)      // Standard app background
     static let darkSurface = Color(hex: "0A0A0A")
     static let cardBackground = Color(hex: "121212")
     static let elevatedSurface = Color(hex: "1A1A1A")
@@ -62,6 +272,28 @@ struct GQColors {
     // Accent
     static let accent = vividPurple
     static let accentLight = cyanSpark
+}
+
+// MARK: - Spacing & Layout Constants
+
+struct GQSpacing {
+    static let xs: CGFloat = 4
+    static let sm: CGFloat = 8
+    static let md: CGFloat = 12
+    static let lg: CGFloat = 16
+    static let xl: CGFloat = 20
+    static let xxl: CGFloat = 24
+    static let xxxl: CGFloat = 32
+
+    // Standard horizontal padding for screen content
+    static let screenHorizontal: CGFloat = 16
+}
+
+struct GQRadius {
+    static let sm: CGFloat = 10
+    static let md: CGFloat = 12
+    static let lg: CGFloat = 16
+    static let xl: CGFloat = 20
 }
 
 // MARK: - Hex Color Extension
@@ -685,6 +917,9 @@ struct PrimaryButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .offset(y: configuration.isPressed ? 2 : 0)
             .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.tap() }
+            }
     }
 }
 
@@ -708,6 +943,9 @@ struct SecondaryButtonStyle: ButtonStyle {
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.tap() }
+            }
     }
 }
 
@@ -802,6 +1040,9 @@ struct NeonButtonStyle: ButtonStyle {
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.tap() }
+            }
     }
 }
 

@@ -39,6 +39,10 @@ struct TrainingProgressView: View {
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
 
+                    // Health Dashboard (integrations data)
+                    HealthDashboardView(profile: profile, workouts: workouts)
+                        .padding(.horizontal, 16)
+
                     // Quick Actions
                     HStack(spacing: 12) {
                         QuickActionButton(
@@ -52,7 +56,7 @@ struct TrainingProgressView: View {
                         QuickActionButton(
                             icon: "fork.knife",
                             title: "Meals",
-                            color: GQColors.success
+                            color: GQColors.cyanSpark
                         ) {
                             showingMealLog = true
                         }
@@ -80,7 +84,8 @@ struct TrainingProgressView: View {
                 }
                 .padding(.bottom, 120)
             }
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .scrollContentBackground(.hidden)
+            .background(EnergyBackground())
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NavBarLogo()
@@ -128,6 +133,7 @@ struct StatItem: View {
 struct RecoveryCard: View {
     let streak: Int
     let sessionsThisWeek: Int
+    @State private var animatedProgress: CGFloat = 0
 
     // Simulated recovery score based on workout frequency
     var recoveryScore: Int {
@@ -140,8 +146,8 @@ struct RecoveryCard: View {
 
     var recoveryMessage: String {
         switch recoveryScore {
-        case 85...100: return "Fully recovered ⚡️"
-        case 70...84: return "Ready to train 💪"
+        case 85...100: return "Fully recovered"
+        case 70...84: return "Ready to train"
         case 60...69: return "Moderate recovery"
         default: return "Consider rest day"
         }
@@ -149,8 +155,8 @@ struct RecoveryCard: View {
 
     var recoveryColor: Color {
         switch recoveryScore {
-        case 85...100: return GQColors.success
-        case 70...84: return GQColors.success.opacity(0.8)
+        case 85...100: return GQColors.cyanSpark
+        case 70...84: return GQColors.cyanSpark.opacity(0.8)
         case 60...69: return GQColors.vividPurple
         default: return GQColors.vividPurple.opacity(0.7)
         }
@@ -165,7 +171,7 @@ struct RecoveryCard: View {
                     .frame(width: 80, height: 80)
 
                 Circle()
-                    .trim(from: 0, to: CGFloat(recoveryScore) / 100)
+                    .trim(from: 0, to: animatedProgress)
                     .stroke(recoveryColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .frame(width: 80, height: 80)
                     .rotationEffect(.degrees(-90))
@@ -194,7 +200,7 @@ struct RecoveryCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(GQColors.success)
+                            .foregroundColor(GQColors.cyanSpark)
                         Text("\(streak) day streak")
                             .font(.system(size: 13))
                             .foregroundColor(GQColors.textSecondary)
@@ -215,13 +221,25 @@ struct RecoveryCard: View {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color(white: 0.08))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
         )
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.0).delay(0.2)) {
+                animatedProgress = CGFloat(recoveryScore) / 100
+            }
+        }
     }
 }
 
@@ -273,7 +291,7 @@ struct HealthStatsSection: View {
                     title: "Active Cal",
                     value: calories > 0 ? "\(calories)" : "--",
                     subtitle: calories > 0 ? "burned today" : "No data",
-                    color: GQColors.success
+                    color: GQColors.coralRed
                 )
 
                 // Resting HR
@@ -282,7 +300,7 @@ struct HealthStatsSection: View {
                     title: "Resting HR",
                     value: restingHR > 0 ? "\(restingHR)" : "--",
                     subtitle: restingHR > 0 ? "bpm" : "No data",
-                    color: GQColors.success
+                    color: GQColors.coralRed
                 )
             }
         }
@@ -293,7 +311,7 @@ struct HealthStatsSection: View {
 
     var sleepQuality: String {
         if sleepHours <= 0 { return "No data" }
-        if sleepHours >= 7 { return "Good rest 😴" }
+        if sleepHours >= 7 { return "Good rest" }
         if sleepHours >= 5 { return "Could use more" }
         return "Sleep deprived"
     }
@@ -342,12 +360,19 @@ struct HealthStatCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color(white: 0.08))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.04), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
         )
     }
 }
@@ -374,7 +399,7 @@ struct TodayStatsRow: View {
                 icon: "flame.fill",
                 value: calories > 0 ? "\(calories)" : "--",
                 label: "Calories",
-                color: GQColors.success
+                color: GQColors.cyanSpark
             )
 
             // Sleep
@@ -427,12 +452,19 @@ struct TodayStatCard: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color(white: 0.08))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.04), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
         )
     }
 }
@@ -465,12 +497,19 @@ struct QuickActionButton: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 14)
                     .fill(Color(white: 0.08))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.04), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
             )
         }
         .buttonStyle(.plain)
@@ -498,7 +537,7 @@ struct HealthMetricsGrid: View {
                 icon: "flame.fill",
                 value: "\(healthKit.activeCalories)",
                 label: "Active Cal",
-                color: GQColors.success
+                color: GQColors.cyanSpark
             )
 
             HealthMetricCard(
@@ -552,7 +591,14 @@ struct HealthMetricCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
         )
     }
 }
@@ -614,6 +660,7 @@ struct CompactWorkoutRow: View {
 
 struct WeekChartV2: View {
     let workouts: [Workout]
+    @State private var barsAppeared = false
 
     var weekDates: [Date] {
         let cal = Calendar.current
@@ -667,8 +714,8 @@ struct WeekChartV2: View {
                             if hasWorkout {
                                 // Subtle glow behind bar
                                 RoundedRectangle(cornerRadius: 6)
-                                    .fill(GQColors.success.opacity(0.3))
-                                    .frame(width: 40, height: barHeight + 4)
+                                    .fill(GQColors.cyanSpark.opacity(0.3))
+                                    .frame(width: 40, height: barsAppeared ? barHeight + 4 : 4)
                                     .blur(radius: 4)
                             }
 
@@ -676,7 +723,7 @@ struct WeekChartV2: View {
                                 .fill(
                                     hasWorkout
                                         ? LinearGradient(
-                                            colors: [GQColors.success.opacity(0.9), GQColors.success],
+                                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
                                             startPoint: .bottom,
                                             endPoint: .top
                                           )
@@ -686,8 +733,9 @@ struct WeekChartV2: View {
                                             endPoint: .top
                                           )
                                 )
-                                .frame(width: 36, height: barHeight)
-                                .shadow(color: hasWorkout ? GQColors.success.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
+                                .frame(width: 36, height: barsAppeared ? barHeight : 4)
+                                .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(Double(index) * 0.08), value: barsAppeared)
+                                .shadow(color: hasWorkout ? GQColors.cyanSpark.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
                         }
 
                         // Day label
@@ -718,6 +766,9 @@ struct WeekChartV2: View {
             .frame(height: 110)
         }
         .padding(18)
+        .onAppear {
+            barsAppeared = true
+        }
     }
 }
 
@@ -825,7 +876,7 @@ struct FullCalendarView: View {
                 }
                 .padding(.top)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Workout Calendar")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -872,7 +923,7 @@ struct MonthGrid: View {
                 ForEach(dayHeaders, id: \.self) { day in
                     Text(day)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -1003,7 +1054,7 @@ struct MonthStats: View {
                 .tracking(1)
 
             HStack(spacing: 0) {
-                MonthStatItem(value: "\(monthWorkouts.count)", label: "workouts", color: GQColors.success)
+                MonthStatItem(value: "\(monthWorkouts.count)", label: "workouts", color: GQColors.vividPurple)
                 Divider()
                     .frame(height: 40)
                     .background(Color.white.opacity(0.1))

@@ -32,7 +32,7 @@ struct LoginView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            GQColors.background.ignoresSafeArea()
 
             VStack(spacing: 40) {
                 Spacer()
@@ -47,7 +47,7 @@ struct LoginView: View {
 
                     Text("Track your gains. Level up.")
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()
@@ -94,13 +94,13 @@ struct LoginView: View {
                 } label: {
                     if isSignUpMode {
                         Text("Already have an account? ")
-                            .foregroundColor(.gray) +
+                            .foregroundColor(GQColors.textTertiary) +
                         Text("Sign in")
                             .foregroundColor(.white)
                             .fontWeight(.semibold)
                     } else {
                         Text("Don't have an account? ")
-                            .foregroundColor(.gray) +
+                            .foregroundColor(GQColors.textTertiary) +
                         Text("Sign up")
                             .foregroundColor(.white)
                             .fontWeight(.semibold)
@@ -300,7 +300,7 @@ struct EmailAuthSheet: View {
                 Spacer()
             }
             .padding(24)
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle(isSignUp ? "Create Account" : "Sign In")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

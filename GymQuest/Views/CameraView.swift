@@ -244,7 +244,7 @@ struct CapturePreviewView: View {
                         .font(.system(size: 60))
                         .foregroundColor(.white.opacity(0.5))
                     Text("Video captured")
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             } else if let uiImage = UIImage(data: imageData) {
                 Image(uiImage: uiImage)

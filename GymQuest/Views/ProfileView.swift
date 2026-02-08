@@ -15,11 +15,12 @@ import AVKit
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
+    @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
 
     let profile: UserProfile
 
     @State private var showingSettings = false
-    @State private var selectedPost: Post?
+    @State private var selectedWorkout: Workout?
 
     var body: some View {
         NavigationStack {
@@ -48,6 +49,7 @@ struct ProfileView: View {
                                 .font(.system(size: 32, weight: .bold))
                                 .foregroundColor(.white)
                         }
+                        .bounceAppear()
 
                         VStack(spacing: 6) {
                             Text(profile.name)
@@ -61,13 +63,22 @@ struct ProfileView: View {
 
                         // Stats Row
                         HStack(spacing: 0) {
-                            ProfileStatItem(value: "\(posts.count)", label: "Workouts", color: GQColors.vividPurple)
+                            ProfileStatItem(value: "\(workouts.count)", label: "Workouts", color: GQColors.vividPurple)
+                                .bounceAppear(delay: 0.1)
+
+                            Rectangle()
+                                .fill(Color.white.opacity(0.1))
+                                .frame(width: 1, height: 36)
+
+                            ProfileStatItem(value: "\(profile.xp)", label: "XP", color: GQColors.success)
+                                .bounceAppear(delay: 0.2)
 
                             Rectangle()
                                 .fill(Color.white.opacity(0.1))
                                 .frame(width: 1, height: 36)
 
                             ProfileStatItem(value: "Lv.\(profile.level)", label: UserProfile.levelTitle(for: profile.level), color: GQColors.cyanSpark)
+                                .bounceAppear(delay: 0.3)
                         }
                         .padding(.vertical, 16)
                         .background(
@@ -76,7 +87,14 @@ struct ProfileView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                                .stroke(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
                         )
                     }
                     .padding(.horizontal, 16)
@@ -89,7 +107,7 @@ struct ProfileView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 16)
 
-                        if posts.isEmpty {
+                        if workouts.isEmpty {
                             VStack(spacing: 16) {
                                 Image(systemName: "figure.strengthtraining.traditional")
                                     .font(.system(size: 44))
@@ -113,10 +131,10 @@ struct ProfileView: View {
                         } else {
                             // Workout history list
                             VStack(spacing: 8) {
-                                ForEach(posts) { post in
-                                    WorkoutHistoryRow(post: post)
+                                ForEach(workouts) { workout in
+                                    WorkoutHistoryRowV2(workout: workout)
                                         .onTapGesture {
-                                            selectedPost = post
+                                            selectedWorkout = workout
                                         }
                                 }
                             }
@@ -126,7 +144,8 @@ struct ProfileView: View {
                 }
                 .padding(.bottom, 120)
             }
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .scrollContentBackground(.hidden)
+            .background(EnergyBackground())
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NavBarLogo()
@@ -147,8 +166,8 @@ struct ProfileView: View {
             .sheet(isPresented: $showingSettings) {
                 SettingsView(profile: profile)
             }
-            .sheet(item: $selectedPost) { post in
-                PostDetailView(post: post, profile: profile)
+            .sheet(item: $selectedWorkout) { workout in
+                SessionDetailView(session: workout)
             }
         }
     }
@@ -174,7 +193,81 @@ struct ProfileStatItem: View {
     }
 }
 
-// MARK: - Workout History Row
+// MARK: - Workout History Row (from Workout model)
+
+struct WorkoutHistoryRowV2: View {
+    let workout: Workout
+
+    var body: some View {
+        HStack(spacing: 14) {
+            // Date circle
+            VStack(spacing: 2) {
+                Text(workout.date.formatted(.dateTime.day()))
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+                Text(workout.date.formatted(.dateTime.weekday(.abbreviated)))
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .frame(width: 44)
+
+            // Workout info
+            VStack(alignment: .leading, spacing: 4) {
+                Text(workout.title ?? workout.type.rawValue)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+
+                HStack(spacing: 12) {
+                    if workout.duration > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.cyanSpark)
+                            Text("\(workout.duration) min")
+                                .font(.system(size: 13))
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+                    }
+                    if workout.totalSets > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.vividPurple)
+                            Text("\(workout.totalSets) sets")
+                                .font(.system(size: 13))
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(white: 0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 1
+            )
+        )
+    }
+}
+
+// MARK: - Workout History Row (legacy - from Post model)
 
 struct WorkoutHistoryRow: View {
     let post: Post
@@ -214,7 +307,7 @@ struct WorkoutHistoryRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 11))
-                                .foregroundColor(GQColors.success)
+                                .foregroundColor(GQColors.vividPurple)
                             Text("\(sets) sets")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -247,7 +340,14 @@ struct WorkoutHistoryRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.04), lineWidth: 1)
+                .stroke(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                lineWidth: 1
+            )
         )
     }
 }
@@ -407,7 +507,7 @@ struct ProfilePostCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 11))
-                            .foregroundColor(GQColors.success)
+                            .foregroundColor(GQColors.vividPurple)
                         Text("\(sets)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.white)
@@ -465,7 +565,7 @@ struct WorkoutStatsCard: View {
                     VStack(spacing: 4) {
                         Text("\(sets)")
                             .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(GQColors.success)
+                            .foregroundColor(GQColors.vividPurple)
                         Text("sets")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(GQColors.textTertiary)
@@ -588,7 +688,7 @@ struct PostDetailView: View {
                                     VStack(spacing: 4) {
                                         Text("\(sets)")
                                             .font(.system(size: 28, weight: .bold))
-                                            .foregroundColor(GQColors.success)
+                                            .foregroundColor(GQColors.vividPurple)
                                         Text("sets")
                                             .font(.system(size: 12, weight: .medium))
                                             .foregroundColor(GQColors.textTertiary)
@@ -715,12 +815,23 @@ struct SettingsView: View {
 
                 Section("Integrations") {
                     NavigationLink {
-                        HealthKitSettingsView(profile: profile)
+                        IntegrationsView(profile: profile)
                     } label: {
                         HStack {
-                            Image(systemName: "heart.fill")
-                                .foregroundColor(.red)
-                            Text("Apple Health")
+                            Image(systemName: "link.circle.fill")
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Connected Services")
+                                Text("Apple Health, WHOOP, Strava")
+                                    .font(.caption)
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
                         }
                     }
 
@@ -731,16 +842,6 @@ struct SettingsView: View {
                             Image(systemName: "person.3.fill")
                                 .foregroundColor(.blue)
                             Text("Squads")
-                        }
-                    }
-
-                    NavigationLink {
-                        StravaSettingsView(profile: profile)
-                    } label: {
-                        HStack {
-                            Image(systemName: "figure.run")
-                                .foregroundColor(GQColors.cyanSpark)
-                            Text("Strava")
                         }
                     }
 
@@ -809,13 +910,13 @@ struct SettingsView: View {
                         Text("Level")
                         Spacer()
                         Text("\(profile.level)")
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                     HStack {
                         Text("XP")
                         Spacer()
                         Text("\(profile.xp)")
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
 
@@ -832,7 +933,7 @@ struct SettingsView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Color.black)
+            .background(GQColors.background)
             .navigationTitle("Settings")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

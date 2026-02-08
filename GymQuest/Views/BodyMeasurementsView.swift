@@ -41,12 +41,14 @@ struct BodyMeasurementsView: View {
                     GridItem(.flexible()),
                     GridItem(.flexible())
                 ], spacing: 12) {
-                    ForEach([MeasurementType.weight, .bodyFat, .waist], id: \.self) { type in
+                    ForEach(Array([MeasurementType.weight, .bodyFat, .waist].enumerated()), id: \.element) { index, type in
                         QuickStatCard(
                             type: type,
                             measurement: latestMeasurements[type]
                         )
+                        .bounceAppear(delay: Double(index) * 0.1)
                         .onTapGesture {
+                            HapticManager.shared.select()
                             selectedType = type
                         }
                     }
@@ -66,7 +68,7 @@ struct BodyMeasurementsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("ALL MEASUREMENTS")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                         .tracking(0.5)
                         .padding(.horizontal)
 
@@ -144,22 +146,33 @@ struct QuickStatCard: View {
 
                 Text(type.unit)
                     .font(.system(size: 11))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             } else {
                 Text("--")
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
 
             Text(type.rawValue)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(Color.white.opacity(0.08))
-        .cornerRadius(12)
+        .background(Color(white: 0.08))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+        )
     }
 }
 
@@ -218,8 +231,19 @@ struct MeasurementChartCard: View {
             .frame(height: 180)
         }
         .padding(16)
-        .background(Color.white.opacity(0.08))
+        .background(Color(white: 0.08))
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+        )
     }
 }
 
@@ -250,11 +274,11 @@ struct MeasurementTypeRow: View {
                 if let m = latest {
                     Text(m.date.formatted(date: .abbreviated, time: .omitted))
                         .font(.system(size: 11))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 } else {
                     Text("No data")
                         .font(.system(size: 11))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
 
@@ -274,13 +298,14 @@ struct MeasurementTypeRow: View {
                                 .font(.system(size: 10))
                         }
                         .foregroundColor(t >= 0 ? GQColors.success : GQColors.error)
+                        .bounceAppear(delay: 0.2)
                     }
                 }
             }
 
             Image(systemName: "chevron.right")
                 .font(.system(size: 12))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -318,7 +343,7 @@ struct AddMeasurementSheet: View {
                             .keyboardType(.decimalPad)
 
                         Text(selectedType.unit)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
 
@@ -363,6 +388,7 @@ struct AddMeasurementSheet: View {
 
         modelContext.insert(measurement)
         try? modelContext.save()
+        HapticManager.shared.success()
         dismiss()
     }
 }

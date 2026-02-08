@@ -75,7 +75,7 @@ struct Exercise3DDemoSheet: View {
                 }
                 .padding(16)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle(exerciseName)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -110,7 +110,7 @@ struct Exercise3DDemoSheet: View {
             HStack(spacing: 8) {
                 Text("PLAYBACK SPEED")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .tracking(0.5)
 
                 Spacer()
@@ -167,7 +167,7 @@ struct Exercise3DDemoSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("FORM CUES")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .tracking(0.5)
 
             ForEach(cues, id: \.self) { cue in
@@ -193,7 +193,7 @@ struct Exercise3DDemoSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("KEY JOINTS TO WATCH")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .tracking(0.5)
 
             HStack(spacing: 16) {
@@ -225,7 +225,7 @@ struct Exercise3DDemoSheet: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Recommended Tempo")
                     .font(.system(size: 11))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                 Text(tempo)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(GQColors.cyanSpark)
@@ -237,7 +237,7 @@ struct Exercise3DDemoSheet: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text("eccentric-pause-concentric-pause")
                     .font(.system(size: 10))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
         }
         .padding(16)
@@ -251,7 +251,7 @@ struct Exercise3DDemoSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("ABOUT THIS 3D DEMO")
                 .font(.system(size: 10, weight: .bold))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .tracking(0.5)
 
             Text("This interactive 3D model shows the proper form for \(exerciseName). Rotate the model freely by dragging, or use the quick angle buttons to see the movement from different perspectives. The animation plays continuously to help you understand the full range of motion.")

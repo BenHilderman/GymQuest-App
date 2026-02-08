@@ -22,6 +22,8 @@ struct CoachView: View {
     @ObservedObject var aiService: AIService
 
     @State private var selectedTab: Int = 0
+    @State private var showingFormStudio = false
+    @State private var formStudioExercise: FormExercise?
 
     var body: some View {
         NavigationStack {
@@ -38,13 +40,18 @@ struct CoachView: View {
                             selectedTab = 1
                         }
                     }
+                    CoachTab(title: "Form", icon: "play.rectangle.on.rectangle", isSelected: selectedTab == 2) {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            selectedTab = 2
+                        }
+                    }
                 }
                 .padding(3)
                 .background(
                     Capsule()
                         .fill(Color(white: 0.12))
                 )
-                .padding(.horizontal, 60)
+                .padding(.horizontal, 40)
                 .padding(.top, 12)
                 .padding(.bottom, 12)
 
@@ -57,12 +64,19 @@ struct CoachView: View {
                         aiService: aiService,
                         modelContext: modelContext
                     )
-                } else {
+                } else if selectedTab == 1 {
                     PlanSection(
                         profile: profile,
                         workouts: workouts,
                         aiService: aiService,
                         modelContext: modelContext
+                    )
+                } else {
+                    FormStudioLauncher(
+                        profile: profile,
+                        modelContext: modelContext,
+                        showingFormStudio: $showingFormStudio,
+                        formStudioExercise: $formStudioExercise
                     )
                 }
             }
@@ -71,6 +85,13 @@ struct CoachView: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .sheet(isPresented: $showingFormStudio) {
+                if let exercise = formStudioExercise {
+                    NavigationStack {
+                        FormStudioView(oduserId: profile.id.uuidString, exercise: exercise)
+                    }
+                }
+            }
         }
     }
 }
@@ -98,6 +119,78 @@ struct CoachTab: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Form Studio Launcher
+
+struct FormStudioLauncher: View {
+    let profile: UserProfile
+    let modelContext: ModelContext
+    @Binding var showingFormStudio: Bool
+    @Binding var formStudioExercise: FormExercise?
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // Hero section
+                VStack(spacing: 12) {
+                    Image(systemName: "play.rectangle.on.rectangle")
+                        .font(.system(size: 48))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [GQColors.cyanSpark, GQColors.electricBlue],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    Text("Form Studio")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.white)
+
+                    Text("Learn perfect exercise technique with interactive guides")
+                        .font(.system(size: 15))
+                        .foregroundColor(GQColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+                .padding(.top, 32)
+
+                // Launch button
+                Button {
+                    openFormStudio()
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 16))
+                        Text("Open Form Studio")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .padding(.horizontal, 32)
+
+                Spacer(minLength: 40)
+            }
+        }
+    }
+
+    private func openFormStudio() {
+        FormContentSeeder.seedIfNeeded(modelContext: modelContext)
+        let repo = FormRepository(modelContext: modelContext)
+        let exercises = repo.allExercises()
+        if let first = exercises.first {
+            formStudioExercise = first
+            showingFormStudio = true
+        } else {
+            FormContentSeeder.seedSampleData(modelContext: modelContext)
+            let refreshed = repo.allExercises()
+            if let first = refreshed.first {
+                formStudioExercise = first
+                showingFormStudio = true
+            }
+        }
     }
 }
 

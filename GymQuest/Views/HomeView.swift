@@ -30,13 +30,9 @@ struct HomeView: View {
     @State private var showingSquadView = false
     @State private var showingMealLog = false
     @State private var showingWorkoutTypePicker = false
-    // showingActiveWorkout removed — uses appState.activeWorkoutType instead
-    @State private var selectedWorkoutType: WorkoutType = .push
     @State private var totalSets: Int = 0
     @State private var totalXP: Int = 0
     @State private var headerAppeared = true
-    @State private var showingFormStudio = false
-    @State private var formStudioExercise: FormExercise?
     @State private var showingVideoGenerator = false
 
     // Extract first name from full name
@@ -45,13 +41,24 @@ struct HomeView: View {
     }
 
     var body: some View {
+        Group {
+            if appState.isWorkoutActive {
+                ActiveWorkoutView(profile: profile)
+            } else {
+                homeContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var homeContent: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
                     // DATE HEADER WITH GREETING
                     VStack(spacing: 4) {
                         Text("Hi, \(firstName)!")
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.white)
 
                         HStack(spacing: 6) {
@@ -83,6 +90,10 @@ struct HomeView: View {
                     )
                     .padding(.horizontal, 16)
 
+                    // ACTIVITY SUMMARY (from connected integrations)
+                    ActivitySummaryCard()
+                        .padding(.horizontal, 16)
+
                     // MAIN ACTIONS - 3 Big Buttons
                     VStack(spacing: 12) {
                         // Start Workout - Primary
@@ -95,6 +106,7 @@ struct HomeView: View {
                         ) {
                             showingWorkoutTypePicker = true
                         }
+                        .bounceAppear(delay: 0.1)
 
                         // Log Food
                         HomeActionButton(
@@ -106,6 +118,7 @@ struct HomeView: View {
                         ) {
                             showingMealLog = true
                         }
+                        .bounceAppear(delay: 0.2)
 
                         // View Progress
                         HomeActionButton(
@@ -117,28 +130,14 @@ struct HomeView: View {
                         ) {
                             appState.selectedTab = .progress
                         }
+                        .bounceAppear(delay: 0.3)
 
-                        // Form Studio
-                        HomeActionButton(
-                            icon: "play.rectangle.on.rectangle",
-                            title: "Form Studio",
-                            subtitle: "Learn perfect technique",
-                            accentColor: GQColors.electricBlue,
-                            isPrimary: false
-                        ) {
-                            openFormStudio()
-                        }
-                        .contextMenu {
-                            Button {
-                                showingVideoGenerator = true
-                            } label: {
-                                Label("Generate Videos (AI)", systemImage: "sparkles")
-                            }
-                        }
+                        // View Progress has context menu for Form Studio & Video Gen
+
                     }
                     .padding(.horizontal, 16)
 
-                    Spacer(minLength: 100)
+                    Spacer(minLength: 40)
                 }
                 .padding(.top, 12)
             }
@@ -166,22 +165,11 @@ struct HomeView: View {
                 MealLogView(profile: profile)
             }
             .sheet(isPresented: $showingWorkoutTypePicker) {
-                StartWorkoutSheet(selectedType: $selectedWorkoutType) {
-                    showingWorkoutTypePicker = false
-                    appState.activeWorkoutType = selectedWorkoutType
-                }
-            }
-            .sheet(isPresented: $showingFormStudio) {
-                if let exercise = formStudioExercise {
-                    NavigationStack {
-                        FormStudioView(oduserId: profile.id.uuidString, exercise: exercise)
-                    }
-                }
+                WorkoutTypeSelectionView(profile: profile)
             }
             .sheet(isPresented: $showingVideoGenerator) {
                 VideoGeneratorView()
             }
-            // Active workout is now shown inline on the Home tab via ContentView
         }
     }
 
@@ -217,29 +205,14 @@ struct HomeView: View {
 
         // Get active squad
         loadActiveSquad()
-    }
 
-    private func openFormStudio() {
-        // Ensure Form Studio content is seeded
-        FormContentSeeder.seedIfNeeded(modelContext: modelContext)
-
-        let repo = FormRepository(modelContext: modelContext)
-        let exercises = repo.allExercises()
-        print("Form Studio: Found \(exercises.count) exercises")
-
-        if let first = exercises.first {
-            formStudioExercise = first
-            showingFormStudio = true
-        } else {
-            // Fallback: seed sample data and try again
-            FormContentSeeder.seedSampleData(modelContext: modelContext)
-            let refreshedExercises = repo.allExercises()
-            print("Form Studio after fallback: Found \(refreshedExercises.count) exercises")
-            if let first = refreshedExercises.first {
-                formStudioExercise = first
-                showingFormStudio = true
-            }
+        // Fetch integration data (HealthKit, WHOOP, etc.)
+        let integration = IntegrationManager.shared
+        if integration.healthKit.isAuthorized {
+            integration.healthKit.fetchTodayData()
         }
+        integration.computeUnifiedMetrics()
+        integration.computeStrengthScore(workouts: workouts)
     }
 
     private func calculateStreak() -> Int {
@@ -260,16 +233,23 @@ struct HomeView: View {
     }
 
     private func determineReadiness() -> ReadinessLevel {
+        // Use IntegrationManager's computed readiness if integrations are active
+        let integration = IntegrationManager.shared
+        if integration.hasAnyConnection && integration.recoveryScore > 0 {
+            return integration.readinessLevel
+        }
+
+        // Fallback: compute from workout data
         let calendar = Calendar.current
         let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: Date()) ?? Date()
         let recentWorkouts = workouts.filter { $0.date >= threeDaysAgo }
 
         if recentWorkouts.count >= 3 {
             let avgRPE = Double(recentWorkouts.reduce(0) { $0 + $1.rpe }) / Double(recentWorkouts.count)
-            if avgRPE >= 8 { return .needsRest }
+            if avgRPE >= 8 { return .low }
         }
 
-        if recentWorkouts.isEmpty { return .fresh }
+        if recentWorkouts.isEmpty { return .optimal }
 
         return .good
     }
@@ -347,35 +327,7 @@ struct HomeView: View {
 
 // MARK: - Readiness Level
 
-enum ReadinessLevel {
-    case fresh
-    case good
-    case needsRest
-
-    var color: Color {
-        switch self {
-        case .fresh: return GQColors.success
-        case .good: return GQColors.cyanSpark
-        case .needsRest: return GQColors.coralRed
-        }
-    }
-
-    var text: String {
-        switch self {
-        case .fresh: return "Fresh & Ready"
-        case .good: return "Good to Go"
-        case .needsRest: return "Consider Rest"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .fresh: return "bolt.fill"
-        case .good: return "checkmark.circle.fill"
-        case .needsRest: return "bed.double.fill"
-        }
-    }
-}
+// ReadinessLevel is defined in IntegrationManager.swift
 
 // MARK: - Hero Action Card
 
@@ -518,6 +470,7 @@ struct HomeActionButton: View {
     let accentColor: Color
     let isPrimary: Bool
     let action: () -> Void
+    @State private var pulseScale: CGFloat = 1.0
 
     var body: some View {
         Button(action: action) {
@@ -531,6 +484,7 @@ struct HomeActionButton: View {
                     Image(systemName: icon)
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundColor(accentColor)
+                        .scaleEffect(isPrimary ? pulseScale : 1.0)
                 }
 
                 // Text
@@ -570,6 +524,12 @@ struct HomeActionButton: View {
             .modifier(ConditionalAnimatedBorder(isActive: isPrimary, cornerRadius: 16))
         }
         .buttonStyle(ScaleButtonStyle())
+        .onAppear {
+            guard isPrimary else { return }
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                pulseScale = 1.15
+            }
+        }
     }
 }
 
@@ -642,7 +602,7 @@ struct DayTileView: View {
                                 .font(.system(size: 14))
                                 .foregroundColor(.white.opacity(0.7))
                             Text("Rest")
-                                .font(.system(size: 7, weight: .medium))
+                                .font(.system(size: 9, weight: .medium))
                                 .foregroundColor(.white.opacity(0.7))
                         }
                     } else {
@@ -665,21 +625,16 @@ struct DayTileView: View {
                                 .offset(x: 10, y: -8)
                             }
                             Text(workoutTypeLabel(workout!.type))
-                                .font(.system(size: 7, weight: .semibold))
+                                .font(.system(size: 9, weight: .semibold))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
                         }
                     }
                 } else if isPast {
-                    // Missed day - sleep icon (they rested)
-                    VStack(spacing: 2) {
-                        Image(systemName: "moon.zzz.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(Color.white.opacity(0.2))
-                        Text("Rest")
-                            .font(.system(size: 7, weight: .medium))
-                            .foregroundColor(Color.white.opacity(0.2))
-                    }
+                    // Missed day - subtle dash
+                    Image(systemName: "minus")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(Color.white.opacity(0.15))
                 } else if isToday {
                     // Today - plus icon
                     Image(systemName: "plus")
@@ -737,6 +692,7 @@ struct WeeklyProgressCard: View {
     var onTodayTap: (() -> Void)? = nil
     var onRestTap: (() -> Void)? = nil
 
+    @State private var circleAnimated = false
     @State private var showingDayOptions = false
     @State private var selectedWorkoutForReview: Workout? = nil
     @State private var showingWorkoutReview = false
@@ -808,7 +764,7 @@ struct WeeklyProgressCard: View {
 
                     // Progress arc with animated gradient
                     Circle()
-                        .trim(from: 0, to: progressPercentage)
+                        .trim(from: 0, to: circleAnimated ? progressPercentage : 0)
                         .stroke(
                             LinearGradient(
                                 colors: [GQColors.vividPurple, GQColors.cyanSpark],
@@ -867,6 +823,11 @@ struct WeeklyProgressCard: View {
         .padding(18)
         .background(Color(white: 0.08))
         .cornerRadius(16)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
+                circleAnimated = true
+            }
+        }
         .confirmationDialog("What would you like to do?", isPresented: $showingDayOptions, titleVisibility: .visible) {
             Button("Start Workout") {
                 onTodayTap?()
@@ -994,7 +955,7 @@ struct WorkoutReviewSheet: View {
                 .padding(.top, 20)
             }
             .scrollContentBackground(.hidden)
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1495,8 +1456,7 @@ struct StartWorkoutSheet: View {
                     Spacer(minLength: 20)
                 }
             }
-            .safeAreaInset(edge: .bottom) { startButton }
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Start Workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -606,12 +606,12 @@ struct PostHeaderEnhanced: View {
 
                     Text("@\(post.authorUsername)")
                         .font(.system(size: 13))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Text(post.timestamp.timeAgoDisplay())
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
 
             Spacer()
@@ -645,7 +645,7 @@ struct WorkoutStatsBarEnhanced: View {
                         .foregroundColor(GQColors.accent)
                     Text("\(duration) min")
                         .font(.system(size: 13))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
 
@@ -656,7 +656,7 @@ struct WorkoutStatsBarEnhanced: View {
                         .foregroundColor(GQColors.success)
                     Text("\(sets) sets")
                         .font(.system(size: 13))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
         }
@@ -684,12 +684,12 @@ struct PostHeader: View {
 
                     Text("@\(post.authorUsername)")
                         .font(.system(size: 13))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Text(post.timestamp.timeAgoDisplay())
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
 
             Spacer()
@@ -766,13 +766,13 @@ struct WorkoutStatsBar: View {
             if let duration = duration {
                 Label("\(duration) min", systemImage: "clock")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
 
             if let sets = setCount {
                 Label("\(sets) sets", systemImage: "flame")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
         }
     }
@@ -800,7 +800,7 @@ struct PostActionsRow: View {
                     if post.likeCount > 0 {
                         Text("\(post.likeCount)")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
             }
@@ -816,7 +816,7 @@ struct PostActionsRow: View {
                     if post.commentCount > 0 {
                         Text("\(post.commentCount)")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
             }
@@ -904,23 +904,17 @@ struct PostActionsRowAnimated: View {
                     .zIndex(10)
                 }
 
-                Button {
-                    performLikeAnimation()
-                } label: {
-                    ZStack {
-                        if showParticles {
-                            HeartParticles()
-                        }
-                        HStack(spacing: 6) {
-                            Image(systemName: isLiked ? "heart.fill" : "heart")
-                                .font(.system(size: 22))
-                                .foregroundColor(isLiked ? .red : .white)
-                                .scaleEffect(heartScale)
-                            if displayedLikeCount > 0 {
-                                AnimatedCounter(value: displayedLikeCount)
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.gray)
-                            }
+                    HStack(spacing: 6) {
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
+                            .font(.system(size: 22))
+                            .foregroundColor(isLiked ? .red : .white)
+                            .scaleEffect(heartScale)
+
+                        // Animated counter
+                        if displayedLikeCount > 0 {
+                            AnimatedCounter(value: displayedLikeCount)
+                                .font(.system(size: 14))
+                                .foregroundColor(GQColors.textTertiary)
                         }
                     }
                 }
@@ -946,7 +940,7 @@ struct PostActionsRowAnimated: View {
                     if displayedCommentCount > 0 {
                         AnimatedCounter(value: displayedCommentCount)
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
             }
@@ -1174,7 +1168,7 @@ struct PRFeedView: View {
 
                 Text("Keep training and your PRs will show up here")
                     .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .multilineTextAlignment(.center)
 
                 Spacer()
@@ -1268,7 +1262,7 @@ struct LearningFeedView: View {
 
                 Text("Exercise demos and form cues will appear here")
                     .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .multilineTextAlignment(.center)
 
                 Spacer()
@@ -1385,7 +1379,7 @@ struct LearnThisPanel: View {
                 }
                 .padding(16)
             }
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Learn This")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -1416,7 +1410,7 @@ struct LearnThisPanel: View {
                     if !content.muscleGroups.isEmpty {
                         Text(content.muscleGroups.first ?? "")
                             .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
 
                     Text(content.difficulty)
@@ -1430,7 +1424,7 @@ struct LearnThisPanel: View {
             } else if let metadata = ExtendedExerciseDatabase.find(exerciseName) {
                 Text(metadata.muscleGroup.rawValue)
                     .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
         }
         .padding(.top, 8)
@@ -1449,7 +1443,7 @@ struct LearnThisPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("FORM CUES")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .tracking(0.5)
 
             ForEach(cues, id: \.self) { cue in
@@ -1479,7 +1473,7 @@ struct LearnThisPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("COMMON MISTAKES")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .tracking(0.5)
 
             ForEach(mistakes, id: \.self) { mistake in
@@ -1575,7 +1569,7 @@ struct LearnThisPanel: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("DEMOS & GUIDES")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .tracking(0.5)
 
                 ForEach(learningItems) { item in
@@ -1644,7 +1638,7 @@ struct CommentsSheet: View {
                         if postComments.isEmpty {
                             Text("No comments yet")
                                 .font(.subheadline)
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.top, 40)
                         } else {
@@ -1674,7 +1668,7 @@ struct CommentsSheet: View {
                 }
                 .padding(16)
             }
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Comments")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -1727,7 +1721,7 @@ struct CommentRow: View {
 
                     Text(comment.timestamp.timeAgoDisplay())
                         .font(.system(size: 11))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Text(comment.content)
@@ -1757,7 +1751,7 @@ struct ComingSoonView: View {
 
             Text("This feature is coming soon!")
                 .font(.subheadline)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
 
             Spacer()
         }
@@ -1797,7 +1791,7 @@ struct EmptyFeedView: View {
 
                 Text("Share your first post with the community")
                     .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .multilineTextAlignment(.center)
             }
 
@@ -1843,7 +1837,7 @@ struct PostCard: View {
                         .font(.system(size: 15, weight: .semibold))
                     Text(post.timestamp.timeAgoDisplay())
                         .font(.system(size: 13))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()
@@ -1901,7 +1895,7 @@ struct PostCard: View {
                             Text("\(duration) min")
                                 .font(.system(size: 14))
                         }
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                     }
 
                     if let sets = post.setCount {
@@ -1911,7 +1905,7 @@ struct PostCard: View {
                             Text("\(sets) sets")
                                 .font(.system(size: 14))
                         }
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                     }
                 }
             }
@@ -1931,7 +1925,7 @@ struct PostCard: View {
                         if post.likeCount > 0 {
                             Text("\(post.likeCount)")
                                 .font(.system(size: 14))
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                         }
                     }
                 }
@@ -1946,7 +1940,7 @@ struct PostCard: View {
                         if post.commentCount > 0 {
                             Text("\(post.commentCount)")
                                 .font(.system(size: 14))
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                         }
                     }
                 }
@@ -2183,7 +2177,7 @@ struct CommunityFeedView: View {
                 HStack(spacing: 12) {
                     HStack {
                         Image(systemName: "magnifyingglass")
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                         TextField("Search communities...", text: $searchText)
                             .foregroundColor(.white)
                     }
@@ -2226,7 +2220,7 @@ struct CommunityFeedView: View {
 
                             Text("Join communities for your gym, university, or local fitness center to connect with others")
                                 .font(.subheadline)
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 20)
                         }
@@ -2401,14 +2395,14 @@ struct CommunityPreviewCard: View {
                         Text(location)
                     }
                     .font(.system(size: 12))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
             .padding(14)
             .background(Color.white.opacity(0.05))
@@ -2475,14 +2469,14 @@ struct CommunityCard: View {
                         }
                     }
                     .font(.system(size: 12))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
 
             // Quick stats or activity
@@ -2493,7 +2487,7 @@ struct CommunityCard: View {
                         .frame(width: 6, height: 6)
                     Text("12 active today")
                         .font(.system(size: 11))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()
@@ -2543,7 +2537,7 @@ struct CreateCommunitySheet: View {
                 Section {
                     Text("Communities are great for gyms, universities, or fitness groups. Members can share workouts, find partners, and connect.")
                         .font(.footnote)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
             .navigationTitle("Create Community")
@@ -2607,13 +2601,13 @@ struct SearchCommunitiesSheet: View {
                     VStack(spacing: 16) {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 40))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                         Text("No communities found")
                             .font(.headline)
                             .foregroundColor(.white)
                         Text("Try a different search or create your own")
                             .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 40)
@@ -2695,7 +2689,7 @@ struct CommunitySearchRow: View {
                     }
                 }
                 .font(.system(size: 12))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
             }
 
             Spacer()
@@ -2703,7 +2697,7 @@ struct CommunitySearchRow: View {
             if isMember {
                 Text("Joined")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Color.white.opacity(0.1))
@@ -2794,7 +2788,7 @@ struct CommunityDetailView: View {
                         if !community.communityDescription.isEmpty {
                             Text(community.communityDescription)
                                 .font(.subheadline)
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                                 .multilineTextAlignment(.center)
                         }
 
@@ -2804,7 +2798,7 @@ struct CommunityDetailView: View {
                                     .font(.headline)
                                 Text("Members")
                                     .font(.caption)
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(GQColors.textTertiary)
                             }
 
                             if let location = community.location {
@@ -2813,7 +2807,7 @@ struct CommunityDetailView: View {
                                         .font(.headline)
                                     Text(location)
                                         .font(.caption)
-                                        .foregroundColor(.gray)
+                                        .foregroundColor(GQColors.textTertiary)
                                 }
                             }
                         }
@@ -2858,23 +2852,31 @@ struct CommunityDetailView: View {
                     // Weekly Challenge card
                     weeklyChallengeCard
 
-                    // Segmented control
-                    communitySectionPicker
-
-                    // Content based on selected section
-                    switch selectedSection {
-                    case .feed:
-                        communityFeedSection
-                    case .leaderboard:
-                        communityLeaderboardSection
-                    case .members:
-                        communityMembersSection
+                        if posts.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "text.bubble")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(.gray.opacity(0.5))
+                                Text("No posts yet")
+                                    .font(.subheadline)
+                                    .foregroundColor(GQColors.textTertiary)
+                                Text("Be the first to share something!")
+                                    .font(.caption)
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                        } else {
+                            ForEach(posts) { post in
+                                CommunityPostCard(post: post)
+                            }
+                        }
                     }
 
                     Spacer(minLength: 40)
                 }
             }
-            .background(Color(white: 0.05).ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Community")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -3153,7 +3155,7 @@ struct CommunityPostCard: View {
                         .font(.system(size: 14, weight: .semibold))
                     Text(post.timestamp.timeAgoDisplay())
                         .font(.system(size: 11))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()
@@ -3189,7 +3191,7 @@ struct CommunityPostCard: View {
                         }
                     }
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                 }
 
                 Button {
@@ -3202,7 +3204,7 @@ struct CommunityPostCard: View {
                         }
                     }
                     .font(.system(size: 13))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()

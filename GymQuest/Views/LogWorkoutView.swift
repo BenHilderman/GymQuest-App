@@ -67,7 +67,7 @@ struct LogWorkoutView: View {
                 }
                 .padding()
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("New Post")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -128,7 +128,8 @@ struct LogWorkoutView: View {
 
     private var workoutToggleHeader: some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            HapticManager.shared.impact(.medium)
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                 includeWorkout.toggle()
             }
         } label: {
@@ -145,7 +146,7 @@ struct LogWorkoutView: View {
 
                 Image(systemName: includeWorkout ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
-                    .foregroundColor(includeWorkout ? .green : .gray.opacity(0.5))
+                    .foregroundColor(includeWorkout ? GQColors.cyanSpark : .gray.opacity(0.5))
             }
             .padding(16)
             .background(Color.white.opacity(includeWorkout ? 0.1 : 0.05))
@@ -170,7 +171,7 @@ struct LogWorkoutView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Type")
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -191,7 +192,7 @@ struct LogWorkoutView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Duration")
                 .font(.caption)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
 
             HStack(spacing: 8) {
                 ForEach([30, 45, 60, 75, 90], id: \.self) { mins in
@@ -211,7 +212,7 @@ struct LogWorkoutView: View {
             HStack {
                 Text("Exercises")
                     .font(.caption)
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
 
                 Spacer()
 
@@ -424,7 +425,7 @@ struct MediaSection: View {
                                     Text("\(mediaItems.count)/\(maxItems)")
                                         .font(.caption)
                                 }
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                                 .frame(width: 80, height: 200)
                                 .background(Color.white.opacity(0.05))
                                 .cornerRadius(12)
@@ -447,11 +448,11 @@ struct MediaSection: View {
                             Image(systemName: "video.fill")
                                 .font(.system(size: 28))
                         }
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
 
                         Text("Add Photos or Videos")
                             .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
 
                         Text("Up to \(maxItems)")
                             .font(.caption)
@@ -483,7 +484,10 @@ struct WorkoutTypeChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            HapticManager.shared.select()
+            action()
+        } label: {
             HStack(spacing: 5) {
                 Image(systemName: type.icon)
                     .font(.system(size: 12))
@@ -495,6 +499,8 @@ struct WorkoutTypeChip: View {
             .padding(.vertical, 8)
             .background(isSelected ? Color.white : Color.white.opacity(0.1))
             .cornerRadius(16)
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
         }
         .buttonStyle(.plain)
     }
@@ -506,7 +512,10 @@ struct DurationChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            HapticManager.shared.select()
+            action()
+        } label: {
             Text("\(minutes)m")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(isSelected ? .black : .white)
@@ -514,6 +523,8 @@ struct DurationChip: View {
                 .padding(.vertical, 8)
                 .background(isSelected ? Color.white : Color.white.opacity(0.1))
                 .cornerRadius(16)
+                .scaleEffect(isSelected ? 1.05 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
         }
         .buttonStyle(.plain)
     }
@@ -546,7 +557,7 @@ struct ExerciseRow: View {
                 Button(action: onDelete) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
 
@@ -554,7 +565,7 @@ struct ExerciseRow: View {
                 HStack(spacing: 8) {
                     Text("\(index + 1)")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                         .frame(width: 16)
 
                     HStack(spacing: 2) {
@@ -569,7 +580,7 @@ struct ExerciseRow: View {
                             #endif
                         Text("×")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
 
                     HStack(spacing: 2) {
@@ -584,13 +595,16 @@ struct ExerciseRow: View {
                             #endif
                         Text("lbs")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
 
                     Spacer()
 
                     Button {
-                        exercise.sets.remove(at: index)
+                        HapticManager.shared.tap()
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            exercise.sets.remove(at: index)
+                        }
                     } label: {
                         Image(systemName: "minus.circle")
                             .font(.system(size: 14))
@@ -600,7 +614,10 @@ struct ExerciseRow: View {
             }
 
             Button {
-                exercise.sets.append(TempSet(reps: 0, weight: 0))
+                HapticManager.shared.tap()
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    exercise.sets.append(TempSet(reps: 0, weight: 0))
+                }
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "plus")
@@ -630,7 +647,7 @@ struct AddExerciseSheet: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Exercise")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
 
                     Picker("Exercise", selection: $selectedExercise) {
                         ForEach(ExerciseDatabase.exercises.keys.sorted(), id: \.self) { name in
@@ -652,7 +669,7 @@ struct AddExerciseSheet: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Muscle Group")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
 
                     Picker("Muscle", selection: $selectedMuscle) {
                         ForEach(MuscleGroup.allCases, id: \.self) { muscle in
@@ -680,7 +697,7 @@ struct AddExerciseSheet: View {
                 Spacer()
             }
             .padding()
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Add Exercise")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

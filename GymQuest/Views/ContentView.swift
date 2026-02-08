@@ -48,25 +48,41 @@ struct ContentView: View {
 
     @ViewBuilder
     private func mainContent(profile: UserProfile) -> some View {
-        ZStack {
-            // Background extends to all edges
-            Color(white: 0.05)
-                .ignoresSafeArea(.all)
+        ZStack(alignment: .bottom) {
+            // All views rendered simultaneously, visibility controlled by opacity
+            // This prevents the black flash by keeping views pre-rendered
+            ZStack {
+                HomeView(profile: profile)
+                    .opacity(appState.selectedTab == .home ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .home)
 
-            // main content
-            switch appState.selectedTab {
-            case .home:
-                if appState.activeWorkoutType == nil {
-                    HomeView(profile: profile)
-                }
-            case .feed:
                 FeedView(profile: profile)
-            case .coach:
+                    .opacity(appState.selectedTab == .feed ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .feed)
+
                 CoachView(profile: profile, workouts: workouts, aiService: aiService)
-            case .progress:
+                    .opacity(appState.selectedTab == .coach ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .coach)
+
                 TrainingProgressView(profile: profile, workouts: workouts, aiService: aiService)
-            case .profile:
+                    .opacity(appState.selectedTab == .progress ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .progress)
+
                 ProfileView(profile: profile)
+                    .opacity(appState.selectedTab == .profile ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .profile)
+            }
+            .ignoresSafeArea(.keyboard)
+
+            // Active workout mini-bar + tab bar
+            VStack(spacing: 0) {
+                // Mini-bar when workout is active and not on home tab
+                if appState.isWorkoutActive && appState.selectedTab != .home {
+                    ActiveWorkoutMiniBar()
+                }
+
+                // Custom floating tab bar overlay
+                FloatingTabBar()
             }
 
             // Active workout view — kept alive outside the switch so state persists across tab changes
@@ -86,31 +102,12 @@ struct ContentView: View {
                 }
             }
         }
-        .ignoresSafeArea(.keyboard)
-        .gesture(
-            DragGesture(minimumDistance: 30, coordinateSpace: .local)
-                .onEnded { value in
-                    let horizontal = value.translation.width
-                    let vertical = value.translation.height
-                    // Only trigger on mostly-horizontal swipes
-                    guard abs(horizontal) > abs(vertical) * 1.5 else { return }
-                    guard let currentIndex = allTabs.firstIndex(of: appState.selectedTab) else { return }
-                    if horizontal < -50, currentIndex < allTabs.count - 1 {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            appState.selectedTab = allTabs[currentIndex + 1]
-                        }
-                    } else if horizontal > 50, currentIndex > 0 {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            appState.selectedTab = allTabs[currentIndex - 1]
-                        }
-                    }
-                }
-        )
-        .safeAreaInset(edge: .bottom) {
-            FloatingTabBar()
-        }
+        .background(GQColors.background.ignoresSafeArea())
         .sheet(isPresented: $appState.showingLogWorkout) {
             LogWorkoutView(profile: profile)
+        }
+        .sheet(isPresented: $appState.showingWorkoutStartOptions) {
+            WorkoutStartOptionsView(profile: profile)
         }
         .sheet(item: $appState.selectedSession) { session in
             SessionDetailView(session: session)
@@ -139,7 +136,7 @@ struct FloatingTabBar: View {
                     let impact = UIImpactFeedbackGenerator(style: .medium)
                     impact.impactOccurred()
                     #endif
-                    appState.showingLogWorkout = true
+                    appState.showingWorkoutStartOptions = true
                 } label: {
                     ZStack {
                         // Subtle glow
@@ -200,6 +197,85 @@ struct FloatingTabBar: View {
     }
 }
 
+// MARK: - Active Workout Mini Bar
+
+struct ActiveWorkoutMiniBar: View {
+    @EnvironmentObject var appState: AppState
+    @State private var elapsedTime = 0
+    @State private var timer: Timer?
+
+    var body: some View {
+        Button {
+            appState.selectedTab = .home
+        } label: {
+            HStack(spacing: 10) {
+                // Pulsing dot
+                Circle()
+                    .fill(GQColors.success)
+                    .frame(width: 8, height: 8)
+
+                if let workout = appState.activeWorkout {
+                    Image(systemName: workout.workoutType.icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Text(workout.workoutType.rawValue)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                Text(formatTime(elapsedTime))
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .foregroundColor(GQColors.cyanSpark)
+
+                Text("Return")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(GQColors.vividPurple)
+                    .cornerRadius(14)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                Color(white: 0.08)
+                    .overlay(
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [GQColors.vividPurple.opacity(0.3), Color.clear],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(height: 2),
+                        alignment: .top
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+                if let start = appState.activeWorkout?.startTime {
+                    elapsedTime = Int(Date().timeIntervalSince(start))
+                }
+            }
+        }
+        .onDisappear {
+            timer?.invalidate()
+        }
+    }
+
+    private func formatTime(_ seconds: Int) -> String {
+        let mins = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
+}
+
 // MARK: - Floating Tab Button
 
 struct FloatingTabButton: View {
@@ -225,6 +301,7 @@ struct FloatingTabButton: View {
 
     var body: some View {
         Button {
+            HapticManager.shared.select()
             appState.selectedTab = tab
         } label: {
             VStack(spacing: 4) {
@@ -235,15 +312,24 @@ struct FloatingTabButton: View {
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 22, height: 22)
                         .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
+                        .scaleEffect(isSelected ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.5), value: isSelected)
                 } else {
                     Image(systemName: displayIcon)
                         .font(.system(size: 20))
                         .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
+                        .scaleEffect(isSelected ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.5), value: isSelected)
                 }
 
                 Text(label)
-                    .font(.system(size: 10, weight: isSelected ? .medium : .regular))
+                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
                     .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
+
+                // Selected indicator dot
+                Circle()
+                    .fill(isSelected ? tabColor : Color.clear)
+                    .frame(width: 4, height: 4)
             }
             .frame(maxWidth: .infinity)
         }
