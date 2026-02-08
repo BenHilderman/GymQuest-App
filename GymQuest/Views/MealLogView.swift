@@ -26,6 +26,7 @@ struct MealLogView: View {
     @State private var photoData: Data?
     @State private var suggestedTags: [String] = []
     @State private var showingCamera = false
+    @State private var showLoggedOverlay = false
 
     var body: some View {
         NavigationStack {
@@ -41,6 +42,7 @@ struct MealLogView: View {
                                 .frame(height: 200)
                                 .frame(maxWidth: .infinity)
                                 .clipShape(RoundedRectangle(cornerRadius: 16))
+                                .transition(.scale.combined(with: .opacity))
                                 .overlay(alignment: .topTrailing) {
                                     Button {
                                         self.photoData = nil
@@ -93,7 +95,7 @@ struct MealLogView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("MEAL TYPE")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                             .tracking(0.5)
 
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -116,7 +118,7 @@ struct MealLogView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("WHAT DID YOU EAT?")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                             .tracking(0.5)
 
                         TextField("e.g., Grilled chicken salad with avocado", text: $description)
@@ -130,7 +132,7 @@ struct MealLogView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("QUICK TAGS")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                             .tracking(0.5)
 
                         FlowLayout(spacing: 8) {
@@ -176,7 +178,7 @@ struct MealLogView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("HOW DID YOU FEEL?")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                             .tracking(0.5)
 
                         HStack(spacing: 12) {
@@ -194,7 +196,7 @@ struct MealLogView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("NOTES (OPTIONAL)")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                             .tracking(0.5)
 
                         TextField("Any additional notes...", text: $notes, axis: .vertical)
@@ -227,7 +229,7 @@ struct MealLogView: View {
                 }
                 .padding(16)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Log Meal")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -252,6 +254,22 @@ struct MealLogView: View {
                 CameraView(photoData: $photoData)
             }
             #endif
+            .overlay {
+                if showLoggedOverlay {
+                    VStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(GQColors.success)
+                        Text("Logged!")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.ultraThinMaterial)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.3), value: showLoggedOverlay)
+                }
+            }
         }
     }
 
@@ -275,7 +293,11 @@ struct MealLogView: View {
             notes: notes
         )
 
-        dismiss()
+        HapticManager.shared.success()
+        showLoggedOverlay = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            dismiss()
+        }
     }
 }
 
@@ -287,7 +309,10 @@ struct MealTypeChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            HapticManager.shared.select()
+            action()
+        } label: {
             HStack(spacing: 4) {
                 Image(systemName: type.icon)
                 Text(type.rawValue)
@@ -298,6 +323,8 @@ struct MealTypeChip: View {
             .padding(.vertical, 8)
             .background(isSelected ? Color.white : Color.white.opacity(0.1))
             .cornerRadius(20)
+            .scaleEffect(isSelected ? 1.05 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
         }
         .buttonStyle(.plain)
     }
@@ -309,7 +336,10 @@ struct TagChip: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            HapticManager.shared.tap()
+            action()
+        } label: {
             Text(tag)
                 .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
                 .foregroundColor(isSelected ? .white : .gray)
@@ -317,6 +347,8 @@ struct TagChip: View {
                 .padding(.vertical, 6)
                 .background(isSelected ? GQColors.cyanSpark.opacity(0.4) : Color.white.opacity(0.08))
                 .cornerRadius(16)
+                .scaleEffect(isSelected ? 1.05 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .strokeBorder(isSelected ? GQColors.cyanSpark : Color.clear, lineWidth: 1)
@@ -330,12 +362,24 @@ struct FeelingButton: View {
     let feeling: MealFeeling
     let isSelected: Bool
     let action: () -> Void
+    @State private var wiggle = false
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            HapticManager.shared.select()
+            action()
+            wiggle = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                wiggle = false
+            }
+        } label: {
             VStack(spacing: 6) {
                 Text(feeling.emoji)
                     .font(.system(size: 28))
+                    .scaleEffect(isSelected ? 1.3 : 1.0)
+                    .rotationEffect(.degrees(wiggle ? 10 : 0))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.4), value: isSelected)
+                    .animation(.easeInOut(duration: 0.15).repeatCount(3, autoreverses: true), value: wiggle)
                 Text(feeling.rawValue)
                     .font(.system(size: 10))
                     .foregroundColor(isSelected ? .white : .gray)
@@ -452,18 +496,18 @@ struct MealLogCard: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(GQColors.success.opacity(0.2))
+                        .fill(GQColors.cyanSpark.opacity(0.2))
                         .frame(width: 44, height: 44)
 
                     Image(systemName: "fork.knife")
                         .font(.title3)
-                        .foregroundColor(GQColors.success)
+                        .foregroundColor(GQColors.cyanSpark)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("LOG MEAL")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                         .tracking(0.5)
 
                     Text("Track your nutrition")
@@ -475,14 +519,14 @@ struct MealLogCard: View {
 
                 Image(systemName: "camera.fill")
                     .font(.title3)
-                    .foregroundColor(.green.opacity(0.6))
+                    .foregroundColor(GQColors.cyanSpark.opacity(0.6))
             }
             .padding(16)
-            .background(GQColors.success.opacity(0.08))
+            .background(GQColors.cyanSpark.opacity(0.08))
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(GQColors.success.opacity(0.2), lineWidth: 1)
+                    .strokeBorder(GQColors.cyanSpark.opacity(0.2), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -501,7 +545,7 @@ struct TodaysMealsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("TODAY'S MEALS")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .tracking(0.5)
 
             if meals.isEmpty {
@@ -509,7 +553,7 @@ struct TodaysMealsView: View {
                     Spacer()
                     Text("No meals logged today")
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                     Spacer()
                 }
                 .padding(.vertical, 20)
@@ -554,7 +598,7 @@ struct MealSummaryRow: View {
                         .frame(width: 44, height: 44)
 
                     Image(systemName: meal.mealType.icon)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
 
@@ -570,7 +614,7 @@ struct MealSummaryRow: View {
 
                 Text(meal.mealDescription)
                     .font(.system(size: 12))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .lineLimit(1)
             }
 
@@ -578,7 +622,7 @@ struct MealSummaryRow: View {
 
             Text(meal.dateTime.formatted(date: .omitted, time: .shortened))
                 .font(.system(size: 11))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
         }
     }
 }

@@ -67,7 +67,7 @@ struct SquadView: View {
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(GQColors.success.opacity(0.3))
+                                        .background(GQColors.cyanSpark.opacity(0.3))
                                         .cornerRadius(10)
                                 }
                             }
@@ -80,7 +80,7 @@ struct SquadView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Squads")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -119,7 +119,7 @@ struct EmptySquadView: View {
 
                 Text("Create or join a squad to train with friends and compete in weekly challenges")
                     .font(.subheadline)
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
             }
@@ -180,7 +180,7 @@ struct SquadCardView: View {
                     HStack(spacing: 8) {
                         Label("\(squad.memberCount)/6", systemImage: "person.2.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
 
                         if squad.streakWeeks > 0 {
                             HStack(spacing: 4) {
@@ -198,7 +198,7 @@ struct SquadCardView: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
 
             // Active Challenge (if any)
@@ -213,7 +213,7 @@ struct SquadCardView: View {
 
                         Text("+\(challenge.xpReward) XP")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(GQColors.success)
+                            .foregroundColor(GQColors.cyanSpark)
                     }
 
                     // Progress bar
@@ -233,13 +233,13 @@ struct SquadCardView: View {
                     HStack {
                         Text("\(challenge.currentValue)/\(challenge.targetValue)")
                             .font(.system(size: 11))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
 
                         Spacer()
 
                         Text(challenge.endDate, style: .relative)
                             .font(.system(size: 11))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
                 .padding(12)
@@ -285,7 +285,7 @@ struct SquadCardView: View {
 
                             Text("\(stats.sessionsThisWeek) sessions")
                                 .font(.system(size: 12))
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                         }
                     }
                 }
@@ -294,6 +294,17 @@ struct SquadCardView: View {
         .padding(16)
         .background(Color(white: 0.08))
         .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+        )
         .onAppear {
             loadSquadData()
         }
@@ -339,7 +350,7 @@ struct CreateSquadSheet: View {
                 Section {
                     Text("You can invite up to 5 friends using the invite code generated after creating the squad.")
                         .font(.footnote)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
             .navigationTitle("Create Squad")
@@ -394,7 +405,7 @@ struct JoinSquadSheet: View {
 
                     Text("Ask your friend for their squad's 6-character code")
                         .font(.subheadline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.top, 20)
@@ -422,7 +433,7 @@ struct JoinSquadSheet: View {
                     VStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 48))
-                            .foregroundColor(GQColors.success)
+                            .foregroundColor(GQColors.cyanSpark)
 
                         Text("Joined \(squad.name)!")
                             .font(.headline)
@@ -449,7 +460,7 @@ struct JoinSquadSheet: View {
                 .padding(.bottom, 20)
             }
             .buttonStyle(.plain)
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Join Squad")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -523,7 +534,7 @@ struct SquadDetailView: View {
                     VStack(spacing: 8) {
                         Text("INVITE CODE")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                             .tracking(0.5)
 
                         Text(squad.inviteCode)
@@ -542,6 +553,17 @@ struct SquadDetailView: View {
                     .padding(20)
                     .background(Color(white: 0.08))
                     .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 1
+                            )
+                    )
 
                     // Active Challenge
                     if let challenge = activeChallenge {
@@ -568,7 +590,7 @@ struct SquadDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("THIS WEEK'S LEADERBOARD")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                             .tracking(0.5)
 
                         ForEach(Array(leaderboard.enumerated()), id: \.element.id) { index, stats in
@@ -582,6 +604,17 @@ struct SquadDetailView: View {
                     .padding(16)
                     .background(Color(white: 0.08))
                     .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                ),
+                                lineWidth: 1
+                            )
+                    )
 
                     // Leave/Delete Squad
                     if isCreator {
@@ -606,7 +639,7 @@ struct SquadDetailView: View {
                 }
                 .padding(.horizontal, 16)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Squad")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -672,7 +705,7 @@ struct StatBadge: View {
                 .foregroundColor(.white)
             Text(label)
                 .font(.system(size: 10))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
         }
         .frame(width: 70)
     }
@@ -726,7 +759,7 @@ struct LeaderboardRow: View {
 
                 Text("Lv. \(stats.level)")
                     .font(.system(size: 11))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
 
             Spacer()
@@ -738,7 +771,7 @@ struct LeaderboardRow: View {
 
                 Text("sessions")
                     .font(.system(size: 10))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
             }
         }
         .padding(.vertical, 6)
@@ -771,16 +804,16 @@ struct ActiveChallengeCard: View {
 
                 Text("+\(challenge.xpReward) XP")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(GQColors.success)
+                    .foregroundColor(GQColors.cyanSpark)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(GQColors.success.opacity(0.15))
+                    .background(GQColors.cyanSpark.opacity(0.15))
                     .cornerRadius(8)
             }
 
             Text(challenge.challengeDescription)
                 .font(.system(size: 13))
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             // Progress
@@ -816,7 +849,7 @@ struct ActiveChallengeCard: View {
                         Text(challenge.endDate, style: .relative)
                     }
                     .font(.system(size: 11))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                 }
             }
         }
@@ -865,7 +898,7 @@ struct CreateChallengeSheet: View {
                 Section {
                     Text("Challenge runs for 1 week. All squad members contribute to the shared goal.")
                         .font(.footnote)
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
             .navigationTitle("New Challenge")

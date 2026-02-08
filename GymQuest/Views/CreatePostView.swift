@@ -74,6 +74,7 @@ struct CreatePostView: View {
     // Error handling
     @State private var showSaveError = false
     @State private var saveErrorMessage = ""
+    @State private var showPostedOverlay = false
 
     private let quickTags = ["Protein", "Vegetables", "Carbs", "Healthy Fats", "Fiber", "Fruit", "Dairy", "Whole Grains"]
 
@@ -101,7 +102,7 @@ struct CreatePostView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Caption")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
 
                         TextEditor(text: $caption)
                             .frame(minHeight: 80)
@@ -128,7 +129,7 @@ struct CreatePostView: View {
                                             .fontWeight(.medium)
                                         Text("Type")
                                             .font(.caption2)
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(GQColors.textTertiary)
                                     }
                                     VStack {
                                         Text("\(workout.duration)")
@@ -136,7 +137,7 @@ struct CreatePostView: View {
                                             .fontWeight(.medium)
                                         Text("Min")
                                             .font(.caption2)
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(GQColors.textTertiary)
                                     }
                                     VStack {
                                         Text("\(workout.totalSets)")
@@ -144,7 +145,7 @@ struct CreatePostView: View {
                                             .fontWeight(.medium)
                                         Text("Sets")
                                             .font(.caption2)
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(GQColors.textTertiary)
                                     }
                                 }
                                 .padding()
@@ -247,6 +248,22 @@ struct CreatePostView: View {
             } message: {
                 Text(saveErrorMessage)
             }
+            .overlay {
+                if showPostedOverlay {
+                    VStack(spacing: 12) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 48))
+                            .foregroundColor(GQColors.success)
+                        Text("Posted!")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(.ultraThinMaterial)
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.3), value: showPostedOverlay)
+                }
+            }
         }
     }
 
@@ -323,7 +340,11 @@ struct CreatePostView: View {
         modelContext.insert(post)
         do {
             try modelContext.save()
-            dismiss()
+            HapticManager.shared.success()
+            showPostedOverlay = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                dismiss()
+            }
         } catch {
             saveErrorMessage = "Failed to save post. Please try again."
             showSaveError = true
@@ -840,11 +861,13 @@ struct EmptyStateView: View {
 
 struct ContentTypeSelector: View {
     @Binding var selectedType: PostContentType
+    @Namespace private var tabNamespace
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(PostContentType.allCases, id: \.self) { type in
                 Button {
+                    HapticManager.shared.select()
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         selectedType = type
                     }
@@ -859,7 +882,13 @@ struct ContentTypeSelector: View {
                     .foregroundColor(selectedType == type ? .black : .white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(selectedType == type ? Color.white : Color.clear)
+                    .background {
+                        if selectedType == type {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.white)
+                                .matchedGeometryEffect(id: "contentTab", in: tabNamespace)
+                        }
+                    }
                 }
                 .buttonStyle(.plain)
             }
@@ -884,7 +913,7 @@ struct MealPostOptions: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("MEAL TYPE")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .tracking(0.5)
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -905,7 +934,7 @@ struct MealPostOptions: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("QUICK TAGS")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .tracking(0.5)
 
                 FlowLayoutSimple(spacing: 8) {
@@ -928,7 +957,7 @@ struct MealPostOptions: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("HOW DID IT FEEL?")
                     .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.gray)
+                    .foregroundColor(GQColors.textTertiary)
                     .tracking(0.5)
 
                 HStack(spacing: 8) {
@@ -978,7 +1007,10 @@ struct QuickTagButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            HapticManager.shared.tap()
+            action()
+        } label: {
             Text(tag)
                 .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
                 .foregroundColor(isSelected ? .white : .gray)
@@ -986,6 +1018,8 @@ struct QuickTagButton: View {
                 .padding(.vertical, 6)
                 .background(isSelected ? GQColors.cyanSpark.opacity(0.4) : Color.white.opacity(0.08))
                 .cornerRadius(14)
+                .scaleEffect(isSelected ? 1.05 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
                         .strokeBorder(isSelected ? GQColors.cyanSpark : Color.clear, lineWidth: 1)
@@ -1001,10 +1035,15 @@ struct MealFeelingButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            HapticManager.shared.select()
+            action()
+        } label: {
             VStack(spacing: 4) {
                 Text(feeling.emoji)
                     .font(.system(size: 20))
+                    .scaleEffect(isSelected ? 1.3 : 1.0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.4), value: isSelected)
                 Text(feeling.rawValue)
                     .font(.system(size: 9))
                     .foregroundColor(isSelected ? .white : .gray)
@@ -1117,7 +1156,7 @@ struct MediaPicker: View {
                                 .foregroundColor(.white)
                             Text("Video selected")
                                 .font(.caption)
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                         }
                     }
                     .frame(height: 250)

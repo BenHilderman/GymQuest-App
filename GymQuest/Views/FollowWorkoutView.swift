@@ -36,7 +36,7 @@ struct WorkoutDetailSheet: View {
 
                         Text("by @\(workoutData.authorUsername)")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                     .padding()
                     .frame(maxWidth: .infinity)
@@ -69,12 +69,12 @@ struct WorkoutDetailSheet: View {
                         }
                         .font(.headline)
                     }
-                    .buttonStyle(GradientButtonStyle())
+                    .buttonStyle(PrimaryButtonStyle())
                     .padding(.horizontal)
                     .padding(.bottom, 40)
                 }
             }
-            .background(ShiftingGradientBackground())
+            .background(EnergyBackground())
             .navigationTitle("Workout Preview")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -241,7 +241,7 @@ struct FollowWorkoutView: View {
 
     var body: some View {
         ZStack {
-            ShiftingGradientBackground()
+            EnergyBackground()
 
             VStack(spacing: 0) {
                 // Progress header
@@ -582,7 +582,7 @@ struct ActiveSetView: View {
                 .font(.title3)
                 .fontWeight(.bold)
             }
-            .buttonStyle(GradientButtonStyle())
+            .buttonStyle(PrimaryButtonStyle())
             .padding(.horizontal, 40)
             .padding(.bottom, 20)
         }
@@ -639,14 +639,14 @@ struct ExercisePill: View {
         VStack(spacing: 4) {
             Text(name)
                 .font(.system(size: 12, weight: isCurrent ? .bold : .medium))
-                .foregroundColor(isCurrent ? .white : (isPast ? GQColors.success : GQColors.textSecondary))
+                .foregroundColor(isCurrent ? .white : (isPast ? GQColors.cyanSpark : GQColors.textSecondary))
                 .lineLimit(1)
 
             // Set indicators
             HStack(spacing: 4) {
                 ForEach(0..<setsCount, id: \.self) { i in
                     Circle()
-                        .fill(i < completedCount ? GQColors.success : (isCurrent ? GQColors.coral : Color.white.opacity(0.3)))
+                        .fill(i < completedCount ? GQColors.cyanSpark : (isCurrent ? GQColors.coral : Color.white.opacity(0.3)))
                         .frame(width: 8, height: 8)
                 }
             }
@@ -666,31 +666,51 @@ struct ExercisePill: View {
 
 struct WorkoutCompleteView: View {
     let onFinish: () -> Void
+    @State private var appeared = false
+    @State private var checkScale: CGFloat = 0.5
 
     var body: some View {
-        VStack(spacing: 30) {
-            Spacer()
+        ZStack {
+            VStack(spacing: 30) {
+                Spacer()
 
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(GQColors.success)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(GQColors.cyanSpark)
+                    .scaleEffect(checkScale)
 
-            Text("Workout Complete!")
-                .font(.title)
-                .fontWeight(.bold)
-                .foregroundColor(.white)
+                Text("Workout Complete!")
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .bounceAppear(delay: 0.2)
 
-            Text("Great job! You crushed it.")
-                .font(.subheadline)
-                .foregroundColor(GQColors.textSecondary)
+                Text("Great job! You crushed it.")
+                    .font(.subheadline)
+                    .foregroundColor(GQColors.textSecondary)
+                    .bounceAppear(delay: 0.3)
 
-            Button("Finish") {
-                onFinish()
+                Button("Finish") {
+                    onFinish()
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .padding(.horizontal, 60)
+                .bounceAppear(delay: 0.4)
+
+                Spacer()
             }
-            .buttonStyle(GradientButtonStyle())
-            .padding(.horizontal, 60)
 
-            Spacer()
+            if appeared {
+                ConfettiView()
+                    .ignoresSafeArea()
+            }
+        }
+        .onAppear {
+            HapticManager.shared.workoutComplete()
+            appeared = true
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
+                checkScale = 1.0
+            }
         }
     }
 }
@@ -719,12 +739,12 @@ struct WorkoutCompletionSummary: View {
                     // Success icon
                     ZStack {
                         Circle()
-                            .fill(GQColors.success.opacity(0.2))
+                            .fill(GQColors.cyanSpark.opacity(0.2))
                             .frame(width: 100, height: 100)
 
                         Image(systemName: "trophy.fill")
                             .font(.system(size: 40))
-                            .foregroundColor(GQColors.gold)
+                            .foregroundColor(GQColors.electricGold)
                     }
                     .padding(.top, 20)
 
@@ -809,7 +829,7 @@ struct WorkoutCompletionSummary: View {
                 }
                 .padding()
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Summary")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -139,6 +139,7 @@ enum WorkoutSource: String, Codable {
     case template = "Template"
     case healthkit = "HealthKit"
     case strava = "Strava"
+    case whoop = "WHOOP"
     case repeatLast = "Repeat Last"
 }
 

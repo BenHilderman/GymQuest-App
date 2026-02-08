@@ -28,7 +28,7 @@ struct NotificationSettingsView: View {
                                     .font(.headline)
                                 Text("Get reminded to work out")
                                     .font(.caption)
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(GQColors.textTertiary)
                             }
                         }
 
@@ -82,7 +82,7 @@ struct NotificationSettingsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Remind me on these days:")
                             .font(.subheadline)
-                            .foregroundColor(.gray)
+                            .foregroundColor(GQColors.textTertiary)
 
                         HStack(spacing: 8) {
                             ForEach(1...7, id: \.self) { day in

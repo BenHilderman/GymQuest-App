@@ -123,6 +123,16 @@
 		FA84BECBECE783E7FBE532FE /* WorkoutTypeSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64188F116B5ADF609FD1EF82 /* WorkoutTypeSelectionView.swift */; };
 		TIKFEED01A1B2C3D4E5F67890 /* TikTokFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIKFEED00A1B2C3D4E5F67890 /* TikTokFeedView.swift */; };
 		TIKFEED02A1B2C3D4E5F67890 /* TikTokFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIKFEED00A1B2C3D4E5F67890 /* TikTokFeedView.swift */; };
+		605768BF7870CB552669EC11 /* WhoopService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE678DBC6EB9397C969B89ED /* WhoopService.swift */; };
+		732DD1D9D32CD6305A06D731 /* WhoopService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE678DBC6EB9397C969B89ED /* WhoopService.swift */; };
+		D821D98750C551E6F8C72CB9 /* IntegrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5AFC75B8BB6F49594A44C99 /* IntegrationManager.swift */; };
+		A038D944C645ABFD32F4BE01 /* IntegrationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5AFC75B8BB6F49594A44C99 /* IntegrationManager.swift */; };
+		4E8B7198710F0DADFBF628D8 /* IntegrationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99A690FE615D803502C14DD1 /* IntegrationsView.swift */; };
+		5642C7A8FC5A0FE87A6B7DB3 /* IntegrationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99A690FE615D803502C14DD1 /* IntegrationsView.swift */; };
+		0C7DD663355929E0A7ABD6E3 /* HealthDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93C8742DA18284CB0BE3333 /* HealthDashboardView.swift */; };
+		E7862171F620BB616B41A592 /* HealthDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93C8742DA18284CB0BE3333 /* HealthDashboardView.swift */; };
+		C5D3B92DA4E168F1B7D94532 /* WorkoutStartOptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F2A81C9D3E57F0A6C83421 /* WorkoutStartOptionsView.swift */; };
+		D6E4CA3EB5F279F2C8EA5643 /* WorkoutStartOptionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F2A81C9D3E57F0A6C83421 /* WorkoutStartOptionsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -197,6 +207,11 @@
 		F8A845E79B9260F72E999CDA /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		FF9DCE2F92D36971BA5E7DB1 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
 		TIKFEED00A1B2C3D4E5F67890 /* TikTokFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TikTokFeedView.swift; sourceTree = "<group>"; };
+		DE678DBC6EB9397C969B89ED /* WhoopService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhoopService.swift; sourceTree = "<group>"; };
+		E5AFC75B8BB6F49594A44C99 /* IntegrationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationManager.swift; sourceTree = "<group>"; };
+		99A690FE615D803502C14DD1 /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
+		A93C8742DA18284CB0BE3333 /* HealthDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDashboardView.swift; sourceTree = "<group>"; };
+		B4F2A81C9D3E57F0A6C83421 /* WorkoutStartOptionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStartOptionsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -284,6 +299,8 @@
 				D1C9D7C410F8D5033107884F /* ShareService.swift */,
 				655F2878C344BCAB4E96687D /* SquadService.swift */,
 				DA29A88BAC9E5F193441B98B /* StravaService.swift */,
+				DE678DBC6EB9397C969B89ED /* WhoopService.swift */,
+				E5AFC75B8BB6F49594A44C99 /* IntegrationManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -328,6 +345,9 @@
 				TIKFEED00A1B2C3D4E5F67890 /* TikTokFeedView.swift */,
 				E3A559F771F37E93C9C6C6D9 /* WorkoutCardView.swift */,
 				64188F116B5ADF609FD1EF82 /* WorkoutTypeSelectionView.swift */,
+				99A690FE615D803502C14DD1 /* IntegrationsView.swift */,
+				A93C8742DA18284CB0BE3333 /* HealthDashboardView.swift */,
+				B4F2A81C9D3E57F0A6C83421 /* WorkoutStartOptionsView.swift */,
 				22DA9316772FA6D86691223C /* Auth */,
 				2BB3BDD8F66092B8216B5433 /* Components */,
 				1458D603DD4918E56A30AAA8 /* EnhancedPostEditorView.swift */,
@@ -594,6 +614,11 @@
 				7614F37D849B575F3B42544E /* FormContentSeeder.swift in Sources */,
 				E016F200F0211E3B99050355 /* ReplicateVideoGenerator.swift in Sources */,
 				DBCE9A0C930CB2D02E92E8CE /* VideoGeneratorView.swift in Sources */,
+				605768BF7870CB552669EC11 /* WhoopService.swift in Sources */,
+				D821D98750C551E6F8C72CB9 /* IntegrationManager.swift in Sources */,
+				4E8B7198710F0DADFBF628D8 /* IntegrationsView.swift in Sources */,
+				0C7DD663355929E0A7ABD6E3 /* HealthDashboardView.swift in Sources */,
+				C5D3B92DA4E168F1B7D94532 /* WorkoutStartOptionsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -645,6 +670,11 @@
 				FA84BECBECE783E7FBE532FE /* WorkoutTypeSelectionView.swift in Sources */,
 				TIKFEED02A1B2C3D4E5F67890 /* TikTokFeedView.swift in Sources */,
 				3991E2A33F9002BC5F314E2B /* EnhancedPostEditorView.swift in Sources */,
+				732DD1D9D32CD6305A06D731 /* WhoopService.swift in Sources */,
+				A038D944C645ABFD32F4BE01 /* IntegrationManager.swift in Sources */,
+				5642C7A8FC5A0FE87A6B7DB3 /* IntegrationsView.swift in Sources */,
+				E7862171F620BB616B41A592 /* HealthDashboardView.swift in Sources */,
+				D6E4CA3EB5F279F2C8EA5643 /* WorkoutStartOptionsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
