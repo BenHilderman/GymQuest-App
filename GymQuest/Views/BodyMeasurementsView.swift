@@ -89,7 +89,7 @@ struct BodyMeasurementsView: View {
             }
             .padding(.top, 16)
         }
-        .background(EnergyBackground())
+        .gqPageBackground()
         .navigationTitle("Body Measurements")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -160,7 +160,7 @@ struct QuickStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(Color(white: 0.08))
+        .background(GQColors.surfaceBase)
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -231,7 +231,7 @@ struct MeasurementChartCard: View {
             .frame(height: 180)
         }
         .padding(16)
-        .background(Color(white: 0.08))
+        .background(GQColors.surfaceBase)
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)

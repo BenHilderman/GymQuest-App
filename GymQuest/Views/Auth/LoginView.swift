@@ -300,7 +300,7 @@ struct EmailAuthSheet: View {
                 Spacer()
             }
             .padding(24)
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle(isSignUp ? "Create Account" : "Sign In")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

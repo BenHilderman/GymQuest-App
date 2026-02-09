@@ -25,8 +25,9 @@ struct ActiveWorkoutView: View {
     @State private var showingFormDemo: ActiveExercise?
     @State private var showingFormPeek = false
     @State private var formPeekExercise: FormExercise?
-    @State private var showingCompletion = false
     @State private var showingCancelConfirmation = false
+    @State private var showingPostEditor = false
+    @State private var savedWorkout: Workout?
     @State private var elapsedTime = 0
     @State private var timer: Timer?
 
@@ -50,37 +51,19 @@ struct ActiveWorkoutView: View {
         exercises.reduce(0) { $0 + $1.sets.count }
     }
 
-    private var workoutAccentColor: Color {
-        switch workoutType {
-        case .push: return GQColors.vividPurple
-        case .pull: return GQColors.cyanSpark
-        case .legs: return GQColors.sunsetOrange
-        case .upper: return GQColors.deepBlue
-        case .lower: return GQColors.coralRed
-        case .fullBody: return GQColors.success
-        case .cardio: return GQColors.success
-        case .rest: return GQColors.textSecondary
+    var totalVolume: Double {
+        exercises.reduce(0.0) { total, ex in
+            total + ex.sets.filter { $0.isCompleted }.reduce(0.0) { $0 + ($1.weight * Double($1.reps)) }
         }
     }
 
-    private func isCurrentExercise(_ exercise: ActiveExercise) -> Bool {
-        guard let first = exercises.first(where: { ex in
-            ex.sets.contains(where: { !$0.isCompleted })
-        }) else { return false }
-        return first.id == exercise.id
+    private var workoutTypeColors: [Color] {
+        GQGradients.workoutGradientColors(for: workoutType)
     }
 
     var body: some View {
         ZStack {
-            // Background with workout-type glow
-            Color.black.ignoresSafeArea()
-            RadialGradient(
-                colors: [workoutAccentColor.opacity(0.12), Color.clear],
-                center: .top,
-                startRadius: 0,
-                endRadius: 400
-            )
-            .ignoresSafeArea()
+            Color.clear
 
             VStack(spacing: 0) {
                 // Header with timer and progress
@@ -124,22 +107,13 @@ struct ActiveWorkoutView: View {
                 // Exercise list
                 ScrollView {
                     LazyVStack(spacing: 16) {
-                        if exercises.isEmpty {
-                            workoutEmptyState
-                        }
-
-                        ForEach($exercises) { $exercise in
+                        ForEach(Array($exercises.enumerated()), id: \.element.id) { index, $exercise in
                             ActiveExerciseCard(
                                 exercise: $exercise,
-                                accentColor: workoutAccentColor,
-                                isActiveExercise: isCurrentExercise(exercise),
-                                onShowDemo: { showFormPeek(for: exercise.name) },
-                                onSetCompleted: { name in startRestTimer(exerciseName: name) }
+                                workoutTypeColors: workoutTypeColors,
+                                onShowDemo: { showFormPeek(for: exercise.name) }
                             )
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.95, anchor: .bottom)),
-                                removal: .opacity
-                            ))
+                            .staggeredAppear(index: index, stagger: 0.06)
                         }
 
                         // Add exercise button
@@ -154,6 +128,7 @@ struct ActiveWorkoutView: View {
                 bottomBar
             }
         }
+        .gqPageBackground()
         .onAppear {
             initializeFromAppState()
             startTimer()
@@ -183,16 +158,17 @@ struct ActiveWorkoutView: View {
                     .presentationDragIndicator(.visible)
             }
         }
-        .sheet(isPresented: $showingCompletion) {
-            WorkoutSessionCompletionSheet(
-                exercises: exercises,
-                duration: elapsedTime / 60,
-                workoutType: workoutType,
-                profile: profile,
-                onDismiss: {
-                    appState.endWorkout()
-                }
-            )
+        .fullScreenCover(isPresented: $showingPostEditor, onDismiss: {
+            appState.endWorkout()
+        }) {
+            if let workout = savedWorkout {
+                EnhancedPostEditorView(
+                    profile: profile,
+                    workout: workout,
+                    exercises: makeCompletedExercises(),
+                    duration: elapsedTime / 60
+                )
+            }
         }
         .confirmationDialog(
             "Cancel Workout?",
@@ -213,12 +189,25 @@ struct ActiveWorkoutView: View {
 
     private var workoutHeader: some View {
         VStack(spacing: 12) {
-            HStack {
+            HStack(spacing: 12) {
                 Button {
                     showingCancelConfirmation = true
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 34, height: 34)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Live Workout")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                    Text(workoutType.rawValue)
+                        .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(width: 32, height: 32)
                         .background(Color.white.opacity(0.08))
@@ -254,7 +243,19 @@ struct ActiveWorkoutView: View {
 
                 Spacer()
 
-                // Workout type — frosted glass pill
+                Text(formatTime(elapsedTime))
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .homeSocialCard(
+                        accent: workoutTypeColors.first ?? GQColors.vividPurple,
+                        emphasized: true,
+                        cornerRadius: 12
+                    )
+            }
+
+            HStack(spacing: 8) {
                 Menu {
                     ForEach(WorkoutType.allCases, id: \.self) { type in
                         Button(type.rawValue) { workoutType = type }
@@ -262,123 +263,73 @@ struct ActiveWorkoutView: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: workoutType.icon)
-                        Text(workoutType.rawValue)
-                        Image(systemName: "chevron.down").font(.caption)
+                        Text("Type")
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
                     }
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(
-                        ZStack {
-                            Capsule().fill(.ultraThinMaterial).environment(\.colorScheme, .dark)
-                            Capsule().fill(workoutAccentColor.opacity(0.15))
-                        }
-                    )
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule().stroke(
-                            LinearGradient(colors: [workoutAccentColor.opacity(0.5), workoutAccentColor.opacity(0.1)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            lineWidth: 1
-                        )
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .homeSocialCard(
+                        accent: workoutTypeColors.first ?? GQColors.vividPurple,
+                        cornerRadius: 10
                     )
                 }
 
                 Spacer()
 
-                // Timer
-                Text(formatTime(elapsedTime))
-                    .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                    .foregroundColor(GQColors.primary)
+                Text(totalSetsCount == 0 ? "No sets yet" : "\(completedSetsCount)/\(totalSetsCount) sets complete")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
             }
-            .padding(.horizontal)
 
-            // Progress bar - flat TikTok style
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.white.opacity(0.1))
-                        .frame(height: 4)
-
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(GQColors.primary)
-                        .frame(width: totalSetsCount > 0 ? geo.size.width * CGFloat(completedSetsCount) / CGFloat(totalSetsCount) : 0, height: 4)
-                        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: completedSetsCount)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal)
-
-            // Animated progress bar
             AnimatedProgressBar(
-                progress: totalSetsCount > 0 ? Double(completedSetsCount) / Double(totalSetsCount) : 0,
-                height: 5,
-                colors: [workoutAccentColor]
+                progress: totalSetsCount == 0 ? 0 : Double(completedSetsCount) / Double(totalSetsCount),
+                height: 7,
+                colors: [workoutTypeColors.first ?? GQColors.vividPurple]
             )
-            .padding(.horizontal)
+            .frame(height: 7)
 
-            // Stats — glass pills
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    StatPill(icon: "figure.strengthtraining.traditional", value: "\(exercises.count)", label: "Exercises", color: workoutAccentColor)
-                    StatPill(icon: "checkmark.circle", value: "\(completedSetsCount)/\(totalSetsCount)", label: "Sets",
-                             color: completedSetsCount == totalSetsCount && totalSetsCount > 0 ? GQColors.success : workoutAccentColor)
-                }
-                .padding(.horizontal, 16)
-            }
-        }
-        .padding(.vertical, 16)
-        .background(
-            Color.black.opacity(0.85)
-                .background(.ultraThinMaterial)
-                .environment(\.colorScheme, .dark)
-        )
-    }
+                HStack(spacing: 8) {
+                    WorkoutFlowMetricChip(
+                        icon: "figure.strengthtraining.traditional",
+                        value: "\(exercises.count)",
+                        label: "Exercises",
+                        color: workoutTypeColors.first ?? GQColors.vividPurple
+                    )
 
-    // MARK: - Music Bar
+                    WorkoutFlowMetricChip(
+                        icon: "checkmark.circle",
+                        value: "\(completedSetsCount)",
+                        label: "Done Sets",
+                        color: workoutTypeColors.last ?? GQColors.cyanSpark
+                    )
 
-    @ViewBuilder
-    private var musicBar: some View {
-        if let song = workoutSong {
-            HStack(spacing: 10) {
-                MusicBadge(
-                    songTitle: song.title,
-                    artistName: song.artist,
-                    isPlaying: true,
-                    onTap: { showMusicPicker = true }
-                )
+                    WorkoutFlowMetricChip(
+                        icon: "scalemass.fill",
+                        value: totalVolume >= 1000
+                            ? String(format: "%.1fk", totalVolume / 1000)
+                            : "\(Int(totalVolume))",
+                        label: "Volume",
+                        color: GQColors.cyanSpark
+                    )
 
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) { workoutSong = nil }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(GQColors.textTertiary)
+                    WorkoutFlowMetricChip(
+                        icon: "flame.fill",
+                        value: "\(completedSetsCount * 8)",
+                        label: "Est. Cal",
+                        color: GQColors.success
+                    )
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-        } else {
-            Button { showMusicPicker = true } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 13))
-                    Text("Add Music")
-                        .font(.system(size: 13, weight: .medium))
-                }
-                .foregroundColor(GQColors.cyanSpark)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(
-                    Capsule()
-                        .fill(GQColors.cyanSpark.opacity(0.1))
-                        .overlay(Capsule().stroke(GQColors.cyanSpark.opacity(0.2), lineWidth: 0.5))
-                )
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 4)
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 10)
+        .background(GQColors.surfaceOverlay.opacity(0.86))
     }
 
     // MARK: - Add Exercise Button
@@ -412,73 +363,77 @@ struct ActiveWorkoutView: View {
         Button {
             showingAddExercise = true
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(LinearGradient(colors: [workoutAccentColor, workoutAccentColor.opacity(0.6)], startPoint: .top, endPoint: .bottom))
-                Text("Add Exercise")
-                    .font(.system(size: 16, weight: .semibold))
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill((workoutTypeColors.first ?? GQColors.primary).opacity(0.18))
+                        .frame(width: 42, height: 42)
+
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(workoutTypeColors.first ?? GQColors.primary)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Add Exercise")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("Browse exercise library")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
             }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.04)))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [8, 6]))
-                    .foregroundColor(Color.white.opacity(0.15))
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .homeSocialCard(accent: workoutTypeColors.first ?? GQColors.vividPurple)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 
     // MARK: - Bottom Bar
 
     private var bottomBar: some View {
         HStack(spacing: 16) {
-            if exercises.last != nil {
+            if let lastExercise = exercises.last {
                 Button {
                     if let last = exercises.last { addSetToExercise(last) }
                 } label: {
-                    HStack(spacing: 6) { Image(systemName: "plus"); Text("Add Set") }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.08))
-                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.12), lineWidth: 0.5))
-                        )
+                    Label("Add Set", systemImage: "plus")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(HomeSocialSecondaryButtonStyle())
+                .frame(maxWidth: 150)
             }
             Spacer()
-            Button { finishWorkout() } label: {
-                Text("Finish")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 14)
-                    .background(
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 22).fill(
-                                LinearGradient(colors: [GQColors.vividPurple, GQColors.cyanSpark.opacity(0.8)], startPoint: .leading, endPoint: .trailing)
-                            )
-                            RoundedRectangle(cornerRadius: 22).fill(
-                                LinearGradient(colors: [Color.white.opacity(0.15), Color.clear], startPoint: .top, endPoint: .center)
-                            )
-                        }
-                    )
-                    .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 8, y: 4)
+
+            Button {
+                finishWorkout()
+            } label: {
+                Label("Finish Workout", systemImage: "checkmark")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(
+                HomeSocialPrimaryButtonStyle(
+                    accent: workoutTypeColors.first ?? GQColors.vividPurple
+                )
+            )
+            .frame(maxWidth: 220)
         }
         .padding(16)
         .background(
-            ZStack {
-                Color.black.opacity(0.9).background(.ultraThinMaterial).environment(\.colorScheme, .dark)
-                VStack { Rectangle().fill(LinearGradient(colors: [Color.white.opacity(0.08), Color.white.opacity(0.02)], startPoint: .leading, endPoint: .trailing)).frame(height: 0.5); Spacer() }
-            }
+                Rectangle()
+                    .fill(GQColors.surfaceOverlay.opacity(0.92))
+                    .overlay(
+                        Rectangle()
+                            .fill(GQColors.borderDefault)
+                            .frame(height: 1),
+                        alignment: .top
+                    )
+                .ignoresSafeArea(edges: .bottom)
         )
     }
 
@@ -519,8 +474,46 @@ struct ActiveWorkoutView: View {
 
     private func finishWorkout() {
         timer?.invalidate()
-        appState.workoutSong = workoutSong
-        showingCompletion = true
+
+        // Save workout immediately and go straight to post editor
+        let workoutExercises = exercises.map { activeExercise -> Exercise in
+            let sets = activeExercise.sets.filter { $0.isCompleted }.enumerated().map { index, activeSet in
+                ExerciseSet(
+                    reps: activeSet.reps,
+                    weight: activeSet.weight,
+                    order: index
+                )
+            }
+            return Exercise(
+                name: activeExercise.name,
+                muscleGroup: activeExercise.muscleGroup,
+                sets: sets
+            )
+        }
+
+        let workout = Workout(
+            type: workoutType,
+            duration: elapsedTime / 60,
+            exercises: workoutExercises
+        )
+        modelContext.insert(workout)
+
+        let xpEarned = 20 + (exercises.reduce(0) { $0 + $1.sets.filter { $0.isCompleted }.count } * 5)
+        _ = profile.addXP(xpEarned)
+
+        try? modelContext.save()
+        savedWorkout = workout
+        showingPostEditor = true
+    }
+
+    private func makeCompletedExercises() -> [CompletedExercise] {
+        exercises.enumerated().map { idx, activeEx in
+            CompletedExercise(
+                name: activeEx.name,
+                sets: activeEx.sets.filter { $0.isCompleted }.count,
+                index: idx
+            )
+        }
     }
 
     // MARK: - Rest Timer
@@ -681,67 +674,88 @@ struct ActiveSet: Identifiable {
 // MARK: - Active Exercise Card
 
 struct ActiveExerciseCard: View {
+    @Environment(\.modelContext) private var modelContext
     @Binding var exercise: ActiveExercise
-    var accentColor: Color = GQColors.vividPurple
-    var isActiveExercise: Bool = false
+    let workoutTypeColors: [Color]
     let onShowDemo: () -> Void
     var onSetCompleted: ((String) -> Void)? = nil
 
-    var completedCount: Int { exercise.sets.filter { $0.isCompleted }.count }
-    var allComplete: Bool { !exercise.sets.isEmpty && completedCount == exercise.sets.count }
+    @State private var previousWeight: Double?
+    @State private var previousReps: Int?
+
+    var completedCount: Int {
+        exercise.sets.filter { $0.isCompleted }.count
+    }
+
+    var allSetsComplete: Bool {
+        completedCount == exercise.sets.count && completedCount > 0
+    }
+
+    private var workoutAccent: Color {
+        workoutTypeColors.first ?? GQColors.vividPurple
+    }
 
     var body: some View {
         VStack(spacing: 12) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(exercise.name)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.white)
 
                     Text(exercise.muscleGroup.rawValue)
-                        .font(.system(size: 12))
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()
 
-                // Form demo button
                 Button(action: onShowDemo) {
-                    Text("Form")
+                    Label("Form", systemImage: "play.circle.fill")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
+                        .foregroundColor(workoutAccent)
+                        .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(GQColors.elevatedSurface)
-                        .cornerRadius(14)
+                        .homeSocialCard(accent: workoutAccent, cornerRadius: 999)
                 }
                 .buttonStyle(.plain)
 
-                // Progress indicator
                 Text("\(completedCount)/\(exercise.sets.count)")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(completedCount == exercise.sets.count ? GQColors.primary : GQColors.textSecondary)
+                    .foregroundColor(allSetsComplete ? workoutAccent : GQColors.textSecondary)
+                    .padding(.leading, 4)
             }
 
-            // Sets
             VStack(spacing: 8) {
                 ForEach($exercise.sets) { $set in
-                    ActiveSetRow(set: $set, setNumber: exercise.sets.firstIndex(where: { $0.id == set.id })! + 1, totalSets: exercise.sets.count)
+                    ActiveSetRow(
+                        set: $set,
+                        setNumber: exercise.sets.firstIndex(where: { $0.id == set.id })! + 1,
+                        totalSets: exercise.sets.count,
+                        workoutTypeColors: workoutTypeColors,
+                        previousWeight: previousWeight,
+                        previousReps: previousReps,
+                        onComplete: {
+                            checkExerciseCompletion()
+                        }
+                    )
                 }
 
-                // Add set button
                 Button {
                     let lastSet = exercise.sets.last
-                    exercise.sets.append(ActiveSet(
-                        reps: lastSet?.reps ?? 10,
-                        weight: lastSet?.weight ?? 0
-                    ))
+                    exercise.sets.append(
+                        ActiveSet(
+                            reps: lastSet?.reps ?? 10,
+                            weight: lastSet?.weight ?? 0
+                        )
+                    )
                 } label: {
-                    HStack {
-                        Image(systemName: "plus")
-                        Text("Add Set")
-                    }
+                    Label("Add Set", systemImage: "plus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(workoutAccent)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .homeSocialCard(accent: workoutAccent, cornerRadius: 10)
                 }
 
                 VStack(spacing: 8) {
@@ -774,14 +788,37 @@ struct ActiveExerciseCard: View {
             }
             .padding(16)
         }
-        .padding(16)
-        .background(GQColors.cardBackground)
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(completedCount == exercise.sets.count && completedCount > 0 ? GQColors.primary.opacity(0.5) : Color.clear, lineWidth: 1.5)
-                .animation(.easeInOut(duration: 0.3), value: completedCount)
-        )
+        .padding(14)
+        .homeSocialCard(accent: workoutAccent, emphasized: allSetsComplete)
+        .opacity(allSetsComplete ? 0.9 : 1.0)
+        .onAppear {
+            let service = ExerciseHistoryService(modelContext: modelContext)
+            if let last = service.lastPerformed(exercise.name) {
+                previousWeight = last.weight
+                previousReps = last.reps
+            }
+        }
+    }
+
+    private func checkExerciseCompletion() {
+        // Check if all sets just became complete
+        let newCompletedCount = exercise.sets.filter { $0.isCompleted }.count
+        if newCompletedCount == exercise.sets.count && newCompletedCount > 0 {
+            HapticManager.shared.success()
+        }
+    }
+}
+
+// MARK: - Conditional View Modifier
+
+extension View {
+    @ViewBuilder
+    func `if`<Transform: View>(_ condition: Bool, transform: (Self) -> Transform) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
     }
 }
 
@@ -791,43 +828,66 @@ struct ActiveSetRow: View {
     @Binding var set: ActiveSet
     let setNumber: Int
     var totalSets: Int = 3
+    let workoutTypeColors: [Color]
+    var previousWeight: Double? = nil
+    var previousReps: Int? = nil
+    var onComplete: (() -> Void)? = nil
+
     @State private var checkScale: CGFloat = 1.0
 
-    var body: some View {
-        HStack(spacing: 12) {
-            Text("\(setNumber)")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(set.isCompleted ? GQColors.success : GQColors.textSecondary)
-                .frame(width: 24)
+    private var workoutColor: Color {
+        workoutTypeColors.first ?? GQColors.primary
+    }
 
-            HStack(spacing: 4) {
-                TextField("0", value: $set.weight, format: .number)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.center)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 60)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(set.isCompleted ? 0.04 : 0.08))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.06), lineWidth: 0.5))
-                    )
-                Text("lbs").font(.system(size: 12)).foregroundColor(GQColors.textTertiary)
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("\(setNumber)")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(set.isCompleted ? workoutColor : GQColors.textSecondary)
+                .frame(width: 22)
+
+            VStack(spacing: 2) {
+                HStack(spacing: 5) {
+                    TextField("0", value: $set.weight, format: .number)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 62)
+                        .padding(.vertical, 8)
+                        .homeSocialCard(accent: workoutColor, cornerRadius: 8)
+                    Text("lb")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                if let prev = previousWeight, prev > 0, set.weight == 0 {
+                    Text("prev \(Int(prev))")
+                        .font(.system(size: 9))
+                        .foregroundColor(GQColors.textTertiary)
+                }
             }
 
-            HStack(spacing: 4) {
-                TextField("0", value: $set.reps, format: .number)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.center)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 50)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(set.isCompleted ? 0.04 : 0.08))
-                            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.06), lineWidth: 0.5))
-                    )
-                Text("reps").font(.system(size: 12)).foregroundColor(GQColors.textTertiary)
+            VStack(spacing: 2) {
+                HStack(spacing: 5) {
+                    TextField("0", value: $set.reps, format: .number)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 56)
+                        .padding(.vertical, 8)
+                        .homeSocialCard(accent: workoutColor, cornerRadius: 8)
+                    Text("reps")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                if let prev = previousReps, prev > 0, set.reps == 0 {
+                    Text("prev \(prev)")
+                        .font(.system(size: 9))
+                        .foregroundColor(GQColors.textTertiary)
+                }
             }
 
             Spacer()
@@ -849,68 +909,35 @@ struct ActiveSetRow: View {
                         }
                     }
                 }
+
                 if set.isCompleted {
                     HapticManager.shared.setComplete(setNumber: setNumber, totalSets: totalSets)
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.4)) {
-                        checkScale = 1.3
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.45)) {
+                        checkScale = 1.28
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.6)) {
                             checkScale = 1.0
                         }
                     }
+                    onComplete?()
                 }
             } label: {
                 Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 28))
-                    .foregroundColor(set.isCompleted ? GQColors.primary : Color.white.opacity(0.2))
+                    .font(.system(size: 27))
+                    .foregroundColor(set.isCompleted ? workoutColor : Color.white.opacity(0.35))
                     .scaleEffect(checkScale)
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(justCompleted ? GQColors.success.opacity(0.08) : Color.clear)
-                .animation(.easeOut(duration: 0.4), value: justCompleted)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .homeSocialCard(
+            accent: workoutColor,
+            emphasized: set.isCompleted,
+            cornerRadius: 10
         )
-        .overlay(alignment: .leading) {
-            if set.isCompleted {
-                RoundedRectangle(cornerRadius: 2).fill(GQColors.success.opacity(0.5)).frame(width: 3)
-                    .transition(.opacity.combined(with: .scale(scale: 0.5)))
-            }
-        }
-    }
-}
-
-// MARK: - Set Complete Particles
-
-struct SetCompleteParticles: View {
-    let color: Color
-    @State private var particles: [ParticleData] = []
-
-    var body: some View {
-        ZStack {
-            ForEach(particles) { particle in
-                Circle().fill(particle.color).frame(width: particle.size, height: particle.size)
-                    .offset(x: particle.x, y: particle.y).opacity(particle.opacity)
-            }
-        }
-        .onAppear { createParticles() }
-    }
-
-    private func createParticles() {
-        for i in 0..<6 {
-            let angle = Double(i) * 60.0 * .pi / 180.0
-            let distance = CGFloat.random(in: 15...30)
-            let colors: [Color] = [color, color.opacity(0.7), color.opacity(0.5)]
-            particles.append(ParticleData(id: UUID(), x: 0, y: 0, targetX: cos(angle) * distance, targetY: sin(angle) * distance,
-                                          size: CGFloat.random(in: 3...6), color: colors.randomElement() ?? color, opacity: 1.0))
-        }
-        withAnimation(.easeOut(duration: 0.4)) {
-            for i in particles.indices { particles[i].x = particles[i].targetX; particles[i].y = particles[i].targetY; particles[i].opacity = 0 }
-        }
+        .opacity(set.isCompleted ? 0.82 : 1.0)
     }
 }
 
@@ -918,77 +945,169 @@ struct SetCompleteParticles: View {
 
 struct AddExerciseToSessionSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Binding var exercises: [ActiveExercise]
     let workoutType: WorkoutType
 
+    @Query(sort: \FavoriteExercise.createdAt, order: .reverse) private var favorites: [FavoriteExercise]
+
     @State private var searchText = ""
     @State private var selectedMuscleGroup: MuscleGroup?
+    @State private var heartScales: [String: CGFloat] = [:]
 
-    var filteredExercises: [ExerciseMetadata] {
+    private var historyService: ExerciseHistoryService {
+        ExerciseHistoryService(modelContext: modelContext)
+    }
+
+    private var favoriteNames: Set<String> {
+        Set(favorites.map(\.name))
+    }
+
+    private var recentlyUsedNames: [String] {
+        historyService.recentlyUsedExercises(limit: 10)
+    }
+
+    private var recentlyUsed: [ExerciseMetadata] {
+        recentlyUsedNames.compactMap { name in
+            ExtendedExerciseDatabase.find(name)
+        }
+    }
+
+    private var allFiltered: [ExerciseMetadata] {
         var results = ExtendedExerciseDatabase.exercises
-
         if let muscle = selectedMuscleGroup {
             results = results.filter { $0.muscleGroup == muscle }
         }
-
         if !searchText.isEmpty {
             results = results.filter {
                 $0.name.localizedCaseInsensitiveContains(searchText) ||
                 $0.muscleGroup.rawValue.localizedCaseInsensitiveContains(searchText)
             }
         }
-
         return results
+    }
+
+    private var favoriteExercises: [ExerciseMetadata] {
+        let filtered = allFiltered
+        let names = favoriteNames
+        return filtered.filter { names.contains($0.name) }
+    }
+
+    private var recentFiltered: [ExerciseMetadata] {
+        let filtered = allFiltered
+        let names = favoriteNames
+        let recentNames = Set(recentlyUsedNames)
+        return filtered.filter { recentNames.contains($0.name) && !names.contains($0.name) }
+    }
+
+    private var remainingExercises: [ExerciseMetadata] {
+        let favNames = favoriteNames
+        let recentNames = Set(recentlyUsedNames)
+        return allFiltered.filter { !favNames.contains($0.name) && !recentNames.contains($0.name) }
+    }
+
+    private var muscleGroupCounts: [MuscleGroup: Int] {
+        var counts: [MuscleGroup: Int] = [:]
+        for exercise in ExtendedExerciseDatabase.exercises {
+            counts[exercise.muscleGroup, default: 0] += 1
+        }
+        return counts
     }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Muscle group filter
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        FilterChip(title: "All", isSelected: selectedMuscleGroup == nil) {
-                            selectedMuscleGroup = nil
-                        }
-                        ForEach(MuscleGroup.allCases, id: \.self) { muscle in
-                            FilterChip(title: muscle.rawValue, isSelected: selectedMuscleGroup == muscle) {
-                                selectedMuscleGroup = muscle
-                            }
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.vertical, 12)
-                }
+            ZStack {
+                Color.clear
 
-                // Exercise list
-                List {
-                    ForEach(filteredExercises) { exercise in
-                        Button {
-                            addExercise(exercise)
-                        } label: {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(exercise.name)
-                                        .font(.system(size: 15, weight: .medium))
-                                        .foregroundColor(.white)
-                                    Text(exercise.muscleGroup.rawValue)
-                                        .font(.system(size: 12))
-                                        .foregroundColor(GQColors.textTertiary)
+                VStack(spacing: 0) {
+                    // Custom search bar
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16))
+                            .foregroundColor(GQColors.textTertiary)
+                        TextField("Search exercises...", text: $searchText)
+                            .font(.system(size: 16))
+                            .foregroundColor(.white)
+                            .autocorrectionDisabled()
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .background(
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(.ultraThinMaterial)
+                                .environment(\.colorScheme, .dark)
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(GQColors.surfaceOverlay.opacity(0.78))
+                        }
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(GQGradients.glassBorder, lineWidth: 1)
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                    // Muscle group filter chips
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            FilterChip(title: "All", isSelected: selectedMuscleGroup == nil) {
+                                selectedMuscleGroup = nil
+                            }
+                            ForEach(MuscleGroup.allCases, id: \.self) { muscle in
+                                let count = muscleGroupCounts[muscle] ?? 0
+                                FilterChip(
+                                    title: "\(muscle.rawValue) (\(count))",
+                                    isSelected: selectedMuscleGroup == muscle
+                                ) {
+                                    selectedMuscleGroup = muscle
                                 }
-
-                                Spacer()
-
-                                Image(systemName: "plus.circle")
-                                    .foregroundColor(GQColors.primary)
                             }
                         }
-                        .listRowBackground(Color.white.opacity(0.05))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                    }
+
+                    // Exercise sections
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            // Favorites section
+                            if !favoriteExercises.isEmpty {
+                                exerciseSection(
+                                    title: "Favorites",
+                                    icon: "heart.fill",
+                                    accentColor: GQColors.coralRed,
+                                    exercises: favoriteExercises,
+                                    startIndex: 0
+                                )
+                            }
+
+                            // Recently Used section
+                            if !recentFiltered.isEmpty {
+                                exerciseSection(
+                                    title: "Recently Used",
+                                    icon: "clock.fill",
+                                    accentColor: GQColors.cyanSpark,
+                                    exercises: recentFiltered,
+                                    startIndex: favoriteExercises.count
+                                )
+                            }
+
+                            // All Exercises section
+                            exerciseSection(
+                                title: "All Exercises",
+                                icon: "dumbbell.fill",
+                                accentColor: GQColors.textSecondary,
+                                exercises: remainingExercises,
+                                startIndex: favoriteExercises.count + recentFiltered.count
+                            )
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 40)
                     }
                 }
-                .listStyle(.plain)
-                .searchable(text: $searchText, prompt: "Search exercises")
             }
-            .background(Color.black.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Add Exercise")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -999,18 +1118,226 @@ struct AddExerciseToSessionSheet: View {
         }
     }
 
+    // MARK: - Section Builder
+
+    @ViewBuilder
+    private func exerciseSection(title: String, icon: String, accentColor: Color, exercises: [ExerciseMetadata], startIndex: Int) -> some View {
+        if !exercises.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(accentColor)
+                    Text(title.uppercased())
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(GQColors.textTertiary)
+                        .tracking(1)
+                }
+                .padding(.leading, 4)
+                .padding(.top, 8)
+
+                ForEach(Array(exercises.enumerated()), id: \.element.id) { idx, exercise in
+                    ExercisePickerCard(
+                        exercise: exercise,
+                        isFavorite: favoriteNames.contains(exercise.name),
+                        historyService: historyService,
+                        heartScale: heartScales[exercise.name] ?? 1.0,
+                        onTap: { addExercise(exercise) },
+                        onToggleFavorite: { toggleFavorite(exercise) }
+                    )
+                    .staggeredAppear(index: startIndex + idx, stagger: 0.04)
+                }
+            }
+        }
+    }
+
+    // MARK: - Actions
+
     private func addExercise(_ metadata: ExerciseMetadata) {
+        let lastData = historyService.lastPerformed(metadata.name)
+        let sets: [ActiveSet]
+        if let data = lastData {
+            sets = (0..<3).map { _ in ActiveSet(reps: data.reps, weight: data.weight) }
+        } else {
+            sets = (0..<3).map { _ in ActiveSet(reps: 10, weight: 0) }
+        }
+
         let exercise = ActiveExercise(
             name: metadata.name,
             muscleGroup: metadata.muscleGroup,
-            sets: [
-                ActiveSet(reps: 10, weight: 0),
-                ActiveSet(reps: 10, weight: 0),
-                ActiveSet(reps: 10, weight: 0)
-            ]
+            sets: sets
         )
         exercises.append(exercise)
         dismiss()
+    }
+
+    private func toggleFavorite(_ metadata: ExerciseMetadata) {
+        if let existing = favorites.first(where: { $0.name == metadata.name }) {
+            modelContext.delete(existing)
+        } else {
+            let fav = FavoriteExercise(name: metadata.name, muscleGroup: metadata.muscleGroup.rawValue)
+            modelContext.insert(fav)
+        }
+
+        // Spring scale animation
+        heartScales[metadata.name] = 1.3
+        HapticManager.shared.impact(.light)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                heartScales[metadata.name] = 1.0
+            }
+        }
+    }
+}
+
+// MARK: - Exercise Picker Card
+
+struct ExercisePickerCard: View {
+    let exercise: ExerciseMetadata
+    let isFavorite: Bool
+    let historyService: ExerciseHistoryService
+    let heartScale: CGFloat
+    let onTap: () -> Void
+    let onToggleFavorite: () -> Void
+
+    private var lastData: (weight: Double, reps: Int, date: Date)? {
+        historyService.lastPerformed(exercise.name)
+    }
+
+    private var prData: (weight: Double, reps: Int)? {
+        historyService.personalBest(exercise.name)
+    }
+
+    private var muscleColor: Color {
+        switch exercise.muscleGroup {
+        case .chest: return GQColors.coralRed
+        case .back: return GQColors.deepBlue
+        case .shoulders: return GQColors.sunsetOrange
+        case .biceps: return GQColors.vividPurple
+        case .triceps: return Color.pink
+        case .quads: return GQColors.success
+        case .hamstrings: return Color.teal
+        case .glutes: return Color.indigo
+        case .calves: return GQColors.mint
+        case .core: return GQColors.electricGold
+        case .cardio: return GQColors.coralRed
+        }
+    }
+
+    private var difficultyColor: Color {
+        switch exercise.difficulty {
+        case .beginner: return GQColors.success
+        case .intermediate: return GQColors.electricGold
+        case .advanced: return GQColors.sunsetOrange
+        }
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Top row: icon, name, heart, chevron
+                HStack(spacing: 10) {
+                    // Equipment icon in colored circle
+                    ZStack {
+                        Circle()
+                            .fill(muscleColor.opacity(0.15))
+                            .frame(width: 38, height: 38)
+                        Image(systemName: exercise.equipment.icon)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(muscleColor)
+                    }
+
+                    Text(exercise.name)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    // Heart button
+                    Button(action: onToggleFavorite) {
+                        Image(systemName: isFavorite ? "heart.fill" : "heart")
+                            .font(.system(size: 18))
+                            .foregroundColor(isFavorite ? GQColors.coralRed : GQColors.textTertiary)
+                            .scaleEffect(heartScale)
+                    }
+                    .buttonStyle(.plain)
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                // Tags row: muscle group, equipment, difficulty
+                HStack(spacing: 6) {
+                    TagPill(text: exercise.muscleGroup.rawValue, color: muscleColor)
+                    TagPill(text: exercise.equipment.rawValue, color: GQColors.textSecondary)
+                    Circle()
+                        .fill(difficultyColor)
+                        .frame(width: 6, height: 6)
+                    Text(exercise.difficulty.rawValue)
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                // History row (only if data exists)
+                if let last = lastData {
+                    HStack(spacing: 12) {
+                        Text("Last: \(Int(last.weight)) lbs x \(last.reps)")
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textTertiary)
+
+                        if let pr = prData, pr.weight > 0 {
+                            Text("PR: \(Int(pr.weight)) lbs")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(GQColors.electricGold)
+                        }
+                    }
+                }
+            }
+            .padding(12)
+            .background(
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.ultraThinMaterial)
+                        .environment(\.colorScheme, .dark)
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(GQColors.surfaceOverlay.opacity(0.78))
+                }
+            )
+            .overlay(
+                ZStack {
+                    // Left-edge muscle-color tint
+                    LinearGradient(
+                        colors: [muscleColor.opacity(0.06), .clear],
+                        startPoint: .leading,
+                        endPoint: .center
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(GQGradients.glassBorder, lineWidth: 1)
+                }
+            )
+        }
+        .buttonStyle(GQInteractiveStyle())
+    }
+}
+
+// MARK: - Tag Pill
+
+struct TagPill: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(color)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color.opacity(0.12))
+            .cornerRadius(6)
     }
 }
 
@@ -1026,10 +1353,40 @@ struct FilterChip: View {
                 .foregroundColor(isSelected ? .white : GQColors.textSecondary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(isSelected ? GQColors.primary : GQColors.cardBackground)
-                .cornerRadius(16)
+                .background(
+                    Group {
+                        if isSelected {
+                            Capsule()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [GQColors.primary, GQColors.primary.opacity(0.8)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .shadow(color: GQColors.primary.opacity(0.3), radius: 6, y: 2)
+                        } else {
+                            ZStack {
+                                Capsule()
+                                    .fill(.ultraThinMaterial)
+                                    .environment(\.colorScheme, .dark)
+                                Capsule()
+                                    .fill(Color.white.opacity(0.04))
+                            }
+                        }
+                    }
+                )
+                .overlay(
+                    Group {
+                        if !isSelected {
+                            Capsule()
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        }
+                    }
+                )
+                .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -1047,10 +1404,20 @@ struct ExerciseFormDemoSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Robot demo placeholder - flat TikTok style
+                    // Robot demo placeholder
                     ZStack {
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(GQColors.cardBackground)
+                            .fill(
+                                LinearGradient(
+                                    colors: [GQColors.surfaceElevated, GQColors.surfaceBase],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(GQGradients.glassBorder, lineWidth: 1)
+                            )
                             .frame(height: 250)
 
                         VStack(spacing: 16) {
@@ -1067,55 +1434,55 @@ struct ExerciseFormDemoSheet: View {
                                 .foregroundColor(GQColors.textTertiary)
                         }
                     }
-                    .padding(.horizontal)
+                    .gqScreenHorizontalPadding()
 
                     // Form cues
                     if let metadata = exerciseMetadata {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text("FORM CUES")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(GQColors.textTertiary)
-                                .tracking(1)
-
-                            ForEach(metadata.cues, id: \.self) { cue in
-                                HStack(alignment: .top, spacing: 12) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 16))
-                                        .foregroundColor(GQColors.primary)
-                                    Text(cue)
-                                        .font(.system(size: 15))
-                                        .foregroundColor(.white)
-                                }
-                            }
-                        }
-                        .padding()
-                        .background(Color.white.opacity(0.05))
-                        .cornerRadius(16)
-                        .padding(.horizontal)
-
-                        // Common mistakes
-                        if !metadata.commonMistakes.isEmpty {
+                        GlassCard(accentColor: GQColors.primary) {
                             VStack(alignment: .leading, spacing: 16) {
-                                Text("COMMON MISTAKES")
+                                Text("FORM CUES")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(GQColors.textTertiary)
                                     .tracking(1)
 
-                                ForEach(metadata.commonMistakes, id: \.self) { mistake in
+                                ForEach(metadata.cues, id: \.self) { cue in
                                     HStack(alignment: .top, spacing: 12) {
-                                        Image(systemName: "xmark.circle.fill")
+                                        Image(systemName: "checkmark.circle.fill")
                                             .font(.system(size: 16))
-                                            .foregroundColor(.red)
-                                        Text(mistake)
+                                            .foregroundColor(GQColors.primary)
+                                        Text(cue)
                                             .font(.system(size: 15))
                                             .foregroundColor(.white)
                                     }
                                 }
                             }
                             .padding()
-                            .background(Color.white.opacity(0.05))
-                            .cornerRadius(16)
-                            .padding(.horizontal)
+                        }
+                        .gqScreenHorizontalPadding()
+
+                        // Common mistakes
+                        if !metadata.commonMistakes.isEmpty {
+                            GlassCard(accentColor: GQColors.error) {
+                                VStack(alignment: .leading, spacing: 16) {
+                                    Text("COMMON MISTAKES")
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundColor(GQColors.textTertiary)
+                                        .tracking(1)
+
+                                    ForEach(metadata.commonMistakes, id: \.self) { mistake in
+                                        HStack(alignment: .top, spacing: 12) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .font(.system(size: 16))
+                                                .foregroundColor(.red)
+                                            Text(mistake)
+                                                .font(.system(size: 15))
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                }
+                                .padding()
+                            }
+                            .gqScreenHorizontalPadding()
                         }
                     }
 
@@ -1123,7 +1490,7 @@ struct ExerciseFormDemoSheet: View {
                 }
                 .padding(.top)
             }
-            .background(Color.black.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle(exerciseName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1151,21 +1518,7 @@ struct WorkoutSessionCompletionSheet: View {
     @State private var caption = ""
     @State private var hasCompleted = false
     @State private var savedWorkout: Workout?
-    @State private var selectedMood: WorkoutMood? = nil
-
-    // Media
-    @State private var selectedPhotoItem: PhotosPickerItem? = nil
-    @State private var photoData: Data? = nil
-    @State private var videoData: Data? = nil
-    @State private var mediaIsVideo = false
-
-    // Music
-    @State private var selectedSong: Song? = nil
-    @State private var showMusicPicker = false
-
-    // Tags & sharing
-    @State private var taggedFriends: Set<String> = []
-    @State private var shareToCommunity = false
+    @State private var showConfetti = false
 
     // Media state
     @State private var mediaItems: [LocalMediaItem] = []
@@ -1174,6 +1527,18 @@ struct WorkoutSessionCompletionSheet: View {
     // Music state
     @State private var selectedSong: Song?
     @State private var showMusicPicker = false
+
+    // Favorite state
+    @State private var isFavoriteWorkout = false
+    @State private var heartScale: CGFloat = 1.0
+
+    private var workoutTypeColors: [Color] {
+        GQGradients.workoutGradientColors(for: workoutType)
+    }
+
+    private var workoutGradient: LinearGradient {
+        GQGradients.workoutGradient(for: workoutType)
+    }
 
     var totalSets: Int {
         exercises.reduce(0) { $0 + $1.sets.filter { $0.isCompleted }.count }
@@ -1189,20 +1554,46 @@ struct WorkoutSessionCompletionSheet: View {
         return volume
     }
 
+    var topSetDisplay: String? {
+        var best: (name: String, weight: Double, reps: Int)?
+        for exercise in exercises {
+            for set in exercise.sets where set.isCompleted && set.weight > 0 {
+                if best == nil || set.weight > best!.weight {
+                    best = (name: exercise.name, weight: set.weight, reps: set.reps)
+                }
+            }
+        }
+        guard let b = best else { return nil }
+        return "\(b.name): \(Int(b.weight)) lbs x \(b.reps)"
+    }
+
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    completionHeader
-                    completionStats
-                    shareSection
-                    saveButton
+            ZStack {
+                Color.clear
 
-                    Spacer(minLength: 40)
+                ScrollView {
+                    VStack(spacing: 24) {
+                        completionHeader
+                            .staggeredAppear(index: 0, stagger: 0.1)
+                        completionStats
+                            .staggeredAppear(index: 1, stagger: 0.1)
+                        shareSection
+                            .staggeredAppear(index: 2, stagger: 0.1)
+                        saveButton
+                            .staggeredAppear(index: 3, stagger: 0.1)
+
+                        Spacer(minLength: 40)
+                    }
+                    .padding()
                 }
-                .padding()
+
+                if showConfetti {
+                    ConfettiView()
+                        .allowsHitTesting(false)
+                }
             }
-            .background(Color.black.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Summary")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1216,46 +1607,163 @@ struct WorkoutSessionCompletionSheet: View {
             .sheet(isPresented: $showMusicPicker) {
                 MusicPickerSheet(selectedSong: $selectedSong, activityType: workoutType.rawValue)
             }
+            .onAppear {
+                showConfetti = true
+                HapticManager.shared.workoutComplete()
+            }
         }
     }
 
     // MARK: - Completion Sub-Views
 
     private var completionHeader: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(GQColors.primary)
-                .padding(.top, 20)
+        VStack(spacing: 12) {
+            HStack(alignment: .top) {
+                Spacer()
 
-            Text("Workout Complete!")
-                .font(.title2)
-                .fontWeight(.bold)
+                VStack(spacing: 12) {
+                    // Animated gradient circle with workout type icon
+                    ZStack {
+                        // Glow behind icon
+                        Circle()
+                            .fill((workoutTypeColors.first ?? GQColors.primary).opacity(0.15))
+                            .frame(width: 120, height: 120)
+                            .blur(radius: 30)
+
+                        AnimatedGradientCircle(
+                            size: 90,
+                            lineWidth: 3,
+                            colors: workoutTypeColors + [workoutTypeColors.first ?? GQColors.primary]
+                        )
+
+                        Image(systemName: workoutType.icon)
+                            .font(.system(size: 36, weight: .medium))
+                            .foregroundColor(workoutTypeColors.first ?? GQColors.primary)
+                    }
+                    .breathingFloat(intensity: 0.5)
+
+                    GradientText(
+                        "Workout Complete!",
+                        gradient: workoutGradient,
+                        font: .system(size: 28, weight: .bold)
+                    )
+
+                    Text(workoutType.rawValue)
+                        .font(.system(size: 15))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                Spacer()
+
+                // Favorite toggle
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        isFavoriteWorkout.toggle()
+                        heartScale = 1.3
+                    }
+                    HapticManager.shared.impact(.light)
+                    savedWorkout?.isFavorite = isFavoriteWorkout
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            heartScale = 1.0
+                        }
+                    }
+                } label: {
+                    Image(systemName: isFavoriteWorkout ? "heart.fill" : "heart")
+                        .font(.system(size: 22))
+                        .foregroundColor(isFavoriteWorkout ? GQColors.coralRed : GQColors.textTertiary)
+                        .scaleEffect(heartScale)
+                        .frame(width: 44, height: 44)
+                }
+            }
         }
+        .padding(.top, 12)
     }
 
     private var completionStats: some View {
-        HStack(spacing: 24) {
-            WorkoutStatItem(value: "\(duration)", label: "min")
-            WorkoutStatItem(value: "\(totalSets)", label: "sets")
-            WorkoutStatItem(value: "\(exercises.count)", label: "exercises")
+        VStack(spacing: 16) {
+            // Section header
+            HStack {
+                Text("WORKOUT SUMMARY")
+                    .font(GQTypography.sectionHeader)
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1)
+                Spacer()
+            }
+
+            GlassCard(accentColor: workoutTypeColors.first ?? GQColors.primary) {
+                VStack(spacing: 16) {
+                    HStack(spacing: 24) {
+                        CompletionStatItem(
+                            icon: "clock.fill",
+                            iconColor: GQColors.cyanSpark,
+                            value: "\(duration)",
+                            label: "min"
+                        )
+                        CompletionStatItem(
+                            icon: "checkmark.circle.fill",
+                            iconColor: GQColors.success,
+                            value: "\(totalSets)",
+                            label: "sets"
+                        )
+                        CompletionStatItem(
+                            icon: "figure.strengthtraining.traditional",
+                            iconColor: workoutTypeColors.first ?? GQColors.primary,
+                            value: "\(exercises.count)",
+                            label: "exercises"
+                        )
+                    }
+
+                    // Enhanced metrics row
+                    HStack(spacing: 24) {
+                        CompletionStatItem(
+                            icon: "scalemass.fill",
+                            iconColor: GQColors.sunsetOrange,
+                            value: totalVolume >= 1000 ? String(format: "%.1fk", totalVolume / 1000) : "\(Int(totalVolume))",
+                            label: "lbs vol"
+                        )
+                        if let top = topSetDisplay {
+                            VStack(spacing: 4) {
+                                Image(systemName: "trophy.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(GQColors.electricGold)
+                                Text("Top Set")
+                                    .font(.caption)
+                                    .foregroundColor(GQColors.textSecondary)
+                                Text(top)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(GQColors.electricGold)
+                                    .lineLimit(1)
+                            }
+                        }
+                    }
+                }
+                .padding(20)
+            }
         }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(16)
     }
 
     @ViewBuilder
     private var shareSection: some View {
         VStack(spacing: 16) {
-            shareToggle
-            if shareToFeed {
-                shareContent
+            // Section header
+            HStack {
+                Text("SHARE")
+                    .font(GQTypography.sectionHeader)
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1)
+                Spacer()
             }
+
+            VStack(spacing: 16) {
+                shareToggle
+                if shareToFeed {
+                    shareContent
+                }
+            }
+            .padding(16)
+            .homeSocialCard(accent: workoutTypeColors.first ?? GQColors.cyanSpark)
         }
-        .padding()
-        .background(Color.white.opacity(0.03))
-        .cornerRadius(16)
     }
 
     private var shareToggle: some View {
@@ -1272,9 +1780,8 @@ struct WorkoutSessionCompletionSheet: View {
         VStack(spacing: 16) {
             TextField("Add a caption...", text: $caption, axis: .vertical)
                 .lineLimit(2...4)
-                .padding(12)
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(12)
+                .padding(14)
+                .homeSocialCard(cornerRadius: 12)
 
             MediaSection(
                 mediaItems: $mediaItems,
@@ -1321,19 +1828,32 @@ struct WorkoutSessionCompletionSheet: View {
             saveWorkoutOnly()
             showEnhancedEditor = true
         } label: {
-            HStack {
-                Image(systemName: "slider.horizontal.3")
+            HStack(spacing: 12) {
+                // Icon in circle
+                ZStack {
+                    Circle()
+                        .fill(GQColors.cyanSpark.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.cyanSpark)
+                }
+
                 Text("Customize Post")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+
                 Spacer()
+
                 Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
             }
-            .font(.system(size: 14, weight: .medium))
-            .foregroundColor(GQColors.cyanSpark)
-            .padding(12)
-            .background(GQColors.cyanSpark.opacity(0.15))
-            .cornerRadius(10)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .homeSocialCard(accent: GQColors.cyanSpark, cornerRadius: 12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 
     private var saveButton: some View {
@@ -1345,15 +1865,10 @@ struct WorkoutSessionCompletionSheet: View {
                 Text(hasCompleted ? "Saved!" : "Quick Save")
             }
             .font(.system(size: 16, weight: .bold))
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(GQColors.primary)
-            .cornerRadius(22)
         }
         .disabled(hasCompleted)
-        .buttonStyle(.plain)
-        .padding(.horizontal)
+        .buttonStyle(HomeSocialPrimaryButtonStyle(accent: workoutTypeColors.first ?? GQColors.cyanSpark, cornerRadius: 18))
+        .gqScreenHorizontalPadding()
     }
 
     private func loadMedia(from items: [PhotosPickerItem]) {
@@ -1816,7 +2331,8 @@ struct WorkoutSessionCompletionSheet: View {
         let workout = Workout(
             type: workoutType,
             duration: duration,
-            exercises: workoutExercises
+            exercises: workoutExercises,
+            isFavorite: isFavoriteWorkout
         )
         modelContext.insert(workout)
 
@@ -1877,7 +2393,8 @@ struct WorkoutSessionCompletionSheet: View {
         let workout = Workout(
             type: workoutType,
             duration: duration,
-            exercises: workoutExercises
+            exercises: workoutExercises,
+            isFavorite: isFavoriteWorkout
         )
         modelContext.insert(workout)
 
@@ -1905,6 +2422,36 @@ struct WorkoutSessionCompletionSheet: View {
 
         withAnimation {
             hasCompleted = true
+        }
+    }
+}
+
+// MARK: - Completion Stat Item (with colored icon)
+
+struct CompletionStatItem: View {
+    let icon: String
+    let iconColor: Color
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(iconColor.opacity(0.15))
+                    .frame(width: 32, height: 32)
+                    .blur(radius: 6)
+
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(iconColor)
+            }
+            Text(value)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.caption)
+                .foregroundColor(GQColors.textSecondary)
         }
     }
 }

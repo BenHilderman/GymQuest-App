@@ -113,13 +113,13 @@ private struct RecoveryRingCard: View {
                 .foregroundColor(GQColors.textTertiary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(Color(white: 0.12)))
+                .background(Capsule().fill(GQColors.surfaceOverlay))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
+                .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
@@ -188,13 +188,13 @@ private struct StrainGaugeCard: View {
                 .foregroundColor(GQColors.textTertiary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
-                .background(Capsule().fill(Color(white: 0.12)))
+                .background(Capsule().fill(GQColors.surfaceOverlay))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
+                .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
@@ -243,7 +243,7 @@ private struct SleepBreakdownCard: View {
                 HStack {
                     Image(systemName: "bed.double.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(GQColors.vividPurple)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("Sleep")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.white)
@@ -257,7 +257,7 @@ private struct SleepBreakdownCard: View {
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GQInteractiveStyle())
 
             // Stage bars (always visible)
             if totalHours > 0 {
@@ -275,7 +275,7 @@ private struct SleepBreakdownCard: View {
                         }
                         if stages.remPercentage > 0 {
                             Rectangle()
-                                .fill(GQColors.vividPurple)
+                                .fill(GQColors.coralRed.opacity(0.72))
                                 .frame(width: geo.size.width * stages.remPercentage / 100)
                         }
                     }
@@ -289,7 +289,7 @@ private struct SleepBreakdownCard: View {
                 VStack(spacing: 8) {
                     SleepStageRow(label: "Light", hours: stages.lightHours, pct: stages.lightPercentage, color: GQColors.cyanSpark.opacity(0.6))
                     SleepStageRow(label: "Deep", hours: stages.deepHours, pct: stages.deepPercentage, color: GQColors.deepBlue)
-                    SleepStageRow(label: "REM", hours: stages.remHours, pct: stages.remPercentage, color: GQColors.vividPurple)
+                    SleepStageRow(label: "REM", hours: stages.remHours, pct: stages.remPercentage, color: GQColors.coralRed.opacity(0.72))
                     SleepStageRow(label: "Awake", hours: stages.awakeHours, pct: 0, color: GQColors.textTertiary)
 
                     if efficiency > 0 {
@@ -324,7 +324,7 @@ private struct SleepBreakdownCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
+                .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
@@ -407,7 +407,7 @@ private struct VitalsGridCard: View {
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GQInteractiveStyle())
 
             // Primary vitals (always visible)
             HStack(spacing: 0) {
@@ -446,7 +446,7 @@ private struct VitalsGridCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
+                .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
@@ -542,7 +542,7 @@ private struct StrengthScoreCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
+                .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(Color.white.opacity(0.06), lineWidth: 1)
@@ -595,7 +595,7 @@ struct ActivitySummaryCard: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(white: 0.06))
+                .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
                         .stroke(
@@ -647,6 +647,6 @@ private struct MiniStat: View {
         )
         .padding(.horizontal, 16)
     }
-    .background(GQColors.background.ignoresSafeArea())
+    .gqPageBackground()
     .preferredColorScheme(.dark)
 }

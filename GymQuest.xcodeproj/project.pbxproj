@@ -90,6 +90,7 @@
 		B0DD9E1E6C66040B717EC6AC /* SquadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 655F2878C344BCAB4E96687D /* SquadService.swift */; };
 		B87967A7794116BDB3640814 /* WorkoutCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3A559F771F37E93C9C6C6D9 /* WorkoutCardView.swift */; };
 		BCA2CF24B832E8D07D029291 /* PRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6D642307B4359A8EA9BC50 /* PRService.swift */; };
+		EXH15T00A1B2C3D4E5F60002 /* ExerciseHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EXH15T00A1B2C3D4E5F60001 /* ExerciseHistoryService.swift */; };
 		BD0E5B069CA8CD2907B7C150 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E4D54DD994DF4457DE77972B /* LaunchScreen.storyboard */; };
 		BEE871393D03BAA7E7BE180A /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82B7C2882F01C30E0C02E799 /* OnboardingView.swift */; };
 		BF827FD3A1E71FE03AC59B84 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4978182100C2755CFC9AA0D3 /* AnalyticsService.swift */; };
@@ -115,6 +116,7 @@
 		E88DED78AFCDB24938BE0758 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3FFBAA88CE548E04967664 /* HomeView.swift */; };
 		ED258C1A8BA2565390ED6A01 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB667EE34B89059704D8B10B /* NotificationService.swift */; };
 		EF1A28CDC4784B52D8751130 /* PRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6D642307B4359A8EA9BC50 /* PRService.swift */; };
+		EXH15T00A1B2C3D4E5F60003 /* ExerciseHistoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EXH15T00A1B2C3D4E5F60001 /* ExerciseHistoryService.swift */; };
 		EF918DC760884F1148814798 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82B7C2882F01C30E0C02E799 /* OnboardingView.swift */; };
 		F446D447D7FE6625DEA73B06 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66537E2D3F76AAB5A8677635 /* LoginView.swift */; };
 		F68D79AA29F1C79BA8DD676A /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C62759DBE72B3698573FE5 /* ProgressView.swift */; };
@@ -172,6 +174,7 @@
 		7A131C552524E07478E559D7 /* FormEnums.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FormEnums.swift; path = Features/FormStudio/Models/FormEnums.swift; sourceTree = "<group>"; };
 		7A5AD870F6A309A049AB64D7 /* form_content_sample.json */ = {isa = PBXFileReference; includeInIndex = 1; name = form_content_sample.json; path = Features/FormStudio/Seed/form_content_sample.json; sourceTree = "<group>"; };
 		7B6D642307B4359A8EA9BC50 /* PRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRService.swift; sourceTree = "<group>"; };
+		EXH15T00A1B2C3D4E5F60001 /* ExerciseHistoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseHistoryService.swift; sourceTree = "<group>"; };
 		8294768EFBEEFD8CBF5D2E6C /* OverlayTimelineLoader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OverlayTimelineLoader.swift; path = Features/FormStudio/Services/OverlayTimelineLoader.swift; sourceTree = "<group>"; };
 		82B7C2882F01C30E0C02E799 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		86671552B94EF5197CF4588C /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
@@ -287,6 +290,7 @@
 				374D9AF5AC436179FEE53758 /* AIService.swift */,
 				4978182100C2755CFC9AA0D3 /* AnalyticsService.swift */,
 				F2CB109373E443E95FA26418 /* AuthService.swift */,
+				EXH15T00A1B2C3D4E5F60001 /* ExerciseHistoryService.swift */,
 				B725EBD58C2657C60DFAFA09 /* FeatureFlags.swift */,
 				E2A3F142DB9D2AC7F4A7D25A /* HealthKitService.swift */,
 				BD721DF9B7BB614DC186930A /* LearningService.swift */,
@@ -581,6 +585,7 @@
 				CC9C7301F26698D0F6EA9A28 /* NotificationSettingsView.swift in Sources */,
 				CA918D74CD81A8D6941A5C32 /* NutritionService.swift in Sources */,
 				BEE871393D03BAA7E7BE180A /* OnboardingView.swift in Sources */,
+				EXH15T00A1B2C3D4E5F60002 /* ExerciseHistoryService.swift in Sources */,
 				BCA2CF24B832E8D07D029291 /* PRService.swift in Sources */,
 				3EBD20CA4FD90A77730E7371 /* ProfileView.swift in Sources */,
 				C038EFB34EEF26728BDD3A5E /* ProgressView.swift in Sources */,
@@ -655,6 +660,7 @@
 				0AF6A1F072DF2C7D7E58EE2F /* NotificationSettingsView.swift in Sources */,
 				1F0E7051A52F12FC69522CBB /* NutritionService.swift in Sources */,
 				EF918DC760884F1148814798 /* OnboardingView.swift in Sources */,
+				EXH15T00A1B2C3D4E5F60003 /* ExerciseHistoryService.swift in Sources */,
 				EF1A28CDC4784B52D8751130 /* PRService.swift in Sources */,
 				26B6C7848D2CFBC3128AC2FC /* ProfileView.swift in Sources */,
 				F68D79AA29F1C79BA8DD676A /* ProgressView.swift in Sources */,

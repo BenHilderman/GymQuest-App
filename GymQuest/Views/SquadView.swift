@@ -71,7 +71,7 @@ struct SquadView: View {
                                         .cornerRadius(10)
                                 }
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(GQInteractiveStyle())
                         }
                     }
 
@@ -80,7 +80,7 @@ struct SquadView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Squads")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -154,7 +154,7 @@ struct EmptySquadView: View {
             .padding(.horizontal, 40)
             .padding(.top, 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -292,7 +292,7 @@ struct SquadCardView: View {
             }
         }
         .padding(16)
-        .background(Color(white: 0.08))
+        .background(GQColors.surfaceBase)
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -416,7 +416,7 @@ struct JoinSquadSheet: View {
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .padding()
-                    .background(Color(white: 0.1))
+                    .background(GQColors.surfaceElevated)
                     .cornerRadius(12)
                     .padding(.horizontal, 40)
                     .onChange(of: inviteCode) { _, newValue in
@@ -459,8 +459,8 @@ struct JoinSquadSheet: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
-            .buttonStyle(.plain)
-            .background(GQColors.background.ignoresSafeArea())
+            .buttonStyle(GQInteractiveStyle())
+            .gqPageBackground()
             .navigationTitle("Join Squad")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -551,7 +551,7 @@ struct SquadDetailView: View {
                         }
                     }
                     .padding(20)
-                    .background(Color(white: 0.08))
+                    .background(GQColors.surfaceBase)
                     .cornerRadius(16)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
@@ -583,7 +583,7 @@ struct SquadDetailView: View {
                             .background(GQColors.vividPurple.opacity(0.3))
                             .cornerRadius(12)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GQInteractiveStyle())
                     }
 
                     // Leaderboard
@@ -602,7 +602,7 @@ struct SquadDetailView: View {
                         }
                     }
                     .padding(16)
-                    .background(Color(white: 0.08))
+                    .background(GQColors.surfaceBase)
                     .cornerRadius(16)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
@@ -639,7 +639,7 @@ struct SquadDetailView: View {
                 }
                 .padding(.horizontal, 16)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Squad")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

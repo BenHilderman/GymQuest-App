@@ -45,7 +45,7 @@ struct NotificationSettingsView: View {
                                 .background(GQColors.vividPurple)
                                 .cornerRadius(10)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GQInteractiveStyle())
                     }
                     .padding(.vertical, 8)
                 } else {
@@ -119,6 +119,8 @@ struct NotificationSettingsView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .gqPageBackground()
         .navigationTitle("Notifications")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -149,7 +151,7 @@ struct DayButton: View {
                         .fill(isSelected ? GQColors.vividPurple : Color.white.opacity(0.1))
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 

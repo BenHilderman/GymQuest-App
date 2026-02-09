@@ -43,8 +43,9 @@ struct TikTokFeedView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                // Pure black background
-                Color.black.ignoresSafeArea()
+                EnergyBackground()
+                    .overlay(Color.black.opacity(0.48))
+                    .ignoresSafeArea()
 
                 if filteredPosts.isEmpty {
                     EmptyTikTokFeed(onCreatePost: { showCreatePost = true })
@@ -589,8 +590,14 @@ struct TikTokCommentsSheet: View {
                         .focused($isCommentFocused)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
-                        .background(GQColors.cardBackground)
-                        .cornerRadius(20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .fill(GQColors.surfaceOverlay.opacity(0.82))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(GQGradients.glassBorder, lineWidth: 0.8)
+                        )
 
                     if !newComment.isEmpty {
                         Button {
@@ -604,9 +611,9 @@ struct TikTokCommentsSheet: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(Color.black)
+                .background(GQColors.surfaceBase.opacity(0.88))
             }
-            .background(Color.black)
+            .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -751,7 +758,7 @@ struct TikTokShareSheet: View {
 
             Spacer()
         }
-        .background(Color.black)
+        .gqPageBackground()
     }
 }
 
@@ -780,9 +787,8 @@ struct EmptyTikTokFeed: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 32)
                     .padding(.vertical, 14)
-                    .background(GQColors.primary)
-                    .cornerRadius(22)
             }
+            .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.vividPurple))
         }
     }
 }

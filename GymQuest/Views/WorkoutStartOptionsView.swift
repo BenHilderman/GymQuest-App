@@ -22,105 +22,67 @@ struct WorkoutStartOptionsView: View {
     @State private var showingTypePicker = false
     @State private var showingPreviousWorkouts = false
     @State private var showingSavedWorkouts = false
-    @State private var appearAnimation = false
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                GQColors.background.ignoresSafeArea()
+            VStack(spacing: 0) {
+                header
 
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 24) {
-                        // Hero
-                        VStack(spacing: 8) {
-                            Text("Start Workout")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundColor(.white)
+                    VStack(alignment: .leading, spacing: GQLayout.sectionSpacing) {
+                        heroSection
+                            .padding(.top, 8)
 
-                            Text("How do you want to train?")
-                                .font(.system(size: 16))
-                                .foregroundColor(GQColors.textSecondary)
-                        }
-                        .padding(.top, 16)
-                        .opacity(appearAnimation ? 1 : 0)
-                        .offset(y: appearAnimation ? 0 : 15)
-
-                        // Options
-                        VStack(spacing: 12) {
-                            StartOptionCard(
+                        VStack(spacing: 10) {
+                            optionCard(
                                 icon: "figure.strengthtraining.traditional",
-                                title: "Custom",
-                                subtitle: "Pick your workout type and exercises",
-                                accentColor: GQColors.vividPurple
+                                title: "Custom Workout",
+                                subtitle: "Choose your split and build your session",
+                                accent: GQColors.vividPurple,
+                                emphasized: true
                             ) {
                                 showingTypePicker = true
                             }
-                            .opacity(appearAnimation ? 1 : 0)
-                            .offset(x: appearAnimation ? 0 : 40)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: appearAnimation)
 
-                            StartOptionCard(
+                            optionCard(
                                 icon: "brain.head.profile",
                                 title: "AI Generated",
-                                subtitle: "Smart workout based on your history",
-                                accentColor: GQColors.cyanSpark,
-                                badge: "AI"
+                                subtitle: "Start from a smart recommendation",
+                                accent: GQColors.cyanSpark,
+                                badgeText: "AI"
                             ) {
-                                // AI flow — opens type picker for now, future: full AI generation
                                 showingTypePicker = true
                             }
-                            .opacity(appearAnimation ? 1 : 0)
-                            .offset(x: appearAnimation ? 0 : 40)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.1), value: appearAnimation)
 
-                            StartOptionCard(
+                            optionCard(
                                 icon: "clock.arrow.circlepath",
                                 title: "Follow Previous",
                                 subtitle: previousWorkoutSubtitle,
-                                accentColor: GQColors.sunsetOrange
+                                accent: GQColors.deepBlue
                             ) {
                                 showingPreviousWorkouts = true
                             }
-                            .opacity(appearAnimation ? 1 : 0)
-                            .offset(x: appearAnimation ? 0 : 40)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.15), value: appearAnimation)
 
-                            StartOptionCard(
+                            optionCard(
                                 icon: "bookmark.fill",
                                 title: "Saved Workouts",
                                 subtitle: savedWorkoutsSubtitle,
-                                accentColor: GQColors.success
+                                accent: GQColors.success,
+                                badgeText: savedTemplates.isEmpty ? nil : "\(savedTemplates.count)"
                             ) {
                                 showingSavedWorkouts = true
                             }
-                            .opacity(appearAnimation ? 1 : 0)
-                            .offset(x: appearAnimation ? 0 : 40)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.2), value: appearAnimation)
                         }
-                        .padding(.horizontal, 20)
 
-                        Spacer(minLength: 40)
+                        motivationalStats
+
+                        Spacer(minLength: 34)
                     }
+                    .gqScreenHorizontalPadding()
                 }
             }
+            .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(width: 32, height: 32)
-                            .background(Color.white.opacity(0.1))
-                            .clipShape(Circle())
-                    }
-                }
-            }
-            .onAppear {
-                withAnimation { appearAnimation = true }
-            }
             .sheet(isPresented: $showingTypePicker) {
                 WorkoutTypeSelectionView(profile: profile)
             }
@@ -132,6 +94,122 @@ struct WorkoutStartOptionsView: View {
             }
         }
     }
+
+    private var header: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 34, height: 34)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+        }
+        .padding(.horizontal, GQLayout.screenHorizontal)
+        .padding(.top, 16)
+    }
+
+    private var heroSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Start Workout")
+                .font(.system(size: 32, weight: .bold))
+                .foregroundColor(.white)
+
+            Text("Pick a flow that matches your day.")
+                .font(.system(size: 15))
+                .foregroundColor(GQColors.textSecondary)
+        }
+    }
+
+    private func optionCard(
+        icon: String,
+        title: String,
+        subtitle: String,
+        accent: Color,
+        badgeText: String? = nil,
+        emphasized: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(accent.opacity(0.18))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(accent)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+
+                        if let badgeText {
+                            Text(badgeText)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(accent.opacity(0.85))
+                                .clipShape(Capsule())
+                        }
+                    }
+
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, GQLayout.cardHorizontal)
+            .padding(.vertical, GQLayout.cardVertical)
+            .homeSocialCard(accent: accent, emphasized: emphasized)
+        }
+        .buttonStyle(GQInteractiveStyle())
+    }
+
+    private var motivationalStats: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                WorkoutFlowMetricChip(
+                    icon: "flame.fill",
+                    value: "\(streakDays)",
+                    label: "Streak",
+                    color: GQColors.success
+                )
+                WorkoutFlowMetricChip(
+                    icon: "dumbbell.fill",
+                    value: "\(workoutsThisWeek)",
+                    label: "This Week",
+                    color: GQColors.vividPurple
+                )
+                WorkoutFlowMetricChip(
+                    icon: "star.fill",
+                    value: "Lv \(profile.level)",
+                    label: "Level",
+                    color: GQColors.cyanSpark
+                )
+            }
+            .padding(.vertical, 6)
+        }
+    }
+
+    // MARK: - Computed Properties
 
     private var nonRestWorkouts: [Workout] {
         recentWorkouts.filter { $0.type != .rest }
@@ -151,80 +229,35 @@ struct WorkoutStartOptionsView: View {
         }
         return "No saved templates yet"
     }
-}
 
-// MARK: - Start Option Card
+    private var workoutsThisWeek: Int {
+        let calendar = Calendar.current
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        return nonRestWorkouts.filter { $0.date >= weekStart }.count
+    }
 
-struct StartOptionCard: View {
-    let icon: String
-    let title: String
-    let subtitle: String
-    let accentColor: Color
-    var badge: String? = nil
-    let action: () -> Void
+    private var streakDays: Int {
+        // Compute consecutive days with workouts
+        let calendar = Calendar.current
+        var streak = 0
+        var checkDate = calendar.startOfDay(for: Date())
 
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 14) {
-                // Icon
-                ZStack {
-                    Circle()
-                        .fill(accentColor.opacity(0.15))
-                        .frame(width: 48, height: 48)
-
-                    Image(systemName: icon)
-                        .font(.system(size: 22, weight: .medium))
-                        .foregroundColor(accentColor)
-                }
-
-                // Text
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
-                        Text(title)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-
-                        if let badge = badge {
-                            Text(badge)
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(
-                                    LinearGradient(
-                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .cornerRadius(4)
-                        }
-                    }
-
-                    Text(subtitle)
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textSecondary)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(GQColors.textTertiary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(GQColors.cardBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.06), lineWidth: 1)
-            )
+        // Check if today has a workout, if not start from yesterday
+        let todayWorkouts = nonRestWorkouts.filter { calendar.isDate($0.date, inSameDayAs: checkDate) }
+        if todayWorkouts.isEmpty {
+            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: checkDate) else { return 0 }
+            checkDate = yesterday
         }
-        .buttonStyle(ScaleButtonStyle())
+
+        while true {
+            let dayWorkouts = nonRestWorkouts.filter { calendar.isDate($0.date, inSameDayAs: checkDate) }
+            if dayWorkouts.isEmpty { break }
+            streak += 1
+            guard let prev = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
+            checkDate = prev
+        }
+
+        return streak
     }
 }
 
@@ -257,32 +290,41 @@ struct PreviousWorkoutsSheet: View {
                 } else {
                     List {
                         ForEach(workouts.prefix(20)) { workout in
-                            Button {
-                                startFromPrevious(workout)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: workout.type.icon)
-                                        .font(.system(size: 20))
-                                        .foregroundColor(.white)
-                                        .frame(width: 40, height: 40)
-                                        .background(GQGradients.workoutGradient(for: workout.type))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(workout.title ?? workout.type.rawValue)
-                                            .font(.system(size: 15, weight: .semibold))
+                            HStack(spacing: 12) {
+                                Button {
+                                    startFromPrevious(workout)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: workout.type.icon)
+                                            .font(.system(size: 20))
                                             .foregroundColor(.white)
-                                        Text("\(workout.exercises.count) exercises · \(workout.date.formatted(.dateTime.month(.abbreviated).day()))")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(GQColors.textSecondary)
+                                            .frame(width: 40, height: 40)
+                                            .background(GQGradients.workoutGradient(for: workout.type))
+                                            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(workout.title ?? workout.type.rawValue)
+                                                .font(.system(size: 15, weight: .semibold))
+                                                .foregroundColor(.white)
+                                            Text("\(workout.exercises.count) exercises · \(workout.date.formatted(.dateTime.month(.abbreviated).day()))")
+                                                .font(.system(size: 13))
+                                                .foregroundColor(GQColors.textSecondary)
+                                        }
+
+                                        Spacer()
                                     }
+                                }
 
-                                    Spacer()
+                                WorkoutFavoriteButton(workout: workout)
 
+                                Button {
+                                    startFromPrevious(workout)
+                                } label: {
                                     Image(systemName: "play.circle.fill")
                                         .font(.system(size: 24))
                                         .foregroundColor(GQColors.vividPurple)
                                 }
+                                .buttonStyle(.plain)
                             }
                             .listRowBackground(GQColors.cardBackground)
                         }
@@ -290,7 +332,7 @@ struct PreviousWorkoutsSheet: View {
                     .listStyle(.plain)
                 }
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Previous Workouts")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -379,7 +421,7 @@ struct SavedWorkoutsSheet: View {
                     .listStyle(.plain)
                 }
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Saved Workouts")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -414,5 +456,33 @@ struct SavedWorkoutsSheet: View {
         template.lastUsedAt = Date()
 
         dismiss()
+    }
+}
+
+// MARK: - Workout Favorite Button
+
+struct WorkoutFavoriteButton: View {
+    @Bindable var workout: Workout
+    @State private var heartScale: CGFloat = 1.0
+
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                workout.isFavorite.toggle()
+                heartScale = 1.3
+            }
+            HapticManager.shared.impact(.light)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    heartScale = 1.0
+                }
+            }
+        } label: {
+            Image(systemName: workout.isFavorite ? "heart.fill" : "heart")
+                .font(.system(size: 20))
+                .foregroundColor(workout.isFavorite ? GQColors.coralRed : GQColors.textTertiary)
+                .scaleEffect(heartScale)
+        }
+        .buttonStyle(.plain)
     }
 }

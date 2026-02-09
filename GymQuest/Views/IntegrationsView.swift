@@ -20,7 +20,14 @@ struct IntegrationsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                // Status header
+                GQScreenTitleBlock(
+                    title: "Integrations",
+                    subtitle: "Manage data sources and sync status.",
+                    accent: GQColors.cyanSpark
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+
                 IntegrationStatusHeader(
                     activeCount: integrationManager.activeSourceCount
                 )
@@ -41,15 +48,13 @@ struct IntegrationsView: View {
                     NavigationLink {
                         HealthKitSettingsView(profile: profile)
                     } label: {
-                        Text(featureFlags.healthKitImportEnabled ? "Settings" : "Connect")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule().fill(featureFlags.healthKitImportEnabled ? Color(white: 0.15) : GQColors.vividPurple)
-                            )
+                        Text(featureFlags.healthKitImportEnabled ? "Open Health Settings" : "Connect Apple Health")
                     }
+                    .buttonStyle(
+                        WorkoutFlowPrimaryButtonStyle(
+                            accent: featureFlags.healthKitImportEnabled ? GQColors.cyanSpark : GQColors.vividPurple
+                        )
+                    )
                 }
                 .padding(.horizontal, 16)
 
@@ -64,23 +69,22 @@ struct IntegrationsView: View {
                     lastSync: integrationManager.whoop.lastSyncDate,
                     dataPoints: whoopDataPoints
                 ) {
-                    Button {
-                        if integrationManager.whoop.isConnected {
+                    if integrationManager.whoop.isConnected {
+                        Button {
                             integrationManager.whoop.disconnect()
                             featureFlags.whoopEnabled = false
-                        } else {
+                        } label: {
+                            Text("Disconnect WHOOP")
+                        }
+                        .buttonStyle(WorkoutFlowSecondaryButtonStyle())
+                    } else {
+                        Button {
                             // Would trigger OAuth flow
                             featureFlags.whoopEnabled = true
+                        } label: {
+                            Text("Connect WHOOP")
                         }
-                    } label: {
-                        Text(integrationManager.whoop.isConnected ? "Disconnect" : "Connect")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(integrationManager.whoop.isConnected ? GQColors.coralRed : .white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule().fill(integrationManager.whoop.isConnected ? Color(white: 0.15) : GQColors.cyanSpark)
-                            )
+                        .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.cyanSpark))
                     }
                 }
                 .padding(.horizontal, 16)
@@ -99,15 +103,13 @@ struct IntegrationsView: View {
                     NavigationLink {
                         StravaSettingsView(profile: profile)
                     } label: {
-                        Text(integrationManager.strava.isConnected ? "Settings" : "Connect")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .background(
-                                Capsule().fill(integrationManager.strava.isConnected ? Color(white: 0.15) : Color(hex: "FC4C02"))
-                            )
+                        Text(integrationManager.strava.isConnected ? "Open Strava Settings" : "Connect Strava")
                     }
+                    .buttonStyle(
+                        WorkoutFlowPrimaryButtonStyle(
+                            accent: integrationManager.strava.isConnected ? GQColors.electricGold : Color(hex: "FC4C02")
+                        )
+                    )
                 }
                 .padding(.horizontal, 16)
 
@@ -129,11 +131,10 @@ struct IntegrationsView: View {
                                 .font(.system(size: 15, weight: .semibold))
                         }
                     }
-                    .buttonStyle(SecondaryButtonStyle())
+                    .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.vividPurple))
                     .padding(.horizontal, 16)
                 }
 
-                // Privacy notice
                 VStack(spacing: 8) {
                     HStack(spacing: 6) {
                         Image(systemName: "lock.shield.fill")
@@ -148,7 +149,10 @@ struct IntegrationsView: View {
                         .foregroundColor(GQColors.textTertiary)
                         .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .workoutFlowCard(accent: GQColors.success)
+                .padding(.horizontal, 16)
                 .padding(.top, 8)
 
                 Spacer(minLength: 40)
@@ -156,8 +160,7 @@ struct IntegrationsView: View {
             .padding(.bottom, 120)
         }
         .scrollContentBackground(.hidden)
-        .background(GQColors.background.ignoresSafeArea())
-        .navigationTitle("Integrations")
+        .gqPageBackground()
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -221,7 +224,7 @@ private struct IntegrationStatusHeader: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(activeCount > 0 ? GQColors.success.opacity(0.15) : Color(white: 0.1))
+                    .fill(activeCount > 0 ? GQColors.success.opacity(0.18) : Color.white.opacity(0.08))
                     .frame(width: 44, height: 44)
                 Image(systemName: activeCount > 0 ? "checkmark.circle.fill" : "link.badge.plus")
                     .font(.system(size: 20))
@@ -240,14 +243,7 @@ private struct IntegrationStatusHeader: View {
             Spacer()
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
-                )
-        )
+        .workoutFlowCard(accent: activeCount > 0 ? GQColors.success : GQColors.textSecondary)
     }
 }
 
@@ -275,7 +271,6 @@ private struct IntegrationCard<Action: View>: View {
                 }
             } label: {
                 HStack(spacing: 14) {
-                    // Icon
                     ZStack {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(iconColor.opacity(0.15))
@@ -301,9 +296,8 @@ private struct IntegrationCard<Action: View>: View {
                         ProgressView()
                             .scaleEffect(0.8)
                     } else {
-                        // Connection indicator
                         Circle()
-                            .fill(isConnected ? GQColors.success : Color(white: 0.2))
+                            .fill(isConnected ? GQColors.success : Color.white.opacity(0.2))
                             .frame(width: 8, height: 8)
                     }
 
@@ -313,34 +307,29 @@ private struct IntegrationCard<Action: View>: View {
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GQInteractiveStyle())
             .padding(16)
 
             // Expanded content
             if isExpanded {
                 VStack(spacing: 12) {
                     Divider()
-                        .background(Color.white.opacity(0.06))
+                        .background(Color.white.opacity(0.1))
 
-                    // Data points
                     if !dataPoints.isEmpty {
-                        HStack(spacing: 16) {
+                        HStack(spacing: 8) {
                             ForEach(dataPoints) { point in
-                                VStack(spacing: 4) {
-                                    Text(point.value)
-                                        .font(.system(size: 15, weight: .bold))
-                                        .foregroundColor(.white)
-                                    Text(point.label)
-                                        .font(.system(size: 10, weight: .medium))
-                                        .foregroundColor(GQColors.textTertiary)
-                                }
-                                .frame(maxWidth: .infinity)
+                                WorkoutFlowMetricChip(
+                                    icon: "chart.bar.fill",
+                                    value: point.value,
+                                    label: point.label,
+                                    color: iconColor
+                                )
                             }
                         }
                         .padding(.horizontal, 16)
                     }
 
-                    // Last sync
                     if let lastSync = lastSync {
                         HStack {
                             Text("Last synced")
@@ -354,7 +343,6 @@ private struct IntegrationCard<Action: View>: View {
                         .padding(.horizontal, 16)
                     }
 
-                    // Action button
                     action
                         .padding(.horizontal, 16)
                         .padding(.bottom, 4)
@@ -363,16 +351,9 @@ private struct IntegrationCard<Action: View>: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(
-                            isConnected ? iconColor.opacity(0.2) : Color.white.opacity(0.06),
-                            lineWidth: 1
-                        )
-                )
+        .workoutFlowCard(
+            accent: isConnected ? iconColor : GQColors.textSecondary,
+            emphasized: isConnected
         )
     }
 }
@@ -412,14 +393,7 @@ private struct GravlInfoCard: View {
                 )
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
-                )
-        )
+        .workoutFlowCard(accent: GQColors.electricGold)
     }
 }
 

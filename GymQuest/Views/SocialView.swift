@@ -46,7 +46,7 @@ struct SocialView: View {
                     }
                 }
             }
-            .background(EnergyBackground())
+            .gqPageBackground()
             .navigationTitle("Social")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -90,7 +90,7 @@ struct SocialView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
-        .background(Color.black.opacity(0.3))
+        .background(GQColors.surfaceOverlay.opacity(0.72))
     }
 
     // MARK: - Discover Content

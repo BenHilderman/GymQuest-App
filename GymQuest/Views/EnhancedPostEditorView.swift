@@ -157,7 +157,7 @@ struct EnhancedPostEditorView: View {
                 .padding(.top, 16)
             }
             .scrollContentBackground(.hidden)
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Customize Post")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -529,7 +529,7 @@ struct TaggingButton: View {
                     .fill(Color.white.opacity(0.05))
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -697,9 +697,8 @@ struct MediaPickerSheet: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(GQGradients.primary)
-                    .cornerRadius(14)
                 }
+                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.vividPurple))
                 .padding(.horizontal)
 
                 // Camera button
@@ -715,14 +714,13 @@ struct MediaPickerSheet: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(Color.white.opacity(0.1))
-                    .cornerRadius(14)
                 }
+                .buttonStyle(WorkoutFlowSecondaryButtonStyle())
                 .padding(.horizontal)
 
                 Spacer()
             }
-            .background(Color(white: 0.08).ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Add Media")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -783,7 +781,7 @@ struct CameraCapture: View {
             Button("Close") { dismiss() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
+        .gqPageBackground()
     }
 }
 
@@ -852,7 +850,7 @@ struct UserTaggingView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Tag People")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -910,7 +908,7 @@ struct FriendTagRow: View {
             }
             .padding(.vertical, 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -1032,7 +1030,7 @@ struct LocationTaggingView: View {
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Add Location")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1079,7 +1077,7 @@ struct CommunityLocationRow: View {
             }
             .padding(.vertical, 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -1133,7 +1131,7 @@ struct SquadTaggingView: View {
                     .scrollContentBackground(.hidden)
                 }
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Share with Squads")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1202,7 +1200,7 @@ struct SquadTagRow: View {
             }
             .padding(.vertical, 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 

@@ -55,12 +55,7 @@ struct WorkoutCardView: View {
                 isLiked: $isLiked
             )
         }
-        .background(Color(white: 0.08))
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-        )
+        .workoutFlowCard(accent: GQColors.vividPurple, cornerRadius: 16)
     }
 }
 
@@ -79,7 +74,7 @@ struct CardHeader: View {
                 // workout type icon
                 Circle()
                     .fill(LinearGradient(
-                        colors: [.blue, .purple],
+                        colors: [GQColors.deepBlue, GQColors.vividPurple],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ))
@@ -130,9 +125,9 @@ struct StreakBadge: View {
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [.orange, .red],
-                        startPoint: .top,
-                        endPoint: .bottom
+                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
                 )
                 .frame(width: 44, height: 44)
@@ -157,12 +152,12 @@ struct PRCallout: View {
                 HStack(spacing: 10) {
                     Image(systemName: "trophy.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(GQColors.electricGold)
+                        .foregroundColor(GQColors.cyanSpark)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("NEW PR")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(GQColors.electricGold)
+                            .foregroundColor(GQColors.cyanSpark)
 
                         HStack(spacing: 4) {
                             if let exercise = pr.exerciseName {
@@ -183,8 +178,14 @@ struct PRCallout: View {
                     Spacer()
                 }
                 .padding(12)
-                .background(GQColors.electricGold.opacity(0.1))
-                .cornerRadius(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(GQColors.surfaceElevated)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
             }
         }
         .padding(.horizontal, 16)
@@ -266,7 +267,7 @@ struct CoachTakeawaySection: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("COACH SAYS")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.cyan.opacity(0.8))
+                    .foregroundColor(GQColors.cyanSpark.opacity(0.85))
 
                 Text(takeaway)
                     .font(.system(size: 14))
@@ -277,8 +278,14 @@ struct CoachTakeawaySection: View {
             Spacer()
         }
         .padding(12)
-        .background(GQColors.cyanSpark.opacity(0.08))
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(GQColors.surfaceElevated)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
     }
@@ -333,7 +340,7 @@ struct CardFooter: View {
                         }
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GQInteractiveStyle())
 
                 Spacer()
             }
@@ -374,7 +381,7 @@ struct ShareableWorkoutCard: View {
                 fistBumpCount: 0
             )
         }
-        .background(Color(white: 0.05))
+        .background(GQColors.surfaceBase)
     }
 
     #if canImport(UIKit)
@@ -451,6 +458,6 @@ private struct WorkoutCardPreviewHelper {
         }
         .padding(.vertical, 20)
     }
-    .background(Color(white: 0.05))
+    .background(GQColors.surfaceBase)
     .preferredColorScheme(.dark)
 }

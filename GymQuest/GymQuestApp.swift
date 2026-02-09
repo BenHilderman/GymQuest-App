@@ -30,6 +30,7 @@ struct GymQuestApp: App {
             ExerciseSet.self,
             PREvent.self,
             MediaItem.self,
+            FavoriteExercise.self,
 
             // User & Auth
             UserProfile.self,
