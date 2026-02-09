@@ -12,8 +12,11 @@ import SwiftUI
 import SwiftData
 import AVKit
 
+private let profileNeutralAccent = Color.white.opacity(0.20)
+private let profilePrimaryAccent = GQColors.cyanSpark
+private let profileFireAccent = GQColors.coralRed
+
 struct ProfileView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
 
@@ -21,144 +24,105 @@ struct ProfileView: View {
 
     @State private var showingSettings = false
     @State private var selectedWorkout: Workout?
+    @State private var selectedPost: Post?
+    @State private var selectedTab: ProfileContentTab = .posts
+
+    private var profileAccent: Color {
+        profileNeutralAccent
+    }
+
+    private var userPosts: [Post] {
+        let targetUsername = profile.username.lowercased()
+        let targetName = profile.name.lowercased()
+
+        return posts.filter { post in
+            post.authorId == profile.id ||
+            post.authorUsername.lowercased() == targetUsername ||
+            post.authorName.lowercased() == targetName
+        }
+    }
+
+    private var totalLikeCount: Int {
+        userPosts.reduce(0) { $0 + $1.likeCount }
+    }
+
+    private var workoutsThisMonth: Int {
+        let calendar = Calendar.current
+        guard let monthRange = calendar.dateInterval(of: .month, for: Date()) else { return 0 }
+        return workouts.filter { monthRange.contains($0.date) }.count
+    }
+
+    private var averageWorkoutDuration: Int {
+        let completed = workouts.filter { $0.duration > 0 }
+        guard !completed.isEmpty else { return 0 }
+        return completed.reduce(0) { $0 + $1.duration } / completed.count
+    }
+
+    private var workoutHighlights: [WorkoutType] {
+        var seen = Set<WorkoutType>()
+        var ordered: [WorkoutType] = []
+
+        for workout in workouts {
+            guard !seen.contains(workout.type) else { continue }
+            seen.insert(workout.type)
+            ordered.append(workout.type)
+            if ordered.count == 6 { break }
+        }
+
+        return ordered
+    }
+
+    private func highlightColor(for type: WorkoutType) -> Color {
+        switch type {
+        case .legs, .lower:
+            return profileFireAccent
+        case .cardio:
+            return profilePrimaryAccent
+        case .rest:
+            return GQColors.textSecondary
+        default:
+            return Color.white.opacity(0.84)
+        }
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    // Profile Header
-                    VStack(spacing: 20) {
-                        // Avatar with gradient ring
-                        ZStack {
-                            Circle()
-                                .stroke(
-                                    LinearGradient(
-                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    ),
-                                    lineWidth: 3
-                                )
-                                .frame(width: 90, height: 90)
+                VStack(spacing: GQLayout.sectionSpacing) {
+                    profileHeader
 
-                            Circle()
-                                .fill(Color(white: 0.1))
-                                .frame(width: 82, height: 82)
-
-                            Text(String(profile.name.prefix(1)).uppercased())
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundColor(.white)
-                        }
-                        .bounceAppear()
-
-                        VStack(spacing: 6) {
-                            Text(profile.name)
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(.white)
-
-                            Text("@\(profile.username)")
-                                .font(.system(size: 15))
-                                .foregroundColor(GQColors.textTertiary)
-                        }
-
-                        // Stats Row
-                        HStack(spacing: 0) {
-                            ProfileStatItem(value: "\(workouts.count)", label: "Workouts", color: GQColors.vividPurple)
-                                .bounceAppear(delay: 0.1)
-
-                            Rectangle()
-                                .fill(Color.white.opacity(0.1))
-                                .frame(width: 1, height: 36)
-
-                            ProfileStatItem(value: "\(profile.xp)", label: "XP", color: GQColors.success)
-                                .bounceAppear(delay: 0.2)
-
-                            Rectangle()
-                                .fill(Color.white.opacity(0.1))
-                                .frame(width: 1, height: 36)
-
-                            ProfileStatItem(value: "Lv.\(profile.level)", label: UserProfile.levelTitle(for: profile.level), color: GQColors.cyanSpark)
-                                .bounceAppear(delay: 0.3)
-                        }
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(white: 0.08))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
-                        )
+                    if !workoutHighlights.isEmpty {
+                        profileHighlights
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
 
-                    // Workout History Section
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Workout History")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-
-                        if workouts.isEmpty {
-                            VStack(spacing: 16) {
-                                Image(systemName: "figure.strengthtraining.traditional")
-                                    .font(.system(size: 44))
-                                    .foregroundColor(GQColors.textTertiary)
-
-                                Text("No workouts yet")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(GQColors.textTertiary)
-
-                                Text("Log your first workout to start tracking!")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(GQColors.textTertiary.opacity(0.7))
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 48)
-                            .background(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color(white: 0.06))
-                            )
-                            .padding(.horizontal, 16)
-                        } else {
-                            // Workout history list
-                            VStack(spacing: 8) {
-                                ForEach(workouts) { workout in
-                                    WorkoutHistoryRowV2(workout: workout)
-                                        .onTapGesture {
-                                            selectedWorkout = workout
-                                        }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                        }
-                    }
+                    profileTabBar
+                    profileTabContent
                 }
-                .padding(.bottom, 120)
+                .gqScreenHorizontalPadding()
+                .padding(.top, GQLayout.pageTop)
+                .padding(.bottom, GQLayout.pageBottom)
             }
             .scrollContentBackground(.hidden)
-            .background(EnergyBackground())
+            .gqPageBackground()
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    NavBarLogo()
+                    Text("@\(profile.username)")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(.white)
                 }
                 #if os(iOS)
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingSettings = true
                     } label: {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 18))
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
+                            .frame(width: 34, height: 34)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Circle())
                     }
+                    .buttonStyle(.plain)
                 }
                 #endif
             }
@@ -169,7 +133,343 @@ struct ProfileView: View {
             .sheet(item: $selectedWorkout) { workout in
                 SessionDetailView(session: workout)
             }
+            .sheet(
+                isPresented: Binding(
+                    get: { selectedPost != nil },
+                    set: { isPresented in
+                        if !isPresented { selectedPost = nil }
+                    }
+                )
+            ) {
+                if let selectedPost {
+                    PostDetailView(post: selectedPost, profile: profile)
+                }
+            }
         }
+    }
+
+    private var profileHeader: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 16) {
+                profileAvatar
+
+                HStack(spacing: 0) {
+                    ProfileSocialMetric(value: "\(userPosts.count)", label: "Posts")
+                    ProfileSocialMetric(value: "\(workouts.count)", label: "Workouts")
+                    ProfileSocialMetric(value: "\(totalLikeCount)", label: "Likes")
+                }
+                .frame(maxWidth: .infinity)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(profile.name)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.white)
+                Text("\(UserProfile.levelTitle(for: profile.level)) • Lv.\(profile.level)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Text("Edit Profile")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(HomeSocialSecondaryButtonStyle(cornerRadius: 12))
+
+                Button {
+                    selectedTab = .workouts
+                } label: {
+                    Text("Workout Archive")
+                        .font(.system(size: 14, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark, cornerRadius: 12))
+            }
+        }
+        .padding(16)
+        .homeSocialCard(accent: GQColors.cyanSpark, emphasized: false)
+    }
+
+    private var profileAvatar: some View {
+        Group {
+            #if canImport(UIKit)
+            if let photoData = profile.profilePhotoData, let image = UIImage(data: photoData) {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                avatarInitial
+            }
+            #elseif canImport(AppKit)
+            if let photoData = profile.profilePhotoData, let image = NSImage(data: photoData) {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                avatarInitial
+            }
+            #else
+            avatarInitial
+            #endif
+        }
+        .frame(width: 84, height: 84)
+        .clipShape(Circle())
+        .overlay(
+            Circle()
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var avatarInitial: some View {
+        ZStack {
+            Circle()
+                .fill(profilePrimaryAccent.opacity(0.20))
+            Text(String(profile.name.prefix(1)).uppercased())
+                .font(.system(size: 30, weight: .bold))
+                .foregroundColor(.white)
+        }
+    }
+
+    private var profileHighlights: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 14) {
+                ForEach(workoutHighlights, id: \.self) { type in
+                    VStack(spacing: 6) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.white.opacity(0.06))
+                                .frame(width: 62, height: 62)
+                            Circle()
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                .frame(width: 62, height: 62)
+
+                            Image(systemName: type.icon)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(highlightColor(for: type))
+                        }
+
+                        Text(type.rawValue)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+    }
+
+    private var profileTabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(ProfileContentTab.allCases, id: \.self) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    VStack(spacing: 10) {
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(selectedTab == tab ? .white : GQColors.textTertiary)
+
+                        Rectangle()
+                            .fill(selectedTab == tab ? Color.white : Color.clear)
+                            .frame(height: 2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 12)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(GQColors.surfaceBase)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private var profileTabContent: some View {
+        switch selectedTab {
+        case .posts:
+            if userPosts.isEmpty {
+                ProfileEmptyState(
+                    icon: "camera.on.rectangle",
+                    title: "No posts yet",
+                    subtitle: "Share your sessions and progress here."
+                )
+            } else {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: 2),
+                        GridItem(.flexible(), spacing: 2),
+                        GridItem(.flexible(), spacing: 2)
+                    ],
+                    spacing: 2
+                ) {
+                    ForEach(userPosts) { post in
+                        Button {
+                            selectedPost = post
+                        } label: {
+                            ProfilePostThumbnail(post: post)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+
+        case .workouts:
+            if workouts.isEmpty {
+                ProfileEmptyState(
+                    icon: "figure.strengthtraining.traditional",
+                    title: "No workouts yet",
+                    subtitle: "Log your first workout to build your archive."
+                )
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(workouts) { workout in
+                        WorkoutHistoryRowV2(workout: workout)
+                            .onTapGesture {
+                                selectedWorkout = workout
+                            }
+                    }
+                }
+            }
+
+        case .activity:
+            VStack(spacing: 12) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ProfileActivityMetricCard(
+                        icon: "heart.fill",
+                        value: "\(totalLikeCount)",
+                        label: "Total Likes",
+                        tint: GQColors.coralRed
+                    )
+                    ProfileActivityMetricCard(
+                        icon: "clock",
+                        value: averageWorkoutDuration > 0 ? "\(averageWorkoutDuration)m" : "--",
+                        label: "Avg Duration",
+                        tint: GQColors.textSecondary
+                    )
+                    ProfileActivityMetricCard(
+                        icon: "calendar",
+                        value: "\(workoutsThisMonth)",
+                        label: "This Month",
+                        tint: GQColors.success
+                    )
+                    ProfileActivityMetricCard(
+                        icon: "bolt.fill",
+                        value: "\(profile.xp)",
+                        label: "Total XP",
+                        tint: GQColors.cyanSpark
+                    )
+                }
+
+                if !userPosts.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Recent Posts")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+
+                        ForEach(userPosts.prefix(2)) { post in
+                            Button {
+                                selectedPost = post
+                            } label: {
+                                ProfilePostCard(post: post)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private enum ProfileContentTab: CaseIterable {
+    case posts
+    case workouts
+    case activity
+
+    var icon: String {
+        switch self {
+        case .posts: return "square.grid.3x3.fill"
+        case .workouts: return "list.bullet.rectangle"
+        case .activity: return "chart.bar.xaxis"
+        }
+    }
+}
+
+private struct ProfileSocialMetric: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(size: 19, weight: .bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct ProfileActivityMetricCard: View {
+    let icon: String
+    let value: String
+    let label: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(tint)
+
+            Text(value)
+                .font(.system(size: 21, weight: .bold))
+                .foregroundColor(.white)
+
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .homeSocialCard(accent: profileNeutralAccent)
+    }
+}
+
+private struct ProfileEmptyState: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 30))
+                .foregroundColor(GQColors.textTertiary)
+            Text(title)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(.white)
+            Text(subtitle)
+                .font(.system(size: 13))
+                .foregroundColor(GQColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 34)
+        .homeSocialCard(accent: profileNeutralAccent)
     }
 }
 
@@ -197,21 +497,24 @@ struct ProfileStatItem: View {
 
 struct WorkoutHistoryRowV2: View {
     let workout: Workout
+    private var iconAccent: Color {
+        GQGradients.workoutGradientColors(for: workout.type).first ?? profilePrimaryAccent
+    }
+    private var accent: Color {
+        profileNeutralAccent
+    }
 
     var body: some View {
         HStack(spacing: 14) {
-            // Date circle
-            VStack(spacing: 2) {
-                Text(workout.date.formatted(.dateTime.day()))
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
-                Text(workout.date.formatted(.dateTime.weekday(.abbreviated)))
-                    .font(.system(size: 11))
-                    .foregroundColor(GQColors.textTertiary)
-            }
-            .frame(width: 44)
+            RoundedRectangle(cornerRadius: 10)
+                .fill(iconAccent.opacity(0.16))
+                .frame(width: 42, height: 42)
+                .overlay(
+                    Image(systemName: workout.type.icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(iconAccent)
+                )
 
-            // Workout info
             VStack(alignment: .leading, spacing: 4) {
                 Text(workout.title ?? workout.type.rawValue)
                     .font(.system(size: 15, weight: .semibold))
@@ -233,7 +536,7 @@ struct WorkoutHistoryRowV2: View {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 11))
-                                .foregroundColor(GQColors.vividPurple)
+                                .foregroundColor(profileFireAccent)
                             Text("\(workout.totalSets) sets")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -249,21 +552,7 @@ struct WorkoutHistoryRowV2: View {
                 .foregroundColor(GQColors.textTertiary)
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(white: 0.06))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(
-                LinearGradient(
-                    colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ),
-                lineWidth: 1
-            )
-        )
+        .homeSocialCard(accent: accent)
     }
 }
 
@@ -307,7 +596,7 @@ struct WorkoutHistoryRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 11))
-                                .foregroundColor(GQColors.vividPurple)
+                                .foregroundColor(profileFireAccent)
                             Text("\(sets) sets")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -336,7 +625,7 @@ struct WorkoutHistoryRow: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(white: 0.06))
+                .fill(GQColors.surfaceBase)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
@@ -368,7 +657,7 @@ struct ProfilePostThumbnail: View {
                     .aspectRatio(1, contentMode: .fit)
                     .clipped()
             } else if post.videoData != nil {
-                Color(white: 0.1)
+                GQColors.surfaceElevated
                     .aspectRatio(1, contentMode: .fit)
                     .overlay(
                         Image(systemName: "play.fill")
@@ -377,13 +666,13 @@ struct ProfilePostThumbnail: View {
                     )
             } else {
                 // No media - show workout type icon
-                Color(white: 0.08)
+                GQColors.surfaceBase
                     .aspectRatio(1, contentMode: .fit)
                     .overlay(
                         VStack(spacing: 6) {
                             Image(systemName: "dumbbell.fill")
                                 .font(.system(size: 24))
-                                .foregroundColor(GQColors.vividPurple)
+                                .foregroundColor(profilePrimaryAccent)
                             if let type = post.workoutType {
                                 Text(type)
                                     .font(.system(size: 10, weight: .medium))
@@ -401,12 +690,12 @@ struct ProfilePostThumbnail: View {
                     .aspectRatio(1, contentMode: .fit)
                     .clipped()
             } else {
-                Color(white: 0.08)
+                GQColors.surfaceBase
                     .aspectRatio(1, contentMode: .fit)
                     .overlay(
                         Image(systemName: "dumbbell.fill")
                             .font(.system(size: 24))
-                            .foregroundColor(GQColors.vividPurple)
+                            .foregroundColor(profilePrimaryAccent)
                     )
             }
             #endif
@@ -432,7 +721,7 @@ struct ProfilePostCard: View {
                         .frame(height: 140)
                         .clipped()
                 } else if post.videoData != nil {
-                    Color(white: 0.1)
+                    GQColors.surfaceElevated
                         .frame(height: 140)
                         .overlay(
                             Image(systemName: "play.fill")
@@ -442,7 +731,7 @@ struct ProfilePostCard: View {
                 } else {
                     // No media - gradient background with icon
                     LinearGradient(
-                        colors: [GQColors.vividPurple.opacity(0.3), GQColors.cyanSpark.opacity(0.2)],
+                        colors: [GQColors.deepBlue.opacity(0.22), profileFireAccent.opacity(0.16)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -462,7 +751,7 @@ struct ProfilePostCard: View {
                         .clipped()
                 } else {
                     LinearGradient(
-                        colors: [GQColors.vividPurple.opacity(0.3), GQColors.cyanSpark.opacity(0.2)],
+                        colors: [GQColors.deepBlue.opacity(0.22), profileFireAccent.opacity(0.16)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -484,7 +773,7 @@ struct ProfilePostCard: View {
                         .padding(.vertical, 4)
                         .background(
                             Capsule()
-                                .fill(Color.black.opacity(0.6))
+                                .fill(GQColors.surfaceOverlay.opacity(0.90))
                         )
                         .padding(8)
                 }
@@ -507,7 +796,7 @@ struct ProfilePostCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 11))
-                            .foregroundColor(GQColors.vividPurple)
+                            .foregroundColor(profileFireAccent)
                         Text("\(sets)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.white)
@@ -523,7 +812,7 @@ struct ProfilePostCard: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
-            .background(Color(white: 0.08))
+            .background(GQColors.surfaceBase)
         }
         .cornerRadius(12)
         .overlay(
@@ -565,7 +854,7 @@ struct WorkoutStatsCard: View {
                     VStack(spacing: 4) {
                         Text("\(sets)")
                             .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(GQColors.vividPurple)
+                            .foregroundColor(profileFireAccent)
                         Text("sets")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(GQColors.textTertiary)
@@ -575,7 +864,7 @@ struct WorkoutStatsCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 180)
-        .background(Color(white: 0.08))
+        .background(GQColors.surfaceBase)
     }
 }
 
@@ -624,7 +913,7 @@ struct PostDetailView: View {
                                         .fill(.ultraThinMaterial)
                                         .overlay(
                                             Capsule()
-                                                .stroke(GQColors.vividPurple.opacity(0.5), lineWidth: 1)
+                                                .stroke(Color.white.opacity(0.22), lineWidth: 1)
                                         )
                                 )
                         }
@@ -672,7 +961,7 @@ struct PostDetailView: View {
 
                     // workout stats
                     if post.duration != nil || post.setCount != nil {
-                        GlassCard(accentColor: GQColors.vividPurple, cornerRadius: 16, showGlow: false) {
+                        GlassCard(accentColor: profileNeutralAccent, cornerRadius: 16, showGlow: false) {
                             HStack(spacing: 32) {
                                 if let duration = post.duration {
                                     VStack(spacing: 4) {
@@ -688,7 +977,7 @@ struct PostDetailView: View {
                                     VStack(spacing: 4) {
                                         Text("\(sets)")
                                             .font(.system(size: 28, weight: .bold))
-                                            .foregroundColor(GQColors.vividPurple)
+                                            .foregroundColor(profileFireAccent)
                                         Text("sets")
                                             .font(.system(size: 12, weight: .medium))
                                             .foregroundColor(GQColors.textTertiary)
@@ -704,7 +993,7 @@ struct PostDetailView: View {
                     // engagement
                     HStack(spacing: 24) {
                         Label("\(post.likeCount) likes", systemImage: "heart.fill")
-                            .foregroundColor(GQColors.vividPurple)
+                            .foregroundColor(profileFireAccent)
                         Label("\(post.commentCount) comments", systemImage: "bubble.right")
                             .foregroundColor(GQColors.textTertiary)
                         Spacer()
@@ -716,7 +1005,7 @@ struct PostDetailView: View {
                 }
                 .padding(.top)
             }
-            .background(EnergyBackground())
+            .gqPageBackground()
             .navigationTitle("Post")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -807,134 +1096,175 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section("Profile") {
-                    TextField("Name", text: $name)
-                    TextField("Username", text: $username)
-                }
+            ScrollView {
+                VStack(spacing: GQLayout.sectionSpacing) {
+                    GQScreenTitleBlock(
+                        title: "Settings",
+                        subtitle: "Profile, integrations, and AI preferences.",
+                        accent: profileNeutralAccent
+                    )
+                    .gqScreenHorizontalPadding()
+                    .padding(.top, GQLayout.pageTop)
 
-                Section("Integrations") {
-                    NavigationLink {
-                        IntegrationsView(profile: profile)
-                    } label: {
-                        HStack {
-                            Image(systemName: "link.circle.fill")
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text("Connected Services")
-                                Text("Apple Health, WHOOP, Strava")
-                                    .font(.caption)
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
-                        }
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionHeader("Profile")
+                        settingsTextField(title: "Name", text: $name)
+                        settingsTextField(title: "Username", text: $username)
                     }
+                    .padding(16)
+                    .homeSocialCard(accent: profileNeutralAccent)
+                    .gqScreenHorizontalPadding()
 
-                    NavigationLink {
-                        SquadView(profile: profile)
-                    } label: {
-                        HStack {
-                            Image(systemName: "person.3.fill")
-                                .foregroundColor(.blue)
-                            Text("Squads")
-                        }
-                    }
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionHeader("Integrations")
 
-                    NavigationLink {
-                        NotificationSettingsView()
-                    } label: {
-                        HStack {
-                            Image(systemName: "bell.fill")
-                                .foregroundColor(GQColors.sunsetOrange)
-                            Text("Notifications")
-                        }
-                    }
-
-                    NavigationLink {
-                        BodyMeasurementsView(profile: profile)
-                    } label: {
-                        HStack {
-                            Image(systemName: "ruler")
-                                .foregroundColor(GQColors.electricGold)
-                            Text("Body Measurements")
-                        }
-                    }
-                }
-
-                Section("AI") {
-                    Picker("Provider", selection: $aiProvider) {
-                        ForEach(AIProvider.allCases, id: \.self) { p in
-                            Text(p.rawValue).tag(p)
-                        }
-                    }
-                    .onChange(of: aiProvider) { _, newValue in
-                        if newValue == .ollama {
-                            testOllamaConnection()
-                        }
-                    }
-                    if aiProvider == .ollama {
-                        TextField("Host IP (e.g. 192.168.1.100)", text: $ollamaHost)
-                            .textContentType(.URL)
-                            #if os(iOS)
-                            .keyboardType(.URL)
-                            .textInputAutocapitalization(.never)
-                            #endif
-                        TextField("Model Name (e.g. llama3.2)", text: $ollamaModel)
-                        Button {
-                            testOllamaConnection()
+                        NavigationLink {
+                            IntegrationsView(profile: profile)
                         } label: {
-                            HStack {
-                                if isTestingConnection {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                    Text("Testing...")
-                                } else {
-                                    Image(systemName: "network")
-                                    Text("Test Connection")
+                            settingsRow(
+                                icon: "link.circle.fill",
+                                title: "Connected Services",
+                                subtitle: "Apple Health, WHOOP, Strava",
+                                color: GQColors.cyanSpark
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        NavigationLink {
+                            SquadView(profile: profile)
+                        } label: {
+                            settingsRow(
+                                icon: "person.3.fill",
+                                title: "Squads",
+                                subtitle: "Team challenges and accountability",
+                                color: .blue
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        NavigationLink {
+                            NotificationSettingsView()
+                        } label: {
+                            settingsRow(
+                                icon: "bell.fill",
+                                title: "Notifications",
+                                subtitle: "Reminders and updates",
+                                color: GQColors.sunsetOrange
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        NavigationLink {
+                            BodyMeasurementsView(profile: profile)
+                        } label: {
+                            settingsRow(
+                                icon: "ruler",
+                                title: "Body Measurements",
+                                subtitle: "Track physical changes over time",
+                                color: GQColors.electricGold
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(16)
+                    .homeSocialCard(accent: profileNeutralAccent)
+                    .gqScreenHorizontalPadding()
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionHeader("AI")
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Provider")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.textSecondary)
+                            Picker("Provider", selection: $aiProvider) {
+                                ForEach(AIProvider.allCases, id: \.self) { p in
+                                    Text(p.rawValue).tag(p)
                                 }
                             }
+                            .pickerStyle(.menu)
+                            .tint(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.white.opacity(0.07))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            )
                         }
-                        .disabled(isTestingConnection)
-                    } else if aiProvider != .demo {
-                        SecureField("API Key", text: $apiKey)
-                    }
-                }
+                        .onChange(of: aiProvider) { _, newValue in
+                            if newValue == .ollama {
+                                testOllamaConnection()
+                            }
+                        }
 
-                Section {
-                    HStack {
-                        Text("Level")
-                        Spacer()
-                        Text("\(profile.level)")
-                            .foregroundColor(GQColors.textTertiary)
+                        if aiProvider == .ollama {
+                            settingsTextField(
+                                title: "Host IP",
+                                text: $ollamaHost,
+                                placeholder: "e.g. 192.168.1.100",
+                                isURL: true
+                            )
+                            settingsTextField(
+                                title: "Model Name",
+                                text: $ollamaModel,
+                                placeholder: "e.g. llama3.2"
+                            )
+                            Button {
+                                testOllamaConnection()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    if isTestingConnection {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                    } else {
+                                        Image(systemName: "network")
+                                    }
+                                    Text(isTestingConnection ? "Testing..." : "Test Connection")
+                                }
+                            }
+                            .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
+                            .disabled(isTestingConnection)
+                        } else if aiProvider != .demo {
+                            settingsSecureField(title: "API Key", text: $apiKey)
+                        }
                     }
-                    HStack {
-                        Text("XP")
-                        Spacer()
-                        Text("\(profile.xp)")
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-                }
+                    .padding(16)
+                    .homeSocialCard(accent: profileNeutralAccent)
+                    .gqScreenHorizontalPadding()
 
-                Section {
+                    HStack(spacing: 10) {
+                        WorkoutFlowMetricChip(
+                            icon: "star.fill",
+                            value: "Lv \(profile.level)",
+                            label: "Current Level",
+                            color: GQColors.electricGold
+                        )
+                        WorkoutFlowMetricChip(
+                            icon: "bolt.fill",
+                            value: "\(profile.xp)",
+                            label: "XP",
+                            color: GQColors.success
+                        )
+                    }
+                    .gqScreenHorizontalPadding()
+
                     Button(role: .destructive) {
                         showingLogoutAlert = true
                     } label: {
-                        HStack {
-                            Spacer()
-                            Text("Sign Out")
-                            Spacer()
-                        }
+                        Text("Sign Out")
                     }
+                    .buttonStyle(HomeSocialSecondaryButtonStyle())
+                    .gqScreenHorizontalPadding()
+
+                    Spacer(minLength: 36)
                 }
+                .padding(.bottom, GQLayout.pageBottom)
             }
-            .scrollContentBackground(.hidden)
-            .background(GQColors.background)
-            .navigationTitle("Settings")
+            .gqPageBackground()
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -990,6 +1320,103 @@ struct SettingsView: View {
                 ollamaHost = profile.ollamaHost
             }
         }
+    }
+
+    @ViewBuilder
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.system(size: 11, weight: .bold))
+            .foregroundColor(GQColors.textTertiary)
+            .tracking(0.6)
+    }
+
+    @ViewBuilder
+    private func settingsTextField(
+        title: String,
+        text: Binding<String>,
+        placeholder: String? = nil,
+        isURL: Bool = false
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+            TextField(placeholder ?? title, text: text)
+                .autocorrectionDisabled(isURL)
+                #if os(iOS)
+                .keyboardType(isURL ? .URL : .default)
+                .textInputAutocapitalization(isURL ? .never : .sentences)
+                #endif
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.07))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+        }
+    }
+
+    @ViewBuilder
+    private func settingsSecureField(title: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+            SecureField(title, text: text)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.white.opacity(0.07))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+        }
+    }
+
+    @ViewBuilder
+    private func settingsRow(
+        icon: String,
+        title: String,
+        subtitle: String,
+        color: Color
+    ) -> some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(color.opacity(0.18))
+                .frame(width: 34, height: 34)
+                .overlay(
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(color)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .homeSocialCard(accent: color)
     }
 
     // pings local ollama server to verify connection works

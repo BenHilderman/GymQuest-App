@@ -25,37 +25,68 @@ struct CoachView: View {
     @State private var showingFormStudio = false
     @State private var formStudioExercise: FormExercise?
 
+    private var selectedTabAccent: Color {
+        switch selectedTab {
+        case 0: return GQColors.vividPurple
+        case 1: return GQColors.cyanSpark
+        default: return GQColors.electricGold
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Tab selector - clean segmented style
-                HStack(spacing: 0) {
-                    CoachTab(title: "Chat", icon: "message.fill", isSelected: selectedTab == 0) {
+            VStack(spacing: 14) {
+                GQScreenTitleBlock(
+                    title: "Coach",
+                    subtitle: "Chat, plan, and form support in one place.",
+                    accent: selectedTabAccent
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+
+                HStack(spacing: 8) {
+                    CoachTab(
+                        title: "Chat",
+                        icon: "message.fill",
+                        accent: GQColors.vividPurple,
+                        isSelected: selectedTab == 0
+                    ) {
                         withAnimation(.easeOut(duration: 0.2)) {
                             selectedTab = 0
                         }
                     }
-                    CoachTab(title: "Plan", icon: "doc.text.fill", isSelected: selectedTab == 1) {
+                    CoachTab(
+                        title: "Plan",
+                        icon: "doc.text.fill",
+                        accent: GQColors.cyanSpark,
+                        isSelected: selectedTab == 1
+                    ) {
                         withAnimation(.easeOut(duration: 0.2)) {
                             selectedTab = 1
                         }
                     }
-                    CoachTab(title: "Form", icon: "play.rectangle.on.rectangle", isSelected: selectedTab == 2) {
+                    CoachTab(
+                        title: "Form",
+                        icon: "play.rectangle.on.rectangle",
+                        accent: GQColors.electricGold,
+                        isSelected: selectedTab == 2
+                    ) {
                         withAnimation(.easeOut(duration: 0.2)) {
                             selectedTab = 2
                         }
                     }
                 }
-                .padding(3)
+                .padding(6)
                 .background(
-                    Capsule()
-                        .fill(Color(white: 0.12))
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.white.opacity(0.05))
                 )
-                .padding(.horizontal, 40)
-                .padding(.top, 12)
-                .padding(.bottom, 12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
+                .padding(.horizontal, 16)
 
-                // content
                 if selectedTab == 0 {
                     ChatSection(
                         chatMessages: chatMessages,
@@ -80,11 +111,15 @@ struct CoachView: View {
                     )
                 }
             }
-            .background(EnergyBackground())
-            .navigationTitle("Coach")
+            .gqPageBackground()
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    NavBarLogo()
+                }
+            }
             .sheet(isPresented: $showingFormStudio) {
                 if let exercise = formStudioExercise {
                     NavigationStack {
@@ -99,26 +134,31 @@ struct CoachView: View {
 struct CoachTab: View {
     let title: String
     let icon: String
+    let accent: Color
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12, weight: .semibold))
                 Text(title)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
             }
-            .foregroundColor(isSelected ? .white : GQColors.textTertiary)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 8)
+            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
             .background(
-                Capsule()
-                    .fill(isSelected ? Color(white: 0.22) : Color.clear)
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? accent.opacity(0.22) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? accent.opacity(0.45) : Color.clear, lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -132,32 +172,49 @@ struct FormStudioLauncher: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                // Hero section
-                VStack(spacing: 12) {
-                    Image(systemName: "play.rectangle.on.rectangle")
-                        .font(.system(size: 48))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [GQColors.cyanSpark, GQColors.electricBlue],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+            VStack(spacing: 18) {
+                GQScreenTitleBlock(
+                    title: "Form Studio",
+                    subtitle: "Interactive movement demos and setup cues.",
+                    accent: GQColors.cyanSpark
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(GQColors.cyanSpark.opacity(0.18))
+                            .frame(width: 42, height: 42)
+                            .overlay(
+                                Image(systemName: "play.rectangle.on.rectangle")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(GQColors.cyanSpark)
                             )
-                        )
 
-                    Text("Form Studio")
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Technique Library")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
 
-                    Text("Learn perfect exercise technique with interactive guides")
-                        .font(.system(size: 15))
-                        .foregroundColor(GQColors.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
+                            Text("Start with guided demos and form checkpoints.")
+                                .font(.system(size: 13))
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Step-by-step movement demos", systemImage: "checkmark.circle")
+                        Label("Common mistakes and fixes", systemImage: "checkmark.circle")
+                        Label("Tempo and setup cues", systemImage: "checkmark.circle")
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
                 }
-                .padding(.top, 32)
+                .padding(16)
+                .workoutFlowCard(accent: GQColors.cyanSpark, emphasized: true)
+                .padding(.horizontal, 16)
 
-                // Launch button
                 Button {
                     openFormStudio()
                 } label: {
@@ -168,11 +225,12 @@ struct FormStudioLauncher: View {
                             .font(.system(size: 16, weight: .semibold))
                     }
                 }
-                .buttonStyle(PrimaryButtonStyle())
-                .padding(.horizontal, 32)
+                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.cyanSpark))
+                .padding(.horizontal, 16)
 
-                Spacer(minLength: 40)
+                Spacer(minLength: 100)
             }
+            .padding(.bottom, 20)
         }
     }
 
@@ -210,170 +268,175 @@ struct ChatSection: View {
 
     // preset prompts for common questions
     let quickPrompts = [
-        ("Warm-up tips", GQColors.sunsetOrange),
+        ("Warm-up tips", GQColors.primary),
         ("Form check", GQColors.cyanSpark),
         ("Push or rest?", GQColors.vividPurple),
-        ("Volume check", GQColors.electricGold)
+        ("Volume check", GQColors.secondary)
     ]
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // messages
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        LazyVStack(spacing: 16) {
-                            if chatMessages.isEmpty {
-                                VStack(spacing: 16) {
-                                    Spacer().frame(height: 60)
+        VStack(spacing: 0) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 16) {
+                        if chatMessages.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "brain.head.profile")
+                                    .font(.system(size: 30, weight: .semibold))
+                                    .foregroundColor(GQColors.vividPurple)
 
-                                    ZStack {
-                                        Circle()
-                                            .fill(GQGradients.primary.opacity(0.2))
-                                            .frame(width: 80, height: 80)
-                                            .blur(radius: 20)
+                                Text("Ask your AI coach anything")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
 
-                                        Image(systemName: "brain.head.profile")
-                                            .font(.system(size: 44))
-                                            .foregroundStyle(GQGradients.primary)
-                                    }
-
-                                    Text("Ask your AI coach anything")
-                                        .font(.system(size: 18, weight: .semibold))
-                                        .foregroundColor(.white)
-
-                                    Text("Get advice on form, programming,\nrecovery, and more")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(GQColors.textTertiary)
-                                        .multilineTextAlignment(.center)
-                                }
-                                .frame(maxWidth: .infinity)
+                                Text("Programming, form checks, recovery, and session decisions.")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(GQColors.textSecondary)
+                                    .multilineTextAlignment(.center)
                             }
-
-                            ForEach(chatMessages) { message in
-                                MessageBubble(message: message)
-                                    .id(message.id)
-                            }
-
-                            if aiService.isLoading {
-                                HStack(spacing: 10) {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                        .tint(GQColors.accent)
-                                    Text("Thinking...")
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundColor(GQColors.textSecondary)
-                                    Spacer()
-                                }
-                                .padding(.horizontal, 20)
-                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 28)
+                            .padding(.horizontal, 20)
+                            .workoutFlowCard(accent: GQColors.vividPurple)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 24)
                         }
-                        .padding(.vertical, 16)
+
+                        ForEach(chatMessages) { message in
+                            MessageBubble(message: message)
+                                .id(message.id)
+                        }
+
+                        if aiService.isLoading {
+                            HStack(spacing: 10) {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                    .tint(GQColors.vividPurple)
+                                Text("Thinking...")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(GQColors.textSecondary)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 20)
+                        }
                     }
-                    .scrollDismissesKeyboard(.immediately)
-                    .onTapGesture {
-                        #if canImport(UIKit)
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                        #endif
+                    .padding(.vertical, 12)
+                }
+                .scrollDismissesKeyboard(.immediately)
+                .onTapGesture {
+                    #if canImport(UIKit)
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    #endif
+                }
+                .onChange(of: chatMessages.count) {
+                    if let last = chatMessages.last {
+                        withAnimation {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
                     }
-                    .onChange(of: chatMessages.count) {
-                        if let last = chatMessages.last {
+                }
+                .onChange(of: keyboardHeight) { _, _ in
+                    if let last = chatMessages.last {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(100))
                             withAnimation {
                                 proxy.scrollTo(last.id, anchor: .bottom)
                             }
                         }
                     }
-                    .onChange(of: keyboardHeight) { _, _ in
-                        if let last = chatMessages.last {
-                            Task { @MainActor in
-                                try? await Task.sleep(for: .milliseconds(100))
-                                withAnimation {
-                                    proxy.scrollTo(last.id, anchor: .bottom)
-                                }
+                }
+            }
+
+            if keyboardHeight == 0 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(quickPrompts, id: \.0) { prompt, color in
+                            Button {
+                                inputText = prompt
+                                sendMessage()
+                            } label: {
+                                Text(prompt)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        Capsule()
+                                            .fill(color.opacity(0.17))
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(color.opacity(0.45), lineWidth: 1)
+                                    )
                             }
+                            .buttonStyle(.plain)
                         }
                     }
+                    .padding(.horizontal, 16)
                 }
-
-                // quick prompts - hide when keyboard is up
-                if keyboardHeight == 0 {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(quickPrompts, id: \.0) { prompt, color in
-                                Button {
-                                    inputText = prompt
-                                    sendMessage()
-                                } label: {
-                                    Text(prompt)
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            Capsule()
-                                                .fill(.ultraThinMaterial)
-                                                .overlay(
-                                                    Capsule()
-                                                        .stroke(color.opacity(0.5), lineWidth: 1)
-                                                )
-                                        )
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                    }
-                    .padding(.vertical, 12)
-                    .background(
-                        Rectangle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                Rectangle()
-                                    .fill(Color.black.opacity(0.3))
-                            )
-                    )
-                }
-
-                // input bar
-                HStack(spacing: 12) {
-                    TextField("Ask your coach...", text: $inputText)
-                        .font(.system(size: 16))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(
-                            Capsule()
-                                .fill(.ultraThinMaterial)
-                                .overlay(
-                                    Capsule()
-                                        .stroke(GQGradients.glassBorder, lineWidth: 1)
-                                )
-                        )
-                        .submitLabel(.send)
-                        .onSubmit(sendMessage)
-
-                    Button(action: sendMessage) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 36))
-                            .foregroundStyle(inputText.isEmpty ? AnyShapeStyle(Color.gray.opacity(0.5)) : AnyShapeStyle(GQGradients.primary))
-                    }
-                    .disabled(inputText.isEmpty || aiService.isLoading)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, keyboardHeight > 0 ? 8 : 100)
+                .padding(.vertical, 10)
                 .background(
                     Rectangle()
-                        .fill(.ultraThinMaterial)
+                        .fill(Color.black.opacity(0.17))
                         .overlay(
                             Rectangle()
-                                .fill(Color.black.opacity(0.4))
+                                .fill(Color.white.opacity(0.08))
+                                .frame(height: 1),
+                            alignment: .top
                         )
                 )
             }
-            .ignoresSafeArea(.keyboard)
-            .padding(.bottom, keyboardHeight)
+
+            HStack(spacing: 10) {
+                TextField("Ask your coach...", text: $inputText)
+                    .font(.system(size: 16))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.white.opacity(0.07))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .submitLabel(.send)
+                    .onSubmit(sendMessage)
+
+                Button(action: sendMessage) {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(inputText.isEmpty ? GQColors.textTertiary : .white)
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(inputText.isEmpty ? Color.white.opacity(0.07) : GQColors.vividPurple)
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        )
+                }
+                .disabled(inputText.isEmpty || aiService.isLoading)
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, keyboardHeight > 0 ? 8 : 96)
+            .background(
+                Rectangle()
+                    .fill(GQColors.surfaceOverlay.opacity(0.90))
+                    .overlay(
+                        Rectangle()
+                            .fill(GQColors.borderDefault)
+                            .frame(height: 1),
+                        alignment: .top
+                    )
+            )
         }
+        .ignoresSafeArea(.keyboard)
+        .padding(.bottom, keyboardHeight)
         .onAppear {
             setupKeyboardObservers()
         }
@@ -465,6 +528,7 @@ struct MessageBubble: View {
     let message: ChatMessage
 
     var isUser: Bool { message.role == .user }
+    var accent: Color { isUser ? GQColors.vividPurple : GQColors.cyanSpark }
 
     var body: some View {
         HStack {
@@ -475,16 +539,10 @@ struct MessageBubble: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(isUser ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(Color.white.opacity(0.08)))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20)
-                                .stroke(
-                                    isUser ? AnyShapeStyle(Color.clear) : AnyShapeStyle(GQGradients.glassBorder),
-                                    lineWidth: 1
-                                )
-                        )
+                .workoutFlowCard(
+                    accent: accent,
+                    emphasized: isUser,
+                    cornerRadius: 18
                 )
 
             if !isUser { Spacer(minLength: 60) }
@@ -509,83 +567,50 @@ struct PlanSection: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
-                // header
-                VStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(GQGradients.energy.opacity(0.2))
-                            .frame(width: 80, height: 80)
-                            .blur(radius: 20)
+            VStack(spacing: 18) {
+                GQScreenTitleBlock(
+                    title: "Plan Builder",
+                    subtitle: "Generate a focused split based on your weekly availability.",
+                    accent: GQColors.cyanSpark
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
 
-                        Image(systemName: "doc.text.fill")
-                            .font(.system(size: 40))
-                            .foregroundStyle(GQGradients.energy)
+                VStack(spacing: 18) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        planOptionTitle("Split Type")
+                        Picker("Split", selection: $planSplit) {
+                            ForEach(PlanSplit.allCases, id: \.self) { split in
+                                Text(split.rawValue).tag(split)
+                            }
+                        }
+                        .pickerStyle(.segmented)
                     }
 
-                    Text("Generate Workout Plan")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
-
-                    Text("AI-powered personalized programming")
-                        .font(.system(size: 14))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-                .padding(.top, 20)
-
-                // options card
-                GlassCard(accentColor: GQColors.vividPurple, cornerRadius: 20, showGlow: false) {
-                    VStack(spacing: 20) {
-                        // split type
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("SPLIT TYPE")
-                                .font(.system(size: 11, weight: .bold))
-                                .tracking(1)
-                                .foregroundColor(GQColors.textTertiary)
-
-                            Picker("Split", selection: $planSplit) {
-                                ForEach(PlanSplit.allCases, id: \.self) { split in
-                                    Text(split.rawValue).tag(split)
-                                }
+                    VStack(alignment: .leading, spacing: 8) {
+                        planOptionTitle("Days Per Week")
+                        Picker("Days", selection: $planDays) {
+                            ForEach(3...6, id: \.self) { d in
+                                Text("\(d)").tag(d)
                             }
-                            .pickerStyle(.segmented)
                         }
-
-                        // days per week
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("DAYS PER WEEK")
-                                .font(.system(size: 11, weight: .bold))
-                                .tracking(1)
-                                .foregroundColor(GQColors.textTertiary)
-
-                            Picker("Days", selection: $planDays) {
-                                ForEach(3...6, id: \.self) { d in
-                                    Text("\(d)").tag(d)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                        }
-
-                        // goal
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("GOAL")
-                                .font(.system(size: 11, weight: .bold))
-                                .tracking(1)
-                                .foregroundColor(GQColors.textTertiary)
-
-                            Picker("Goal", selection: $planGoal) {
-                                ForEach(PlanGoal.allCases, id: \.self) { g in
-                                    Text(g.rawValue).tag(g)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                        }
+                        .pickerStyle(.segmented)
                     }
-                    .padding(4)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        planOptionTitle("Goal")
+                        Picker("Goal", selection: $planGoal) {
+                            ForEach(PlanGoal.allCases, id: \.self) { g in
+                                Text(g.rawValue).tag(g)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
                 }
+                .padding(16)
+                .workoutFlowCard(accent: GQColors.vividPurple)
                 .padding(.horizontal, 16)
 
-                // generate button
                 Button {
                     generatePlan()
                 } label: {
@@ -601,52 +626,56 @@ struct PlanSection: View {
                             .fontWeight(.semibold)
                     }
                 }
-                .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.vividPurple))
                 .disabled(isGenerating)
                 .padding(.horizontal, 16)
 
-                // generated plan
                 if let plan = generatedPlan {
-                    GlassCard(accentColor: GQColors.cyanSpark, cornerRadius: 20, showGlow: true) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(GQColors.success)
-                                Text("Your Plan")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.white)
-                                Spacer()
-                                Button {
-                                    #if canImport(UIKit)
-                                    UIPasteboard.general.string = plan
-                                    #endif
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "doc.on.doc")
-                                        Text("Copy")
-                                    }
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(GQColors.cyanSpark)
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(GQColors.success)
+                            Text("Your Plan")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                            Spacer()
+                            Button {
+                                #if canImport(UIKit)
+                                UIPasteboard.general.string = plan
+                                #endif
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "doc.on.doc")
+                                    Text("Copy")
                                 }
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(GQColors.cyanSpark)
                             }
-
-                            Divider()
-                                .background(Color.white.opacity(0.1))
-
-                            Text(plan)
-                                .font(.system(size: 14))
-                                .foregroundColor(.white.opacity(0.9))
-                                .lineSpacing(4)
                         }
-                        .padding(4)
+
+                        Divider()
+                            .background(Color.white.opacity(0.12))
+
+                        Text(plan)
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.92))
+                            .lineSpacing(4)
                     }
+                    .padding(16)
+                    .workoutFlowCard(accent: GQColors.cyanSpark, emphasized: true)
                     .padding(.horizontal, 16)
                 }
 
-                Spacer().frame(height: 100)
+                Spacer().frame(height: 90)
             }
-            .padding(.top, 8)
         }
+    }
+
+    private func planOptionTitle(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.system(size: 11, weight: .bold))
+            .tracking(1)
+            .foregroundColor(GQColors.textTertiary)
     }
 
     private func generatePlan() {

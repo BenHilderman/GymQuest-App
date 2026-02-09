@@ -72,6 +72,10 @@ struct ContentView: View {
                     .opacity(appState.selectedTab == .profile ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .profile)
             }
+            .transaction { transaction in
+                // Keep tab changes deterministic with no implicit crossfade animations.
+                transaction.animation = nil
+            }
             .ignoresSafeArea(.keyboard)
 
             // Active workout mini-bar + tab bar
@@ -102,7 +106,7 @@ struct ContentView: View {
                 }
             }
         }
-        .background(GQColors.background.ignoresSafeArea())
+        .gqPageBackground()
         .sheet(isPresented: $appState.showingLogWorkout) {
             LogWorkoutView(profile: profile)
         }
@@ -132,10 +136,6 @@ struct FloatingTabBar: View {
 
                 // Center add button - with animated gradient border
                 Button {
-                    #if canImport(UIKit)
-                    let impact = UIImpactFeedbackGenerator(style: .medium)
-                    impact.impactOccurred()
-                    #endif
                     appState.showingWorkoutStartOptions = true
                 } label: {
                     ZStack {
@@ -153,7 +153,7 @@ struct FloatingTabBar: View {
 
                         // Dark solid fill
                         Circle()
-                            .fill(Color(white: 0.05))
+                            .fill(GQColors.surfaceBase)
                             .frame(width: 46, height: 46)
 
                         // Animated gradient border
@@ -170,7 +170,7 @@ struct FloatingTabBar: View {
                             .foregroundColor(.white)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GQInteractiveStyle(scaleAmount: 0.90, hapticStyle: .medium))
                 .frame(maxWidth: .infinity)
                 .offset(y: -6)
                 .accessibilityLabel("Log workout")
@@ -185,10 +185,11 @@ struct FloatingTabBar: View {
             .padding(.bottom, 2)
         }
         .background(
-            Color(white: 0.05)
+            Rectangle()
+                .fill(GQColors.deepBlack.opacity(0.96))
                 .overlay(
                     Rectangle()
-                        .fill(Color.white.opacity(0.1))
+                        .fill(GQColors.borderSubtle)
                         .frame(height: 0.5),
                     alignment: .top
                 )
@@ -203,6 +204,7 @@ struct ActiveWorkoutMiniBar: View {
     @EnvironmentObject var appState: AppState
     @State private var elapsedTime = 0
     @State private var timer: Timer?
+    @State private var pulseOpacity: Double = 1.0
 
     var body: some View {
         Button {
@@ -213,6 +215,7 @@ struct ActiveWorkoutMiniBar: View {
                 Circle()
                     .fill(GQColors.success)
                     .frame(width: 8, height: 8)
+                    .opacity(pulseOpacity)
 
                 if let workout = appState.activeWorkout {
                     Image(systemName: workout.workoutType.icon)
@@ -241,7 +244,7 @@ struct ActiveWorkoutMiniBar: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
-                Color(white: 0.08)
+                GQColors.surfaceBase
                     .overlay(
                         Rectangle()
                             .fill(
@@ -256,12 +259,15 @@ struct ActiveWorkoutMiniBar: View {
                     )
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
         .onAppear {
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
                 if let start = appState.activeWorkout?.startTime {
                     elapsedTime = Int(Date().timeIntervalSince(start))
                 }
+            }
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                pulseOpacity = 0.3
             }
         }
         .onDisappear {
@@ -313,27 +319,22 @@ struct FloatingTabButton: View {
                         .frame(width: 22, height: 22)
                         .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
                         .scaleEffect(isSelected ? 1.1 : 1.0)
-                        .animation(.spring(response: 0.25, dampingFraction: 0.5), value: isSelected)
+                        .animation(GQMotion.micro, value: isSelected)
                 } else {
                     Image(systemName: displayIcon)
                         .font(.system(size: 20))
                         .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
                         .scaleEffect(isSelected ? 1.1 : 1.0)
-                        .animation(.spring(response: 0.25, dampingFraction: 0.5), value: isSelected)
+                        .animation(GQMotion.micro, value: isSelected)
                 }
 
                 Text(label)
                     .font(.system(size: 11, weight: isSelected ? .medium : .regular))
                     .foregroundColor(isSelected ? tabColor : GQColors.textTertiary)
-
-                // Selected indicator dot
-                Circle()
-                    .fill(isSelected ? tabColor : Color.clear)
-                    .frame(width: 4, height: 4)
             }
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
         .accessibilityLabel("\(label) tab")
         .accessibilityHint(isSelected ? "Currently selected" : "Double tap to switch to \(label)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])

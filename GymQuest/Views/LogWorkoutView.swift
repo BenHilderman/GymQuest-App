@@ -67,7 +67,7 @@ struct LogWorkoutView: View {
                 }
                 .padding()
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("New Post")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -152,7 +152,7 @@ struct LogWorkoutView: View {
             .background(Color.white.opacity(includeWorkout ? 0.1 : 0.05))
             .cornerRadius(12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 
     private var workoutDetailsSection: some View {
@@ -502,7 +502,7 @@ struct WorkoutTypeChip: View {
             .scaleEffect(isSelected ? 1.05 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -526,7 +526,7 @@ struct DurationChip: View {
                 .scaleEffect(isSelected ? 1.05 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -692,12 +692,12 @@ struct AddExerciseSheet: View {
                     exercises.append(newExercise)
                     dismiss()
                 }
-                .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
 
                 Spacer()
             }
             .padding()
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Add Exercise")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

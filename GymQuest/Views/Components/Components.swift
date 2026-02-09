@@ -26,16 +26,20 @@ struct CardContainer<Content: View>: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.black.opacity(0.4))
-                )
+                .fill(GQColors.surfaceBase)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(GQGradients.glassBorder, lineWidth: 1)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
         )
+        .shadow(color: .black.opacity(0.20), radius: 6, y: 2)
     }
 }
 
@@ -92,18 +96,22 @@ struct AccentButtonStyle: ButtonStyle {
             .frame(height: 48)
             .background(
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(.ultraThinMaterial)
-                    .background(
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(Color.white.opacity(0.1))
-                    )
+                    .fill(GQColors.surfaceBase)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(configuration.isPressed ? 0.08 : 0.10), Color.white.opacity(configuration.isPressed ? 0.03 : 0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
             )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.14 : 0.22), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
+            .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
+            .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed { HapticManager.shared.tap() }
@@ -123,20 +131,25 @@ struct AnimatedGradientButtonStyle: ButtonStyle {
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 25)
-                    .fill(Color(white: 0.08))
+                    .fill(GQColors.surfaceBase)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 25)
-                    .stroke(
-                        AngularGradient(
-                            colors: GQGradients.energyColors,
-                            center: .center
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .overlay {
+                if configuration.isPressed {
+                    RoundedRectangle(cornerRadius: 25)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                } else {
+                    RoundedRectangle(cornerRadius: 25)
+                        .animatedGradientBorder(
+                            cornerRadius: 25,
+                            lineWidth: 1.6,
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                            duration: 4.0
+                        )
+                }
+            }
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.16 : 0.26), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
+            .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
+            .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
@@ -159,19 +172,27 @@ struct OnboardingButtonStyle: ButtonStyle {
             .frame(height: 50)
             .background(
                 RoundedRectangle(cornerRadius: 25)
-                    .fill(Color(white: 0.08))
+                    .fill(GQColors.surfaceBase)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 25)
-                    .stroke(
-                        isLastStep
-                            ? AnyShapeStyle(LinearGradient(colors: [GQColors.success, GQColors.cyanSpark], startPoint: .leading, endPoint: .trailing))
-                            : AnyShapeStyle(AngularGradient(colors: GQGradients.energyColors, center: .center)),
-                        lineWidth: 1
-                    )
-            )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .overlay {
+                if configuration.isPressed {
+                    RoundedRectangle(cornerRadius: 25)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                } else {
+                    RoundedRectangle(cornerRadius: 25)
+                        .animatedGradientBorder(
+                            cornerRadius: 25,
+                            lineWidth: 1.6,
+                            colors: isLastStep
+                                ? [GQColors.cyanSpark, GQColors.success, GQColors.cyanSpark]
+                                : [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                            duration: 4.0
+                        )
+                }
+            }
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.16 : 0.26), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
+            .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
+            .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
@@ -258,7 +279,7 @@ struct HomeSectionHeader: View {
             }
             .padding(.vertical, 8)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -272,14 +293,22 @@ struct DangerButtonStyle: ButtonStyle {
             .frame(height: 48)
             .background(
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(GQColors.error.opacity(0.15))
+                    .fill(GQColors.surfaceBase)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24)
-                    .stroke(GQColors.error.opacity(0.3), lineWidth: 1)
+                    .stroke(
+                        LinearGradient(
+                            colors: [GQColors.error.opacity(configuration.isPressed ? 0.26 : 0.34), GQColors.error.opacity(configuration.isPressed ? 0.12 : 0.18)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
             )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.14 : 0.22), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
+            .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
+            .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed { HapticManager.shared.tap() }
@@ -293,15 +322,18 @@ struct GymQuestTextFieldStyle: TextFieldStyle {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.05))
-                    )
+                    .fill(GQColors.surfaceBase)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
             )
     }
 }
@@ -406,7 +438,7 @@ struct SessionDetailView: View {
                 }
                 .padding()
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Details")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -539,17 +571,15 @@ struct WorkoutCompletionView: View {
                                 Text("Share to \(selectedVisibility.rawValue)")
                             }
                         }
-                        .buttonStyle(AnimatedGradientButtonStyle())
+                        .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
 
                         // Keep Private button (secondary action)
                         Button {
                             dismiss()
                         } label: {
                             Text("Keep Private")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.white.opacity(0.7))
                         }
+                        .buttonStyle(HomeSocialSecondaryButtonStyle(cornerRadius: 12))
                         .padding(.top, 4)
                     }
                     .padding(.top, 8)
@@ -558,7 +588,7 @@ struct WorkoutCompletionView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 20)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Workout Complete")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -804,7 +834,7 @@ struct PRCelebrationBanner: View {
                     .background(Color.white.opacity(0.05))
                     .cornerRadius(10)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GQInteractiveStyle())
             }
         }
         .padding(16)
@@ -906,7 +936,7 @@ struct PRShareSheet: View {
                         Text("Export PR Card")
                     }
                 }
-                .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
                 .padding(.horizontal, 24)
 
                 Button("Cancel") {
@@ -915,7 +945,7 @@ struct PRShareSheet: View {
                 .foregroundColor(GQColors.textTertiary)
                 .padding(.bottom, 32)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Share Your PR")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -1022,6 +1052,7 @@ struct CardLoadingPlaceholder: View {
             RoundedRectangle(cornerRadius: 20)
                 .stroke(GQColors.vividPurple.opacity(pulseOpacity), lineWidth: 1)
         )
+        .shimmer()
         .onAppear {
             withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
                 pulseOpacity = 0.6
@@ -1052,7 +1083,7 @@ struct ShareOptionButton: View {
                     .fill(.ultraThinMaterial)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(isSelected ? Color.white.opacity(0.1) : Color.black.opacity(0.3))
+                            .fill(isSelected ? GQColors.surfaceElevated : GQColors.surfaceBase)
                     )
             )
             .overlay(
@@ -1064,7 +1095,7 @@ struct ShareOptionButton: View {
             )
             .shadow(color: isSelected ? GQColors.vividPurple.opacity(0.2) : .clear, radius: 8, y: 2)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 

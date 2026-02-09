@@ -81,7 +81,7 @@ struct Exercise3DViewer: View {
             // 3D Scene with background
             ZStack {
                 LinearGradient(
-                    colors: [Color(white: 0.12), Color(white: 0.06)],
+                    colors: [GQColors.surfaceElevated, GQColors.surfaceBase],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -109,7 +109,7 @@ struct Exercise3DViewer: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.5))
+                    .background(GQColors.surfaceOverlay.opacity(0.84))
                     .cornerRadius(8)
 
                     Spacer()
@@ -139,7 +139,7 @@ struct Exercise3DViewer: View {
                 .foregroundColor(.white.opacity(0.7))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(Color.black.opacity(0.5))
+                .background(GQColors.surfaceOverlay.opacity(0.84))
                 .cornerRadius(8)
                 .padding(.bottom, 12)
             }
@@ -584,7 +584,7 @@ struct PlaybackControls: View {
             }
         }
         .padding(12)
-        .background(Color(white: 0.06))
+        .background(GQColors.surfaceBase)
         .cornerRadius(12)
     }
 }
@@ -634,6 +634,6 @@ struct AngleButton: View {
     Exercise3DViewer(modelName: "squat")
         .frame(height: 350)
         .padding()
-        .background(Color(white: 0.05))
+        .gqPageBackground()
         .preferredColorScheme(.dark)
 }

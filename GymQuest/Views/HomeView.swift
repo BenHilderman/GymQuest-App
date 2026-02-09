@@ -113,7 +113,7 @@ struct HomeView: View {
                             icon: "fork.knife",
                             title: "Log Food",
                             subtitle: "Track nutrition",
-                            accentColor: GQColors.cyanSpark,
+                            accentColor: GQColors.coralRed,
                             isPrimary: false
                         ) {
                             showingMealLog = true
@@ -142,7 +142,8 @@ struct HomeView: View {
                 .padding(.top, 12)
             }
             .scrollContentBackground(.hidden)
-            .background(EnergyBackground())
+            .gqHomePageBackground()
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NavBarLogo()
@@ -432,7 +433,7 @@ struct HeroActionCard: View {
                             )
                     )
                 }
-                .buttonStyle(ScaleButtonStyle())
+                .buttonStyle(GQInteractiveStyle())
 
                 // Weekly progress mini bar
                 VStack(spacing: 8) {
@@ -507,7 +508,7 @@ struct HomeActionButton: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(white: 0.08))
+                    .fill(GQColors.surfaceBase)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
@@ -523,7 +524,7 @@ struct HomeActionButton: View {
             )
             .modifier(ConditionalAnimatedBorder(isActive: isPrimary, cornerRadius: 16))
         }
-        .buttonStyle(ScaleButtonStyle())
+        .buttonStyle(GQInteractiveStyle())
         .onAppear {
             guard isPrimary else { return }
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
@@ -817,11 +818,12 @@ struct WeeklyProgressCard: View {
                         )
                     }
                     .frame(maxWidth: .infinity)
+                    .staggeredAppear(index: index)
                 }
             }
         }
         .padding(18)
-        .background(Color(white: 0.08))
+        .background(GQColors.surfaceBase)
         .cornerRadius(16)
         .onAppear {
             withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
@@ -955,7 +957,7 @@ struct WorkoutReviewSheet: View {
                 .padding(.top, 20)
             }
             .scrollContentBackground(.hidden)
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1241,7 +1243,7 @@ struct SquadHighlightCardV2: View {
             }
             .padding(16)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -1455,8 +1457,36 @@ struct StartWorkoutSheet: View {
 
                     Spacer(minLength: 20)
                 }
+                .padding(.horizontal)
+
+                Spacer()
+
+                // Start button
+                Button {
+                    onStart()
+                } label: {
+                    HStack {
+                        Image(systemName: "play.fill")
+                        Text("Start \(selectedType.rawValue) Workout")
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        LinearGradient(
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(14)
+                }
+                .buttonStyle(GQInteractiveStyle())
+                .padding(.horizontal)
+                .padding(.bottom)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Start Workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1878,7 +1908,7 @@ struct WorkoutTypeCard: View {
                     .stroke(isSelected ? Color.clear : Color.white.opacity(0.1), lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 

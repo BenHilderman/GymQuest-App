@@ -118,8 +118,7 @@ struct ConfettiView: View {
     @State private var isAnimating = false
 
     let colors: [Color] = [
-        GQColors.vividPurple, GQColors.cyanSpark, GQColors.success,
-        GQColors.electricGold, GQColors.coralRed, GQColors.sunsetOrange
+        GQColors.primary, GQColors.secondary, GQColors.success, GQColors.prGold
     ]
 
     var body: some View {
@@ -224,54 +223,62 @@ extension View {
 
 struct GQColors {
     // Energy color cycle - bold, vibrant colors that flow
-    static let coralRed = Color(hex: "FF6B6B")      // Coral Red
-    static let sunsetOrange = Color(hex: "FF8E53")  // Sunset Orange
-    static let electricGold = Color(hex: "FFC107") // Electric Gold
-    static let vividPurple = Color(hex: "C850C0")  // Vivid Purple
-    static let deepBlue = Color(hex: "4158D0")     // Deep Blue
-    static let cyanSpark = Color(hex: "00D9FF")    // Cyan Spark
+    static let coralRed = Color(hex: "FF4E9A")
+    static let sunsetOrange = Color(hex: "FF6CC8")
+    static let electricGold = Color(hex: "4CCBFF")
+    static let vividPurple = Color(hex: "C95BFF")  // Purple-pink accent
+    static let deepBlue = Color(hex: "3D7CFF")
+    static let cyanSpark = Color(hex: "33D1FF")
 
     // Primary accent
-    static let primary = vividPurple
-    static let secondary = cyanSpark
+    static let primary = deepBlue
+    static let secondary = vividPurple
 
     // Legacy aliases (use canonical names above instead)
     static let coral = coralRed
     static let peach = sunsetOrange
     static let gold = electricGold
     static let rose = vividPurple
-    static let terracotta = Color(hex: "E07855")
+    static let terracotta = Color(hex: "DA7C4A")
     static let sand = Color(hex: "EBD2A6")
-    static let electricBlue = cyanSpark
-    static let neonPurple = vividPurple
+    static let electricBlue = deepBlue
+    static let neonPurple = deepBlue
     static let cyberCyan = cyanSpark
     static let hotPink = coralRed
     static let lavender = vividPurple
     static let sky = cyanSpark
-    static let mint = Color(hex: "00E676")
+    static let mint = Color(hex: "1ED760")
     static let butter = electricGold
 
     // Backgrounds - pure dark
     static let deepBlack = Color(hex: "000000")
-    static let background = Color(white: 0.05)      // Standard app background
-    static let darkSurface = Color(hex: "0A0A0A")
-    static let cardBackground = Color(hex: "121212")
-    static let elevatedSurface = Color(hex: "1A1A1A")
+    static let background = Color(hex: "0A0A0A")
+    static let darkSurface = Color(hex: "111111")
+    static let cardBackground = Color(hex: "191919")
+    static let elevatedSurface = Color(hex: "222222")
 
     // Text
     static let textPrimary = Color.white
-    static let textSecondary = Color.white.opacity(0.65)
-    static let textTertiary = Color.white.opacity(0.4)
+    static let textSecondary = Color.white.opacity(0.72)
+    static let textTertiary = Color.white.opacity(0.50)
 
     // Semantic colors - bright and vibrant
-    static let success = Color(hex: "00E676")  // Bright green
+    static let success = Color(hex: "1ED760")
     static let warning = Color(hex: "FFD600")  // Electric yellow
     static let error = Color(hex: "FF5252")    // Hot coral
     static let prGold = Color(hex: "FFD700")
 
     // Accent
-    static let accent = vividPurple
+    static let accent = deepBlue
     static let accentLight = cyanSpark
+
+    // Surface tokens - standardized surface colors
+    static let surfaceBase = Color(hex: "1C1C1C")
+    static let surfaceElevated = Color(hex: "262626")
+    static let surfaceOverlay = Color(hex: "2F2F2F")
+    static let borderSubtle = Color.white.opacity(0.06)
+    static let borderDefault = Color.white.opacity(0.11)
+    static let borderProminent = Color.white.opacity(0.16)
 }
 
 // MARK: - Spacing & Layout Constants
@@ -294,6 +301,21 @@ struct GQRadius {
     static let md: CGFloat = 12
     static let lg: CGFloat = 16
     static let xl: CGFloat = 20
+}
+
+struct GQLayout {
+    static let screenHorizontal: CGFloat = GQSpacing.screenHorizontal
+    static let sectionSpacing: CGFloat = GQSpacing.lg
+    static let pageTop: CGFloat = 10
+    static let pageBottom: CGFloat = 120
+    static let cardHorizontal: CGFloat = 14
+    static let cardVertical: CGFloat = 13
+}
+
+struct GQMotion {
+    static let press = Animation.spring(response: 0.22, dampingFraction: 0.72)
+    static let micro = Animation.spring(response: 0.2, dampingFraction: 0.75)
+    static let standard = Animation.easeOut(duration: 0.25)
 }
 
 // MARK: - Hex Color Extension
@@ -332,48 +354,48 @@ struct GQGradients {
 
     // Energy colors - simplified for subtle use
     static let energyColors: [Color] = [
-        GQColors.accent,
-        GQColors.accent.opacity(0.8)
+        GQColors.deepBlue,
+        GQColors.vividPurple
     ]
 
-    // Primary gradient - purple to cyan
+    // Primary gradient - blue to pink
     static let primary = LinearGradient(
-        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+        colors: [GQColors.deepBlue, GQColors.vividPurple],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
-    // Energy gradient - purple based
+    // Energy gradient - blue to pink/purple
     static let energy = LinearGradient(
-        colors: [GQColors.vividPurple, GQColors.vividPurple.opacity(0.8)],
+        colors: [GQColors.deepBlue, GQColors.vividPurple],
         startPoint: .leading,
         endPoint: .trailing
     )
 
-    // Achievement/PR gradient - cyan
+    // Achievement/PR gradient - blue to pink/purple
     static let achievement = LinearGradient(
-        colors: [GQColors.cyanSpark, GQColors.cyanSpark.opacity(0.85)],
+        colors: [GQColors.deepBlue, GQColors.vividPurple],
         startPoint: .leading,
         endPoint: .trailing
     )
 
-    // Success gradient - clean green
+    // Success gradient - aligned to theme
     static let success = LinearGradient(
-        colors: [GQColors.success, GQColors.success.opacity(0.85)],
+        colors: [GQColors.deepBlue, GQColors.vividPurple],
         startPoint: .leading,
         endPoint: .trailing
     )
 
-    // Hero card border - subtle white
+    // Hero card border - glass edge with subtle depth
     static let heroBorder = LinearGradient(
-        colors: [Color.white.opacity(0.15), Color.white.opacity(0.05)],
+        colors: [Color.white.opacity(0.18), Color.white.opacity(0.05), Color.black.opacity(0.20)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
-    // Glass card subtle border
+    // Glass card border
     static let glassBorder = LinearGradient(
-        colors: [Color.white.opacity(0.12), Color.white.opacity(0.04)],
+        colors: [Color.white.opacity(0.14), Color.white.opacity(0.04), Color.black.opacity(0.16)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -390,79 +412,54 @@ struct GQGradients {
 
     // Card border
     static let cardBorder = LinearGradient(
-        colors: [Color.white.opacity(0.08), Color.white.opacity(0.03)],
+        colors: [Color.white.opacity(0.10), Color.white.opacity(0.03), Color.black.opacity(0.12)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     // Warm gradient (legacy)
     static let warm = LinearGradient(
-        colors: [GQColors.sunsetOrange, GQColors.sunsetOrange.opacity(0.85)],
+        colors: [GQColors.deepBlue, GQColors.vividPurple],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     // MARK: - Workout Type Gradients
 
-    /// Returns a vibrant gradient for completed workout tiles based on workout type
+    /// Returns a solid-style fill for workout tiles while preserving existing call sites.
     static func workoutGradient(for type: WorkoutType) -> LinearGradient {
+        let color = workoutColor(for: type)
+        return LinearGradient(
+            colors: [color, color],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    static func workoutColor(for type: WorkoutType) -> Color {
         switch type {
-        case .push:
-            // Purple to Cyan - primary app gradient
-            return LinearGradient(
-                colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .pull:
-            // Cyan to Deep Blue
-            return LinearGradient(
-                colors: [GQColors.cyanSpark, GQColors.deepBlue],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .legs:
-            // Orange to Gold - warm energy
-            return LinearGradient(
-                colors: [GQColors.sunsetOrange, GQColors.electricGold],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .upper:
-            // Purple to Deep Blue
-            return LinearGradient(
-                colors: [GQColors.vividPurple, GQColors.deepBlue],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .lower:
-            // Sunset Orange to Coral Red
-            return LinearGradient(
-                colors: [GQColors.sunsetOrange, GQColors.coralRed],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .fullBody:
-            // Success Green to Cyan
-            return LinearGradient(
-                colors: [GQColors.success, GQColors.cyanSpark],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .cardio:
-            // Success green gradient
-            return LinearGradient(
-                colors: [GQColors.success, GQColors.success.opacity(0.7)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .rest:
-            // Subtle gray/white gradient for rest days
-            return LinearGradient(
-                colors: [Color.white.opacity(0.15), Color.white.opacity(0.08)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+        case .push: return GQColors.deepBlue
+        case .pull: return GQColors.vividPurple
+        case .legs: return GQColors.cyanSpark
+        case .upper: return GQColors.vividPurple
+        case .lower: return GQColors.deepBlue
+        case .fullBody: return GQColors.cyanSpark
+        case .cardio: return GQColors.success
+        case .rest: return Color.white.opacity(0.12)
+        }
+    }
+
+    /// Returns raw color array for a workout type — useful for theming rings, progress bars, checkmarks, etc.
+    static func workoutGradientColors(for type: WorkoutType) -> [Color] {
+        switch type {
+        case .push: return [GQColors.deepBlue, GQColors.cyanSpark]
+        case .pull: return [GQColors.vividPurple, GQColors.deepBlue]
+        case .legs: return [GQColors.cyanSpark, GQColors.vividPurple]
+        case .upper: return [GQColors.vividPurple, GQColors.cyanSpark]
+        case .lower: return [GQColors.deepBlue, GQColors.vividPurple]
+        case .fullBody: return [GQColors.cyanSpark, GQColors.deepBlue]
+        case .cardio: return [GQColors.success, GQColors.cyanSpark]
+        case .rest: return [Color.white.opacity(0.15), Color.white.opacity(0.08)]
         }
     }
 }
@@ -481,7 +478,7 @@ struct AnimatedGradientCircle: View {
     init(
         size: CGFloat = 40,
         lineWidth: CGFloat = 2,
-        colors: [Color] = [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+        colors: [Color] = [GQColors.deepBlue, GQColors.vividPurple, GQColors.deepBlue],
         duration: Double = 8.0
     ) {
         self.size = size
@@ -599,8 +596,231 @@ struct GQTypography {
 
 struct EnergyBackground: View {
     var body: some View {
-        Color(white: 0.05) // Near-black dark grey
+        HomeEnergyBackground()
+    }
+}
+
+// MARK: - Home Background (Cleaner blue -> pink vibe)
+
+struct HomeEnergyBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color(hex: "020307"), Color(hex: "04050A"), Color(hex: "06070D")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
             .ignoresSafeArea()
+
+            RadialGradient(
+                colors: [
+                    Color(hex: "7AA8FF").opacity(0.09),
+                    Color(hex: "7AA8FF").opacity(0.03),
+                    Color.clear
+                ],
+                center: .topLeading,
+                startRadius: 20,
+                endRadius: 520
+            )
+            .ignoresSafeArea()
+
+            RadialGradient(
+                colors: [
+                    Color(hex: "FF74C7").opacity(0.08),
+                    Color(hex: "FF74C7").opacity(0.025),
+                    Color.clear
+                ],
+                center: .bottomTrailing,
+                startRadius: 10,
+                endRadius: 500
+            )
+            .ignoresSafeArea()
+
+            AuroraFlowBackground()
+                .opacity(0.86)
+                .blendMode(.screen)
+                .ignoresSafeArea()
+
+            RadialGradient(
+                colors: [Color.clear, Color.black.opacity(0.20), Color.black.opacity(0.36)],
+                center: .center,
+                startRadius: 130,
+                endRadius: 760
+            )
+            .blendMode(.multiply)
+            .ignoresSafeArea()
+
+            LinearGradient(
+                colors: [Color.clear, Color.black.opacity(0.11), Color.black.opacity(0.30)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        }
+        .ignoresSafeArea()
+    }
+}
+
+private struct AuroraFlowBackground: View {
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: false)) { timeline in
+            Canvas { context, size in
+                let time = timeline.date.timeIntervalSinceReferenceDate
+
+                context.drawLayer { layer in
+                    layer.addFilter(.blur(radius: 70))
+                    drawRibbon(
+                        in: &layer,
+                        size: size,
+                        time: time * 0.16,
+                        baseY: size.height * 0.26,
+                        amplitude: size.height * 0.085,
+                        frequency: 1.38,
+                        lineWidth: max(size.width * 0.22, 128),
+                        colors: [
+                            Color(hex: "58A8FF").opacity(0.20),
+                            Color(hex: "4DD6FF").opacity(0.15),
+                            Color(hex: "FF70CA").opacity(0.18)
+                        ]
+                    )
+                    drawRibbon(
+                        in: &layer,
+                        size: size,
+                        time: time * 0.13 + 1.1,
+                        baseY: size.height * 0.48,
+                        amplitude: size.height * 0.078,
+                        frequency: 1.20,
+                        lineWidth: max(size.width * 0.20, 116),
+                        colors: [
+                            Color(hex: "45B9FF").opacity(0.16),
+                            Color(hex: "8AA3FF").opacity(0.14),
+                            Color(hex: "FF7EBF").opacity(0.16)
+                        ]
+                    )
+                    drawRibbon(
+                        in: &layer,
+                        size: size,
+                        time: time * 0.10 + 2.2,
+                        baseY: size.height * 0.76,
+                        amplitude: size.height * 0.070,
+                        frequency: 1.04,
+                        lineWidth: max(size.width * 0.18, 102),
+                        colors: [
+                            Color(hex: "63A6FF").opacity(0.12),
+                            Color(hex: "FF78CC").opacity(0.13),
+                            Color(hex: "55C8FF").opacity(0.11)
+                        ]
+                    )
+                }
+
+                context.drawLayer { layer in
+                    layer.addFilter(.blur(radius: 96))
+                    drawOrb(
+                        in: &layer,
+                        center: CGPoint(
+                            x: size.width * (0.22 + (0.04 * sin(time * 0.045))),
+                            y: size.height * (0.24 + (0.03 * cos(time * 0.055)))
+                        ),
+                        size: CGSize(width: size.width * 0.76, height: size.height * 0.44),
+                        colors: [
+                            Color(hex: "53A7FF").opacity(0.14),
+                            Color(hex: "53A7FF").opacity(0.06),
+                            Color.clear
+                        ]
+                    )
+                    drawOrb(
+                        in: &layer,
+                        center: CGPoint(
+                            x: size.width * (0.78 + (0.04 * cos(time * 0.040))),
+                            y: size.height * (0.68 + (0.025 * sin(time * 0.052)))
+                        ),
+                        size: CGSize(width: size.width * 0.70, height: size.height * 0.40),
+                        colors: [
+                            Color(hex: "FF79C9").opacity(0.12),
+                            Color(hex: "FF79C9").opacity(0.05),
+                            Color.clear
+                        ]
+                    )
+                    drawOrb(
+                        in: &layer,
+                        center: CGPoint(
+                            x: size.width * (0.52 + (0.03 * sin(time * 0.038 + 1.5))),
+                            y: size.height * (0.46 + (0.02 * cos(time * 0.050 + 0.7)))
+                        ),
+                        size: CGSize(width: size.width * 0.82, height: size.height * 0.52),
+                        colors: [
+                            Color.white.opacity(0.05),
+                            Color(hex: "6FAEFF").opacity(0.04),
+                            Color.clear
+                        ]
+                    )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func drawRibbon(
+        in context: inout GraphicsContext,
+        size: CGSize,
+        time: Double,
+        baseY: CGFloat,
+        amplitude: CGFloat,
+        frequency: Double,
+        lineWidth: CGFloat,
+        colors: [Color]
+    ) {
+        let startX = -size.width * 0.16
+        let endX = size.width * 1.16
+        let points = 14
+        var path = Path()
+
+        for step in 0...points {
+            let progress = Double(step) / Double(points)
+            let x = startX + CGFloat(progress) * (endX - startX)
+            let waveA = sin((progress * frequency * .pi * 2) + time)
+            let waveB = sin((progress * (frequency * 0.62) * .pi * 2) - (time * 0.72))
+            let y = baseY + (CGFloat(waveA) * amplitude * 0.72) + (CGFloat(waveB) * amplitude * 0.28)
+
+            if step == 0 {
+                path.move(to: CGPoint(x: x, y: y))
+            } else {
+                path.addLine(to: CGPoint(x: x, y: y))
+            }
+        }
+
+        context.stroke(
+            path,
+            with: .linearGradient(
+                Gradient(colors: colors),
+                startPoint: CGPoint(x: startX, y: baseY - amplitude),
+                endPoint: CGPoint(x: endX, y: baseY + amplitude)
+            ),
+            style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+        )
+    }
+
+    private func drawOrb(
+        in context: inout GraphicsContext,
+        center: CGPoint,
+        size: CGSize,
+        colors: [Color]
+    ) {
+        let rect = CGRect(
+            x: center.x - (size.width * 0.5),
+            y: center.y - (size.height * 0.5),
+            width: size.width,
+            height: size.height
+        )
+        context.fill(
+            Path(ellipseIn: rect),
+            with: .radialGradient(
+                Gradient(colors: colors),
+                center: center,
+                startRadius: 0,
+                endRadius: max(size.width, size.height) * 0.55
+            )
+        )
     }
 }
 
@@ -627,44 +847,21 @@ struct GlassCard<Content: View>: View {
     var body: some View {
         content
             .background(
-                ZStack {
-                    // Deep shadow for 3D lift
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(Color.black)
-                        .shadow(color: .black.opacity(0.7), radius: 16, y: 8)
-
-                    // Main 3D gradient fill
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color(white: 0.15), Color(white: 0.07)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-
-                    // Top highlight for curved 3D look
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.06), Color.clear],
-                                startPoint: .top,
-                                endPoint: .center
-                            )
-                        )
-                }
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(GQColors.surfaceBase)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.25), Color.white.opacity(0.03)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
                         ),
                         lineWidth: 1
                     )
             )
+            .shadow(color: .black.opacity(0.22), radius: 8, y: 3)
     }
 }
 
@@ -676,34 +873,30 @@ struct HeroCard<Content: View>: View {
     var body: some View {
         content
             .background(
-                ZStack {
-                    // Deep shadow
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(Color.black)
-                        .shadow(color: .black.opacity(0.6), radius: 16, y: 8)
-
-                    // Card fill with gradient
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color(white: 0.14), Color(white: 0.08)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-                }
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(GQColors.surfaceBase)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.25), Color.white.opacity(0.05)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
                         ),
                         lineWidth: 1
                     )
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .animatedGradientBorder(
+                        cornerRadius: 18,
+                        lineWidth: 1.5,
+                        colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                        duration: 4.0
+                    )
+            )
+            .shadow(color: .black.opacity(0.24), radius: 10, y: 4)
     }
 }
 
@@ -766,19 +959,7 @@ struct StatPill: View {
         .overlay(
             // Glass border with gradient shine
             Capsule()
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(0.3),
-                            Color.white.opacity(0.1),
-                            Color.white.opacity(0.05),
-                            Color.white.opacity(0.15)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
+                .stroke(GQGradients.glassBorder, lineWidth: 0.85)
         )
         .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
     }
@@ -865,7 +1046,7 @@ struct NavBarLogo: View {
 
             // Background
             Circle()
-                .fill(Color(white: 0.1))
+                .fill(GQColors.surfaceElevated)
                 .frame(width: 32, height: 32)
 
             // Icon
@@ -886,37 +1067,27 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
-                ZStack {
-                    // Shadow that lifts on press
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.black.opacity(0.3))
-                        .blur(radius: configuration.isPressed ? 2 : 6)
-                        .offset(y: configuration.isPressed ? 1 : 4)
-
-                    // Main button with gradient
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(
-                            LinearGradient(
-                                colors: [GQColors.accent, GQColors.accent.opacity(0.85)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        )
-
-                    // Top highlight
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.white.opacity(configuration.isPressed ? 0.05 : 0.15), Color.clear],
-                                startPoint: .top,
-                                endPoint: .center
-                            )
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(GQColors.surfaceBase)
+            )
+            .overlay {
+                if configuration.isPressed {
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                } else {
+                    RoundedRectangle(cornerRadius: 16)
+                        .animatedGradientBorder(
+                            cornerRadius: 16,
+                            lineWidth: 1.6,
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                            duration: 4.0
                         )
                 }
-            )
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .offset(y: configuration.isPressed ? 2 : 0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            }
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.16 : 0.26), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
+            .scaleEffect(configuration.isPressed ? 0.972 : 1.0)
+            .offset(y: configuration.isPressed ? 1.5 : 0)
+            .animation(GQMotion.press, value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed { HapticManager.shared.tap() }
             }
@@ -933,19 +1104,344 @@ struct SecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(Color(white: configuration.isPressed ? 0.08 : 0.12))
-
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(configuration.isPressed ? 0.1 : 0.15), lineWidth: 1)
-                }
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(GQColors.surfaceBase)
             )
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(configuration.isPressed ? 0.08 : 0.10), Color.white.opacity(configuration.isPressed ? 0.03 : 0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.14 : 0.22), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
+            .scaleEffect(configuration.isPressed ? 0.972 : 1.0)
+            .offset(y: configuration.isPressed ? 1.0 : 0)
+            .animation(GQMotion.micro, value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed { HapticManager.shared.tap() }
             }
+    }
+}
+
+// MARK: - Workout Flow Styles (Unified look for workout surfaces)
+
+struct WorkoutFlowBackground: View {
+    var accent: Color = GQColors.vividPurple
+    var secondaryAccent: Color = GQColors.cyanSpark
+
+    var body: some View {
+        EnergyBackground()
+    }
+}
+
+struct WorkoutFlowPrimaryButtonStyle: ButtonStyle {
+    var accent: Color = GQColors.vividPurple
+    var cornerRadius: CGFloat = 14
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(GQColors.surfaceBase)
+            )
+            .overlay {
+                if configuration.isPressed {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                } else {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .animatedGradientBorder(
+                            cornerRadius: cornerRadius,
+                            lineWidth: 1.6,
+                            colors: [accent, GQColors.cyanSpark, accent],
+                            duration: 4.0
+                        )
+                }
+            }
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.16 : 0.26), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
+            .scaleEffect(configuration.isPressed ? 0.972 : 1.0)
+            .offset(y: configuration.isPressed ? 1.5 : 0)
+            .animation(GQMotion.press, value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.tap() }
+            }
+    }
+}
+
+struct WorkoutFlowSecondaryButtonStyle: ButtonStyle {
+    var cornerRadius: CGFloat = 14
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(GQColors.surfaceBase)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(configuration.isPressed ? 0.08 : 0.10), Color.white.opacity(configuration.isPressed ? 0.03 : 0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.14 : 0.22), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
+            .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
+            .offset(y: configuration.isPressed ? 1.0 : 0)
+            .animation(GQMotion.micro, value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.tap() }
+            }
+    }
+}
+
+struct WorkoutFlowCardModifier: ViewModifier {
+    var accent: Color
+    var emphasized: Bool
+    var cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(GQColors.surfaceBase)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .overlay {
+                if emphasized {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .animatedGradientBorder(
+                            cornerRadius: cornerRadius,
+                            lineWidth: 1.6,
+                            colors: [accent, GQColors.cyanSpark, accent],
+                            duration: 4.0
+                        )
+                }
+            }
+            .shadow(color: Color.black.opacity(emphasized ? 0.22 : 0.18), radius: emphasized ? 8 : 6, y: emphasized ? 3 : 2)
+    }
+}
+
+// MARK: - Home/Social Surface Styles
+
+struct HomeSocialCardModifier: ViewModifier {
+    var accent: Color?
+    var emphasized: Bool
+    var cornerRadius: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(GQColors.surfaceBase)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .overlay {
+                if emphasized, let accent {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .animatedGradientBorder(
+                            cornerRadius: cornerRadius,
+                            lineWidth: 1.6,
+                            colors: [accent, GQColors.cyanSpark, accent],
+                            duration: 4.0
+                        )
+                }
+            }
+            .shadow(color: Color.black.opacity(emphasized ? 0.22 : 0.18), radius: emphasized ? 8 : 6, y: emphasized ? 3 : 2)
+    }
+}
+
+struct HomeSocialPrimaryButtonStyle: ButtonStyle {
+    var accent: Color = GQColors.vividPurple
+    var cornerRadius: CGFloat = 14
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(GQColors.surfaceBase)
+            )
+            .overlay {
+                if configuration.isPressed {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                } else {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .animatedGradientBorder(
+                            cornerRadius: cornerRadius,
+                            lineWidth: 1.6,
+                            colors: [accent, GQColors.cyanSpark, accent],
+                            duration: 4.0
+                        )
+                }
+            }
+            .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
+            .offset(y: configuration.isPressed ? 1 : 0)
+            .animation(GQMotion.press, value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.tap() }
+            }
+    }
+}
+
+struct HomeSocialSecondaryButtonStyle: ButtonStyle {
+    var cornerRadius: CGFloat = 14
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(GQColors.surfaceBase)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(configuration.isPressed ? 0.08 : 0.10), Color.white.opacity(configuration.isPressed ? 0.03 : 0.05)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .offset(y: configuration.isPressed ? 1 : 0)
+            .animation(GQMotion.micro, value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.tap() }
+            }
+    }
+}
+
+extension View {
+    func workoutFlowCard(
+        accent: Color = GQColors.vividPurple,
+        emphasized: Bool = false,
+        cornerRadius: CGFloat = 16
+    ) -> some View {
+        modifier(
+            WorkoutFlowCardModifier(
+                accent: accent,
+                emphasized: emphasized,
+                cornerRadius: cornerRadius
+            )
+        )
+    }
+
+    func homeSocialCard(
+        accent: Color? = nil,
+        emphasized: Bool = false,
+        cornerRadius: CGFloat = 16
+    ) -> some View {
+        modifier(
+            HomeSocialCardModifier(
+                accent: accent,
+                emphasized: emphasized,
+                cornerRadius: cornerRadius
+            )
+        )
+    }
+}
+
+struct WorkoutFlowMetricChip: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(color)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(GQColors.surfaceBase)
+        )
+        .overlay(
+            Capsule()
+                .stroke(GQColors.borderDefault, lineWidth: 1)
+        )
+    }
+}
+
+struct GQScreenTitleBlock: View {
+    let title: String
+    var subtitle: String? = nil
+    var accent: Color = GQColors.vividPurple
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title)
+                .font(.system(size: 30, weight: .bold))
+                .foregroundColor(.white)
+
+            if let subtitle {
+                Text(subtitle)
+                    .font(.system(size: 15))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .workoutFlowCard(accent: accent, cornerRadius: 18)
     }
 }
 
@@ -965,6 +1461,122 @@ struct TextButtonStyle: ButtonStyle {
             .foregroundColor(color)
             .opacity(configuration.isPressed ? 0.6 : 1.0)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Universal Interactive Button Style
+
+struct GQInteractiveStyle: ButtonStyle {
+    var scaleAmount: CGFloat = 0.97
+    var hapticStyle: HapticManager.HapticStyle = .light
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scaleAmount : 1.0)
+            .brightness(configuration.isPressed ? -0.03 : 0)
+            .animation(GQMotion.press, value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                if isPressed { HapticManager.shared.impact(hapticStyle) }
+            }
+    }
+}
+
+extension View {
+    func gqInteractive(scale: CGFloat = 0.97, haptic: HapticManager.HapticStyle = .light) -> some View {
+        self.buttonStyle(GQInteractiveStyle(scaleAmount: scale, hapticStyle: haptic))
+    }
+}
+
+// MARK: - Unified Page Chrome
+
+struct GQPageChromeModifier: ViewModifier {
+    var tint: Color = GQColors.cyanSpark
+
+    func body(content: Content) -> some View {
+        content
+            .scrollContentBackground(.hidden)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .tint(tint)
+    }
+}
+
+extension View {
+    func gqPageChrome(tint: Color = GQColors.cyanSpark) -> some View {
+        modifier(GQPageChromeModifier(tint: tint))
+    }
+
+    func gqPageBackground(tint: Color = GQColors.cyanSpark) -> some View {
+        self
+            .background(HomeEnergyBackground())
+            .modifier(GQPageChromeModifier(tint: tint))
+    }
+
+    func gqHomePageBackground(tint: Color = GQColors.cyanSpark) -> some View {
+        self
+            .background(HomeEnergyBackground())
+            .modifier(GQPageChromeModifier(tint: tint))
+    }
+
+    func gqScreenHorizontalPadding() -> some View {
+        padding(.horizontal, GQLayout.screenHorizontal)
+    }
+
+    func gqPageScrollInsets(
+        top: CGFloat = GQLayout.pageTop,
+        bottom: CGFloat = GQLayout.pageBottom
+    ) -> some View {
+        padding(.top, top).padding(.bottom, bottom)
+    }
+}
+
+// MARK: - Staggered Appear Modifier
+
+struct StaggeredAppear: ViewModifier {
+    let index: Int
+    let stagger: Double
+    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 12)
+            .animation(
+                .spring(response: 0.4, dampingFraction: 0.75).delay(Double(index) * stagger),
+                value: appeared
+            )
+            .onAppear {
+                appeared = true
+            }
+    }
+}
+
+extension View {
+    func staggeredAppear(index: Int, stagger: Double = 0.06) -> some View {
+        modifier(StaggeredAppear(index: index, stagger: stagger))
+    }
+}
+
+// MARK: - Breathing Float Modifier
+
+struct BreathingFloat: ViewModifier {
+    let intensity: CGFloat
+    @State private var offsetY: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: offsetY)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
+                    offsetY = -intensity * 4
+                }
+            }
+    }
+}
+
+extension View {
+    func breathingFloat(intensity: CGFloat = 1.0) -> some View {
+        modifier(BreathingFloat(intensity: intensity))
     }
 }
 
@@ -1199,7 +1811,7 @@ struct MusicBadge: View {
             )
             .overlay(
                 Capsule()
-                    .strokeBorder(GQGradients.glassBorder, lineWidth: 1)
+                    .strokeBorder(GQGradients.glassBorder, lineWidth: 0.85)
             )
         }
         .buttonStyle(.plain)

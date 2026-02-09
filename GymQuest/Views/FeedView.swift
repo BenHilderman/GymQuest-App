@@ -87,7 +87,7 @@ struct FeedView: View {
                                     )
 
                                     Rectangle()
-                                        .fill(Color.white.opacity(0.08))
+                                        .fill(GQColors.borderSubtle)
                                         .frame(height: 8)
                                 }
                             }
@@ -97,7 +97,7 @@ struct FeedView: View {
                     .scrollContentBackground(.hidden)
                 }
             }
-            .background(EnergyBackground())
+            .gqPageBackground()
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NavBarLogo()
@@ -189,13 +189,13 @@ struct FeedTabsView: View {
                     }
                     .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GQInteractiveStyle())
             }
         }
         .padding(.horizontal, 32)
         .padding(.top, 8)
         .padding(.bottom, 4)
-        .background(Color(white: 0.05))
+        .background(GQColors.surfaceBase)
     }
 }
 
@@ -337,7 +337,7 @@ struct PostCardV2: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .background(Color(white: 0.05))
+        .background(GQColors.surfaceBase)
         .overlay(
             Rectangle()
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
@@ -477,7 +477,7 @@ struct FollowWorkoutButton: View {
             .foregroundColor(.white.opacity(0.8))
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(Color(white: 0.12))
+            .background(GQColors.surfaceOverlay)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(
@@ -491,7 +491,7 @@ struct FollowWorkoutButton: View {
             )
             .cornerRadius(12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -1379,7 +1379,7 @@ struct LearnThisPanel: View {
                 }
                 .padding(16)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Learn This")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -1668,7 +1668,7 @@ struct CommentsSheet: View {
                 }
                 .padding(16)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Comments")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -2876,7 +2876,7 @@ struct CommunityDetailView: View {
                     Spacer(minLength: 40)
                 }
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Community")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)

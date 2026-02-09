@@ -197,6 +197,23 @@ enum ExerciseDifficulty: String, Codable, CaseIterable {
     case advanced = "Advanced"
 }
 
+// MARK: - Favorite Exercise
+
+@Model
+final class FavoriteExercise {
+    var id: UUID
+    var name: String
+    var muscleGroup: String
+    var createdAt: Date
+
+    init(name: String, muscleGroup: String) {
+        self.id = UUID()
+        self.name = name
+        self.muscleGroup = muscleGroup
+        self.createdAt = Date()
+    }
+}
+
 @Model
 final class Workout {
     var id: UUID
@@ -212,6 +229,7 @@ final class Workout {
     var source: WorkoutSource
     var privacy: WorkoutPrivacy
     var templateId: UUID? // if created from a template
+    var isFavorite: Bool
 
     @Relationship(deleteRule: .cascade) var exercises: [Exercise]
     @Relationship(deleteRule: .cascade) var prEvents: [PREvent]
@@ -230,7 +248,8 @@ final class Workout {
         privacy: WorkoutPrivacy = .friends,
         templateId: UUID? = nil,
         prEvents: [PREvent] = [],
-        mediaItems: [MediaItem] = []
+        mediaItems: [MediaItem] = [],
+        isFavorite: Bool = false
     ) {
         self.id = id
         self.date = date
@@ -246,6 +265,7 @@ final class Workout {
         self.templateId = templateId
         self.prEvents = prEvents
         self.mediaItems = mediaItems
+        self.isFavorite = isFavorite
     }
 
     var totalSets: Int {

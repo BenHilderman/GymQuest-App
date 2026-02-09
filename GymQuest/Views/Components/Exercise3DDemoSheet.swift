@@ -75,7 +75,7 @@ struct Exercise3DDemoSheet: View {
                 }
                 .padding(16)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle(exerciseName)
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -157,7 +157,7 @@ struct Exercise3DDemoSheet: View {
             }
         }
         .padding(16)
-        .background(Color(white: 0.06))
+        .background(GQColors.surfaceBase)
         .cornerRadius(12)
     }
 
@@ -183,7 +183,7 @@ struct Exercise3DDemoSheet: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(white: 0.06))
+        .background(GQColors.surfaceBase)
         .cornerRadius(12)
     }
 
@@ -211,7 +211,7 @@ struct Exercise3DDemoSheet: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(white: 0.06))
+        .background(GQColors.surfaceBase)
         .cornerRadius(12)
     }
 
@@ -241,7 +241,7 @@ struct Exercise3DDemoSheet: View {
             }
         }
         .padding(16)
-        .background(Color(white: 0.06))
+        .background(GQColors.surfaceBase)
         .cornerRadius(12)
     }
 
@@ -267,7 +267,7 @@ struct Exercise3DDemoSheet: View {
             .foregroundColor(GQColors.cyanSpark)
         }
         .padding(16)
-        .background(Color(white: 0.06))
+        .background(GQColors.surfaceBase)
         .cornerRadius(12)
     }
 

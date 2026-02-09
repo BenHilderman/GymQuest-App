@@ -191,13 +191,19 @@ struct CreatePostView: View {
                             }
                         }
                         .padding(12)
-                        .background(GQColors.cardBackground)
-                        .cornerRadius(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(GQColors.surfaceOverlay.opacity(0.78))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(GQGradients.glassBorder, lineWidth: 0.8)
+                        )
                     }
                 }
                 .padding()
             }
-            .background(GQColors.deepBlack)
+            .gqPageBackground()
             .navigationTitle("New Post")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -424,16 +430,18 @@ struct MusicSelectorSection: View {
                                 .strokeBorder(GQColors.neonPurple.opacity(0.3), lineWidth: 1)
                         )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(GQInteractiveStyle())
                 }
             }
         }
         .padding(16)
-        .background(GQColors.cardBackground)
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(GQColors.surfaceOverlay.opacity(0.78))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(GQGradients.cardBorder, lineWidth: 1)
+                .strokeBorder(GQGradients.glassBorder, lineWidth: 0.85)
         )
         .onAppear {
             if let activity = activityType {
@@ -500,7 +508,7 @@ struct SelectedSongRow: View {
             .background(GQColors.elevatedSurface)
             .cornerRadius(10)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -536,7 +544,7 @@ struct QuickSongChip: View {
                     .strokeBorder(GQColors.neonPurple.opacity(0.2), lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -667,7 +675,7 @@ struct MusicPickerSheet: View {
                     .padding(16)
                 }
             }
-            .background(GQColors.deepBlack.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Add Music")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -714,7 +722,7 @@ struct MusicTabButton: View {
                     }
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -773,7 +781,7 @@ struct SongRow: View {
                     .strokeBorder(isSelected ? GQColors.neonPurple.opacity(0.5) : Color.clear, lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -820,15 +828,17 @@ struct ServiceConnectionCard: View {
                         .background(service.color)
                         .cornerRadius(8)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GQInteractiveStyle())
             }
         }
         .padding(16)
-        .background(GQColors.cardBackground)
-        .cornerRadius(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(GQColors.surfaceOverlay.opacity(0.78))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(service.color.opacity(0.3), lineWidth: 1)
+                .strokeBorder(GQGradients.glassBorder, lineWidth: 0.85)
         )
     }
 }
@@ -890,7 +900,7 @@ struct ContentTypeSelector: View {
                         }
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(GQInteractiveStyle())
             }
         }
         .background(Color.white.opacity(0.1))
@@ -997,7 +1007,7 @@ struct MealTypeButton: View {
             .background(isSelected ? Color.white : Color.white.opacity(0.1))
             .cornerRadius(16)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -1025,7 +1035,7 @@ struct QuickTagButton: View {
                         .strokeBorder(isSelected ? GQColors.cyanSpark : Color.clear, lineWidth: 1)
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -1057,7 +1067,7 @@ struct MealFeelingButton: View {
                     .strokeBorder(isSelected ? feeling.color : Color.clear, lineWidth: 1.5)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -1195,7 +1205,7 @@ struct MediaPicker: View {
                                     .foregroundColor(.white)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(GQInteractiveStyle())
                         #endif
 
                         // Photo library button

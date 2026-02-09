@@ -11,6 +11,9 @@
 import SwiftUI
 import SwiftData
 
+private let progressNeutralAccent = Color.white.opacity(0.20)
+private let progressFireAccent = GQColors.coralRed
+
 struct TrainingProgressView: View {
     @EnvironmentObject var appState: AppState
     let profile: UserProfile
@@ -33,22 +36,19 @@ struct TrainingProgressView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
-                    // Recovery Card - Bevel inspired
+                VStack(spacing: GQLayout.sectionSpacing) {
                     RecoveryCard(streak: streak, sessionsThisWeek: sessionsThisWeek)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
+                        .gqScreenHorizontalPadding()
+                        .padding(.top, GQLayout.pageTop)
 
-                    // Health Dashboard (integrations data)
                     HealthDashboardView(profile: profile, workouts: workouts)
-                        .padding(.horizontal, 16)
+                        .gqScreenHorizontalPadding()
 
-                    // Quick Actions
                     HStack(spacing: 12) {
                         QuickActionButton(
                             icon: "calendar",
                             title: "Calendar",
-                            color: GQColors.vividPurple
+                            color: Color.white.opacity(0.82)
                         ) {
                             showingCalendar = true
                         }
@@ -56,36 +56,47 @@ struct TrainingProgressView: View {
                         QuickActionButton(
                             icon: "fork.knife",
                             title: "Meals",
-                            color: GQColors.cyanSpark
+                            color: GQColors.coralRed
                         ) {
                             showingMealLog = true
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .gqScreenHorizontalPadding()
 
-                    // Weekly Activity Chart
                     WeekChartV2(workouts: workouts)
-                        .padding(.horizontal, 16)
+                        .gqScreenHorizontalPadding()
 
-                    // Recent Activity
-                    if !workouts.isEmpty {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Recent Workouts")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 16)
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Recent Workouts")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                            .gqScreenHorizontalPadding()
 
+                        if workouts.isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "figure.strengthtraining.traditional")
+                                    .font(.system(size: 26))
+                                    .foregroundColor(GQColors.textTertiary)
+                                Text("No recent workouts")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 22)
+                            .homeSocialCard(accent: progressNeutralAccent)
+                            .gqScreenHorizontalPadding()
+                        } else {
                             ForEach(workouts.prefix(4)) { workout in
                                 CompactWorkoutRow(workout: workout)
-                                    .padding(.horizontal, 16)
+                                    .gqScreenHorizontalPadding()
                             }
                         }
                     }
                 }
-                .padding(.bottom, 120)
+                .padding(.bottom, GQLayout.pageBottom)
             }
             .scrollContentBackground(.hidden)
-            .background(EnergyBackground())
+            .gqPageBackground()
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NavBarLogo()
@@ -155,86 +166,70 @@ struct RecoveryCard: View {
 
     var recoveryColor: Color {
         switch recoveryScore {
-        case 85...100: return GQColors.cyanSpark
-        case 70...84: return GQColors.cyanSpark.opacity(0.8)
-        case 60...69: return GQColors.vividPurple
-        default: return GQColors.vividPurple.opacity(0.7)
+        case 85...100: return GQColors.success
+        case 70...84: return Color.white.opacity(0.82)
+        case 60...69: return GQColors.coralRed.opacity(0.9)
+        default: return GQColors.error
         }
     }
 
     var body: some View {
-        HStack(spacing: 20) {
-            // Recovery circle
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.1), lineWidth: 8)
-                    .frame(width: 80, height: 80)
-
-                Circle()
-                    .trim(from: 0, to: animatedProgress)
-                    .stroke(recoveryColor, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                    .frame(width: 80, height: 80)
-                    .rotationEffect(.degrees(-90))
-
-                VStack(spacing: 0) {
-                    Text("\(recoveryScore)")
-                        .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white)
-                    Text("%")
-                        .font(.system(size: 12, weight: .medium))
+        VStack(spacing: 14) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Recovery")
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
+
+                    Text(recoveryMessage)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundColor(.white)
                 }
-            }
 
-            // Info
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Recovery")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(GQColors.textTertiary)
+                Spacer()
 
-                Text(recoveryMessage)
-                    .font(.system(size: 18, weight: .semibold))
+                Text("\(recoveryScore)%")
+                    .font(.system(size: 21, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
-
-                HStack(spacing: 16) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(GQColors.cyanSpark)
-                        Text("\(streak) day streak")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textSecondary)
-                    }
-
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(GQColors.vividPurple)
-                        Text("\(sessionsThisWeek) this week")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textSecondary)
-                    }
-                }
             }
 
-            Spacer()
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.1), lineWidth: 7)
+                        .frame(width: 76, height: 76)
+
+                    Circle()
+                        .trim(from: 0, to: animatedProgress)
+                        .stroke(recoveryColor, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                        .frame(width: 76, height: 76)
+                        .rotationEffect(.degrees(-90))
+
+                    Text("\(recoveryScore)")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    WorkoutFlowMetricChip(
+                        icon: "flame.fill",
+                        value: "\(streak)",
+                        label: "Day Streak",
+                        color: progressFireAccent
+                    )
+                    WorkoutFlowMetricChip(
+                        icon: "calendar",
+                        value: "\(sessionsThisWeek)",
+                        label: "Sessions This Week",
+                        color: GQColors.textSecondary
+                    )
+                }
+
+                Spacer(minLength: 0)
+            }
         }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
-        )
+        .padding(16)
+        .homeSocialCard(accent: GQColors.cyanSpark, emphasized: false)
         .onAppear {
             withAnimation(.easeOut(duration: 1.0).delay(0.2)) {
                 animatedProgress = CGFloat(recoveryScore) / 100
@@ -273,7 +268,7 @@ struct HealthStatsSection: View {
                     title: "Steps",
                     value: steps > 0 ? "\(steps.formatted())" : "--",
                     subtitle: steps > 0 ? "~\(caloriesFromSteps) cal burned" : "No data",
-                    color: GQColors.vividPurple
+                    color: GQColors.success
                 )
 
                 // Sleep
@@ -282,7 +277,7 @@ struct HealthStatsSection: View {
                     title: "Sleep",
                     value: sleepHours > 0 ? String(format: "%.1fh", sleepHours) : "--",
                     subtitle: sleepQuality,
-                    color: GQColors.vividPurple
+                    color: GQColors.textSecondary
                 )
 
                 // Active Calories
@@ -361,7 +356,7 @@ struct HealthStatCard: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
+                .fill(GQColors.surfaceBase)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -391,7 +386,7 @@ struct TodayStatsRow: View {
                 icon: "figure.walk",
                 value: steps > 0 ? "\(steps)" : "--",
                 label: "Steps",
-                color: GQColors.vividPurple
+                color: GQColors.success
             )
 
             // Active Calories
@@ -399,7 +394,7 @@ struct TodayStatsRow: View {
                 icon: "flame.fill",
                 value: calories > 0 ? "\(calories)" : "--",
                 label: "Calories",
-                color: GQColors.cyanSpark
+                color: GQColors.coralRed
             )
 
             // Sleep
@@ -407,7 +402,7 @@ struct TodayStatsRow: View {
                 icon: "moon.fill",
                 value: sleep > 0 ? String(format: "%.1f", sleep) : "--",
                 label: "Sleep hrs",
-                color: GQColors.vividPurple
+                color: GQColors.textSecondary
             )
         }
         .onAppear {
@@ -453,7 +448,7 @@ struct TodayStatCard: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
+                .fill(GQColors.surfaceBase)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -480,39 +475,30 @@ struct QuickActionButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 16))
-                    .foregroundColor(color)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(color.opacity(0.18))
+                    .frame(width: 34, height: 34)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(color)
+                    )
 
                 Text(title)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(white: 0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
-            )
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .homeSocialCard(accent: color)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -530,28 +516,28 @@ struct HealthMetricsGrid: View {
                 icon: "figure.walk",
                 value: "\(healthKit.steps)",
                 label: "Steps",
-                color: GQColors.cyanSpark
+                color: GQColors.success
             )
 
             HealthMetricCard(
                 icon: "flame.fill",
                 value: "\(healthKit.activeCalories)",
                 label: "Active Cal",
-                color: GQColors.cyanSpark
+                color: GQColors.coralRed
             )
 
             HealthMetricCard(
                 icon: "bed.double.fill",
                 value: healthKit.sleepHours > 0 ? String(format: "%.1fh", healthKit.sleepHours) : "--",
                 label: "Sleep",
-                color: GQColors.vividPurple
+                color: GQColors.textSecondary
             )
 
             HealthMetricCard(
                 icon: "heart.fill",
                 value: healthKit.restingHeartRate > 0 ? "\(healthKit.restingHeartRate)" : "--",
                 label: "Resting HR",
-                color: GQColors.vividPurple
+                color: GQColors.coralRed
             )
         }
         .onAppear {
@@ -587,7 +573,7 @@ struct HealthMetricCard: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
+                .fill(GQColors.surfaceBase)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -607,36 +593,39 @@ struct HealthMetricCard: View {
 
 struct CompactWorkoutRow: View {
     let workout: Workout
+    private var iconAccent: Color {
+        GQGradients.workoutGradientColors(for: workout.type).first ?? GQColors.cyanSpark
+    }
+    private var accent: Color {
+        progressNeutralAccent
+    }
 
     var body: some View {
         HStack(spacing: 14) {
-            // Date circle
-            VStack(spacing: 2) {
-                Text(workout.date.formatted(.dateTime.day()))
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
-                Text(workout.date.formatted(.dateTime.weekday(.abbreviated)))
-                    .font(.system(size: 11))
-                    .foregroundColor(GQColors.textTertiary)
-            }
-            .frame(width: 44)
+            RoundedRectangle(cornerRadius: 10)
+                .fill(iconAccent.opacity(0.16))
+                .frame(width: 42, height: 42)
+                .overlay(
+                    Image(systemName: workout.type.icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(iconAccent)
+                )
 
-            // Workout info
             VStack(alignment: .leading, spacing: 4) {
                 Text(workout.title ?? workout.type.rawValue)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(1)
 
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     if workout.totalSets > 0 {
-                        Text("\(workout.totalSets) sets")
-                            .font(.system(size: 13))
+                        Label("\(workout.totalSets) sets", systemImage: "flame.fill")
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(GQColors.textSecondary)
                     }
                     if workout.duration > 0 {
-                        Text("\(workout.duration) min")
-                            .font(.system(size: 13))
+                        Label("\(workout.duration) min", systemImage: "clock")
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundColor(GQColors.textSecondary)
                     }
                 }
@@ -649,10 +638,7 @@ struct CompactWorkoutRow: View {
                 .foregroundColor(GQColors.textTertiary)
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(white: 0.06))
-        )
+        .homeSocialCard(accent: accent)
     }
 }
 
@@ -683,7 +669,6 @@ struct WeekChartV2: View {
 
     var body: some View {
         VStack(spacing: 14) {
-            // Header
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("THIS WEEK")
@@ -701,71 +686,62 @@ struct WeekChartV2: View {
                     .foregroundColor(GQColors.textTertiary)
             }
 
-            // Chart bars
-            HStack(alignment: .bottom, spacing: 6) {
+            HStack(alignment: .bottom, spacing: 8) {
                 ForEach(0..<7, id: \.self) { index in
                     let isToday = Calendar.current.isDateInToday(weekDates[index])
                     let hasWorkout = weekData[index] > 0
-                    let barHeight = hasWorkout ? max(CGFloat(weekData[index]) / CGFloat(maxVolume) * 60, 12) : 6
+                    let barHeight = hasWorkout ? max(CGFloat(weekData[index]) / CGFloat(maxVolume) * 56, 12) : 8
 
                     VStack(spacing: 6) {
-                        // Animated bar with glow for workouts
-                        ZStack {
-                            if hasWorkout {
-                                // Subtle glow behind bar
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(
+                                hasWorkout
+                                    ? LinearGradient(
+                                        colors: [GQColors.deepBlue, progressFireAccent],
+                                        startPoint: .bottom,
+                                        endPoint: .top
+                                    )
+                                    : LinearGradient(
+                                        colors: [Color.white.opacity(0.11), Color.white.opacity(0.07)],
+                                        startPoint: .bottom,
+                                        endPoint: .top
+                                    )
+                            )
+                            .overlay(
                                 RoundedRectangle(cornerRadius: 6)
-                                    .fill(GQColors.cyanSpark.opacity(0.3))
-                                    .frame(width: 40, height: barsAppeared ? barHeight + 4 : 4)
-                                    .blur(radius: 4)
-                            }
+                                    .stroke(Color.white.opacity(hasWorkout ? 0.2 : 0.08), lineWidth: 1)
+                            )
+                            .frame(width: 30, height: barsAppeared ? barHeight : 4)
+                            .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(Double(index) * 0.08), value: barsAppeared)
 
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(
-                                    hasWorkout
-                                        ? LinearGradient(
-                                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                            startPoint: .bottom,
-                                            endPoint: .top
-                                          )
-                                        : LinearGradient(
-                                            colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
-                                            startPoint: .bottom,
-                                            endPoint: .top
-                                          )
-                                )
-                                .frame(width: 36, height: barsAppeared ? barHeight : 4)
-                                .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(Double(index) * 0.08), value: barsAppeared)
-                                .shadow(color: hasWorkout ? GQColors.cyanSpark.opacity(0.3) : .clear, radius: 4, x: 0, y: 2)
-                        }
-
-                        // Day label
                         Text(dayLabels[index])
                             .font(.system(size: 11, weight: isToday ? .bold : .medium))
                             .foregroundColor(isToday ? .white : GQColors.textTertiary)
 
-                        // Date
                         Text("\(Calendar.current.component(.day, from: weekDates[index]))")
                             .font(.system(size: 10))
                             .foregroundColor(isToday ? .white : GQColors.textTertiary.opacity(0.6))
                     }
                     .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity)
                     .background(
                         isToday
                             ? RoundedRectangle(cornerRadius: 10)
-                                .fill(GQColors.vividPurple.opacity(0.15))
+                                .fill(GQColors.cyanSpark.opacity(0.15))
                             : nil
                     )
                     .overlay(
                         isToday
                             ? RoundedRectangle(cornerRadius: 10)
-                                .stroke(GQColors.vividPurple.opacity(0.4), lineWidth: 1)
+                                .stroke(GQColors.cyanSpark.opacity(0.4), lineWidth: 1)
                             : nil
                     )
                 }
             }
             .frame(height: 110)
         }
-        .padding(18)
+        .padding(16)
+        .homeSocialCard(accent: progressNeutralAccent)
         .onAppear {
             barsAppeared = true
         }
@@ -777,9 +753,7 @@ struct WeekChart: View {
     let workouts: [Workout]
 
     var body: some View {
-        GlassCard(accentColor: GQColors.deepBlue, showGlow: false) {
-            WeekChartV2(workouts: workouts)
-        }
+        WeekChartV2(workouts: workouts)
     }
 }
 
@@ -799,22 +773,33 @@ struct FullCalendarView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
-                    // month navigation
+                VStack(spacing: GQLayout.sectionSpacing) {
+                    GQScreenTitleBlock(
+                        title: "Workout Calendar",
+                        subtitle: selectedMonth.formatted(.dateTime.month(.wide).year()),
+                        accent: GQColors.cyanSpark
+                    )
+                    .gqScreenHorizontalPadding()
+                    .padding(.top, GQLayout.pageTop)
+
                     HStack {
                         Button {
                             selectedMonth = Calendar.current.date(byAdding: .month, value: -1, to: selectedMonth) ?? selectedMonth
                         } label: {
                             Image(systemName: "chevron.left")
-                                .font(.title3)
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white)
+                                .frame(width: 34, height: 34)
+                                .background(Color.white.opacity(0.07))
+                                .clipShape(Circle())
                         }
+                        .buttonStyle(.plain)
 
                         Spacer()
 
                         Text(selectedMonth.formatted(.dateTime.month(.wide).year()))
-                            .font(.title3)
-                            .fontWeight(.semibold)
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
 
                         Spacer()
 
@@ -822,32 +807,26 @@ struct FullCalendarView: View {
                             selectedMonth = Calendar.current.date(byAdding: .month, value: 1, to: selectedMonth) ?? selectedMonth
                         } label: {
                             Image(systemName: "chevron.right")
-                                .font(.title3)
+                                .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white)
+                                .frame(width: 34, height: 34)
+                                .background(Color.white.opacity(0.07))
+                                .clipShape(Circle())
                         }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal)
+                    .gqScreenHorizontalPadding()
+                    .padding(.vertical, 10)
+                    .homeSocialCard(accent: progressNeutralAccent)
+                    .gqScreenHorizontalPadding()
 
-                    // calendar grid
                     MonthGrid(month: selectedMonth, workoutDates: workoutDates)
 
-                    // legend
                     HStack(spacing: 16) {
                         HStack(spacing: 6) {
-                            ZStack {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [GQColors.success, GQColors.cyanSpark],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 12, height: 12)
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 6, weight: .black))
-                                    .foregroundColor(.white)
-                            }
+                            Circle()
+                                .fill(GQColors.success)
+                                .frame(width: 12, height: 12)
                             Text("Workout complete")
                                 .font(.caption)
                                 .foregroundColor(GQColors.textSecondary)
@@ -856,7 +835,7 @@ struct FullCalendarView: View {
                             Circle()
                                 .stroke(
                                     LinearGradient(
-                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                        colors: [GQColors.deepBlue, progressFireAccent],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     ),
@@ -868,16 +847,17 @@ struct FullCalendarView: View {
                                 .foregroundColor(GQColors.textSecondary)
                         }
                     }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, GQLayout.cardHorizontal)
+                    .homeSocialCard(accent: progressNeutralAccent)
+                    .gqScreenHorizontalPadding()
 
-                    // stats for selected month
                     MonthStats(month: selectedMonth, workouts: workouts)
 
                     Spacer().frame(height: 40)
                 }
-                .padding(.top)
             }
-            .background(GQColors.background.ignoresSafeArea())
-            .navigationTitle("Workout Calendar")
+            .gqPageBackground()
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -918,7 +898,6 @@ struct MonthGrid: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // day headers
             HStack(spacing: 4) {
                 ForEach(dayHeaders, id: \.self) { day in
                     Text(day)
@@ -928,7 +907,6 @@ struct MonthGrid: View {
                 }
             }
 
-            // calendar grid
             LazyVGrid(columns: columns, spacing: 4) {
                 ForEach(Array(days.enumerated()), id: \.offset) { _, date in
                     if let date = date {
@@ -940,7 +918,9 @@ struct MonthGrid: View {
                 }
             }
         }
-        .padding(.horizontal)
+        .padding(14)
+        .homeSocialCard(accent: progressNeutralAccent)
+        .padding(.horizontal, 16)
     }
 
     func isWorkoutDay(_ date: Date) -> Bool {
@@ -954,8 +934,6 @@ struct DayCell: View {
     let date: Date
     let hasWorkout: Bool
 
-    @State private var showCheckmark = false
-
     var isToday: Bool {
         Calendar.current.isDateInToday(date)
     }
@@ -967,51 +945,18 @@ struct DayCell: View {
     var body: some View {
         ZStack {
             if hasWorkout {
-                // Glow effect
                 Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [GQColors.success.opacity(0.5), Color.clear],
-                            center: .center,
-                            startRadius: 5,
-                            endRadius: 22
-                        )
-                    )
-                    .frame(width: 44, height: 44)
-
-                // Main circle - solid green
+                    .fill(GQColors.success.opacity(0.9))
                 Circle()
-                    .fill(GQColors.success)
-                    .shadow(color: GQColors.success.opacity(0.5), radius: 6, x: 0, y: 2)
-
-                // Shine highlight
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.35), Color.clear],
-                            startPoint: .top,
-                            endPoint: .center
-                        )
-                    )
-                    .frame(width: 36, height: 36)
-                    .offset(y: -1)
-
-                // Checkmark instead of number for workout days
+                    .stroke(GQColors.success.opacity(0.45), lineWidth: 1.5)
                 Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .black))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.2), radius: 1, x: 0, y: 1)
-                    .scaleEffect(showCheckmark ? 1.0 : 0.3)
-                    .onAppear {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.5).delay(0.1)) {
-                            showCheckmark = true
-                        }
-                    }
-
             } else if isToday {
                 Circle()
-                    .stroke(GQColors.cyanSpark, lineWidth: 2)
-                    .shadow(color: GQColors.cyanSpark.opacity(0.4), radius: 4, x: 0, y: 0)
+                    .fill(Color.white.opacity(0.05))
+                Circle()
+                    .stroke(GQColors.cyanSpark, lineWidth: 1.5)
 
                 Text("\(Calendar.current.component(.day, from: date))")
                     .font(.system(size: 14, weight: .bold))
@@ -1019,6 +964,8 @@ struct DayCell: View {
             } else {
                 Circle()
                     .fill(Color.white.opacity(0.05))
+                Circle()
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
 
                 Text("\(Calendar.current.component(.day, from: date))")
                     .font(.system(size: 14, weight: .regular))
@@ -1047,38 +994,36 @@ struct MonthStats: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("MONTH SUMMARY")
-                .font(GQTypography.sectionHeader)
-                .foregroundColor(GQColors.textTertiary)
+                .font(.system(size: 12, weight: .bold))
                 .tracking(1)
+                .foregroundColor(GQColors.textTertiary)
 
-            HStack(spacing: 0) {
-                MonthStatItem(value: "\(monthWorkouts.count)", label: "workouts", color: GQColors.vividPurple)
-                Divider()
-                    .frame(height: 40)
-                    .background(Color.white.opacity(0.1))
-                MonthStatItem(value: "\(totalSets)", label: "sets", color: GQColors.vividPurple)
-                Divider()
-                    .frame(height: 40)
-                    .background(Color.white.opacity(0.1))
-                MonthStatItem(value: "\(totalMinutes)", label: "minutes", color: GQColors.cyanSpark)
+            HStack(spacing: 10) {
+                WorkoutFlowMetricChip(
+                    icon: "figure.strengthtraining.traditional",
+                    value: "\(monthWorkouts.count)",
+                    label: "Workouts",
+                    color: GQColors.cyanSpark
+                )
+                WorkoutFlowMetricChip(
+                    icon: "flame.fill",
+                    value: "\(totalSets)",
+                    label: "Sets",
+                    color: progressFireAccent
+                )
+                WorkoutFlowMetricChip(
+                    icon: "clock",
+                    value: "\(totalMinutes)",
+                    label: "Minutes",
+                    color: GQColors.cyanSpark
+                )
             }
         }
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.ultraThinMaterial)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.black.opacity(0.3))
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-        )
-        .padding(.horizontal)
+        .padding(16)
+        .homeSocialCard(accent: progressNeutralAccent)
+        .padding(.horizontal, 16)
     }
 }
 
@@ -1203,7 +1148,7 @@ struct WorkoutRowV2: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            colors: [GQColors.deepBlue, progressFireAccent],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -1213,7 +1158,7 @@ struct WorkoutRowV2: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [GQColors.vividPurple.opacity(0.25), GQColors.cyanSpark.opacity(0.15)],
+                                    colors: [GQColors.deepBlue.opacity(0.24), progressFireAccent.opacity(0.14)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -1221,7 +1166,7 @@ struct WorkoutRowV2: View {
                     )
                     .overlay(
                         Circle()
-                            .stroke(GQColors.vividPurple.opacity(0.3), lineWidth: 1)
+                            .stroke(progressFireAccent.opacity(0.28), lineWidth: 1)
                     )
             }
         }
@@ -1231,7 +1176,7 @@ struct WorkoutRowV2: View {
                 .fill(.ultraThinMaterial)
                 .background(
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color.black.opacity(0.3))
+                        .fill(GQColors.surfaceOverlay.opacity(0.74))
                 )
         )
         .overlay(

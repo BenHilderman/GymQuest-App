@@ -21,11 +21,11 @@ struct WorkoutDetailSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Header
                     VStack(spacing: 8) {
                         Text(workoutData.title)
                             .font(.title2)
                             .fontWeight(.bold)
+                            .foregroundColor(.white)
 
                         HStack(spacing: 16) {
                             Label(workoutData.workoutType, systemImage: "dumbbell.fill")
@@ -38,12 +38,10 @@ struct WorkoutDetailSheet: View {
                             .font(.caption)
                             .foregroundColor(GQColors.textTertiary)
                     }
-                    .padding()
+                    .padding(16)
                     .frame(maxWidth: .infinity)
-                    .background(GQColors.cardBackground)
-                    .cornerRadius(16)
+                    .homeSocialCard(accent: GQColors.vividPurple, emphasized: true)
 
-                    // Exercise List
                     VStack(alignment: .leading, spacing: 16) {
                         Text("EXERCISES")
                             .font(.system(size: 12, weight: .bold))
@@ -59,22 +57,20 @@ struct WorkoutDetailSheet: View {
                     }
                     .padding()
 
-                    // Follow button
                     Button {
                         onFollow()
                     } label: {
-                        HStack {
+                        HStack(spacing: 8) {
                             Image(systemName: "play.fill")
                             Text("Follow This Workout")
                         }
-                        .font(.headline)
                     }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .padding(.horizontal)
+                    .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
+                    .gqScreenHorizontalPadding()
                     .padding(.bottom, 40)
                 }
             }
-            .background(EnergyBackground())
+            .gqPageBackground()
             .navigationTitle("Workout Preview")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -96,17 +92,15 @@ struct ExercisePreviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header
             Button {
                 withAnimation(.spring(response: 0.3)) {
                     isExpanded.toggle()
                 }
             } label: {
                 HStack(spacing: 12) {
-                    // Number badge
                     ZStack {
-                        Circle()
-                            .fill(GQGradients.primary)
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(GQColors.vividPurple.opacity(0.2))
                             .frame(width: 36, height: 36)
                         Text("\(index)")
                             .font(.system(size: 16, weight: .bold))
@@ -129,12 +123,10 @@ struct ExercisePreviewCard: View {
                         .foregroundColor(GQColors.textTertiary)
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(GQInteractiveStyle())
 
-            // Expanded content
             if isExpanded {
                 VStack(alignment: .leading, spacing: 12) {
-                    // Sets breakdown
                     VStack(spacing: 8) {
                         ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { setIndex, set in
                             HStack {
@@ -167,7 +159,6 @@ struct ExercisePreviewCard: View {
                         }
                     }
 
-                    // Tips
                     if !exercise.demoTips.isEmpty {
                         Divider()
                             .background(Color.white.opacity(0.1))
@@ -195,12 +186,7 @@ struct ExercisePreviewCard: View {
             }
         }
         .padding(16)
-        .background(GQColors.cardBackground)
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(GQGradients.cardBorder, lineWidth: 1)
-        )
+        .homeSocialCard(accent: GQColors.vividPurple)
     }
 }
 
@@ -217,6 +203,7 @@ struct FollowWorkoutView: View {
     @State private var currentSetIndex = 0
     @State private var isResting = false
     @State private var restTimeRemaining = 0
+    @State private var restDuration = 0
     @State private var workoutStartTime = Date()
     @State private var completedSets: Set<String> = []
     @State private var showingCompletionSheet = false
@@ -241,10 +228,9 @@ struct FollowWorkoutView: View {
 
     var body: some View {
         ZStack {
-            EnergyBackground()
+            Color.clear
 
             VStack(spacing: 0) {
-                // Progress header
                 WorkoutProgressHeader(
                     workoutTitle: workoutData.title,
                     progress: progressPercentage,
@@ -253,14 +239,13 @@ struct FollowWorkoutView: View {
                 )
 
                 if isResting {
-                    // Rest timer view
                     RestTimerView(
                         timeRemaining: restTimeRemaining,
+                        totalSeconds: restDuration,
                         nextExercise: getNextExerciseName(),
                         onSkip: { skipRest() }
                     )
                 } else if let exercise = currentExercise, let set = currentSet {
-                    // Active set view
                     ActiveSetView(
                         exercise: exercise,
                         setNumber: currentSetIndex + 1,
@@ -270,7 +255,6 @@ struct FollowWorkoutView: View {
                         onComplete: { completeSet() }
                     )
                 } else {
-                    // Workout complete
                     WorkoutCompleteView(
                         onFinish: { finishWorkout() }
                     )
@@ -278,7 +262,6 @@ struct FollowWorkoutView: View {
 
                 Spacer()
 
-                // Exercise overview at bottom
                 ExerciseOverviewBar(
                     exercises: workoutData.exercises,
                     currentIndex: currentExerciseIndex,
@@ -286,6 +269,7 @@ struct FollowWorkoutView: View {
                 )
             }
         }
+        .gqPageBackground()
         .onAppear {
             workoutStartTime = Date()
         }
@@ -335,6 +319,7 @@ struct FollowWorkoutView: View {
     func startRestTimer(seconds: Int) {
         isResting = true
         restTimeRemaining = seconds
+        restDuration = seconds
 
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             if restTimeRemaining > 0 {
@@ -377,45 +362,43 @@ struct WorkoutProgressHeader: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.title3)
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
                 }
-
-                Spacer()
+                .buttonStyle(.plain)
 
                 Text(workoutTitle)
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
+                    .lineLimit(1)
 
                 Spacer()
 
                 Text(elapsedTime)
-                    .font(.system(size: 16, weight: .medium, design: .monospaced))
-                    .foregroundColor(GQColors.gold)
+                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .homeSocialCard(accent: GQColors.vividPurple, emphasized: true, cornerRadius: 10)
             }
-            .padding(.horizontal)
 
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.2))
-                        .frame(height: 8)
-
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(GQGradients.primary)
-                        .frame(width: geo.size.width * progress, height: 8)
-                }
-            }
-            .frame(height: 8)
-            .padding(.horizontal)
+            AnimatedProgressBar(
+                progress: progress,
+                height: 7,
+                colors: [GQColors.vividPurple]
+            )
+            .frame(height: 7)
         }
-        .padding(.vertical, 16)
-        .background(Color.black.opacity(0.3))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(GQColors.surfaceOverlay.opacity(0.86))
     }
 }
 
@@ -423,33 +406,44 @@ struct WorkoutProgressHeader: View {
 
 struct RestTimerView: View {
     let timeRemaining: Int
+    let totalSeconds: Int
     let nextExercise: String
     let onSkip: () -> Void
 
+    private var progress: CGFloat {
+        guard totalSeconds > 0 else { return 0 }
+        return CGFloat(timeRemaining) / CGFloat(totalSeconds)
+    }
+
     var body: some View {
-        VStack(spacing: 30) {
+        VStack(spacing: 24) {
             Spacer()
 
-            Text("REST")
-                .font(.system(size: 18, weight: .bold))
+            Text("Rest")
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(GQColors.textSecondary)
-                .tracking(2)
 
-            // Big timer
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.1), lineWidth: 12)
-                    .frame(width: 200, height: 200)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 12)
+                    .frame(width: 196, height: 196)
 
                 Circle()
-                    .trim(from: 0, to: CGFloat(timeRemaining) / 90.0)
-                    .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 12, lineCap: .round))
-                    .frame(width: 200, height: 200)
+                    .trim(from: 0, to: progress)
+                    .stroke(
+                        LinearGradient(
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                    )
+                    .frame(width: 196, height: 196)
                     .rotationEffect(.degrees(-90))
 
                 VStack(spacing: 4) {
                     Text("\(timeRemaining)")
-                        .font(.system(size: 72, weight: .bold, design: .rounded))
+                        .font(.system(size: 66, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     Text("seconds")
                         .font(.subheadline)
@@ -457,7 +451,6 @@ struct RestTimerView: View {
                 }
             }
 
-            // Next up
             VStack(spacing: 8) {
                 Text("UP NEXT")
                     .font(.system(size: 12, weight: .bold))
@@ -468,19 +461,21 @@ struct RestTimerView: View {
                     .font(.title3)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
             }
-            .padding()
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(12)
+            .padding(14)
+            .homeSocialCard(accent: GQColors.cyanSpark, cornerRadius: 12)
+            .padding(.horizontal, GQLayout.screenHorizontal)
 
             Button {
                 onSkip()
             } label: {
                 Text("Skip Rest")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(GQColors.coral)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
             }
-            .padding(.top, 20)
+            .buttonStyle(HomeSocialSecondaryButtonStyle())
+            .padding(.horizontal, 60)
 
             Spacer()
         }
@@ -497,30 +492,25 @@ struct ActiveSetView: View {
     let targetWeight: Double
     let onComplete: () -> Void
 
-    @State private var repsCompleted = 0
-    @State private var weightUsed: Double = 0
-
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 22) {
             Spacer()
 
-            // Exercise name
             Text(exercise.name)
                 .font(.system(size: 28, weight: .bold))
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, GQLayout.screenHorizontal)
 
-            // Set indicator
             Text("SET \(setNumber) of \(totalSets)")
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(GQColors.coral)
+                .foregroundColor(GQColors.vividPurple)
                 .tracking(1)
 
-            // Target
             VStack(spacing: 8) {
                 HStack(spacing: 40) {
                     VStack(spacing: 4) {
-                        Text("TARGET")
+                        Text("TARGET REPS")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(GQColors.textTertiary)
                         Text("\(targetReps)")
@@ -538,7 +528,7 @@ struct ActiveSetView: View {
                                 .foregroundColor(GQColors.textTertiary)
                             Text("\(Int(targetWeight))")
                                 .font(.system(size: 48, weight: .bold))
-                                .foregroundColor(GQColors.gold)
+                                .foregroundColor(GQColors.electricGold)
                             Text("lbs")
                                 .font(.caption)
                                 .foregroundColor(GQColors.textSecondary)
@@ -547,31 +537,29 @@ struct ActiveSetView: View {
                 }
             }
             .padding(24)
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(20)
+            .homeSocialCard(accent: GQColors.vividPurple, emphasized: true, cornerRadius: 20)
+            .padding(.horizontal, GQLayout.screenHorizontal)
 
-            // Form tips
             if !exercise.demoTips.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(exercise.demoTips.prefix(2), id: \.self) { tip in
                         HStack(spacing: 8) {
                             Image(systemName: "lightbulb.fill")
                                 .font(.system(size: 12))
-                                .foregroundColor(GQColors.gold)
+                                .foregroundColor(GQColors.electricGold)
                             Text(tip)
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
                         }
                     }
                 }
-                .padding()
-                .background(Color.white.opacity(0.03))
-                .cornerRadius(12)
+                .padding(12)
+                .homeSocialCard(accent: GQColors.cyanSpark, cornerRadius: 12)
+                .padding(.horizontal, GQLayout.screenHorizontal)
             }
 
             Spacer()
 
-            // Complete button
             Button {
                 onComplete()
             } label: {
@@ -579,11 +567,9 @@ struct ActiveSetView: View {
                     Image(systemName: "checkmark.circle.fill")
                     Text("Complete Set")
                 }
-                .font(.title3)
-                .fontWeight(.bold)
             }
-            .buttonStyle(PrimaryButtonStyle())
-            .padding(.horizontal, 40)
+            .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
+            .padding(.horizontal, 32)
             .padding(.bottom, 20)
         }
         .padding()
@@ -599,7 +585,7 @@ struct ExerciseOverviewBar: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 ForEach(Array(exercises.enumerated()), id: \.element.id) { index, exercise in
                     ExercisePill(
                         name: exercise.name,
@@ -610,10 +596,19 @@ struct ExerciseOverviewBar: View {
                     )
                 }
             }
-            .padding(.horizontal)
+            .gqScreenHorizontalPadding()
             .padding(.vertical, 12)
         }
-        .background(Color.black.opacity(0.5))
+        .background(
+            Rectangle()
+                .fill(Color.black.opacity(0.20))
+                .overlay(
+                    Rectangle()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(height: 1),
+                    alignment: .top
+                )
+        )
     }
 
     func countCompletedSets(for exercise: SharedWorkoutData.SharedExercise) -> Int {
@@ -653,11 +648,10 @@ struct ExercisePill: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(isCurrent ? GQColors.coral.opacity(0.3) : Color.white.opacity(0.05))
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .strokeBorder(isCurrent ? GQColors.coral : Color.clear, lineWidth: 2)
+        .homeSocialCard(
+            accent: isCurrent ? GQColors.vividPurple : GQColors.cyanSpark,
+            emphasized: isCurrent,
+            cornerRadius: 20
         )
     }
 }
@@ -666,48 +660,38 @@ struct ExercisePill: View {
 
 struct WorkoutCompleteView: View {
     let onFinish: () -> Void
-    @State private var appeared = false
-    @State private var checkScale: CGFloat = 0.5
+    @State private var checkScale: CGFloat = 0.85
 
     var body: some View {
-        ZStack {
-            VStack(spacing: 30) {
-                Spacer()
+        VStack(spacing: 28) {
+            Spacer()
 
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 80))
-                    .foregroundColor(GQColors.cyanSpark)
-                    .scaleEffect(checkScale)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 82))
+                .foregroundColor(GQColors.cyanSpark)
+                .scaleEffect(checkScale)
 
-                Text("Workout Complete!")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.white)
-                    .bounceAppear(delay: 0.2)
+            Text("Workout Complete")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
 
-                Text("Great job! You crushed it.")
-                    .font(.subheadline)
-                    .foregroundColor(GQColors.textSecondary)
-                    .bounceAppear(delay: 0.3)
+            Text("Nice work. Ready to review and share it?")
+                .font(.system(size: 15))
+                .foregroundColor(GQColors.textSecondary)
+                .multilineTextAlignment(.center)
 
-                Button("Finish") {
-                    onFinish()
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .padding(.horizontal, 60)
-                .bounceAppear(delay: 0.4)
-
-                Spacer()
+            Button("Continue") {
+                onFinish()
             }
+            .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
+            .padding(.horizontal, 56)
 
-            if appeared {
-                ConfettiView()
-                    .ignoresSafeArea()
-            }
+            Spacer()
         }
+        .padding(.horizontal, GQLayout.screenHorizontal)
         .onAppear {
             HapticManager.shared.workoutComplete()
-            appeared = true
             withAnimation(.spring(response: 0.5, dampingFraction: 0.5)) {
                 checkScale = 1.0
             }
@@ -759,8 +743,7 @@ struct WorkoutCompletionSummary: View {
                         WorkoutStatBlock(value: "\(workoutData.exercises.count)", label: "Exercises")
                     }
                     .padding()
-                    .background(Color.white.opacity(0.05))
-                    .cornerRadius(16)
+                    .homeSocialCard()
 
                     // Attribution badge
                     HStack(spacing: 8) {
@@ -785,8 +768,7 @@ struct WorkoutCompletionSummary: View {
                         TextField("Add a caption...", text: $caption, axis: .vertical)
                             .lineLimit(2...4)
                             .padding(12)
-                            .background(Color.white.opacity(0.08))
-                            .cornerRadius(12)
+                            .homeSocialCard(cornerRadius: 12)
 
                         Button {
                             shareToFeed()
@@ -795,19 +777,9 @@ struct WorkoutCompletionSummary: View {
                                 Image(systemName: hasShared ? "checkmark.circle.fill" : "square.and.arrow.up")
                                 Text(hasShared ? "Shared!" : "Share to Feed")
                             }
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                hasShared ?
-                                    LinearGradient(colors: [GQColors.success, GQColors.success], startPoint: .leading, endPoint: .trailing) :
-                                    LinearGradient(colors: [GQColors.vividPurple, GQColors.cyanSpark], startPoint: .leading, endPoint: .trailing)
-                            )
-                            .cornerRadius(12)
                         }
+                        .buttonStyle(HomeSocialPrimaryButtonStyle(accent: hasShared ? GQColors.success : GQColors.cyanSpark))
                         .disabled(hasShared)
-                        .buttonStyle(.plain)
 
                         // Save for later option
                         Button {
@@ -817,19 +789,17 @@ struct WorkoutCompletionSummary: View {
                                 Image(systemName: "bookmark")
                                 Text("Save Workout for Later")
                             }
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white.opacity(0.7))
                         }
+                        .buttonStyle(HomeSocialSecondaryButtonStyle(cornerRadius: 12))
                     }
                     .padding()
-                    .background(Color.white.opacity(0.03))
-                    .cornerRadius(16)
+                    .homeSocialCard()
 
                     Spacer().frame(height: 20)
                 }
                 .padding()
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Summary")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
