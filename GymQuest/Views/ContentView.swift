@@ -193,8 +193,8 @@ struct FloatingTabBar: View {
                         .frame(height: 0.5),
                     alignment: .top
                 )
+                .ignoresSafeArea(.container, edges: .bottom)
         )
-        .ignoresSafeArea(.container, edges: .bottom)
     }
 }
 

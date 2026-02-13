@@ -57,6 +57,7 @@ struct CreatePostView: View {
 
     // Content type selection
     @State private var selectedContentType: PostContentType = .workout
+    @State private var selectedEmotion: WorkoutEmotion? = nil
 
     // Meal-specific state
     @State private var selectedMealType: MealType = .lunch
@@ -110,6 +111,11 @@ struct CreatePostView: View {
                             .background(Color.white.opacity(0.05))
                             .cornerRadius(12)
                             .scrollContentBackground(.hidden)
+                    }
+
+                    // Emotion picker (workout posts only)
+                    if selectedContentType == .workout {
+                        WorkoutEmotionPicker(selectedEmotion: $selectedEmotion, compact: true)
                     }
 
                     // Workout-specific options
@@ -335,7 +341,8 @@ struct CreatePostView: View {
             musicSource: selectedSong?.source.rawValue,
             playlistId: selectedSong?.playlistId,
             detectedActivity: detectedActivity?.rawValue,
-            taggedUsernames: []
+            taggedUsernames: [],
+            workoutEmotion: selectedContentType == .workout ? selectedEmotion?.rawValue : nil
         )
 
         // Add song to recents if selected

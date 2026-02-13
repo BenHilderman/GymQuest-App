@@ -34,6 +34,7 @@ struct HomeView: View {
     @State private var totalXP: Int = 0
     @State private var headerAppeared = true
     @State private var showingVideoGenerator = false
+    @State private var selectedWorkoutType: WorkoutType = .push
 
     // Extract first name from full name
     var firstName: String {
@@ -86,6 +87,11 @@ struct HomeView: View {
                         },
                         onRestTap: {
                             logRestDay()
+                        },
+                        onTargetChanged: { newTarget in
+                            profile.daysPerWeek = newTarget
+                            try? modelContext.save()
+                            loadHomeData()
                         }
                     )
                     .padding(.horizontal, 16)
@@ -166,11 +172,15 @@ struct HomeView: View {
                 MealLogView(profile: profile)
             }
             .sheet(isPresented: $showingWorkoutTypePicker) {
-                WorkoutTypeSelectionView(profile: profile)
+                StartWorkoutSheet(selectedType: $selectedWorkoutType) {
+                    showingWorkoutTypePicker = false
+                    appState.activeWorkoutType = selectedWorkoutType
+                }
             }
             .sheet(isPresented: $showingVideoGenerator) {
                 VideoGeneratorView()
             }
+            // Active workout is now shown inline on the Home tab via ContentView
         }
     }
 
@@ -207,13 +217,6 @@ struct HomeView: View {
         // Get active squad
         loadActiveSquad()
 
-        // Fetch integration data (HealthKit, WHOOP, etc.)
-        let integration = IntegrationManager.shared
-        if integration.healthKit.isAuthorized {
-            integration.healthKit.fetchTodayData()
-        }
-        integration.computeUnifiedMetrics()
-        integration.computeStrengthScore(workouts: workouts)
     }
 
     private func calculateStreak() -> Int {
@@ -692,11 +695,13 @@ struct WeeklyProgressCard: View {
     var targetDays: Int = 4
     var onTodayTap: (() -> Void)? = nil
     var onRestTap: (() -> Void)? = nil
+    var onTargetChanged: ((Int) -> Void)? = nil
 
     @State private var circleAnimated = false
     @State private var showingDayOptions = false
     @State private var selectedWorkoutForReview: Workout? = nil
     @State private var showingWorkoutReview = false
+    @State private var showingTargetPicker = false
 
     var weekDates: [Date] {
         let cal = Calendar.current
@@ -749,9 +754,20 @@ struct WeeklyProgressCard: View {
                         .foregroundColor(GQColors.textTertiary)
                         .tracking(1)
 
-                    Text("\(completedWorkouts) of \(targetDays) days")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+                    Button {
+                        showingTargetPicker = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("\(completedWorkouts) of \(targetDays) days")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 Spacer()
@@ -845,6 +861,16 @@ struct WeeklyProgressCard: View {
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
+        }
+        .confirmationDialog("Weekly Goal", isPresented: $showingTargetPicker, titleVisibility: .visible) {
+            ForEach(1...7, id: \.self) { days in
+                Button("\(days) day\(days == 1 ? "" : "s") per week\(days == targetDays ? " (current)" : "")") {
+                    onTargetChanged?(days)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("How many days per week do you want to train?")
         }
     }
 }

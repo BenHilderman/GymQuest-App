@@ -170,7 +170,7 @@ struct SocialView: View {
                         .tracking(1)
                 }
 
-                CommunityChallenge(
+                CommunityGoalCard(
                     title: "30-Day Consistency",
                     description: "Work out at least 4 days per week",
                     progress: 0.6,
@@ -179,7 +179,7 @@ struct SocialView: View {
                     color: GQColors.vividPurple
                 )
 
-                CommunityChallenge(
+                CommunityGoalCard(
                     title: "1000 Rep Challenge",
                     description: "Complete 1000 total reps this week",
                     progress: 0.35,
@@ -618,7 +618,7 @@ struct DiscoverPostCard: View {
 
 // MARK: - Community Challenge Card
 
-struct CommunityChallenge: View {
+struct CommunityGoalCard: View {
     let title: String
     let description: String
     let progress: Double

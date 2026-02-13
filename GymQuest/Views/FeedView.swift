@@ -260,6 +260,13 @@ struct PostCardV2: View {
                 .padding(.bottom, 8)
             }
 
+            // Emotion badge
+            if let emotion = post.emotion {
+                EmotionBadge(emotion: emotion, likeCount: post.likeCount)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+            }
+
             // Caption
             if !post.caption.isEmpty {
                 Text(post.caption)
@@ -902,6 +909,16 @@ struct PostActionsRowAnimated: View {
                     .offset(y: -44)
                     .transition(.scale(scale: 0.5, anchor: .bottom).combined(with: .opacity))
                     .zIndex(10)
+
+                    // Nudge for resilient-emotion posts
+                    if post.emotion?.sentimentCategory == .resilient {
+                        Text("They showed up when it was hard — drop a reaction")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(GQColors.success.opacity(0.8))
+                            .offset(y: -68)
+                            .transition(.opacity)
+                            .zIndex(9)
+                    }
                 }
 
                     HStack(spacing: 6) {
@@ -2153,188 +2170,226 @@ extension Date {
     }
 }
 
+// MARK: - Community Seeder
+
+struct CommunitySeeder {
+    static func seedIfNeeded(modelContext: ModelContext, userId: UUID) {
+        let descriptor = FetchDescriptor<Community>(predicate: #Predicate { $0.parentCommunityId == nil })
+        let existing = (try? modelContext.fetchCount(descriptor)) ?? 0
+        guard existing == 0 else { return }
+
+        let dummyUsers = (0..<8).map { _ in UUID() }
+
+        // The ARC - Queen's University
+        let arc = Community(
+            name: "The ARC - Queen's University",
+            communityDescription: "Queen's Athletics & Recreation Centre community",
+            location: "Kingston, ON",
+            creatorId: dummyUsers[0],
+            memberIds: [userId] + Array(dummyUsers.prefix(5)),
+            joinType: .open,
+            memberCount: 234,
+            isVerified: true,
+            tags: ["university", "gym", "kingston"]
+        )
+        modelContext.insert(arc)
+
+        // ARC channels
+        for name in ["Morning Lifters", "Powerlifting Club", "Running Group"] {
+            let channel = Community(
+                name: name,
+                communityDescription: "",
+                creatorId: dummyUsers[0],
+                memberIds: [userId] + Array(dummyUsers.prefix(3)),
+                memberCount: Int.random(in: 15...60),
+                parentCommunityId: arc.id
+            )
+            modelContext.insert(channel)
+        }
+
+        // GoodLife Fitness Downtown
+        let goodlife = Community(
+            name: "GoodLife Fitness Downtown",
+            communityDescription: "Local GoodLife community",
+            location: "Kingston, ON",
+            creatorId: dummyUsers[1],
+            memberIds: [userId] + Array(dummyUsers.prefix(4)),
+            joinType: .open,
+            memberCount: 89,
+            isVerified: true,
+            tags: ["gym", "kingston"]
+        )
+        modelContext.insert(goodlife)
+
+        for name in ["Classes", "General"] {
+            let channel = Community(
+                name: name,
+                communityDescription: "",
+                creatorId: dummyUsers[1],
+                memberIds: [userId] + Array(dummyUsers.prefix(2)),
+                memberCount: Int.random(in: 20...50),
+                parentCommunityId: goodlife.id
+            )
+            modelContext.insert(channel)
+        }
+
+        // Global communities
+        let globals: [(String, String, Int)] = [
+            ("Home Gym Heroes", "For everyone training at home", 1420),
+            ("Beginner Gains", "New to lifting? Start here", 3200),
+            ("PR Chasers", "Chasing personal records every week", 890),
+        ]
+        for (gName, gDesc, gCount) in globals {
+            let g = Community(
+                name: gName,
+                communityDescription: gDesc,
+                creatorId: dummyUsers[2],
+                memberIds: Array(dummyUsers.prefix(3)),
+                joinType: .open,
+                memberCount: gCount,
+                tags: ["global"]
+            )
+            modelContext.insert(g)
+        }
+
+        // Seed memberships for user
+        for comm in [arc, goodlife] {
+            let membership = CommunityMembership(
+                userId: userId,
+                communityId: comm.id,
+                role: .member
+            )
+            modelContext.insert(membership)
+        }
+
+        // Seed one active challenge per gym community
+        let arcChallenge = CommunityChallenge(
+            communityId: arc.id,
+            title: "Complete 20 Sets This Week",
+            challengeDescription: "Hit at least 20 total sets before Sunday",
+            goalType: .sets,
+            goalTarget: 20,
+            currentProgress: 13,
+            startDate: Calendar.current.date(byAdding: .day, value: -4, to: Date()) ?? Date(),
+            endDate: Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date(),
+            participantIds: [userId] + Array(dummyUsers.prefix(4))
+        )
+        modelContext.insert(arcChallenge)
+
+        let glChallenge = CommunityChallenge(
+            communityId: goodlife.id,
+            title: "5 Workouts This Week",
+            challengeDescription: "Show up 5 times — consistency wins",
+            goalType: .workouts,
+            goalTarget: 5,
+            currentProgress: 2,
+            startDate: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
+            endDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
+            participantIds: [userId] + Array(dummyUsers.prefix(3))
+        )
+        modelContext.insert(glChallenge)
+
+        // Seed some posts
+        let samplePosts: [(UUID, String, String, CommunityPostType)] = [
+            (arc.id, "Alex K.", "Just hit a 225 bench PR! The ARC energy is different at 6am", .achievement),
+            (arc.id, "Jordan M.", "Anyone down for leg day tomorrow around 3pm?", .lookingForPartner),
+            (goodlife.id, "Sam R.", "Great spin class this morning, instructor was amazing", .general),
+        ]
+        for (cid, author, content, ptype) in samplePosts {
+            let post = CommunityPost(
+                communityId: cid,
+                authorId: dummyUsers.randomElement()!,
+                authorName: author,
+                authorUsername: author.lowercased().replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ".", with: ""),
+                postType: ptype,
+                content: content,
+                likeCount: Int.random(in: 2...18),
+                commentCount: Int.random(in: 0...5),
+                timestamp: Date().addingTimeInterval(Double.random(in: -86400...0))
+            )
+            modelContext.insert(post)
+        }
+
+        try? modelContext.save()
+    }
+}
+
 // MARK: - Community Feed View (embedded in Feed tab)
 
 struct CommunityFeedView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query private var communities: [Community]
+    @Query private var allCommunities: [Community]
+    @Query private var allChallenges: [CommunityChallenge]
 
     let profile: UserProfile
 
     @State private var showingCreateCommunity = false
     @State private var showingSearchCommunities = false
     @State private var selectedCommunity: Community?
-    @State private var searchText = ""
 
-    var userCommunities: [Community] {
-        communities.filter { $0.memberIds.contains(profile.id) }
+    private var topLevelCommunities: [Community] {
+        allCommunities.filter { $0.parentCommunityId == nil }
+    }
+
+    private var yourCommunities: [Community] {
+        topLevelCommunities.filter { $0.memberIds.contains(profile.id) }
+    }
+
+    private var nearYou: [Community] {
+        topLevelCommunities.filter { $0.location != nil && !$0.memberIds.contains(profile.id) }
+    }
+
+    private var globalCommunities: [Community] {
+        topLevelCommunities.filter { $0.location == nil && !$0.memberIds.contains(profile.id) }
     }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                // Search bar
-                HStack(spacing: 12) {
-                    HStack {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundColor(GQColors.textTertiary)
-                        TextField("Search communities...", text: $searchText)
-                            .foregroundColor(.white)
-                    }
-                    .padding(12)
-                    .background(Color.white.opacity(0.08))
-                    .cornerRadius(12)
-
-                    Button {
-                        showingSearchCommunities = true
-                    } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.system(size: 18))
-                            .foregroundColor(.white)
-                            .padding(12)
-                            .background(Color.white.opacity(0.08))
-                            .cornerRadius(12)
-                    }
+            VStack(spacing: 24) {
+                // Your Communities
+                if !yourCommunities.isEmpty {
+                    communitySectionView(title: "YOUR COMMUNITIES", communities: yourCommunities)
                 }
+
+                // Discover Near You
+                if !nearYou.isEmpty {
+                    communitySectionView(title: "DISCOVER NEAR YOU", communities: nearYou)
+                }
+
+                // Global Communities
+                if !globalCommunities.isEmpty {
+                    communitySectionView(title: "GLOBAL COMMUNITIES", communities: globalCommunities)
+                }
+
+                // Create a Community
+                Button(action: { showingCreateCommunity = true }) {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Create a Community")
+                    }
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+                    .cornerRadius(12)
+                }
+                .buttonStyle(.plain)
                 .padding(.horizontal, 16)
 
-                if userCommunities.isEmpty {
-                    // Empty state
-                    VStack(spacing: 24) {
-                        Image(systemName: "building.2.fill")
-                            .font(.system(size: 60))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .padding(.top, 20)
-
-                        VStack(spacing: 8) {
-                            Text("Find Your Gym Community")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                                .foregroundColor(.white)
-
-                            Text("Join communities for your gym, university, or local fitness center to connect with others")
-                                .font(.subheadline)
-                                .foregroundColor(GQColors.textTertiary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 20)
-                        }
-
-                        // Featured communities preview
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("POPULAR NEAR YOU")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(GQColors.textTertiary)
-                                .tracking(1)
-                                .padding(.horizontal, 16)
-
-                            // Example community cards
-                            CommunityPreviewCard(
-                                name: "The ARC - Queen's University",
-                                members: 234,
-                                location: "Kingston, ON",
-                                isVerified: true
-                            ) {
-                                // Would join/view
-                            }
-
-                            CommunityPreviewCard(
-                                name: "GoodLife Fitness Downtown",
-                                members: 89,
-                                location: "Kingston, ON",
-                                isVerified: false
-                            ) {
-                                // Would join/view
-                            }
-                        }
-
-                        VStack(spacing: 12) {
-                            Button(action: { showingSearchCommunities = true }) {
-                                HStack {
-                                    Image(systemName: "magnifyingglass")
-                                    Text("Browse All Communities")
-                                }
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(
-                                    LinearGradient(
-                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .cornerRadius(12)
-                            }
-
-                            Button(action: { showingCreateCommunity = true }) {
-                                HStack {
-                                    Image(systemName: "plus.circle.fill")
-                                    Text("Create a Community")
-                                }
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Color.white.opacity(0.1))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                )
-                                .cornerRadius(12)
-                            }
-                        }
-                        .padding(.horizontal, 40)
-                        .padding(.top, 8)
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    // User's communities
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("YOUR COMMUNITIES")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(GQColors.textTertiary)
-                            .tracking(1)
-                            .padding(.horizontal, 16)
-
-                        ForEach(userCommunities) { community in
-                            CommunityCard(community: community, profile: profile)
-                                .onTapGesture {
-                                    selectedCommunity = community
-                                }
-                        }
-                    }
-
-                    // Discover more button
-                    Button {
-                        showingSearchCommunities = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "plus.circle")
-                            Text("Discover More Communities")
-                        }
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(GQColors.cyanSpark)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(GQColors.cyanSpark.opacity(0.1))
-                        .cornerRadius(10)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 16)
-                }
 
                 Spacer(minLength: 100)
             }
             .padding(.top, 12)
         }
         .scrollContentBackground(.hidden)
+        .onAppear {
+            CommunitySeeder.seedIfNeeded(modelContext: modelContext, userId: profile.id)
+        }
         .sheet(isPresented: $showingCreateCommunity) {
             CreateCommunitySheet(profile: profile)
         }
@@ -2343,6 +2398,22 @@ struct CommunityFeedView: View {
         }
         .sheet(item: $selectedCommunity) { community in
             CommunityDetailView(community: community, profile: profile)
+        }
+    }
+
+    @ViewBuilder
+    private func communitySectionView(title: String, communities: [Community]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+                .padding(.horizontal, 16)
+
+            ForEach(communities) { community in
+                CommunityCard(community: community, profile: profile)
+                    .onTapGesture { selectedCommunity = community }
+            }
         }
     }
 }
@@ -2568,6 +2639,14 @@ struct CreateCommunitySheet: View {
             joinType: joinType
         )
         modelContext.insert(community)
+
+        let membership = CommunityMembership(
+            userId: profile.id,
+            communityId: community.id,
+            role: .owner
+        )
+        modelContext.insert(membership)
+
         try? modelContext.save()
         dismiss()
     }
@@ -2639,6 +2718,13 @@ struct SearchCommunitiesSheet: View {
         if community.joinType == .open {
             community.memberIds.append(profile.id)
             community.memberCount += 1
+
+            let membership = CommunityMembership(
+                userId: profile.id,
+                communityId: community.id,
+                role: .member
+            )
+            modelContext.insert(membership)
         } else {
             community.pendingRequestIds.append(profile.id)
         }
@@ -2731,148 +2817,51 @@ struct CommunityDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var communityPosts: [CommunityPost]
+    @Query private var allCommunities: [Community]
+    @Query private var allChallenges: [CommunityChallenge]
+    @Query private var allMemberships: [CommunityMembership]
 
     let community: Community
     let profile: UserProfile
 
     @State private var showingNewPost = false
     @State private var selectedSection: CommunitySection = .feed
+    @State private var showPartnerOnly = false
 
-    var posts: [CommunityPost] {
+    private var isMember: Bool {
+        community.memberIds.contains(profile.id)
+    }
+
+    private var posts: [CommunityPost] {
         communityPosts
             .filter { $0.communityId == community.id }
             .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    private var channels: [Community] {
+        allCommunities.filter { $0.parentCommunityId == community.id }
+    }
+
+    private var activeChallenges: [CommunityChallenge] {
+        allChallenges.filter { $0.communityId == community.id && $0.isActive }
+    }
+
+    private var memberships: [CommunityMembership] {
+        allMemberships.filter { $0.communityId == community.id }
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Header
-                    VStack(spacing: 12) {
-                        if let imageData = community.imageData,
-                           let uiImage = UIImage(data: imageData) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 80, height: 80)
-                                .clipShape(Circle())
-                        } else {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 80, height: 80)
-                                .overlay(
-                                    Image(systemName: "building.2.fill")
-                                        .font(.system(size: 32))
-                                        .foregroundColor(.white)
-                                )
-                        }
-
-                        HStack(spacing: 4) {
-                            Text(community.name)
-                                .font(.title2)
-                                .fontWeight(.bold)
-
-                            if community.isVerified {
-                                Image(systemName: "checkmark.seal.fill")
-                                    .foregroundColor(GQColors.cyanSpark)
-                            }
-                        }
-
-                        if !community.communityDescription.isEmpty {
-                            Text(community.communityDescription)
-                                .font(.subheadline)
-                                .foregroundColor(GQColors.textTertiary)
-                                .multilineTextAlignment(.center)
-                        }
-
-                        HStack(spacing: 20) {
-                            VStack {
-                                Text("\(community.memberCount)")
-                                    .font(.headline)
-                                Text("Members")
-                                    .font(.caption)
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
-
-                            if let location = community.location {
-                                VStack {
-                                    Image(systemName: "mappin.circle.fill")
-                                        .font(.headline)
-                                    Text(location)
-                                        .font(.caption)
-                                        .foregroundColor(GQColors.textTertiary)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.top, 12)
-
-                    // Actions
-                    HStack(spacing: 12) {
-                        Button {
-                            showingNewPost = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "plus.circle.fill")
-                                Text("Post")
-                            }
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(GQColors.vividPurple)
-                            .cornerRadius(10)
-                        }
-
-                        Button {
-                            // Find workout partner
-                        } label: {
-                            HStack {
-                                Image(systemName: "person.2.fill")
-                                Text("Find Partner")
-                            }
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(GQColors.cyanSpark)
-                            .cornerRadius(10)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 16)
-
-                    // Weekly Challenge card
-                    weeklyChallengeCard
-
-                        if posts.isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "text.bubble")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.gray.opacity(0.5))
-                                Text("No posts yet")
-                                    .font(.subheadline)
-                                    .foregroundColor(GQColors.textTertiary)
-                                Text("Be the first to share something!")
-                                    .font(.caption)
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 40)
-                        } else {
-                            ForEach(posts) { post in
-                                CommunityPostCard(post: post)
-                            }
-                        }
-                    }
-
+                    detailHeader
+                    joinButton
+                    workingOutNowRow
+                    channelCards
+                    challengeCards
+                    actionButtons
+                    communitySectionPicker
+                    sectionContent
                     Spacer(minLength: 40)
                 }
             }
@@ -2892,61 +2881,299 @@ struct CommunityDetailView: View {
         }
     }
 
-    // MARK: - Weekly Challenge Card
+    // MARK: - Header
 
     @ViewBuilder
-    private var weeklyChallengeCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "trophy.fill")
-                    .foregroundColor(.yellow)
-                Text("WEEKLY CHALLENGE")
+    private var detailHeader: some View {
+        VStack(spacing: 12) {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 80, height: 80)
+                .overlay(
+                    Image(systemName: "building.2.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.white)
+                )
+
+            HStack(spacing: 4) {
+                Text(community.name)
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                if community.isVerified {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundColor(GQColors.cyanSpark)
+                }
+            }
+
+            if !community.communityDescription.isEmpty {
+                Text(community.communityDescription)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+            }
+
+            HStack(spacing: 20) {
+                VStack {
+                    Text("\(community.memberCount)")
+                        .font(.headline)
+                    Text("Members")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+
+                if let location = community.location {
+                    VStack {
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.headline)
+                        Text(location)
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+            }
+        }
+        .padding(.top, 12)
+    }
+
+    // MARK: - Join Button
+
+    @ViewBuilder
+    private var joinButton: some View {
+        if !isMember {
+            Button {
+                if community.isOpen {
+                    community.memberIds.append(profile.id)
+                    community.memberCount += 1
+                    let m = CommunityMembership(userId: profile.id, communityId: community.id, role: .member)
+                    modelContext.insert(m)
+                } else {
+                    community.pendingRequestIds.append(profile.id)
+                }
+                try? modelContext.save()
+            } label: {
+                Text(community.isOpen ? "Join Community" : "Request to Join")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(10)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+        } else if community.pendingRequestIds.contains(profile.id) {
+            Text("Request Pending")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.gray)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(10)
+                .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Who's Working Out
+
+    @ViewBuilder
+    private var workingOutNowRow: some View {
+        let activeNames = ["Alex K.", "Jordan M.", "Sam R."]
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 8, height: 8)
+                Text("WHO'S WORKING OUT")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(GQColors.textTertiary)
                     .tracking(1)
-                Spacer()
-                Text("3d left")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(GQColors.sunsetOrange)
             }
+            .padding(.horizontal, 16)
 
-            Text("Complete 20 Sets This Week")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.white)
-
-            AnimatedProgressBar(
-                progress: 0.65,
-                height: 8,
-                colors: [GQColors.vividPurple, GQColors.cyanSpark]
-            )
-
-            HStack {
-                Text("13 / 20 sets")
-                    .font(.system(size: 12))
-                    .foregroundColor(.gray)
-                Spacer()
-                Text("18 members participating")
-                    .font(.system(size: 12))
-                    .foregroundColor(.gray)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(activeNames, id: \.self) { name in
+                        VStack(spacing: 6) {
+                            Circle()
+                                .fill(GQGradients.primary)
+                                .frame(width: 44, height: 44)
+                                .overlay(
+                                    Text(String(name.prefix(1)))
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                                .overlay(
+                                    Circle()
+                                        .fill(Color.green)
+                                        .frame(width: 12, height: 12)
+                                        .overlay(Circle().stroke(Color.black, lineWidth: 2))
+                                        .offset(x: 15, y: 15)
+                                )
+                            Text(name)
+                                .font(.system(size: 11))
+                                .foregroundColor(.gray)
+                                .lineLimit(1)
+                        }
+                        .frame(width: 60)
+                    }
+                }
+                .padding(.horizontal, 16)
             }
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.05))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(
-                            LinearGradient(
-                                colors: [GQColors.vividPurple.opacity(0.3), GQColors.cyanSpark.opacity(0.3)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
+    }
+
+    // MARK: - Channels
+
+    @ViewBuilder
+    private var channelCards: some View {
+        if !channels.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("CHANNELS")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1)
+                    .padding(.horizontal, 16)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(channels) { channel in
+                            VStack(spacing: 6) {
+                                Image(systemName: "number")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(GQColors.cyanSpark)
+                                Text(channel.name)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                Text("\(channel.memberCount) members")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.gray)
+                            }
+                            .frame(width: 110, height: 80)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(GQColors.cyanSpark.opacity(0.2), lineWidth: 1)
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
+    // MARK: - Active Challenge Cards
+
+    @ViewBuilder
+    private var challengeCards: some View {
+        ForEach(activeChallenges) { challenge in
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Image(systemName: "trophy.fill")
+                        .foregroundColor(.yellow)
+                    Text("ACTIVE CHALLENGE")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(GQColors.textTertiary)
+                        .tracking(1)
+                    Spacer()
+                    Text("\(challenge.daysRemaining)d left")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(GQColors.sunsetOrange)
+                }
+
+                Text(challenge.title)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+
+                AnimatedProgressBar(
+                    progress: challenge.progress,
+                    height: 8,
+                    colors: [GQColors.vividPurple, GQColors.cyanSpark]
                 )
-        )
-        .padding(.horizontal, 16)
+
+                HStack {
+                    Text("\(challenge.currentProgress) / \(challenge.goalTarget) \(challenge.goalType.rawValue.lowercased())")
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray)
+                    Spacer()
+                    Text("\(challenge.participantIds.count) participating")
+                        .font(.system(size: 12))
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [GQColors.vividPurple.opacity(0.3), GQColors.cyanSpark.opacity(0.3)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+            )
+            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Action Buttons
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        if isMember {
+            HStack(spacing: 12) {
+                Button { showingNewPost = true } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Post")
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(GQColors.vividPurple)
+                    .cornerRadius(10)
+                }
+
+                Button {
+                    selectedSection = .members
+                    showPartnerOnly = true
+                } label: {
+                    HStack {
+                        Image(systemName: "person.2.fill")
+                        Text("Find Partner")
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(GQColors.cyanSpark)
+                    .cornerRadius(10)
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+        }
     }
 
     // MARK: - Section Picker
@@ -2956,7 +3183,10 @@ struct CommunityDetailView: View {
         HStack(spacing: 0) {
             ForEach(CommunitySection.allCases, id: \.self) { section in
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { selectedSection = section }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedSection = section
+                        if section != .members { showPartnerOnly = false }
+                    }
                 } label: {
                     Text(section.rawValue)
                         .font(.system(size: 13, weight: selectedSection == section ? .bold : .medium))
@@ -2973,6 +3203,20 @@ struct CommunityDetailView: View {
         .background(Color.white.opacity(0.05))
         .cornerRadius(10)
         .padding(.horizontal, 16)
+    }
+
+    // MARK: - Section Content
+
+    @ViewBuilder
+    private var sectionContent: some View {
+        switch selectedSection {
+        case .feed:
+            communityFeedSection
+        case .leaderboard:
+            communityLeaderboardSection
+        case .members:
+            communityMembersSection
+        }
     }
 
     // MARK: - Feed Section
@@ -3015,7 +3259,6 @@ struct CommunityDetailView: View {
 
             ForEach(Array(leaderboardData.enumerated()), id: \.offset) { index, entry in
                 HStack(spacing: 12) {
-                    // Rank
                     Text("#\(index + 1)")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(medalColor(for: index))
@@ -3034,7 +3277,7 @@ struct CommunityDetailView: View {
                         Text(entry.name)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
-                        Text("\(entry.sets) sets • \(entry.workouts) workouts")
+                        Text("\(entry.sets) sets")
                             .font(.system(size: 12))
                             .foregroundColor(.gray)
                     }
@@ -3047,9 +3290,7 @@ struct CommunityDetailView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(
-                    index < 3 ? Color.white.opacity(0.04) : Color.clear
-                )
+                .background(index < 3 ? Color.white.opacity(0.04) : Color.clear)
                 .cornerRadius(10)
             }
         }
@@ -3060,13 +3301,38 @@ struct CommunityDetailView: View {
     @ViewBuilder
     private var communityMembersSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("\(community.memberCount) MEMBERS")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(GQColors.textTertiary)
-                .tracking(1)
-                .padding(.horizontal, 16)
+            HStack {
+                Text("\(community.memberCount) MEMBERS")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1)
 
-            ForEach(memberData, id: \.name) { member in
+                Spacer()
+
+                Button {
+                    withAnimation { showPartnerOnly.toggle() }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: showPartnerOnly ? "person.2.fill" : "person.2")
+                            .font(.system(size: 11))
+                        Text("Looking for Partner")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(showPartnerOnly ? GQColors.cyanSpark : .gray)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(showPartnerOnly ? GQColors.cyanSpark.opacity(0.15) : Color.white.opacity(0.05))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+
+            let displayed = showPartnerOnly
+                ? memberData.filter { $0.lookingForPartner }
+                : memberData
+
+            ForEach(displayed, id: \.name) { member in
                 HStack(spacing: 12) {
                     Circle()
                         .fill(GQGradients.primary)
@@ -3081,9 +3347,22 @@ struct CommunityDetailView: View {
                         Text(member.name)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
-                        Text(member.role)
-                            .font(.system(size: 12))
-                            .foregroundColor(.gray)
+
+                        HStack(spacing: 6) {
+                            Text(member.role)
+                                .font(.system(size: 12))
+                                .foregroundColor(.gray)
+
+                            if member.lookingForPartner {
+                                Text("Looking for partner")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(GQColors.cyanSpark)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(GQColors.cyanSpark.opacity(0.15))
+                                    .cornerRadius(4)
+                            }
+                        }
                     }
 
                     Spacer()
@@ -3112,13 +3391,13 @@ struct CommunityDetailView: View {
         ]
     }
 
-    private var memberData: [(name: String, role: String, isOnline: Bool)] {
+    private var memberData: [(name: String, role: String, isOnline: Bool, lookingForPartner: Bool)] {
         [
-            ("Alex K.", "Admin", true),
-            ("Jordan M.", "Member", true),
-            ("Sam R.", "Member", false),
-            ("Taylor W.", "Member", true),
-            ("Casey B.", "Member", false)
+            ("Alex K.", "Admin", true, false),
+            ("Jordan M.", "Member", true, true),
+            ("Sam R.", "Member", false, true),
+            ("Taylor W.", "Member", true, false),
+            ("Casey B.", "Member", false, false)
         ]
     }
 
@@ -3346,6 +3625,47 @@ struct PostTagsRow: View {
                 .padding(.horizontal, 16)
             }
             .padding(.bottom, 8)
+        }
+    }
+}
+
+// MARK: - Emotion Badge
+
+struct EmotionBadge: View {
+    let emotion: WorkoutEmotion
+    var likeCount: Int = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Text(emotion.emoji)
+                    .font(.system(size: 14))
+                Text(emotion.encouragement)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(emotion.color)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(emotion.color.opacity(0.12))
+            )
+
+            if emotion.sentimentCategory == .resilient && likeCount < 3 {
+                HStack(spacing: 4) {
+                    Image(systemName: "hands.clap.fill")
+                        .font(.system(size: 10))
+                    Text("Lift them up")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(GQColors.success)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(GQColors.success.opacity(0.1))
+                )
+            }
         }
     }
 }

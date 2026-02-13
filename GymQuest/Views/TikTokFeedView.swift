@@ -67,7 +67,6 @@ struct TikTokFeedView: View {
 
                 // Top header overlay with category filters
                 VStack(spacing: 0) {
-                    TikTokHeader(currentTab: .constant(.forYou))
                     categoryFilterPills
                     Spacer()
                 }
@@ -111,35 +110,6 @@ struct TikTokFeedView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
         }
-    }
-}
-
-// MARK: - TikTok Header
-
-enum TikTokFeedTab: String, CaseIterable {
-    case following = "Following"
-    case forYou = "For You"
-}
-
-struct TikTokHeader: View {
-    @Binding var currentTab: TikTokFeedTab
-
-    var body: some View {
-        HStack(spacing: 20) {
-            ForEach(TikTokFeedTab.allCases, id: \.self) { tab in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        currentTab = tab
-                    }
-                } label: {
-                    Text(tab.rawValue)
-                        .font(.system(size: 17, weight: currentTab == tab ? .bold : .medium))
-                        .foregroundColor(currentTab == tab ? .white : .white.opacity(0.5))
-                }
-            }
-        }
-        .padding(.top, 60)
-        .padding(.bottom, 12)
     }
 }
 
@@ -784,9 +754,11 @@ struct EmptyTikTokFeed: View {
             Button(action: onCreatePost) {
                 Text("Create Post")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.black)
                     .padding(.horizontal, 32)
                     .padding(.vertical, 14)
+                    .background(Color.white)
+                    .cornerRadius(10)
             }
             .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.vividPurple))
         }
