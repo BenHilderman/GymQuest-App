@@ -889,6 +889,7 @@ struct HeroCard<Content: View>: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
+                    .fill(.clear)
                     .animatedGradientBorder(
                         cornerRadius: 18,
                         lineWidth: 1.5,
@@ -1076,6 +1077,7 @@ struct PrimaryButtonStyle: ButtonStyle {
                         .stroke(Color.white.opacity(0.12), lineWidth: 1)
                 } else {
                     RoundedRectangle(cornerRadius: 16)
+                        .fill(.clear)
                         .animatedGradientBorder(
                             cornerRadius: 16,
                             lineWidth: 1.6,
@@ -1159,6 +1161,7 @@ struct WorkoutFlowPrimaryButtonStyle: ButtonStyle {
                         .stroke(Color.white.opacity(0.12), lineWidth: 1)
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(.clear)
                         .animatedGradientBorder(
                             cornerRadius: cornerRadius,
                             lineWidth: 1.6,
@@ -1236,6 +1239,7 @@ struct WorkoutFlowCardModifier: ViewModifier {
             .overlay {
                 if emphasized {
                     RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(.clear)
                         .animatedGradientBorder(
                             cornerRadius: cornerRadius,
                             lineWidth: 1.6,
@@ -1254,6 +1258,7 @@ struct HomeSocialCardModifier: ViewModifier {
     var accent: Color?
     var emphasized: Bool
     var cornerRadius: CGFloat
+    var subtle: Bool
 
     func body(content: Content) -> some View {
         content
@@ -1265,7 +1270,9 @@ struct HomeSocialCardModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                            colors: subtle
+                                ? [Color.white.opacity(0.05), Color.white.opacity(0.02)]
+                                : [Color.white.opacity(0.10), Color.white.opacity(0.05)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
@@ -1275,6 +1282,7 @@ struct HomeSocialCardModifier: ViewModifier {
             .overlay {
                 if emphasized, let accent {
                     RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(.clear)
                         .animatedGradientBorder(
                             cornerRadius: cornerRadius,
                             lineWidth: 1.6,
@@ -1283,7 +1291,7 @@ struct HomeSocialCardModifier: ViewModifier {
                         )
                 }
             }
-            .shadow(color: Color.black.opacity(emphasized ? 0.22 : 0.18), radius: emphasized ? 8 : 6, y: emphasized ? 3 : 2)
+            .shadow(color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.22 : 0.18)), radius: subtle ? 0 : (emphasized ? 8 : 6), y: subtle ? 0 : (emphasized ? 3 : 2))
     }
 }
 
@@ -1307,6 +1315,7 @@ struct HomeSocialPrimaryButtonStyle: ButtonStyle {
                         .stroke(Color.white.opacity(0.12), lineWidth: 1)
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(.clear)
                         .animatedGradientBorder(
                             cornerRadius: cornerRadius,
                             lineWidth: 1.6,
@@ -1375,13 +1384,15 @@ extension View {
     func homeSocialCard(
         accent: Color? = nil,
         emphasized: Bool = false,
-        cornerRadius: CGFloat = 16
+        cornerRadius: CGFloat = 16,
+        subtle: Bool = false
     ) -> some View {
         modifier(
             HomeSocialCardModifier(
                 accent: accent,
                 emphasized: emphasized,
-                cornerRadius: cornerRadius
+                cornerRadius: cornerRadius,
+                subtle: subtle
             )
         )
     }
@@ -1773,7 +1784,7 @@ struct MusicBadge: View {
                 HStack(spacing: 2) {
                     ForEach(0..<3, id: \.self) { i in
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(GQGradients.primary)
+                            .fill(GQColors.cyanSpark)
                             .frame(width: 3, height: isPlaying ? (animateBars ? CGFloat.random(in: 8...16) : CGFloat.random(in: 4...12)) : 6)
                             .animation(
                                 isPlaying ? .easeInOut(duration: 0.3).repeatForever().delay(Double(i) * 0.1) : .default,

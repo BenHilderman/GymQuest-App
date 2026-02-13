@@ -174,7 +174,6 @@ struct HomeView: View {
             .sheet(isPresented: $showingWorkoutTypePicker) {
                 StartWorkoutSheet(selectedType: $selectedWorkoutType) {
                     showingWorkoutTypePicker = false
-                    appState.activeWorkoutType = selectedWorkoutType
                 }
             }
             .sheet(isPresented: $showingVideoGenerator) {
@@ -1762,26 +1761,27 @@ struct StartWorkoutSheet: View {
     private func handleStart() {
         switch launchMode {
         case .scratch:
+            appState.startWorkout(type: selectedType)
             onStart()
 
         case .aiGenerated:
             isGenerating = true
             Task {
                 let generated = generateRuleBasedWorkout(type: selectedType)
-                appState.preloadedExercises = generated
+                appState.startWorkout(type: selectedType, exercises: generated)
                 isGenerating = false
                 onStart()
             }
 
         case .repeatLast:
             if let last = lastWorkoutOfType {
-                appState.preloadedExercises = convertWorkoutToActive(last)
+                appState.startWorkout(type: selectedType, exercises: convertWorkoutToActive(last))
                 onStart()
             }
 
         case .template:
             if let tmpl = selectedTemplate {
-                appState.preloadedExercises = convertTemplateToActive(tmpl)
+                appState.startWorkout(type: selectedType, exercises: convertTemplateToActive(tmpl))
                 onStart()
             }
         }

@@ -43,10 +43,6 @@ struct TikTokFeedView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                EnergyBackground()
-                    .overlay(Color.black.opacity(0.48))
-                    .ignoresSafeArea()
-
                 if filteredPosts.isEmpty {
                     EmptyTikTokFeed(onCreatePost: { showCreatePost = true })
                 } else {
@@ -190,7 +186,21 @@ struct TikTokPostCard: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 6)
-                                    .background(GQColors.primary)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(GQColors.surfaceBase)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .stroke(
+                                                LinearGradient(
+                                                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                ),
+                                                lineWidth: 1.4
+                                            )
+                                    )
                                     .cornerRadius(4)
                             }
                         }
@@ -292,9 +302,7 @@ struct TikTokPostCard: View {
                             if let workout = sharedWorkout {
                                 let exercises = workout.toActiveExercises()
                                 let workoutType = WorkoutType(rawValue: workout.workoutType) ?? .push
-                                appState.preloadedExercises = exercises
-                                appState.activeWorkoutType = workoutType
-                                appState.workoutInspiration = "@\(workout.authorUsername)"
+                                appState.startWorkout(type: workoutType, exercises: exercises)
                                 appState.selectedTab = .home
                             }
                         }
@@ -384,10 +392,40 @@ struct TikTokPostCard: View {
 
 struct PostBackground: View {
     let post: Post
+    @State private var player: AVPlayer?
+    @State private var isPlaying = true
 
     var body: some View {
         Group {
-            if let photoData = post.photoData {
+            if let videoData = post.videoData, !videoData.isEmpty {
+                // Video post — autoplay, loop, muted
+                ZStack {
+                    if let player = player {
+                        VideoPlayer(player: player)
+                            .ignoresSafeArea()
+                            .disabled(true) // Disable default controls
+                    } else {
+                        Color.black.ignoresSafeArea()
+                    }
+
+                    // Play/pause tap overlay
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            togglePlayback()
+                        }
+
+                    // Pause icon flash
+                    if !isPlaying {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.white.opacity(0.7))
+                            .transition(.opacity)
+                    }
+                }
+                .onAppear { setupPlayer(with: videoData) }
+                .onDisappear { teardownPlayer() }
+            } else if let photoData = post.photoData {
                 #if canImport(UIKit)
                 if let uiImage = UIImage(data: photoData) {
                     Image(uiImage: uiImage)
@@ -423,6 +461,44 @@ struct PostBackground: View {
                 endPoint: .bottom
             )
         )
+    }
+
+    private func setupPlayer(with data: Data) {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(post.id.uuidString)
+            .appendingPathExtension("mp4")
+        try? data.write(to: tempURL)
+        let avPlayer = AVPlayer(url: tempURL)
+        avPlayer.isMuted = true
+        avPlayer.play()
+        // Loop playback
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: avPlayer.currentItem,
+            queue: .main
+        ) { _ in
+            avPlayer.seek(to: .zero)
+            avPlayer.play()
+        }
+        player = avPlayer
+        isPlaying = true
+    }
+
+    private func togglePlayback() {
+        guard let player = player else { return }
+        if isPlaying {
+            player.pause()
+        } else {
+            player.play()
+        }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            isPlaying.toggle()
+        }
+    }
+
+    private func teardownPlayer() {
+        player?.pause()
+        player = nil
     }
 }
 
@@ -739,29 +815,35 @@ struct EmptyTikTokFeed: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            Image(systemName: "person.2.fill")
+            Spacer().frame(height: 100)
+
+            Image(systemName: "rectangle.stack.fill")
                 .font(.system(size: 60))
-                .foregroundColor(GQColors.textSecondary)
+                .foregroundColor(.gray.opacity(0.3))
 
-            Text("No posts yet")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.white)
+            VStack(spacing: 8) {
+                Text("No posts yet")
+                    .font(.title3)
+                    .fontWeight(.semibold)
 
-            Text("Be the first to share your workout")
-                .font(.system(size: 15))
-                .foregroundColor(GQColors.textSecondary)
-
-            Button(action: onCreatePost) {
-                Text("Create Post")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.black)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 14)
-                    .background(Color.white)
-                    .cornerRadius(10)
+                Text("Share your first post with the community")
+                    .font(.subheadline)
+                    .foregroundColor(GQColors.textTertiary)
+                    .multilineTextAlignment(.center)
             }
-            .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.vividPurple))
+
+            Button("Create Post") {
+                onCreatePost()
+            }
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundColor(.black)
+            .frame(width: 160, height: 48)
+            .background(Color.white)
+            .cornerRadius(24)
+
+            Spacer()
         }
+        .padding()
     }
 }
 
