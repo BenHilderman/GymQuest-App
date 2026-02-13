@@ -10,6 +10,15 @@ import SwiftUI
 import SwiftData
 import PhotosUI
 
+// MARK: - Live Workout Status
+
+struct LiveWorkoutStatus {
+    let workoutType: WorkoutType
+    let startTime: Date
+    var currentExercise: String
+    var completedSets: Int
+    var totalSets: Int
+}
 // MARK: - Active Workout Session
 
 struct ActiveWorkoutView: View {
@@ -63,7 +72,8 @@ struct ActiveWorkoutView: View {
 
     var body: some View {
         ZStack {
-            Color.clear
+            // Solid dark background
+            Color(white: 0.05).ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Header with timer and progress
@@ -120,7 +130,7 @@ struct ActiveWorkoutView: View {
                         addExerciseButton
                     }
                     .padding(16)
-                    .padding(.bottom, 100)
+                    .padding(.bottom, 16)
                     .animation(.spring(response: 0.4, dampingFraction: 0.8), value: exercises.count)
                 }
 
@@ -269,11 +279,13 @@ struct ActiveWorkoutView: View {
                     }
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .homeSocialCard(
-                        accent: workoutTypeColors.first ?? GQColors.vividPurple,
-                        cornerRadius: 10
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule().fill(workoutAccentColor.opacity(0.2))
+                    )
+                    .overlay(
+                        Capsule().stroke(workoutAccentColor.opacity(0.3), lineWidth: 0.5)
                     )
                 }
 
@@ -363,35 +375,25 @@ struct ActiveWorkoutView: View {
         Button {
             showingAddExercise = true
         } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill((workoutTypeColors.first ?? GQColors.primary).opacity(0.18))
-                        .frame(width: 42, height: 42)
-
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(workoutTypeColors.first ?? GQColors.primary)
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Add Exercise")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                    Text("Browse exercise library")
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.textTertiary)
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(workoutAccentColor)
+                Text("Add Exercise")
+                    .font(.system(size: 16, weight: .semibold))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 13)
-            .homeSocialCard(accent: workoutTypeColors.first ?? GQColors.vividPurple)
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [6, 4]))
+                    .foregroundColor(Color.white.opacity(0.12))
+            )
         }
         .buttonStyle(GQInteractiveStyle())
     }
@@ -410,11 +412,16 @@ struct ActiveWorkoutView: View {
                 .frame(maxWidth: 150)
             }
             Spacer()
-
-            Button {
-                finishWorkout()
-            } label: {
-                Label("Finish Workout", systemImage: "checkmark")
+            Button { finishWorkout() } label: {
+                Text("Finish")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(workoutAccentColor)
+                    )
             }
             .buttonStyle(
                 HomeSocialPrimaryButtonStyle(
@@ -425,15 +432,12 @@ struct ActiveWorkoutView: View {
         }
         .padding(16)
         .background(
-                Rectangle()
-                    .fill(GQColors.surfaceOverlay.opacity(0.92))
-                    .overlay(
-                        Rectangle()
-                            .fill(GQColors.borderDefault)
-                            .frame(height: 1),
-                        alignment: .top
-                    )
-                .ignoresSafeArea(edges: .bottom)
+            Color(white: 0.08)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(height: 0.5)
+                }
         )
     }
 
@@ -791,11 +795,12 @@ struct ActiveExerciseCard: View {
         .padding(14)
         .homeSocialCard(accent: workoutAccent, emphasized: allSetsComplete)
         .opacity(allSetsComplete ? 0.9 : 1.0)
-        .onAppear {
-            let service = ExerciseHistoryService(modelContext: modelContext)
-            if let last = service.lastPerformed(exercise.name) {
-                previousWeight = last.weight
-                previousReps = last.reps
+        .overlay(
+            Group {
+                if isActiveExercise && !allComplete {
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(accentColor.opacity(0.5), lineWidth: 1)
+                }
             }
         }
     }
@@ -1519,6 +1524,7 @@ struct WorkoutSessionCompletionSheet: View {
     @State private var hasCompleted = false
     @State private var savedWorkout: Workout?
     @State private var showConfetti = false
+    @State private var selectedEmotion: WorkoutEmotion? = nil
 
     // Media state
     @State private var mediaItems: [LocalMediaItem] = []
@@ -1573,15 +1579,18 @@ struct WorkoutSessionCompletionSheet: View {
                 Color.clear
 
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 20) {
                         completionHeader
                             .staggeredAppear(index: 0, stagger: 0.1)
                         completionStats
                             .staggeredAppear(index: 1, stagger: 0.1)
-                        shareSection
+                        WorkoutEmotionPicker(selectedEmotion: $selectedEmotion)
+                            .padding(.horizontal, 16)
                             .staggeredAppear(index: 2, stagger: 0.1)
-                        saveButton
+                        shareSection
                             .staggeredAppear(index: 3, stagger: 0.1)
+                        saveButton
+                            .staggeredAppear(index: 4, stagger: 0.1)
 
                         Spacer(minLength: 40)
                     }
@@ -1928,48 +1937,6 @@ struct WorkoutSessionCompletionSheet: View {
         .padding()
         .background(Color.white.opacity(0.05))
         .cornerRadius(16)
-    }
-
-    // MARK: - Mood
-
-    @ViewBuilder
-    private var moodSelector: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("HOW DO YOU FEEL?")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(GQColors.textTertiary)
-                .tracking(1)
-
-            HStack(spacing: 10) {
-                ForEach(WorkoutMood.allCases, id: \.self) { mood in
-                    Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                            selectedMood = selectedMood == mood ? nil : mood
-                        }
-                    } label: {
-                        VStack(spacing: 4) {
-                            Text(mood.emoji)
-                                .font(.system(size: 26))
-                            Text(mood.rawValue)
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(selectedMood == mood ? .white : .gray)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(selectedMood == mood ? GQColors.vividPurple.opacity(0.25) : Color.white.opacity(0.04))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(selectedMood == mood ? GQColors.vividPurple.opacity(0.5) : Color.clear, lineWidth: 1)
-                        )
-                        .scaleEffect(selectedMood == mood ? 1.05 : 1.0)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
     }
 
     // MARK: - Caption
@@ -2336,11 +2303,9 @@ struct WorkoutSessionCompletionSheet: View {
         )
         modelContext.insert(workout)
 
-        // Build mood string for caption
-        let moodSuffix = selectedMood.map { " Feeling \($0.emoji) \($0.rawValue.lowercased())." } ?? ""
         let captionText = caption.isEmpty
-            ? "Just finished a \(workoutType.rawValue) workout!\(moodSuffix)"
-            : caption + moodSuffix
+            ? "Just finished a \(workoutType.rawValue) workout!"
+            : caption
 
         // Create post with all the rich data
         let post = Post(
@@ -2355,7 +2320,8 @@ struct WorkoutSessionCompletionSheet: View {
             setCount: totalSets,
             songTitle: selectedSong?.title,
             artistName: selectedSong?.artist,
-            taggedUsernames: Array(taggedFriends)
+            taggedUsernames: Array(taggedFriends),
+            workoutEmotion: selectedEmotion?.rawValue
         )
         modelContext.insert(post)
 

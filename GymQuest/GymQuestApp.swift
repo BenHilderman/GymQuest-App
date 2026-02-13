@@ -64,6 +64,12 @@ struct GymQuestApp: App {
             // Nutrition (GymQuest 2.0)
             MealLog.self,
 
+            // Communities
+            Community.self,
+            CommunityPost.self,
+            CommunityMembership.self,
+            CommunityChallenge.self,
+
             // Templates (GymQuest 2.0)
             WorkoutTemplate.self,
 

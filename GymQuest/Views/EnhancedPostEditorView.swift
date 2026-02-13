@@ -27,6 +27,7 @@ struct EnhancedPostEditorView: View {
     var initialSong: Song? = nil
 
     // Core state
+    @State private var selectedEmotion: WorkoutEmotion? = nil
     @State private var caption: String = ""
     @State private var mediaItems: [PostMedia] = []
     @State private var includeStats: Bool = true
@@ -63,6 +64,10 @@ struct EnhancedPostEditorView: View {
                     if let workout = workout {
                         WorkoutSummaryHeader(workout: workout, duration: duration)
                     }
+
+                    // Emotion picker
+                    WorkoutEmotionPicker(selectedEmotion: $selectedEmotion, compact: true)
+                        .padding(.horizontal, 16)
 
                     // Caption editor
                     CaptionEditor(caption: $caption)
@@ -239,7 +244,8 @@ struct EnhancedPostEditorView: View {
             taggedSquadIds: taggedSquads.map { $0.id },
             taggedSquadNames: taggedSquads.map { $0.name },
             spotifyPlaylistURL: spotifyPlaylistURL.isEmpty ? nil : spotifyPlaylistURL,
-            appleMusicPlaylistURL: appleMusicPlaylistURL.isEmpty ? nil : appleMusicPlaylistURL
+            appleMusicPlaylistURL: appleMusicPlaylistURL.isEmpty ? nil : appleMusicPlaylistURL,
+            workoutEmotion: selectedEmotion?.rawValue
         )
 
         if let song = selectedSong {

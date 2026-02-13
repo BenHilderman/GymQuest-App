@@ -849,6 +849,9 @@ final class Post {
     var spotifyPlaylistURL: String?     // Full Spotify playlist URL
     var appleMusicPlaylistURL: String?  // Full Apple Music playlist URL
 
+    // Workout emotion
+    var workoutEmotion: String?         // WorkoutEmotion rawValue
+
     init(
         id: UUID = UUID(),
         authorId: UUID = UUID(),
@@ -881,7 +884,8 @@ final class Post {
         taggedSquadIds: [UUID] = [],
         taggedSquadNames: [String] = [],
         spotifyPlaylistURL: String? = nil,
-        appleMusicPlaylistURL: String? = nil
+        appleMusicPlaylistURL: String? = nil,
+        workoutEmotion: String? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -915,6 +919,7 @@ final class Post {
         self.taggedSquadNames = taggedSquadNames
         self.spotifyPlaylistURL = spotifyPlaylistURL
         self.appleMusicPlaylistURL = appleMusicPlaylistURL
+        self.workoutEmotion = workoutEmotion
     }
 
     /// Decode shared workout data for follow feature
@@ -942,6 +947,12 @@ final class Post {
     /// Check if post has any media (including legacy photoData/videoData)
     var hasMedia: Bool {
         !mediaItems.isEmpty || photoData != nil || videoData != nil
+    }
+
+    /// Typed accessor for the workout emotion
+    var emotion: WorkoutEmotion? {
+        guard let workoutEmotion else { return nil }
+        return WorkoutEmotion(rawValue: workoutEmotion)
     }
 }
 
@@ -1439,6 +1450,7 @@ final class Community {
     var isVerified: Bool                // Official gym/university account
     var tags: [String]                  // e.g., ["university", "gym", "weightlifting"]
     var createdAt: Date
+    var parentCommunityId: UUID?        // non-nil = this is a channel/sub-community
 
     init(
         id: UUID = UUID(),
@@ -1454,7 +1466,8 @@ final class Community {
         memberCount: Int = 0,
         isVerified: Bool = false,
         tags: [String] = [],
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        parentCommunityId: UUID? = nil
     ) {
         self.id = id
         self.name = name
@@ -1470,10 +1483,15 @@ final class Community {
         self.isVerified = isVerified
         self.tags = tags
         self.createdAt = createdAt
+        self.parentCommunityId = parentCommunityId
     }
 
     var isOpen: Bool {
         joinType == .open
+    }
+
+    var isChannel: Bool {
+        parentCommunityId != nil
     }
 }
 
@@ -1492,6 +1510,7 @@ final class CommunityPost {
     var likeCount: Int
     var commentCount: Int
     var timestamp: Date
+    var channelId: UUID?
 
     init(
         id: UUID = UUID(),
@@ -1505,7 +1524,8 @@ final class CommunityPost {
         photoData: Data? = nil,
         likeCount: Int = 0,
         commentCount: Int = 0,
-        timestamp: Date = Date()
+        timestamp: Date = Date(),
+        channelId: UUID? = nil
     ) {
         self.id = id
         self.communityId = communityId
@@ -1519,6 +1539,7 @@ final class CommunityPost {
         self.likeCount = likeCount
         self.commentCount = commentCount
         self.timestamp = timestamp
+        self.channelId = channelId
     }
 }
 
@@ -1537,6 +1558,117 @@ enum CommunityPostType: String, Codable, CaseIterable {
         case .achievement: return "trophy.fill"
         case .general: return "text.bubble.fill"
         }
+    }
+}
+
+// MARK: - Community Membership
+
+enum CommunityRole: String, Codable {
+    case member
+    case admin
+    case owner
+}
+
+enum WorkoutPartnerStatus: String, Codable {
+    case available
+    case notLooking
+}
+
+@Model
+final class CommunityMembership {
+    var id: UUID
+    var userId: UUID
+    var communityId: UUID
+    var role: CommunityRole
+    var workoutPartnerStatus: WorkoutPartnerStatus
+    var joinedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID = UUID(),
+        communityId: UUID = UUID(),
+        role: CommunityRole = .member,
+        workoutPartnerStatus: WorkoutPartnerStatus = .notLooking,
+        joinedAt: Date = Date()
+    ) {
+        self.id = id
+        self.userId = userId
+        self.communityId = communityId
+        self.role = role
+        self.workoutPartnerStatus = workoutPartnerStatus
+        self.joinedAt = joinedAt
+    }
+}
+
+// MARK: - Community Challenge
+
+enum ChallengeGoalType: String, Codable, CaseIterable {
+    case workouts = "Workouts"
+    case sets = "Sets"
+    case volume = "Volume (lbs)"
+    case streak = "Day Streak"
+
+    var icon: String {
+        switch self {
+        case .workouts: return "figure.strengthtraining.traditional"
+        case .sets: return "flame.fill"
+        case .volume: return "scalemass.fill"
+        case .streak: return "calendar.badge.checkmark"
+        }
+    }
+}
+
+@Model
+final class CommunityChallenge {
+    var id: UUID
+    var communityId: UUID
+    var title: String
+    var challengeDescription: String
+    var goalType: ChallengeGoalType
+    var goalTarget: Int
+    var currentProgress: Int
+    var startDate: Date
+    var endDate: Date
+    var participantIds: [UUID]
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        communityId: UUID = UUID(),
+        title: String = "",
+        challengeDescription: String = "",
+        goalType: ChallengeGoalType = .sets,
+        goalTarget: Int = 20,
+        currentProgress: Int = 0,
+        startDate: Date = Date(),
+        endDate: Date = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date(),
+        participantIds: [UUID] = [],
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.communityId = communityId
+        self.title = title
+        self.challengeDescription = challengeDescription
+        self.goalType = goalType
+        self.goalTarget = goalTarget
+        self.currentProgress = currentProgress
+        self.startDate = startDate
+        self.endDate = endDate
+        self.participantIds = participantIds
+        self.createdAt = createdAt
+    }
+
+    var progress: Double {
+        guard goalTarget > 0 else { return 0 }
+        return min(1.0, Double(currentProgress) / Double(goalTarget))
+    }
+
+    var daysRemaining: Int {
+        max(0, Calendar.current.dateComponents([.day], from: Date(), to: endDate).day ?? 0)
+    }
+
+    var isActive: Bool {
+        Date() >= startDate && Date() <= endDate
     }
 }
 
@@ -1875,6 +2007,72 @@ enum MealType: String, Codable, CaseIterable {
     }
 }
 
+/// Sentiment bucket for workout emotions
+enum EmotionSentiment: String, Codable {
+    case positive
+    case neutral
+    case resilient
+}
+
+/// How the user felt during / after a workout
+enum WorkoutEmotion: String, Codable, CaseIterable {
+    case fired = "Fired Up"
+    case strong = "Strong"
+    case grateful = "Grateful"
+    case calm = "Calm"
+    case grinding = "Grinding"
+    case dragging = "Dragging"
+    case anxious = "Anxious"
+    case comeback = "Comeback"
+
+    var emoji: String {
+        switch self {
+        case .fired: return "🔥"
+        case .strong: return "💪"
+        case .grateful: return "🙏"
+        case .calm: return "🧘"
+        case .grinding: return "⚙️"
+        case .dragging: return "🫠"
+        case .anxious: return "😤"
+        case .comeback: return "🔄"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .fired: return GQColors.coralRed
+        case .strong: return GQColors.vividPurple
+        case .grateful: return GQColors.electricGold
+        case .calm: return GQColors.cyanSpark
+        case .grinding: return GQColors.sunsetOrange
+        case .dragging: return Color.gray
+        case .anxious: return GQColors.deepBlue
+        case .comeback: return GQColors.success
+        }
+    }
+
+    var encouragement: String {
+        switch self {
+        case .fired: return "Let's go!"
+        case .strong: return "Beast mode"
+        case .grateful: return "Grateful gains"
+        case .calm: return "Mind & muscle"
+        case .grinding: return "One rep at a time"
+        case .dragging: return "Showed up anyway"
+        case .anxious: return "Stronger than the noise"
+        case .comeback: return "Back in it"
+        }
+    }
+
+    var sentimentCategory: EmotionSentiment {
+        switch self {
+        case .fired, .strong, .grateful, .calm: return .positive
+        case .grinding: return .neutral
+        case .dragging, .anxious, .comeback: return .resilient
+        }
+    }
+}
+
 /// How the user felt after a meal
 enum MealFeeling: String, Codable, CaseIterable {
     case great = "Great"
@@ -1920,6 +2118,10 @@ final class MealLog {
     var energyLevel: Int? // 1-5
     var hungerLevel: Int? // 1-5
     var privacy: WorkoutPrivacy
+    var estimatedCalories: Int?
+    var estimatedProtein: Int?
+    var estimatedCarbs: Int?
+    var estimatedFat: Int?
 
     init(
         id: UUID = UUID(),
@@ -1934,7 +2136,11 @@ final class MealLog {
         notes: String? = nil,
         energyLevel: Int? = nil,
         hungerLevel: Int? = nil,
-        privacy: WorkoutPrivacy = .privateOnly
+        privacy: WorkoutPrivacy = .privateOnly,
+        estimatedCalories: Int? = nil,
+        estimatedProtein: Int? = nil,
+        estimatedCarbs: Int? = nil,
+        estimatedFat: Int? = nil
     ) {
         self.id = id
         self.odId = odId
@@ -1949,10 +2155,139 @@ final class MealLog {
         self.energyLevel = energyLevel
         self.hungerLevel = hungerLevel
         self.privacy = privacy
+        self.estimatedCalories = estimatedCalories
+        self.estimatedProtein = estimatedProtein
+        self.estimatedCarbs = estimatedCarbs
+        self.estimatedFat = estimatedFat
     }
 
     var mealTags: [MealTag] {
         tags.compactMap { MealTag(rawValue: $0) }
+    }
+}
+
+// MARK: - Food Nutrition Estimator
+
+struct FoodNutritionEstimator {
+    struct NutritionInfo {
+        let calories: Int
+        let protein: Int
+        let carbs: Int
+        let fat: Int
+    }
+
+    private static let foodDatabase: [String: NutritionInfo] = [
+        // Proteins
+        "egg": NutritionInfo(calories: 70, protein: 6, carbs: 1, fat: 5),
+        "eggs": NutritionInfo(calories: 70, protein: 6, carbs: 1, fat: 5),
+        "chicken": NutritionInfo(calories: 165, protein: 31, carbs: 0, fat: 4),
+        "chicken breast": NutritionInfo(calories: 165, protein: 31, carbs: 0, fat: 4),
+        "steak": NutritionInfo(calories: 270, protein: 26, carbs: 0, fat: 18),
+        "beef": NutritionInfo(calories: 250, protein: 26, carbs: 0, fat: 15),
+        "salmon": NutritionInfo(calories: 208, protein: 20, carbs: 0, fat: 13),
+        "tuna": NutritionInfo(calories: 130, protein: 28, carbs: 0, fat: 1),
+        "shrimp": NutritionInfo(calories: 100, protein: 20, carbs: 1, fat: 1),
+        "tofu": NutritionInfo(calories: 80, protein: 8, carbs: 2, fat: 5),
+        "turkey": NutritionInfo(calories: 170, protein: 30, carbs: 0, fat: 5),
+        "bacon": NutritionInfo(calories: 120, protein: 9, carbs: 0, fat: 9),
+        "protein shake": NutritionInfo(calories: 150, protein: 25, carbs: 8, fat: 2),
+        "whey": NutritionInfo(calories: 120, protein: 24, carbs: 3, fat: 1),
+        "greek yogurt": NutritionInfo(calories: 100, protein: 17, carbs: 6, fat: 1),
+        "yogurt": NutritionInfo(calories: 100, protein: 10, carbs: 12, fat: 3),
+
+        // Carbs
+        "rice": NutritionInfo(calories: 200, protein: 4, carbs: 45, fat: 0),
+        "bread": NutritionInfo(calories: 80, protein: 3, carbs: 15, fat: 1),
+        "toast": NutritionInfo(calories: 80, protein: 3, carbs: 15, fat: 1),
+        "pasta": NutritionInfo(calories: 220, protein: 8, carbs: 43, fat: 1),
+        "oatmeal": NutritionInfo(calories: 150, protein: 5, carbs: 27, fat: 3),
+        "oats": NutritionInfo(calories: 150, protein: 5, carbs: 27, fat: 3),
+        "potato": NutritionInfo(calories: 160, protein: 4, carbs: 37, fat: 0),
+        "sweet potato": NutritionInfo(calories: 110, protein: 2, carbs: 26, fat: 0),
+        "banana": NutritionInfo(calories: 105, protein: 1, carbs: 27, fat: 0),
+        "apple": NutritionInfo(calories: 95, protein: 0, carbs: 25, fat: 0),
+
+        // Fats & Misc
+        "avocado": NutritionInfo(calories: 240, protein: 3, carbs: 12, fat: 22),
+        "peanut butter": NutritionInfo(calories: 190, protein: 7, carbs: 7, fat: 16),
+        "cheese": NutritionInfo(calories: 110, protein: 7, carbs: 0, fat: 9),
+        "butter": NutritionInfo(calories: 100, protein: 0, carbs: 0, fat: 11),
+        "olive oil": NutritionInfo(calories: 120, protein: 0, carbs: 0, fat: 14),
+        "nuts": NutritionInfo(calories: 170, protein: 5, carbs: 6, fat: 15),
+        "almonds": NutritionInfo(calories: 165, protein: 6, carbs: 6, fat: 14),
+
+        // Drinks
+        "coffee": NutritionInfo(calories: 5, protein: 0, carbs: 0, fat: 0),
+        "milk": NutritionInfo(calories: 120, protein: 8, carbs: 12, fat: 5),
+        "juice": NutritionInfo(calories: 110, protein: 1, carbs: 26, fat: 0),
+        "smoothie": NutritionInfo(calories: 200, protein: 8, carbs: 35, fat: 4),
+
+        // Meals
+        "salad": NutritionInfo(calories: 150, protein: 5, carbs: 12, fat: 8),
+        "sandwich": NutritionInfo(calories: 350, protein: 18, carbs: 35, fat: 14),
+        "burger": NutritionInfo(calories: 450, protein: 25, carbs: 35, fat: 22),
+        "pizza": NutritionInfo(calories: 300, protein: 12, carbs: 36, fat: 12),
+        "burrito": NutritionInfo(calories: 500, protein: 20, carbs: 55, fat: 20),
+        "sushi": NutritionInfo(calories: 250, protein: 12, carbs: 35, fat: 6),
+        "soup": NutritionInfo(calories: 150, protein: 8, carbs: 18, fat: 5),
+        "wrap": NutritionInfo(calories: 350, protein: 18, carbs: 35, fat: 14),
+    ]
+
+    static func estimate(from text: String) -> NutritionInfo {
+        let items = text.lowercased()
+            .components(separatedBy: CharacterSet(charactersIn: ",;&+\n"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        var totalCal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0
+
+        for item in items {
+            let (quantity, foodKey) = parseQuantity(from: item)
+
+            if let info = matchFood(foodKey) {
+                totalCal += info.calories * quantity
+                totalProtein += info.protein * quantity
+                totalCarbs += info.carbs * quantity
+                totalFat += info.fat * quantity
+            }
+        }
+
+        return NutritionInfo(calories: totalCal, protein: totalProtein, carbs: totalCarbs, fat: totalFat)
+    }
+
+    private static func parseQuantity(from text: String) -> (Int, String) {
+        let words = text.split(separator: " ").map { String($0) }
+        guard let first = words.first else { return (1, text) }
+
+        if let num = Int(first) {
+            let rest = words.dropFirst().joined(separator: " ")
+            return (max(1, num), rest.isEmpty ? text : rest)
+        }
+
+        let wordNumbers = ["one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6]
+        if let num = wordNumbers[first.lowercased()] {
+            let rest = words.dropFirst().joined(separator: " ")
+            return (num, rest.isEmpty ? text : rest)
+        }
+
+        return (1, text)
+    }
+
+    private static func matchFood(_ text: String) -> NutritionInfo? {
+        let cleaned = text.trimmingCharacters(in: .whitespaces)
+
+        // Exact match first
+        if let info = foodDatabase[cleaned] { return info }
+
+        // Try matching longest key first (e.g., "chicken breast" before "chicken")
+        let sortedKeys = foodDatabase.keys.sorted { $0.count > $1.count }
+        for key in sortedKeys {
+            if cleaned.contains(key) {
+                return foodDatabase[key]
+            }
+        }
+
+        return nil
     }
 }
 

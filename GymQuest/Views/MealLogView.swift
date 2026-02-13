@@ -2,8 +2,7 @@
 //  MealLogView.swift
 //  GymQuest
 //
-//  Meal logging view for GymQuest 2.0 Nutrition v1.
-//  Quick photo + tags + feeling approach.
+//  Simplified food logger — text input with auto-estimated nutrition.
 //
 
 import SwiftUI
@@ -16,20 +15,32 @@ struct MealLogView: View {
 
     let profile: UserProfile
 
-    @State private var mealType: MealType = .lunch
-    @State private var description = ""
-    @State private var selectedTags: Set<String> = []
-    @State private var customTag = ""
-    @State private var feeling: MealFeeling = .good
-    @State private var notes = ""
+    @State private var foodText = ""
     @State private var photoItem: PhotosPickerItem?
     @State private var photoData: Data?
     @State private var suggestedTags: [String] = []
     @State private var showingCamera = false
     @State private var showLoggedOverlay = false
+    @State private var editingCalories = false
+    @State private var editingProtein = false
+    @State private var editingCarbs = false
+    @State private var editingFat = false
+    @State private var manualCalories = ""
+    @State private var manualProtein = ""
+    @State private var manualCarbs = ""
+    @State private var manualFat = ""
+
+    private var estimation: FoodNutritionEstimator.NutritionInfo {
+        FoodNutritionEstimator.estimate(from: foodText)
+    }
+
+    private var calories: Int { Int(manualCalories) ?? estimation.calories }
+    private var protein: Int { Int(manualProtein) ?? estimation.protein }
+    private var carbs: Int { Int(manualCarbs) ?? estimation.carbs }
+    private var fat: Int { Int(manualFat) ?? estimation.fat }
 
     private var mealAccent: Color {
-        switch mealType {
+        switch guessMealType() {
         case .breakfast: return GQColors.electricGold
         case .lunch: return GQColors.cyanSpark
         case .dinner: return GQColors.vividPurple
@@ -42,25 +53,53 @@ struct MealLogView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
-                    GQScreenTitleBlock(
-                        title: "Log Meal",
-                        subtitle: "Capture what you ate and how it felt.",
-                        accent: mealAccent
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
+                VStack(spacing: 24) {
+                    // Text area
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("WHAT DID YOU EAT?")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(0.5)
 
-                    VStack(spacing: 12) {
-                        if let photoData = photoData,
-                           let uiImage = UIImage(data: photoData) {
+                        TextField("e.g., 2 eggs, toast, coffee", text: $foodText, axis: .vertical)
+                            .lineLimit(3...6)
+                            .textFieldStyle(.plain)
+                            .padding()
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                    }
+
+                    // Auto-estimated nutrition row
+                    if !foodText.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("ESTIMATED NUTRITION")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.gray)
+                                .tracking(0.5)
+
+                            HStack(spacing: 8) {
+                                nutritionPill(label: "Cal", value: calories, color: .orange, editing: $editingCalories, manualValue: $manualCalories)
+                                nutritionPill(label: "Protein", value: protein, color: GQColors.cyanSpark, editing: $editingProtein, manualValue: $manualProtein)
+                                nutritionPill(label: "Carbs", value: carbs, color: GQColors.vividPurple, editing: $editingCarbs, manualValue: $manualCarbs)
+                                nutritionPill(label: "Fat", value: fat, color: GQColors.sunsetOrange, editing: $editingFat, manualValue: $manualFat)
+                            }
+
+                            Text("Tap a value to edit manually")
+                                .font(.system(size: 10))
+                                .foregroundColor(.gray.opacity(0.6))
+                        }
+                    }
+
+                    // Optional photo
+                    if let photoData = photoData {
+                        #if canImport(UIKit)
+                        if let uiImage = UIImage(data: photoData) {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
-                                .frame(height: 200)
+                                .frame(height: 180)
                                 .frame(maxWidth: .infinity)
-                                .clipShape(RoundedRectangle(cornerRadius: 16))
-                                .transition(.scale.combined(with: .opacity))
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
                                 .overlay(alignment: .topTrailing) {
                                     Button {
                                         self.photoData = nil
@@ -73,193 +112,74 @@ struct MealLogView: View {
                                     }
                                     .padding(8)
                                 }
-                        } else {
-                            HStack(spacing: 16) {
-                                PhotosPicker(selection: $photoItem, matching: .images) {
-                                    VStack(spacing: 8) {
-                                        Image(systemName: "photo.on.rectangle")
-                                            .font(.system(size: 24))
-                                        Text("Choose Photo")
-                                            .font(.system(size: 13, weight: .semibold))
-                                    }
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 104)
-                                    .workoutFlowCard(accent: GQColors.cyanSpark)
-                                }
-                                .buttonStyle(.plain)
-
-                                Button {
-                                    showingCamera = true
-                                } label: {
-                                    VStack(spacing: 8) {
-                                        Image(systemName: "camera.fill")
-                                            .font(.system(size: 24))
-                                        Text("Take Photo")
-                                            .font(.system(size: 13, weight: .semibold))
-                                    }
-                                    .foregroundColor(.white)
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 104)
-                                    .workoutFlowCard(accent: GQColors.vividPurple)
-                                }
-                            }
-                            .buttonStyle(GQInteractiveStyle())
                         }
-                    }
-                    .padding(14)
-                    .workoutFlowCard(accent: mealAccent, emphasized: photoData != nil)
-                    .padding(.horizontal, 16)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        sectionTitle("Meal Type")
-
-                        ScrollView(.horizontal, showsIndicators: false) {
+                        #endif
+                    } else {
+                        PhotosPicker(selection: $photoItem, matching: .images) {
                             HStack(spacing: 8) {
-                                ForEach(MealType.allCases, id: \.self) { type in
-                                    MealTypeChip(
-                                        type: type,
-                                        isSelected: mealType == type,
-                                        action: {
-                                            mealType = type
-                                            loadSuggestedTags()
-                                        }
-                                    )
-                                }
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 16))
+                                Text("Add Photo")
+                                    .font(.system(size: 14, weight: .medium))
                             }
-                            .padding(.vertical, 2)
-                        }
-                    }
-                    .padding(14)
-                    .workoutFlowCard(accent: mealAccent)
-                    .padding(.horizontal, 16)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        sectionTitle("What Did You Eat?")
-
-                        TextField("e.g., Grilled chicken salad with avocado", text: $description)
-                            .textFieldStyle(.plain)
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.white.opacity(0.07))
-                            )
+                            .foregroundColor(.white.opacity(0.6))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.white.opacity(0.06))
+                            .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
                             )
-                    }
-                    .padding(14)
-                    .workoutFlowCard(accent: mealAccent)
-                    .padding(.horizontal, 16)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        sectionTitle("Quick Tags")
-
-                        FlowLayout(spacing: 8) {
-                            ForEach(suggestedTags, id: \.self) { tag in
-                                TagChip(
-                                    tag: tag,
-                                    isSelected: selectedTags.contains(tag),
-                                    action: {
-                                        if selectedTags.contains(tag) {
-                                            selectedTags.remove(tag)
-                                        } else {
-                                            selectedTags.insert(tag)
-                                        }
-                                    }
-                                )
-                            }
                         }
-
-                        // Custom tag input
-                        HStack {
-                            TextField("Add custom tag...", text: $customTag)
-                                .textFieldStyle(.plain)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .fill(Color.white.opacity(0.07))
-                                )
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                                )
-
-                            Button {
-                                if !customTag.isEmpty {
-                                    selectedTags.insert(customTag.lowercased())
-                                    customTag = ""
-                                }
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 26))
-                                    .foregroundColor(GQColors.cyanSpark)
-                            }
-                            .disabled(customTag.isEmpty)
-                            .buttonStyle(.plain)
-                        }
+                        .buttonStyle(.plain)
                     }
-                    .padding(14)
-                    .workoutFlowCard(accent: GQColors.cyanSpark)
-                    .padding(.horizontal, 16)
 
-                    VStack(alignment: .leading, spacing: 12) {
-                        sectionTitle("How Did You Feel?")
-
-                        HStack(spacing: 12) {
-                            ForEach(MealFeeling.allCases, id: \.self) { feel in
-                                FeelingButton(
-                                    feeling: feel,
-                                    isSelected: feeling == feel,
-                                    action: { feeling = feel }
-                                )
+                    // Action buttons
+                    VStack(spacing: 10) {
+                        Button { logMeal(share: false) } label: {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                Text("Log")
                             }
+                            .font(.headline)
+                            .foregroundColor(.black)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.white)
+                            .cornerRadius(12)
                         }
-                    }
-                    .padding(14)
-                    .workoutFlowCard(accent: GQColors.success)
-                    .padding(.horizontal, 16)
+                        .buttonStyle(.plain)
+                        .disabled(foodText.trimmingCharacters(in: .whitespaces).isEmpty)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        sectionTitle("Notes (Optional)")
-
-                        TextField("Any additional notes...", text: $notes, axis: .vertical)
-                            .lineLimit(3...5)
-                            .textFieldStyle(.plain)
-                            .padding()
+                        Button { logMeal(share: true) } label: {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                Text("Log & Share")
+                            }
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
                             .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.white.opacity(0.07))
+                                LinearGradient(
+                                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                            )
-                    }
-                    .padding(14)
-                    .workoutFlowCard(accent: GQColors.vividPurple)
-                    .padding(.horizontal, 16)
-
-                    Button {
-                        logMeal()
-                    } label: {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Log Meal")
+                            .cornerRadius(12)
                         }
+                        .buttonStyle(.plain)
+                        .disabled(foodText.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
-                    .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: mealAccent))
-                    .disabled(description.isEmpty)
-                    .opacity(description.isEmpty ? 0.6 : 1)
-                    .padding(.horizontal, 16)
 
                     Spacer(minLength: 40)
                 }
                 .padding(.bottom, 120)
             }
-            .gqPageBackground()
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Log Food")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -312,28 +232,7 @@ struct MealLogView: View {
     private func loadSuggestedTags() {
         let service = NutritionService.shared
         service.configure(modelContext: modelContext)
-        suggestedTags = service.getSuggestedTags(userId: profile.id, mealType: mealType)
-    }
-
-    private func logMeal() {
-        let service = NutritionService.shared
-        service.configure(modelContext: modelContext)
-
-        _ = service.logMeal(
-            userId: profile.id,
-            mealType: mealType,
-            description: description,
-            tags: Array(selectedTags),
-            photoData: photoData,
-            feeling: feeling,
-            notes: notes
-        )
-
-        HapticManager.shared.success()
-        showLoggedOverlay = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            dismiss()
-        }
+        suggestedTags = service.getSuggestedTags(userId: profile.id, mealType: guessMealType())
     }
 }
 
@@ -436,6 +335,84 @@ struct FeelingButton: View {
             )
         }
         .buttonStyle(GQInteractiveStyle())
+    }
+}
+
+// MARK: - MealLogView Extensions
+
+extension MealLogView {
+    @ViewBuilder
+    func nutritionPill(label: String, value: Int, color: Color, editing: Binding<Bool>, manualValue: Binding<String>) -> some View {
+        Button {
+            editing.wrappedValue.toggle()
+        } label: {
+            VStack(spacing: 4) {
+                if editing.wrappedValue {
+                    TextField("0", text: manualValue)
+                        #if os(iOS)
+                        .keyboardType(.numberPad)
+                        #endif
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 50)
+                } else {
+                    Text("\(value)")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(color)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(color.opacity(0.15))
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(color.opacity(0.3), lineWidth: 1)
+            )
+        }
+        .buttonStyle(GQInteractiveStyle())
+    }
+
+    func logMeal(share: Bool) {
+        let service = NutritionService.shared
+        service.configure(modelContext: modelContext)
+
+        let meal = service.logMeal(
+            userId: profile.id,
+            mealType: guessMealType(),
+            description: foodText,
+            tags: [],
+            photoData: photoData,
+            feeling: .good,
+            notes: nil
+        )
+
+        // Update nutrition estimates on the saved meal
+        meal.estimatedCalories = calories
+        meal.estimatedProtein = protein
+        meal.estimatedCarbs = carbs
+        meal.estimatedFat = fat
+
+        if share {
+            meal.privacy = .publicVisible
+        }
+
+        try? modelContext.save()
+        dismiss()
+    }
+
+    private func guessMealType() -> MealType {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5...10: return .breakfast
+        case 11...14: return .lunch
+        case 15...16: return .snack
+        default: return .dinner
+        }
     }
 }
 
@@ -626,6 +603,7 @@ struct MealSummaryRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Photo or icon
+            #if canImport(UIKit)
             if let photoData = meal.photoData,
                let uiImage = UIImage(data: photoData) {
                 Image(uiImage: uiImage)
@@ -634,30 +612,27 @@ struct MealSummaryRow: View {
                     .frame(width: 44, height: 44)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 44, height: 44)
-
-                    Image(systemName: meal.mealType.icon)
-                        .foregroundColor(GQColors.textTertiary)
-                }
+                mealIconFallback
             }
+            #else
+            mealIconFallback
+            #endif
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(meal.mealType.rawValue)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-
-                    Text(meal.feeling.emoji)
-                        .font(.system(size: 12))
-                }
-
                 Text(meal.mealDescription)
-                    .font(.system(size: 12))
-                    .foregroundColor(GQColors.textTertiary)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
                     .lineLimit(1)
+
+                if let cal = meal.estimatedCalories, cal > 0 {
+                    Text("\(cal) cal")
+                        .font(.system(size: 11))
+                        .foregroundColor(.orange)
+                } else {
+                    Text(meal.mealType.rawValue)
+                        .font(.system(size: 11))
+                        .foregroundColor(.gray)
+                }
             }
 
             Spacer()
@@ -665,6 +640,17 @@ struct MealSummaryRow: View {
             Text(meal.dateTime.formatted(date: .omitted, time: .shortened))
                 .font(.system(size: 11))
                 .foregroundColor(GQColors.textTertiary)
+        }
+    }
+
+    private var mealIconFallback: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.white.opacity(0.1))
+                .frame(width: 44, height: 44)
+
+            Image(systemName: meal.mealType.icon)
+                .foregroundColor(.gray)
         }
     }
 }

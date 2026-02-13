@@ -16,27 +16,33 @@ private let progressFireAccent = GQColors.coralRed
 
 struct TrainingProgressView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var featureFlags: FeatureFlags
+    @Environment(\.modelContext) private var modelContext
     let profile: UserProfile
     let workouts: [Workout]
     @ObservedObject var aiService: AIService
 
-    @State private var showingCalendar = false // full calendar sheet
+    @State private var showingCalendar = false
+    @State private var showingMealLog = false
+    @State private var prMoments: [PRMoment] = []
+    @State private var metricsSummary: AnalyticsService.MetricsSummary?
+    @State private var activeQuest: (quest: Quest, progress: QuestProgress)?
+    @State private var selectedWorkoutForReview: Workout?
 
     var streak: Int {
-        aiService.calculateStreak(workouts: workouts) // consecutive days with a workout
+        aiService.calculateStreak(workouts: workouts)
     }
 
     var sessionsThisWeek: Int {
         let start = mondayOfCurrentWeek()
-        return workouts.filter { $0.date >= start }.count // count workouts since monday
+        return workouts.filter { $0.date >= start }.count
     }
-
-    @State private var showingMealLog = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: GQLayout.sectionSpacing) {
+                    // Recovery Card
                     RecoveryCard(streak: streak, sessionsThisWeek: sessionsThisWeek)
                         .gqScreenHorizontalPadding()
                         .padding(.top, GQLayout.pageTop)
@@ -66,32 +72,21 @@ struct TrainingProgressView: View {
                     WeekChartV2(workouts: workouts)
                         .gqScreenHorizontalPadding()
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Recent Workouts")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                            .gqScreenHorizontalPadding()
+                    // Health Stats
+                    healthStatsSection
+                        .padding(.horizontal, 16)
 
-                        if workouts.isEmpty {
-                            VStack(spacing: 8) {
-                                Image(systemName: "figure.strengthtraining.traditional")
-                                    .font(.system(size: 26))
-                                    .foregroundColor(GQColors.textTertiary)
-                                Text("No recent workouts")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(GQColors.textSecondary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 22)
-                            .homeSocialCard(accent: progressNeutralAccent)
-                            .gqScreenHorizontalPadding()
-                        } else {
-                            ForEach(workouts.prefix(4)) { workout in
-                                CompactWorkoutRow(workout: workout)
-                                    .gqScreenHorizontalPadding()
-                            }
-                        }
-                    }
+                    // Personal Records
+                    prSection
+
+                    // All-Time Stats
+                    allTimeStatsSection
+
+                    // Daily Quest
+                    questSection
+
+                    // Recent Workouts
+                    recentWorkoutsSection
                 }
                 .padding(.bottom, GQLayout.pageBottom)
             }
@@ -103,22 +98,228 @@ struct TrainingProgressView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { loadProgressData() }
             .sheet(isPresented: $showingCalendar) {
                 FullCalendarView(workouts: workouts)
             }
             .sheet(isPresented: $showingMealLog) {
                 MealLogView(profile: profile)
             }
+            .sheet(item: $selectedWorkoutForReview) { workout in
+                WorkoutReviewSheet(workout: workout)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
         }
     }
 
-    // get monday of current week
+    // MARK: - Extracted View Builders
+
+    @ViewBuilder
+    private var healthStatsSection: some View {
+        HealthStatsSection()
+    }
+
+    @ViewBuilder
+    private var prSection: some View {
+        if !prMoments.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("PERSONAL RECORDS")
+                    .font(GQTypography.sectionHeader)
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1)
+                    .padding(.horizontal, 16)
+
+                ForEach(prMoments.prefix(5)) { pr in
+                    PRRow(pr: pr)
+                        .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var allTimeStatsSection: some View {
+        if let summary = metricsSummary {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("ALL-TIME STATS")
+                    .font(GQTypography.sectionHeader)
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1)
+                    .padding(.horizontal, 16)
+
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10)
+                ], spacing: 10) {
+                    AllTimeStatCard(icon: "dumbbell.fill", value: "\(summary.totalWorkouts)", label: "Workouts", color: GQColors.vividPurple)
+                    AllTimeStatCard(icon: "trophy.fill", value: "\(summary.totalPRs)", label: "PRs Hit", color: GQColors.cyanSpark)
+                    AllTimeStatCard(icon: "flag.checkered", value: "\(summary.totalQuestsCompleted)", label: "Quests", color: GQColors.success)
+                    AllTimeStatCard(icon: "fork.knife", value: "\(summary.mealsLogged)", label: "Meals", color: GQColors.sunsetOrange)
+                    AllTimeStatCard(icon: "square.and.arrow.up", value: "\(summary.totalShares)", label: "Shares", color: GQColors.electricBlue)
+                    AllTimeStatCard(icon: "flame.fill", value: "\(summary.workoutsThisWeek)", label: "This Week", color: GQColors.success)
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var questSection: some View {
+        if let quest = activeQuest {
+            VStack(alignment: .leading, spacing: 12) {
+                ActiveQuestCard(quest: quest.quest, progress: quest.progress)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(white: 0.08))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var recentWorkoutsSection: some View {
+        if !workouts.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Recent Workouts")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+
+                ForEach(workouts.prefix(4)) { workout in
+                    CompactWorkoutRow(workout: workout)
+                        .padding(.horizontal, 16)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selectedWorkoutForReview = workout
+                        }
+                }
+            }
+        }
+    }
+
+    // MARK: - Data Loading
+
+    private func loadProgressData() {
+        // Load PRMoments
+        let prDescriptor = FetchDescriptor<PRMoment>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        prMoments = (try? modelContext.fetch(prDescriptor)) ?? []
+
+        // Load metrics summary
+        let analytics = AnalyticsService.shared
+        metricsSummary = analytics.getMetricsSummary(userId: profile.id)
+
+        // Load active quest
+        if featureFlags.questsEnabled {
+            let questService = QuestService.shared
+            questService.configure(modelContext: modelContext)
+            questService.seedDefaultQuests()
+            activeQuest = questService.getTodaysQuest(userId: profile.id)
+        }
+    }
+
     func mondayOfCurrentWeek() -> Date {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let weekday = cal.component(.weekday, from: today) // 1=Sun, 2=Mon, etc
-        let daysFromMonday = (weekday + 5) % 7 // math trick to get days since monday
+        let weekday = cal.component(.weekday, from: today)
+        let daysFromMonday = (weekday + 5) % 7
         return cal.date(byAdding: .day, value: -daysFromMonday, to: today) ?? today
+    }
+}
+
+// MARK: - PR Row
+
+struct PRRow: View {
+    let pr: PRMoment
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(GQColors.cyanSpark.opacity(0.15))
+                    .frame(width: 40, height: 40)
+
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(GQColors.cyanSpark)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                if let name = pr.exerciseName {
+                    Text(name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                }
+
+                Text(pr.value)
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                if let improvement = pr.improvement {
+                    Text(improvement)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(GQColors.success)
+                }
+
+                Text(pr.createdAt.formatted(date: .abbreviated, time: .omitted))
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(white: 0.06))
+        )
+    }
+}
+
+// MARK: - All-Time Stat Card
+
+struct AllTimeStatCard: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundColor(color)
+
+            Text(value)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(white: 0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.white.opacity(0.04), lineWidth: 1)
+        )
     }
 }
 
@@ -241,14 +442,17 @@ struct RecoveryCard: View {
 // MARK: - Health Stats Section (Apple Health Data)
 
 struct HealthStatsSection: View {
-    @State private var steps: Int = 0
-    @State private var calories: Int = 0
-    @State private var sleepHours: Double = 0
-    @State private var restingHR: Int = 0
+    @ObservedObject private var healthKit = HealthKitService.shared
 
-    // Estimate calories burned from steps (rough: ~0.04 cal per step)
     var caloriesFromSteps: Int {
-        Int(Double(steps) * 0.04)
+        Int(Double(healthKit.steps) * 0.04)
+    }
+
+    var sleepQuality: String {
+        if healthKit.sleepHours <= 0 { return "No data" }
+        if healthKit.sleepHours >= 7 { return "Good rest" }
+        if healthKit.sleepHours >= 5 { return "Could use more" }
+        return "Sleep deprived"
     }
 
     var body: some View {
@@ -257,71 +461,46 @@ struct HealthStatsSection: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundColor(.white)
 
-            // Main stats grid
             LazyVGrid(columns: [
                 GridItem(.flexible(), spacing: 10),
                 GridItem(.flexible(), spacing: 10)
             ], spacing: 10) {
-                // Steps
                 HealthStatCard(
                     icon: "figure.walk",
                     title: "Steps",
-                    value: steps > 0 ? "\(steps.formatted())" : "--",
-                    subtitle: steps > 0 ? "~\(caloriesFromSteps) cal burned" : "No data",
-                    color: GQColors.success
+                    value: healthKit.steps > 0 ? "\(healthKit.steps.formatted())" : "--",
+                    subtitle: healthKit.steps > 0 ? "~\(caloriesFromSteps) cal burned" : "No data",
+                    color: GQColors.vividPurple
                 )
 
-                // Sleep
                 HealthStatCard(
                     icon: "moon.fill",
                     title: "Sleep",
-                    value: sleepHours > 0 ? String(format: "%.1fh", sleepHours) : "--",
+                    value: healthKit.sleepHours > 0 ? String(format: "%.1fh", healthKit.sleepHours) : "--",
                     subtitle: sleepQuality,
                     color: GQColors.textSecondary
                 )
 
-                // Active Calories
                 HealthStatCard(
                     icon: "flame.fill",
                     title: "Active Cal",
-                    value: calories > 0 ? "\(calories)" : "--",
-                    subtitle: calories > 0 ? "burned today" : "No data",
-                    color: GQColors.coralRed
+                    value: healthKit.activeCalories > 0 ? "\(healthKit.activeCalories)" : "--",
+                    subtitle: healthKit.activeCalories > 0 ? "burned today" : "No data",
+                    color: GQColors.success
                 )
 
-                // Resting HR
                 HealthStatCard(
                     icon: "heart.fill",
                     title: "Resting HR",
-                    value: restingHR > 0 ? "\(restingHR)" : "--",
-                    subtitle: restingHR > 0 ? "bpm" : "No data",
-                    color: GQColors.coralRed
+                    value: healthKit.restingHeartRate > 0 ? "\(healthKit.restingHeartRate)" : "--",
+                    subtitle: healthKit.restingHeartRate > 0 ? "bpm" : "No data",
+                    color: GQColors.success
                 )
             }
         }
         .onAppear {
-            loadHealthData()
-        }
-    }
-
-    var sleepQuality: String {
-        if sleepHours <= 0 { return "No data" }
-        if sleepHours >= 7 { return "Good rest" }
-        if sleepHours >= 5 { return "Could use more" }
-        return "Sleep deprived"
-    }
-
-    private func loadHealthData() {
-        let healthKit = HealthKitService.shared
-        healthKit.requestAuthorizationSync()
-        healthKit.fetchTodayData()
-
-        // Update after fetch completes
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            steps = healthKit.steps
-            calories = healthKit.activeCalories
-            sleepHours = healthKit.sleepHours
-            restingHR = healthKit.restingHeartRate
+            healthKit.requestAuthorizationSync()
+            healthKit.fetchTodayData()
         }
     }
 }
@@ -1209,5 +1388,6 @@ struct WorkoutRow: View {
         aiService: AIService()
     )
     .environmentObject(AppState())
+    .environmentObject(FeatureFlags.shared)
     .preferredColorScheme(.dark)
 }

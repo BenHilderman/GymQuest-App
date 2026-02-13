@@ -85,6 +85,29 @@ struct ProfileView: View {
         }
     }
 
+    // Computed XP level info
+    private var levelInfo: (level: Int, currentXP: Int, nextXP: Int) {
+        UserProfile.calculateLevel(from: profile.xp)
+    }
+
+    private var xpProgress: Double {
+        guard levelInfo.nextXP > 0 else { return 0 }
+        return min(1.0, Double(levelInfo.currentXP) / Double(levelInfo.nextXP))
+    }
+
+    // Lifetime stats (exclude rest days)
+    private var totalWorkoutCount: Int {
+        workouts.filter { $0.type != .rest }.count
+    }
+
+    private var totalVolume: Double {
+        workouts.reduce(0.0) { $0 + $1.totalVolume }
+    }
+
+    private var totalMinutes: Int {
+        workouts.reduce(0) { $0 + $1.duration }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -93,6 +116,14 @@ struct ProfileView: View {
 
                     if !workoutHighlights.isEmpty {
                         profileHighlights
+                    }
+
+                    // Combined Stats Card
+                    unifiedStatsCard
+
+                    // Emotion Journey
+                    if let insights = EmotionInsightsService.shared.computeInsights(from: posts) {
+                        EmotionInsightsCard(insights: insights)
                     }
 
                     profileTabBar
@@ -473,20 +504,126 @@ private struct ProfileEmptyState: View {
     }
 }
 
-// MARK: - Profile Stat Item
+// MARK: - XP & Lifetime Stats Extensions
 
-struct ProfileStatItem: View {
+extension ProfileView {
+    @ViewBuilder
+    var unifiedStatsCard: some View {
+        VStack(spacing: 14) {
+            // Top row: Workouts | Level | Volume | Time
+            HStack(spacing: 0) {
+                ProfileLifetimeStatItem(
+                    icon: "dumbbell.fill",
+                    value: "\(totalWorkoutCount)",
+                    label: "Workouts",
+                    color: GQColors.vividPurple
+                )
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 1, height: 36)
+
+                ProfileLifetimeStatItem(
+                    icon: "star.fill",
+                    value: "Lv.\(profile.level)",
+                    label: UserProfile.levelTitle(for: profile.level),
+                    color: GQColors.cyanSpark
+                )
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 1, height: 36)
+
+                ProfileLifetimeStatItem(
+                    icon: "scalemass.fill",
+                    value: formatVolume(totalVolume),
+                    label: "Volume",
+                    color: GQColors.success
+                )
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 1, height: 36)
+
+                ProfileLifetimeStatItem(
+                    icon: "clock.fill",
+                    value: formatHours(totalMinutes),
+                    label: "Time",
+                    color: GQColors.sunsetOrange
+                )
+            }
+
+            // XP Progress
+            VStack(spacing: 6) {
+                AnimatedProgressBar(
+                    progress: xpProgress,
+                    height: 6,
+                    colors: [GQColors.vividPurple, GQColors.cyanSpark]
+                )
+
+                HStack {
+                    Text(UserProfile.levelTitle(for: levelInfo.level))
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.cyanSpark)
+
+                    Spacer()
+
+                    Text("\(levelInfo.currentXP) / \(levelInfo.nextXP) XP")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(white: 0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private func formatVolume(_ volume: Double) -> String {
+        if volume >= 1_000_000 {
+            return String(format: "%.1fM", volume / 1_000_000)
+        } else if volume >= 1_000 {
+            return String(format: "%.1fk", volume / 1_000)
+        }
+        return "\(Int(volume))"
+    }
+
+    private func formatHours(_ minutes: Int) -> String {
+        let hours = minutes / 60
+        if hours >= 1000 {
+            return String(format: "%.1fk", Double(hours) / 1000)
+        }
+        return "\(hours)h"
+    }
+}
+
+// MARK: - Profile Lifetime Stat Item
+
+struct ProfileLifetimeStatItem: View {
+    let icon: String
     let value: String
     let label: String
     let color: Color
 
     var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 20, weight: .bold))
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
                 .foregroundColor(color)
+
+            Text(value)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.white)
+
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
