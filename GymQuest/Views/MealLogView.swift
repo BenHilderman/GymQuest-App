@@ -381,24 +381,24 @@ extension MealLogView {
         let service = NutritionService.shared
         service.configure(modelContext: modelContext)
 
-        let meal = service.logMeal(
+        if let meal = service.logMeal(
             userId: profile.id,
             mealType: guessMealType(),
             description: foodText,
             tags: [],
             photoData: photoData,
             feeling: .good,
-            notes: nil
-        )
+            notes: ""
+        ) {
+            // Update nutrition estimates on the saved meal
+            meal.estimatedCalories = calories
+            meal.estimatedProtein = protein
+            meal.estimatedCarbs = carbs
+            meal.estimatedFat = fat
 
-        // Update nutrition estimates on the saved meal
-        meal.estimatedCalories = calories
-        meal.estimatedProtein = protein
-        meal.estimatedCarbs = carbs
-        meal.estimatedFat = fat
-
-        if share {
-            meal.privacy = .publicVisible
+            if share {
+                meal.privacy = .publicFeed
+            }
         }
 
         try? modelContext.save()

@@ -39,6 +39,15 @@ struct ActiveWorkoutView: View {
     @State private var savedWorkout: Workout?
     @State private var elapsedTime = 0
     @State private var timer: Timer?
+    @State private var restTimer: Timer?
+    @State private var isResting = false
+    @State private var restTimerHidden = false
+    @State private var restTimeRemaining: Int = 0
+    @State private var restTimerTotal: Int = 90
+    @State private var selectedRestDuration: Int = 90
+    @State private var showMusicPicker = false
+    @State private var workoutSong: Song?
+    @State private var isSharingLive = false
 
     init(profile: UserProfile, workoutType: WorkoutType = .push, exercises: [ActiveExercise] = []) {
         self.profile = profile
@@ -70,6 +79,10 @@ struct ActiveWorkoutView: View {
         GQGradients.workoutGradientColors(for: workoutType)
     }
 
+    private var workoutAccentColor: Color {
+        workoutTypeColors.first ?? GQColors.primary
+    }
+
     var body: some View {
         ZStack {
             // Solid dark background
@@ -79,27 +92,8 @@ struct ActiveWorkoutView: View {
                 // Header with timer and progress
                 workoutHeader
 
-                // "Inspired by" banner when following a shared workout
-                if let inspiration = appState.workoutInspiration {
-                    HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 11))
-                        Text("Inspired by \(inspiration)")
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .foregroundColor(GQColors.cyanSpark)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule()
-                            .fill(GQColors.cyanSpark.opacity(0.12))
-                            .overlay(Capsule().stroke(GQColors.cyanSpark.opacity(0.25), lineWidth: 0.5))
-                    )
-                    .padding(.top, 6)
-                }
-
-                // Music bar
-                musicBar
+                // Music bar placeholder
+                EmptyView()
 
                 // Compact rest timer bar
                 if isResting && !restTimerHidden {
@@ -142,10 +136,6 @@ struct ActiveWorkoutView: View {
         .onAppear {
             initializeFromAppState()
             startTimer()
-            if let preloaded = preloadedExercises ?? appState.preloadedExercises, exercises.isEmpty {
-                exercises = preloaded
-                appState.preloadedExercises = nil
-            }
         }
         .onDisappear {
             timer?.invalidate()
@@ -260,7 +250,7 @@ struct ActiveWorkoutView: View {
                     .padding(.vertical, 8)
                     .homeSocialCard(
                         accent: workoutTypeColors.first ?? GQColors.vividPurple,
-                        emphasized: true,
+                        emphasized: false,
                         cornerRadius: 12
                     )
             }
@@ -548,14 +538,10 @@ struct ActiveWorkoutView: View {
         restTimerTotal = duration
         restTimeRemaining = duration
         isResting = true
-        appState.isResting = true
-        appState.restTimerTotal = duration
-        appState.restTimeRemaining = duration
 
         restTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             Task { @MainActor in
                 restTimeRemaining -= 1
-                appState.restTimeRemaining = restTimeRemaining
                 if restTimeRemaining <= 0 {
                     endRest()
                     #if canImport(UIKit)
@@ -575,8 +561,6 @@ struct ActiveWorkoutView: View {
         restTimer?.invalidate()
         restTimer = nil
         isResting = false
-        appState.isResting = false
-        appState.restTimeRemaining = 0
     }
 
     private func updateLiveStatus() {
@@ -595,12 +579,6 @@ struct ActiveWorkoutView: View {
     private func cleanupAndExit() {
         timer?.invalidate()
         restTimer?.invalidate()
-        appState.isResting = false
-        appState.restTimeRemaining = 0
-        appState.workoutTimerHidden = false
-        appState.workoutInspiration = nil
-        appState.workoutSong = nil
-        appState.activeWorkoutType = nil
         appState.liveWorkoutStatus = nil
     }
 
@@ -761,34 +739,6 @@ struct ActiveExerciseCard: View {
                         .padding(.vertical, 10)
                         .homeSocialCard(accent: workoutAccent, cornerRadius: 10)
                 }
-
-                VStack(spacing: 8) {
-                    ForEach($exercise.sets) { $set in
-                        ActiveSetRow(
-                            set: $set,
-                            setNumber: exercise.sets.firstIndex(where: { $0.id == set.id })! + 1,
-                            accentColor: accentColor,
-                            onCompleted: { onSetCompleted?(exercise.name) }
-                        )
-                    }
-                    Button {
-                        let lastSet = exercise.sets.last
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            exercise.sets.append(ActiveSet(reps: lastSet?.reps ?? 10, weight: lastSet?.weight ?? 0))
-                        }
-                    } label: {
-                        HStack { Image(systemName: "plus"); Text("Add Set") }
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(GQColors.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.03))
-                                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(style: StrokeStyle(lineWidth: 0.5, dash: [4, 4])).foregroundColor(Color.white.opacity(0.08)))
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
             }
             .padding(16)
         }
@@ -797,12 +747,12 @@ struct ActiveExerciseCard: View {
         .opacity(allSetsComplete ? 0.9 : 1.0)
         .overlay(
             Group {
-                if isActiveExercise && !allComplete {
+                if !allSetsComplete {
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(accentColor.opacity(0.5), lineWidth: 1)
+                        .stroke(workoutAccent.opacity(0.5), lineWidth: 1)
                 }
             }
-        }
+        )
     }
 
     private func checkExerciseCompletion() {
@@ -839,6 +789,8 @@ struct ActiveSetRow: View {
     var onComplete: (() -> Void)? = nil
 
     @State private var checkScale: CGFloat = 1.0
+    @State private var justCompleted = false
+    @State private var showCheckParticles = false
 
     private var workoutColor: Color {
         workoutTypeColors.first ?? GQColors.primary
@@ -906,7 +858,7 @@ struct ActiveSetRow: View {
                         #if canImport(UIKit)
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                         #endif
-                        onCompleted?()
+                        onComplete?()
                         Task { @MainActor in
                             try? await Task.sleep(for: .milliseconds(600))
                             justCompleted = false
@@ -1538,6 +1490,18 @@ struct WorkoutSessionCompletionSheet: View {
     @State private var isFavoriteWorkout = false
     @State private var heartScale: CGFloat = 1.0
 
+    // Share state
+    @State private var shareToFeed = true
+    @State private var showEnhancedEditor = false
+    @State private var shareToCommunity = false
+    @State private var taggedFriends: Set<String> = []
+
+    // Legacy media state (single-photo picker)
+    @State private var photoData: Data?
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var mediaIsVideo = false
+    @State private var videoData: Data?
+
     private var workoutTypeColors: [Color] {
         GQGradients.workoutGradientColors(for: workoutType)
     }
@@ -1902,41 +1866,6 @@ struct WorkoutSessionCompletionSheet: View {
                 mediaItems = newMedia
             }
         }
-    }
-
-    // MARK: - Header
-
-    @ViewBuilder
-    private var completionHeader: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            Text("Workout Complete!")
-                .font(.title2)
-                .fontWeight(.bold)
-        }
-        .padding(.top, 12)
-    }
-
-    // MARK: - Stats
-
-    @ViewBuilder
-    private var completionStats: some View {
-        HStack(spacing: 24) {
-            WorkoutStatItem(value: "\(duration)", label: "min")
-            WorkoutStatItem(value: "\(totalSets)", label: "sets")
-            WorkoutStatItem(value: "\(exercises.count)", label: "exercises")
-        }
-        .padding()
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(16)
     }
 
     // MARK: - Caption
@@ -2389,6 +2318,40 @@ struct WorkoutSessionCompletionSheet: View {
         withAnimation {
             hasCompleted = true
         }
+    }
+
+    /// Save workout to SwiftData without creating a post (used before opening enhanced editor).
+    private func saveWorkoutOnly() {
+        guard savedWorkout == nil else { return }
+        let workoutExercises = exercises.map { activeExercise -> Exercise in
+            let sets = activeExercise.sets.filter { $0.isCompleted }.enumerated().map { index, activeSet in
+                ExerciseSet(
+                    reps: activeSet.reps,
+                    weight: activeSet.weight,
+                    order: index
+                )
+            }
+            return Exercise(
+                name: activeExercise.name,
+                muscleGroup: activeExercise.muscleGroup,
+                sets: sets
+            )
+        }
+
+        let workout = Workout(
+            type: workoutType,
+            duration: duration,
+            exercises: workoutExercises,
+            isFavorite: isFavoriteWorkout
+        )
+        modelContext.insert(workout)
+        try? modelContext.save()
+        savedWorkout = workout
+    }
+
+    /// Quick-save action (saves workout and optionally shares to feed).
+    private func saveWorkout() {
+        saveOnly()
     }
 }
 

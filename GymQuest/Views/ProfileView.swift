@@ -222,7 +222,7 @@ struct ProfileView: View {
             }
         }
         .padding(16)
-        .homeSocialCard(accent: GQColors.cyanSpark, emphasized: false)
+        .homeSocialCard(accent: GQColors.cyanSpark, emphasized: true)
     }
 
     private var profileAvatar: some View {
@@ -315,14 +315,7 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(GQColors.surfaceBase)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .homeSocialCard(cornerRadius: 12, subtle: true)
     }
 
     @ViewBuilder
@@ -477,7 +470,7 @@ private struct ProfileActivityMetricCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .homeSocialCard(accent: profileNeutralAccent)
+        .homeSocialCard(accent: profileNeutralAccent, subtle: true)
     }
 }
 
@@ -576,14 +569,7 @@ extension ProfileView {
             .padding(.horizontal, 16)
         }
         .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(white: 0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
-        )
+        .homeSocialCard()
     }
 
     private func formatVolume(_ volume: Double) -> String {
@@ -689,7 +675,7 @@ struct WorkoutHistoryRowV2: View {
                 .foregroundColor(GQColors.textTertiary)
         }
         .padding(14)
-        .homeSocialCard(accent: accent)
+        .homeSocialCard(accent: accent, subtle: true)
     }
 }
 
@@ -1553,7 +1539,7 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .homeSocialCard(accent: color)
+        .homeSocialCard(accent: color, subtle: true)
     }
 
     // pings local ollama server to verify connection works

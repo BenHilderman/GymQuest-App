@@ -90,17 +90,17 @@ struct ContentView: View {
             }
 
             // Active workout view — kept alive outside the switch so state persists across tab changes
-            if let workoutType = appState.activeWorkoutType {
-                ActiveWorkoutView(profile: profile, workoutType: workoutType, preloadedExercises: appState.preloadedExercises)
+            if let workout = appState.activeWorkout {
+                ActiveWorkoutView(profile: profile, workoutType: workout.workoutType, exercises: workout.exercises)
                     .opacity(appState.selectedTab == .home ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .home)
             }
 
             // Mini workout bar on non-Home tabs (positioned at bottom above tab bar)
-            if appState.activeWorkoutType != nil && appState.selectedTab != .home {
+            if appState.isWorkoutActive && appState.selectedTab != .home {
                 VStack {
                     Spacer()
-                    MiniWorkoutBar(workoutType: appState.activeWorkoutType ?? .push) {
+                    MiniWorkoutBar(workoutType: appState.activeWorkout?.workoutType ?? .push) {
                         appState.selectedTab = .home
                     }
                 }
@@ -365,23 +365,9 @@ struct MiniWorkoutBar: View {
 
                 Spacer()
 
-                // Show rest countdown when resting
-                if appState.isResting && appState.restTimeRemaining > 0 {
-                    HStack(spacing: 5) {
-                        Image(systemName: "pause.circle.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(GQColors.cyanSpark)
-                        Text("Rest \(appState.restTimeRemaining)s")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(GQColors.cyanSpark)
-                            .contentTransition(.numericText())
-                            .monospacedDigit()
-                    }
-                } else {
-                    Text("Tap to return")
-                        .font(.system(size: 12))
-                        .foregroundColor(GQColors.textSecondary)
-                }
+                Text("Tap to return")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textSecondary)
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
@@ -395,14 +381,14 @@ struct MiniWorkoutBar: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
                             .stroke(
-                                appState.isResting ? GQColors.cyanSpark.opacity(0.4) : GQColors.vividPurple.opacity(0.4),
+                                GQColors.vividPurple.opacity(0.4),
                                 lineWidth: 1
                             )
                     )
             )
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
-            .animation(.easeInOut(duration: 0.3), value: appState.isResting)
+            .animation(.easeInOut(duration: 0.3), value: appState.isWorkoutActive)
         }
         .buttonStyle(.plain)
         .onAppear { pulse = true }

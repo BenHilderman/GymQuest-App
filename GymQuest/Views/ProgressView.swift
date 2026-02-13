@@ -170,14 +170,7 @@ struct TrainingProgressView: View {
         if let quest = activeQuest {
             VStack(alignment: .leading, spacing: 12) {
                 ActiveQuestCard(quest: quest.quest, progress: quest.progress)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color(white: 0.08))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
-                    )
+                    .homeSocialCard()
                     .padding(.horizontal, 16)
             }
         }
@@ -280,10 +273,7 @@ struct PRRow: View {
             }
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(white: 0.06))
-        )
+        .homeSocialCard(cornerRadius: 14, subtle: true)
     }
 }
 
@@ -312,14 +302,7 @@ struct AllTimeStatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(white: 0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.04), lineWidth: 1)
-        )
+        .homeSocialCard(cornerRadius: 14, subtle: true)
     }
 }
 
@@ -430,7 +413,7 @@ struct RecoveryCard: View {
             }
         }
         .padding(16)
-        .homeSocialCard(accent: GQColors.cyanSpark, emphasized: false)
+        .homeSocialCard(accent: GQColors.cyanSpark, emphasized: true)
         .onAppear {
             withAnimation(.easeOut(duration: 1.0).delay(0.2)) {
                 animatedProgress = CGFloat(recoveryScore) / 100

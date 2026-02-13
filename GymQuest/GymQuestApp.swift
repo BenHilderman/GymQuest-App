@@ -176,6 +176,7 @@ class AppState: ObservableObject {
     // Workout state management
     @Published var activeWorkout: ActiveWorkoutState?
     @Published var showingWorkoutStartOptions = false
+    @Published var liveWorkoutStatus: LiveWorkoutStatus?
 
     var isWorkoutActive: Bool { activeWorkout != nil }
 

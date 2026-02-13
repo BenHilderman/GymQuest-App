@@ -141,6 +141,8 @@
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* EmotionInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C6D7E8F9A0B1C2 /* EmotionInsightsView.swift */; };
 		B2C3D4E5F6A7B8C9D0E1F2A3 /* EmotionInsightsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F3 /* EmotionInsightsService.swift */; };
 		C2D3E4F5A6B7C8D9E0F1A2B3 /* EmotionInsightsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F3 /* EmotionInsightsService.swift */; };
+		E1A0B0C0D0E0F1A2B3C4D5E7 /* SocialSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A0B0C0D0E0F1A2B3C4D5E6 /* SocialSeeder.swift */; };
+		E1A0B0C0D0E0F1A2B3C4D5E8 /* SocialSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A0B0C0D0E0F1A2B3C4D5E6 /* SocialSeeder.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -224,6 +226,7 @@
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* WorkoutEmotionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutEmotionPicker.swift; sourceTree = "<group>"; };
 		D1E2F3A4B5C6D7E8F9A0B1C2 /* EmotionInsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmotionInsightsView.swift; sourceTree = "<group>"; };
 		A2B3C4D5E6F7A8B9C0D1E2F3 /* EmotionInsightsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmotionInsightsService.swift; sourceTree = "<group>"; };
+		E1A0B0C0D0E0F1A2B3C4D5E6 /* SocialSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialSeeder.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -312,6 +315,7 @@
 				7B6D642307B4359A8EA9BC50 /* PRService.swift */,
 				A2F055F6FE71C4E19E10D0A8 /* QuestService.swift */,
 				2066AB169A13A6B6FAC57B1D /* RobotDemoService.swift */,
+				E1A0B0C0D0E0F1A2B3C4D5E6 /* SocialSeeder.swift */,
 				D1C9D7C410F8D5033107884F /* ShareService.swift */,
 				655F2878C344BCAB4E96687D /* SquadService.swift */,
 				DA29A88BAC9E5F193441B98B /* StravaService.swift */,
@@ -605,6 +609,7 @@
 				318D87B36CA114A3C70FFC73 /* RobotDemoService.swift in Sources */,
 				5250D2F1883E1CA3B3572925 /* RootView.swift in Sources */,
 				6194CF05B961A43E3B75AE25 /* ShareService.swift in Sources */,
+				E1A0B0C0D0E0F1A2B3C4D5E7 /* SocialSeeder.swift in Sources */,
 				2595B2ED40E5ED0AE3769F51 /* SocialView.swift in Sources */,
 				B0DD9E1E6C66040B717EC6AC /* SquadService.swift in Sources */,
 				765274688AE84A2B2258E4D6 /* SquadView.swift in Sources */,
@@ -683,6 +688,7 @@
 				8394F381C589225A05479F0D /* RobotDemoService.swift in Sources */,
 				866DF737AAC2FA29375C7F9E /* RootView.swift in Sources */,
 				2FFF5E4C3FF0DFAE193F0ED5 /* ShareService.swift in Sources */,
+				E1A0B0C0D0E0F1A2B3C4D5E8 /* SocialSeeder.swift in Sources */,
 				70A8A9FB33C2536472CC6A2C /* SocialView.swift in Sources */,
 				732773D099C9E9D8C466513C /* SquadService.swift in Sources */,
 				6B59816E7898A0CC5F4BD3FB /* SquadView.swift in Sources */,
