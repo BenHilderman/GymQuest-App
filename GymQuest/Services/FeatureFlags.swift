@@ -82,6 +82,16 @@ final class FeatureFlags: ObservableObject {
         didSet { save("repeatWorkoutEnabled", value: repeatWorkoutEnabled) }
     }
 
+    /// Workout Party: real-time social workout experience
+    @Published var workoutPartyEnabled: Bool {
+        didSet { save("workoutPartyEnabled", value: workoutPartyEnabled) }
+    }
+
+    /// Voice notes on posts and speech-to-text for meal logging
+    @Published var voiceNotesEnabled: Bool {
+        didSet { save("voiceNotesEnabled", value: voiceNotesEnabled) }
+    }
+
     /// Dev mode: skip authentication (for testing)
     @Published var devSkipAuth: Bool {
         didSet { save("devSkipAuth", value: devSkipAuth) }
@@ -110,6 +120,8 @@ final class FeatureFlags: ObservableObject {
         self.whoopEnabled = defaults.object(forKey: prefix + "whoopEnabled") as? Bool ?? false
         self.robotDemosEnabled = defaults.object(forKey: prefix + "robotDemosEnabled") as? Bool ?? true
         self.nutritionEnabled = defaults.object(forKey: prefix + "nutritionEnabled") as? Bool ?? true
+        self.workoutPartyEnabled = defaults.object(forKey: prefix + "workoutPartyEnabled") as? Bool ?? true
+        self.voiceNotesEnabled = defaults.object(forKey: prefix + "voiceNotesEnabled") as? Bool ?? true
         self.devSkipAuth = defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? true
     }
 
@@ -134,6 +146,8 @@ final class FeatureFlags: ObservableObject {
         weeklyRecapEnabled = true
         templatesEnabled = true
         repeatWorkoutEnabled = true
+        workoutPartyEnabled = true
+        voiceNotesEnabled = true
     }
 
     /// Reset to default feature state
@@ -152,6 +166,8 @@ final class FeatureFlags: ObservableObject {
         whoopEnabled = false
         robotDemosEnabled = true
         nutritionEnabled = true
+        workoutPartyEnabled = true
+        voiceNotesEnabled = true
     }
 
     /// Check if app is in demo mode (no external dependencies needed)

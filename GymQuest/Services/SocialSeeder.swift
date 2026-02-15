@@ -6,7 +6,7 @@ import SwiftData
 struct SocialSeeder {
 
     // Consistent fake users shared across all seed data
-    private static let fakeUsers: [(id: UUID, name: String, username: String)] = [
+    static let fakeUsers: [(id: UUID, name: String, username: String)] = [
         (UUID(uuidString: "A0000001-0000-0000-0000-000000000001")!, "Marcus Chen", "marcuschen"),
         (UUID(uuidString: "A0000001-0000-0000-0000-000000000002")!, "Olivia Park", "oliviapark"),
         (UUID(uuidString: "A0000001-0000-0000-0000-000000000003")!, "Jake Reeves", "jakereeves"),
@@ -23,6 +23,13 @@ struct SocialSeeder {
         let descriptor = FetchDescriptor<Post>()
         let existing = (try? modelContext.fetchCount(descriptor)) ?? 0
         guard existing == 0 else { return }
+
+        // Load demo gym photo for select posts
+        #if canImport(UIKit)
+        let demoPhotoData = UIImage(named: "DemoPhotos")?.jpegData(compressionQuality: 0.5)
+        #else
+        let demoPhotoData: Data? = nil
+        #endif
 
         let now = Date()
         var postIds: [UUID] = []
@@ -51,8 +58,18 @@ struct SocialSeeder {
             likeCount: 34,
             commentCount: 4,
             locationName: "The ARC - Queen's",
+            spotifyPlaylistURL: "https://open.spotify.com/playlist/37i9dQZF1DX76Wlfdnj7AP",
             workoutEmotion: "Fired Up"
         )
+        p1.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Incline Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Tricep Pushdown", exerciseIndex: 1, mediaType: .photo, data: photoData),
+            ]
+            p1.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p1)
         postIds.append(p1.id)
 
@@ -125,11 +142,23 @@ struct SocialSeeder {
             duration: 70,
             setCount: 22,
             exerciseHighlight: "Squat",
+            songTitle: "Power",
+            artistName: "Kanye West",
+            musicSource: "Apple Music",
             likeCount: 45,
             commentCount: 6,
             locationName: "The ARC - Queen's",
             workoutEmotion: "Fired Up"
         )
+        p3.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Leg Press", exerciseIndex: 1, mediaType: .photo, data: photoData),
+            ]
+            p3.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p3)
         postIds.append(p3.id)
 
@@ -142,11 +171,13 @@ struct SocialSeeder {
             caption: "5K in 22:34. Not my fastest but showing up when you don't feel like it IS the workout.",
             workoutType: "Cardio",
             duration: 28,
+            exerciseHighlight: "Outdoor Run",
             songTitle: "Run This Town",
             artistName: "JAY-Z",
             musicSource: "Spotify",
             likeCount: 19,
             commentCount: 2,
+            spotifyPlaylistURL: "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
             workoutEmotion: "Grinding"
         )
         modelContext.insert(p4)
@@ -235,6 +266,9 @@ struct SocialSeeder {
             duration: 65,
             setCount: 20,
             exerciseHighlight: "Bulgarian Split Squat",
+            songTitle: "Sicko Mode",
+            artistName: "Travis Scott",
+            musicSource: "Spotify",
             inspiredByUsername: fakeUsers[2].username,
             inspiredByName: fakeUsers[2].name,
             likeCount: 22,
@@ -263,6 +297,15 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Fired Up"
         )
+        p8.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Deadlift", exerciseIndex: 0, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Bench Press", exerciseIndex: 1, mediaType: .photo, data: photoData),
+            ]
+            p8.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p8)
         postIds.append(p8.id)
 
@@ -325,6 +368,9 @@ struct SocialSeeder {
             duration: 40,
             setCount: 12,
             exerciseHighlight: "Dumbbell Press",
+            songTitle: "Stronger",
+            artistName: "Kanye West",
+            musicSource: "Spotify",
             likeCount: 42,
             commentCount: 5,
             workoutEmotion: "Comeback"
@@ -367,6 +413,7 @@ struct SocialSeeder {
             musicSource: "Spotify",
             likeCount: 23,
             commentCount: 2,
+            spotifyPlaylistURL: "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
             workoutEmotion: "Strong"
         )
         modelContext.insert(p12)
@@ -490,6 +537,7 @@ struct SocialSeeder {
             caption: "Treadmill intervals: 30s sprint / 60s walk x 12. Took 20 minutes but I'm drenched. Efficient.",
             workoutType: "Cardio",
             duration: 20,
+            exerciseHighlight: "Treadmill",
             songTitle: "Blinding Lights",
             artistName: "The Weeknd",
             musicSource: "Apple Music",
@@ -535,6 +583,14 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Fired Up"
         )
+        p19.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Deadlift", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p19.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p19)
         postIds.append(p19.id)
 
@@ -565,13 +621,15 @@ struct SocialSeeder {
             caption: "Stole Priya's cardio playlist and ran my fastest mile in months. Music is half the battle.",
             workoutType: "Cardio",
             duration: 32,
+            exerciseHighlight: "Outdoor Run",
             songTitle: "Levitating",
             artistName: "Dua Lipa",
             musicSource: "Spotify",
             inspiredByUsername: fakeUsers[3].username,
             inspiredByName: fakeUsers[3].name,
             likeCount: 16,
-            commentCount: 1
+            commentCount: 1,
+            spotifyPlaylistURL: "https://open.spotify.com/playlist/37i9dQZF1DX8tZsk68tuoQ"
         )
         modelContext.insert(p21)
         postIds.append(p21.id)
@@ -624,8 +682,55 @@ struct SocialSeeder {
             commentCount: 6,
             workoutEmotion: "Fired Up"
         )
+        p24.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Incline DB Press", exerciseIndex: 1, mediaType: .photo, data: photoData),
+            ]
+            p24.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p24)
         postIds.append(p24.id)
+
+        // 25. Cycling cardio post
+        let p25 = Post(
+            authorId: fakeUsers[5].id,
+            authorName: fakeUsers[5].name,
+            authorUsername: fakeUsers[5].username,
+            timestamp: hoursAgo(36),
+            caption: "30km ride along the waterfront. Perfect weather, perfect pace. Cycling is meditation for me.",
+            workoutType: "Cardio",
+            duration: 65,
+            exerciseHighlight: "Cycling",
+            songTitle: "Starboy",
+            artistName: "The Weeknd",
+            musicSource: "Spotify",
+            likeCount: 21,
+            commentCount: 2,
+            workoutEmotion: "Calm"
+        )
+        modelContext.insert(p25)
+        postIds.append(p25.id)
+
+        // 26. Rowing cardio post
+        let p26 = Post(
+            authorId: fakeUsers[9].id,
+            authorName: fakeUsers[9].name,
+            authorUsername: fakeUsers[9].username,
+            timestamp: hoursAgo(32),
+            caption: "2000m row in 7:12. Legs and lungs both screaming. Rowing is the ultimate full-body cardio.",
+            workoutType: "Cardio",
+            duration: 25,
+            exerciseHighlight: "Rowing",
+            likeCount: 17,
+            commentCount: 2,
+            locationName: "The ARC - Queen's",
+            workoutEmotion: "Grinding"
+        )
+        modelContext.insert(p26)
+        postIds.append(p26.id)
 
         // MARK: - Comments
 

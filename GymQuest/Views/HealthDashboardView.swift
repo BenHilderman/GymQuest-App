@@ -555,6 +555,8 @@ private struct StrengthScoreCard: View {
 
 struct ActivitySummaryCard: View {
     @StateObject private var integration = IntegrationManager.shared
+    @Environment(\.modelContext) private var modelContext
+    @State private var recentWorkoutTypes: [WorkoutType] = []
 
     var body: some View {
         VStack(spacing: 12) {
@@ -573,6 +575,9 @@ struct ActivitySummaryCard: View {
                         .foregroundColor(integration.readinessLevel.color)
                 }
             }
+
+            // Next workout suggestion
+            nextWorkoutRow
 
             // Quick stats row
             if integration.hasAnyConnection {
@@ -608,6 +613,47 @@ struct ActivitySummaryCard: View {
                         )
                 )
         )
+        .onAppear { loadRecentWorkoutTypes() }
+    }
+
+    @ViewBuilder
+    private var nextWorkoutRow: some View {
+        let suggestion = suggestNextWorkout(from: recentWorkoutTypes)
+        HStack(spacing: 8) {
+            Image(systemName: "dumbbell.fill")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.vividPurple)
+            Text("Next up: ")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.7))
+            + Text(suggestion.rawValue)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(GQColors.vividPurple)
+            Spacer()
+        }
+    }
+
+    private func loadRecentWorkoutTypes() {
+        var descriptor = FetchDescriptor<Workout>(
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        descriptor.fetchLimit = 3
+        guard let workouts = try? modelContext.fetch(descriptor) else { return }
+        recentWorkoutTypes = workouts
+            .filter { $0.type != .rest }
+            .map(\.type)
+    }
+
+    private func suggestNextWorkout(from recentTypes: [WorkoutType]) -> WorkoutType {
+        guard let lastType = recentTypes.first else { return .push }
+        switch lastType {
+        case .push: return .pull
+        case .pull: return .legs
+        case .legs: return .push
+        case .upper: return .lower
+        case .lower: return .upper
+        case .fullBody, .cardio, .rest: return .push
+        }
     }
 
     private func formatNumber(_ n: Int) -> String {

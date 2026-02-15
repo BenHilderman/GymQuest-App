@@ -852,6 +852,10 @@ final class Post {
     // Workout emotion
     var workoutEmotion: String?         // WorkoutEmotion rawValue
 
+    // Voice note (audio clip attached to post)
+    var voiceNoteData: Data?
+    var voiceNoteDuration: Double?
+
     init(
         id: UUID = UUID(),
         authorId: UUID = UUID(),
@@ -885,7 +889,9 @@ final class Post {
         taggedSquadNames: [String] = [],
         spotifyPlaylistURL: String? = nil,
         appleMusicPlaylistURL: String? = nil,
-        workoutEmotion: String? = nil
+        workoutEmotion: String? = nil,
+        voiceNoteData: Data? = nil,
+        voiceNoteDuration: Double? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -920,6 +926,8 @@ final class Post {
         self.spotifyPlaylistURL = spotifyPlaylistURL
         self.appleMusicPlaylistURL = appleMusicPlaylistURL
         self.workoutEmotion = workoutEmotion
+        self.voiceNoteData = voiceNoteData
+        self.voiceNoteDuration = voiceNoteDuration
     }
 
     /// Decode shared workout data for follow feature

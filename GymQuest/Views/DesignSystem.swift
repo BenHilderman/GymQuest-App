@@ -106,6 +106,79 @@ final class HapticManager {
         #endif
     }
 
+    // MARK: - Workout Haptics (from ActiveWorkoutViewModel)
+
+    func buttonTap() {
+        tap()
+    }
+
+    func restTimerWarning() {
+        impact(.medium)
+    }
+
+    func restTimerCountdown() {
+        impact(.heavy)
+    }
+
+    func restTimerDone() {
+        success()
+    }
+
+    func prDetected() {
+        #if canImport(UIKit)
+        heavyGenerator.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            self.mediumGenerator.impactOccurred()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+            self.heavyGenerator.impactOccurred()
+        }
+        #endif
+    }
+
+    func milestoneReached() {
+        #if canImport(UIKit)
+        heavyGenerator.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            self.heavyGenerator.impactOccurred()
+        }
+        #endif
+    }
+
+    func countdownBeat() {
+        impact(.heavy)
+    }
+
+    func countdownGo() {
+        #if canImport(UIKit)
+        heavyGenerator.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.heavyGenerator.impactOccurred()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            self.notificationGenerator.notificationOccurred(.success)
+        }
+        #endif
+    }
+
+    func fieldEdit() {
+        tap()
+    }
+
+    // Legacy aliases
+    func setComplete() {
+        success()
+    }
+
+    func exerciseComplete() {
+        #if canImport(UIKit)
+        heavyGenerator.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            self.notificationGenerator.notificationOccurred(.success)
+        }
+        #endif
+    }
+
     enum HapticStyle {
         case light, medium, heavy
     }
@@ -1768,23 +1841,253 @@ enum DetectedActivity: String, CaseIterable {
     }
 }
 
+// MARK: - Cardio Sub-Types
+
+enum CardioSubType: String, CaseIterable {
+    case outdoorRun = "Outdoor Run"
+    case treadmill = "Treadmill"
+    case cycling = "Cycling"
+    case rowing = "Rowing"
+    case swimming = "Swimming"
+    case hiking = "Hiking"
+    case stairClimber = "Stair Climber"
+    case elliptical = "Elliptical"
+    case jumpRope = "Jump Rope"
+
+    var icon: String {
+        switch self {
+        case .outdoorRun: return "figure.run"
+        case .treadmill: return "figure.run.treadmill"
+        case .cycling: return "bicycle"
+        case .rowing: return "figure.rower"
+        case .swimming: return "figure.pool.swim"
+        case .hiking: return "figure.hiking"
+        case .stairClimber: return "figure.stair.stepper"
+        case .elliptical: return "figure.elliptical"
+        case .jumpRope: return "figure.jumprope"
+        }
+    }
+
+    var machineLabel: String? {
+        switch self {
+        case .treadmill: return "Treadmill"
+        case .stairClimber: return "Stair Climber"
+        case .elliptical: return "Elliptical"
+        case .rowing: return "Rowing Machine"
+        default: return nil
+        }
+    }
+
+    var isOutdoor: Bool {
+        switch self {
+        case .outdoorRun, .cycling, .hiking, .swimming: return true
+        default: return false
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .outdoorRun: return GQColors.success
+        case .treadmill: return GQColors.cyanSpark
+        case .cycling: return Color(hex: "FF9500")
+        case .rowing: return GQColors.deepBlue
+        case .swimming: return GQColors.cyanSpark
+        case .hiking: return GQColors.success
+        case .stairClimber: return GQColors.vividPurple
+        case .elliptical: return GQColors.coralRed
+        case .jumpRope: return GQColors.warning
+        }
+    }
+
+    static func from(_ highlight: String?) -> CardioSubType? {
+        guard let highlight else { return nil }
+        return CardioSubType.allCases.first { $0.rawValue.lowercased() == highlight.lowercased() }
+    }
+}
+
+// MARK: - Music EQ Bars Component
+
+struct MusicEQBars: View {
+    var barCount: Int = 3
+    var barWidth: CGFloat = 3
+    var maxHeight: CGFloat = 16
+    var color: Color = GQColors.vividPurple
+    var isPlaying: Bool = true
+
+    @State private var animating = false
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(0..<barCount, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(color)
+                    .frame(
+                        width: barWidth,
+                        height: isPlaying ? (animating ? CGFloat.random(in: maxHeight * 0.4...maxHeight) : CGFloat.random(in: maxHeight * 0.25...maxHeight * 0.75)) : maxHeight * 0.35
+                    )
+                    .animation(
+                        isPlaying ? .easeInOut(duration: 0.35).repeatForever().delay(Double(i) * 0.1) : .default,
+                        value: animating
+                    )
+            }
+        }
+        .onAppear {
+            if isPlaying { animating = true }
+        }
+        .onChange(of: isPlaying) { _, playing in
+            animating = playing
+        }
+    }
+}
+
+// MARK: - Music Photo Overlay
+
+struct MusicPhotoOverlay: View {
+    let songTitle: String
+    let artistName: String
+    var musicSource: String? = nil
+
+    @State private var vinylRotation: Double = 0
+
+    private var isSpotify: Bool { musicSource == "Spotify" }
+    private var serviceColor: Color { isSpotify ? Color(hex: "1DB954") : Color(hex: "FC3C44") }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Spinning vinyl
+            ZStack {
+                Circle()
+                    .fill(Color.black)
+                    .frame(width: 32, height: 32)
+                Circle()
+                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                    .frame(width: 32, height: 32)
+                Circle()
+                    .fill(
+                        AngularGradient(
+                            colors: [Color.white.opacity(0.1), Color.white.opacity(0.05), Color.white.opacity(0.1)],
+                            center: .center
+                        )
+                    )
+                    .frame(width: 30, height: 30)
+                Circle()
+                    .fill(serviceColor)
+                    .frame(width: 10, height: 10)
+            }
+            .rotationEffect(.degrees(vinylRotation))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(songTitle)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                Text(artistName)
+                    .font(.system(size: 10))
+                    .foregroundColor(.white.opacity(0.7))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            MusicEQBars(barCount: 3, barWidth: 2.5, maxHeight: 14, color: serviceColor, isPlaying: true)
+
+            if musicSource != nil {
+                if isSpotify {
+                    SpotifyIcon(size: 16)
+                } else {
+                    AppleMusicIcon(size: 16)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
+        )
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+        )
+        .onAppear {
+            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+                vinylRotation = 360
+            }
+        }
+    }
+}
+
+// MARK: - Music Service Icons
+
+struct SpotifyIcon: View {
+    var size: CGFloat = 20
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color(hex: "1DB954"))
+                .frame(width: size, height: size)
+
+            // Three curved bars of decreasing width
+            VStack(spacing: size * 0.06) {
+                ForEach(0..<3, id: \.self) { i in
+                    let barWidth = size * (0.55 - CGFloat(i) * 0.12)
+                    RoundedRectangle(cornerRadius: size * 0.04)
+                        .fill(.white)
+                        .frame(width: barWidth, height: size * 0.1)
+                        .offset(x: -CGFloat(i) * size * 0.03)
+                }
+            }
+        }
+    }
+}
+
+struct AppleMusicIcon: View {
+    var size: CGFloat = 20
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.22)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "FC3C44"), Color(hex: "FA233B")],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: size, height: size)
+
+            Image(systemName: "music.note")
+                .font(.system(size: size * 0.5, weight: .bold))
+                .foregroundColor(.white)
+        }
+    }
+}
+
 // MARK: - Music Display Component
 
 struct MusicBadge: View {
     let songTitle: String
     let artistName: String
     let isPlaying: Bool
+    var musicSource: String? = nil
     let onTap: () -> Void
 
     @State private var animateBars = false
 
+    private var isSpotify: Bool { musicSource == "Spotify" }
+    private var serviceColor: Color { isSpotify ? Color(hex: "1DB954") : Color(hex: "FC3C44") }
+    private var serviceLabel: String { isSpotify ? "Spotify" : "Apple Music" }
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 8) {
+                // Animated bars
                 HStack(spacing: 2) {
                     ForEach(0..<3, id: \.self) { i in
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(GQColors.cyanSpark)
+                            .fill(GQColors.vividPurple)
                             .frame(width: 3, height: isPlaying ? (animateBars ? CGFloat.random(in: 8...16) : CGFloat.random(in: 4...12)) : 6)
                             .animation(
                                 isPlaying ? .easeInOut(duration: 0.3).repeatForever().delay(Double(i) * 0.1) : .default,
@@ -1804,6 +2107,23 @@ struct MusicBadge: View {
                         .font(.system(size: 9))
                         .foregroundColor(GQColors.textSecondary)
                         .lineLimit(1)
+                }
+
+                // Service indicator
+                if musicSource != nil {
+                    HStack(spacing: 3) {
+                        if isSpotify {
+                            SpotifyIcon(size: 14)
+                        } else {
+                            AppleMusicIcon(size: 14)
+                        }
+                        Text(serviceLabel)
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundColor(serviceColor)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(serviceColor.opacity(0.15)))
                 }
 
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")

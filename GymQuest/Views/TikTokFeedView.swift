@@ -23,21 +23,29 @@ struct TikTokFeedView: View {
     @State private var currentIndex = 0
     @State private var showCreatePost = false
     @State private var selectedCategory: String? = nil
+    @AppStorage("hasSeenDiscoverTutorial") private var hasSeenTutorial = false
+    @State private var showTutorial = false
 
     private let categories = ["All", "Push", "Pull", "Legs", "Cardio", "PR Moments", "Form Tips", "Music"]
 
+    /// Only show posts with media (photo/video) on Discover
+    private var mediaPosts: [Post] {
+        posts.filter { $0.photoData != nil || $0.videoData != nil || $0.workoutType != nil }
+    }
+
     var filteredPosts: [Post] {
-        guard let category = selectedCategory, category != "All" else { return posts.map { $0 } }
+        let base = mediaPosts
+        guard let category = selectedCategory, category != "All" else { return base }
         if category == "PR Moments" {
-            return posts.filter { $0.caption.lowercased().contains("pr") || $0.caption.contains("🏆") }
+            return base.filter { $0.caption.lowercased().contains("pr") || $0.caption.contains("🏆") }
         }
         if category == "Music" {
-            return posts.filter { $0.songTitle != nil }
+            return base.filter { $0.songTitle != nil }
         }
         if category == "Form Tips" {
-            return posts.filter { $0.caption.lowercased().contains("form") || $0.caption.lowercased().contains("tip") }
+            return base.filter { $0.caption.lowercased().contains("form") || $0.caption.lowercased().contains("tip") }
         }
-        return posts.filter { $0.workoutType?.lowercased() == category.lowercased() }
+        return base.filter { $0.workoutType?.lowercased() == category.lowercased() }
     }
 
     var body: some View {
@@ -66,10 +74,25 @@ struct TikTokFeedView: View {
                     categoryFilterPills
                     Spacer()
                 }
+
+                // Swipe-up tutorial overlay (first launch only)
+                if showTutorial {
+                    DiscoverTutorialOverlay {
+                        withAnimation(.easeOut(duration: 0.3)) {
+                            showTutorial = false
+                        }
+                        hasSeenTutorial = true
+                    }
+                }
             }
         }
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(profile: profile)
+        }
+        .onAppear {
+            if !hasSeenTutorial && !filteredPosts.isEmpty {
+                showTutorial = true
+            }
         }
     }
 
@@ -884,6 +907,66 @@ struct MusicMarqueeTicker: View {
                 scrollOffset = -30
             }
         }
+    }
+}
+
+// MARK: - Discover Tutorial Overlay
+
+struct DiscoverTutorialOverlay: View {
+    let onDismiss: () -> Void
+
+    @State private var chevronOffset: CGFloat = 0
+    @State private var opacity: Double = 0
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+
+            VStack(spacing: 20) {
+                Spacer()
+
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundColor(.white)
+                    .offset(y: chevronOffset)
+
+                Text("Swipe up to discover\nmore workouts")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+
+                Button {
+                    onDismiss()
+                } label: {
+                    Text("Got it")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 28)
+                        .padding(.vertical, 10)
+                        .background(Color.white)
+                        .cornerRadius(20)
+                }
+                .padding(.top, 8)
+
+                Spacer()
+                    .frame(height: 120)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.4)) {
+                opacity = 1
+            }
+            withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                chevronOffset = -16
+            }
+            // Auto-dismiss after 4 seconds
+            Task {
+                try? await Task.sleep(for: .seconds(4))
+                onDismiss()
+            }
+        }
+        .opacity(opacity)
     }
 }
 

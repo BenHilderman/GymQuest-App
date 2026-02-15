@@ -69,7 +69,7 @@ targets:
       - path: Tests/Helpers
       - path: Tests/Fixtures
     dependencies:
-      - target: GymQuest
+      - target: GymQuest_iOS
       - package: SnapshotTesting
     settings:
       base:
@@ -86,7 +86,7 @@ targets:
     sources:
       - path: Tests/UI
     dependencies:
-      - target: GymQuest
+      - target: GymQuest_iOS
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.uitests
@@ -100,7 +100,7 @@ targets:
     sources:
       - path: Tests/Performance
     dependencies:
-      - target: GymQuest
+      - target: GymQuest_iOS
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.performancetests

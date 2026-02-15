@@ -207,10 +207,10 @@ enum ReadinessLevel: String, CaseIterable {
 
     var message: String {
         switch self {
-        case .optimal: return "Fully recovered, push it today"
+        case .optimal: return "Fully recovered — go all out"
         case .good: return "Ready for a solid session"
         case .moderate: return "Consider a lighter workout"
-        case .low: return "Rest day recommended"
+        case .low: return "Low recovery — take it easy"
         }
     }
 }

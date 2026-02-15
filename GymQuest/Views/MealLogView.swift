@@ -61,12 +61,19 @@ struct MealLogView: View {
                             .foregroundColor(.gray)
                             .tracking(0.5)
 
-                        TextField("e.g., 2 eggs, toast, coffee", text: $foodText, axis: .vertical)
-                            .lineLimit(3...6)
-                            .textFieldStyle(.plain)
-                            .padding()
-                            .background(Color.white.opacity(0.08))
-                            .cornerRadius(12)
+                        HStack(alignment: .top, spacing: 8) {
+                            TextField("e.g., 2 eggs, toast, coffee", text: $foodText, axis: .vertical)
+                                .lineLimit(3...6)
+                                .textFieldStyle(.plain)
+                                .padding()
+                                .background(Color.white.opacity(0.08))
+                                .cornerRadius(12)
+
+                            if FeatureFlags.shared.voiceNotesEnabled {
+                                MealDictationButton(foodText: $foodText)
+                                    .padding(.top, 12)
+                            }
+                        }
                     }
 
                     // Auto-estimated nutrition row
@@ -652,6 +659,41 @@ struct MealSummaryRow: View {
             Image(systemName: meal.mealType.icon)
                 .foregroundColor(.gray)
         }
+    }
+}
+
+// MARK: - Meal Dictation Button
+
+struct MealDictationButton: View {
+    @Binding var foodText: String
+    @StateObject private var service = VoiceNoteService.shared
+
+    @State private var pulseScale: CGFloat = 1.0
+
+    var body: some View {
+        Button {
+            if service.isTranscribing {
+                service.stopLiveTranscription()
+            } else {
+                service.startLiveTranscription(appendTo: $foodText)
+            }
+        } label: {
+            Image(systemName: service.isTranscribing ? "mic.fill" : "mic")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(service.isTranscribing ? .white : GQColors.cyanSpark)
+                .frame(width: 36, height: 36)
+                .background(
+                    Circle()
+                        .fill(service.isTranscribing ? GQColors.coralRed : GQColors.cyanSpark.opacity(0.15))
+                )
+                .scaleEffect(service.isTranscribing ? pulseScale : 1.0)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                        pulseScale = 1.15
+                    }
+                }
+        }
+        .buttonStyle(.plain)
     }
 }
 

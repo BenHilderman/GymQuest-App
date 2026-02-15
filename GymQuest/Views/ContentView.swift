@@ -132,7 +132,14 @@ struct FloatingTabBar: View {
             HStack(spacing: 0) {
                 FloatingTabButton(tab: .home, icon: "house", selectedIcon: "house.fill", label: "Home")
 
-                FloatingTabButton(tab: .feed, icon: "person.2", selectedIcon: "person.2.fill", label: "Social")
+                ZStack(alignment: .topTrailing) {
+                    FloatingTabButton(tab: .feed, icon: "person.2", selectedIcon: "person.2.fill", label: "Social")
+
+                    if SocialActivityService.shared.hasLiveFriends {
+                        SocialActivityBadge()
+                            .offset(x: -14, y: 2)
+                    }
+                }
 
                 // Center add button - with animated gradient border
                 Button {
@@ -412,6 +419,22 @@ struct TabButton: View {
 
     var body: some View {
         FloatingTabButton(tab: tab, icon: icon, selectedIcon: selectedIcon, label: label)
+    }
+}
+
+// MARK: - Social Activity Badge
+
+struct SocialActivityBadge: View {
+    @State private var pulse = false
+
+    var body: some View {
+        Circle()
+            .fill(GQColors.success)
+            .frame(width: 8, height: 8)
+            .scaleEffect(pulse ? 1.3 : 1.0)
+            .opacity(pulse ? 1.0 : 0.7)
+            .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: pulse)
+            .onAppear { pulse = true }
     }
 }
 

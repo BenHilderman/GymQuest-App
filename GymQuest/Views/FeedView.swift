@@ -11,6 +11,7 @@
 import SwiftUI
 import SwiftData
 import AVKit
+import MapKit
 #if canImport(UIKit)
 import UIKit
 #elseif canImport(AppKit)
@@ -77,11 +78,7 @@ struct FeedView: View {
                                     PostCardV2(
                                         post: post,
                                         currentUserId: profile.id,
-                                        currentUserName: profile.name,
-                                        onLearnThis: { exerciseName in
-                                            selectedExerciseForLearn = exerciseName
-                                            showLearnPanel = true
-                                        }
+                                        currentUserName: profile.name
                                     )
 
                                     Rectangle()
@@ -201,7 +198,6 @@ struct PostCardV2: View {
     let post: Post
     let currentUserId: UUID
     var currentUserName: String = ""
-    let onLearnThis: (String) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
@@ -211,143 +207,58 @@ struct PostCardV2: View {
     @State private var hasAppeared = false
     @State private var isPlayingMusic = false
     @State private var showWorkoutDetail = false
-    @State private var showExercisePreview = false
+    @State private var isSaved = false
+    @State private var showFullCaption = false
+    @State private var photoScale: CGFloat = 1.0
 
-    // Computed activity type from detected activity
     var detectedActivityType: DetectedActivity? {
         guard let activity = post.detectedActivity else { return nil }
         return DetectedActivity(rawValue: activity)
     }
 
-    // Check if post has shareable workout
     var sharedWorkout: SharedWorkoutData? {
         post.getSharedWorkout()
     }
 
+    /// Compact post: no photo or video attached
+    private var isCompactPost: Bool {
+        post.photoData == nil && post.videoData == nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header with delete option if own post
-            HStack {
-                PostHeaderEnhanced(post: post, activityType: detectedActivityType)
-
-                if post.authorId == currentUserId {
-                    PostDeleteButton {
-                        deletePost()
-                    }
-                }
+            if isCompactPost {
+                compactTextOnlyLayout
+            } else {
+                headerRow
+                inspiredByBadge
+                heroSection
+                captionSection
+                compactBottomBar
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-
-            // Inspired by badge (if this workout was copied)
-            if let inspiredBy = post.inspiredByUsername {
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 11))
-                    Text("Inspired by @\(inspiredBy)")
-                        .font(.system(size: 12, weight: .medium))
-                }
-                .foregroundColor(Color.white.opacity(0.6))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(16)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-            }
-
-            // Emotion badge
-            if let emotion = post.emotion {
-                EmotionBadge(emotion: emotion, likeCount: post.likeCount)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
-            }
-
-            // Caption
-            if !post.caption.isEmpty {
-                Text(post.caption)
-                    .font(.system(size: 15))
-                    .foregroundColor(GQColors.textPrimary)
-                    .lineSpacing(2)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
-            }
-
-            // Tagged users, location, and squads
-            PostTagsRow(post: post)
-
-            // Media (photo or video) with activity badge overlay - EDGE TO EDGE
-            ZStack(alignment: .topTrailing) {
-                PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
-
-                // Activity badge overlay on image
-                if let activity = detectedActivityType, post.photoData != nil || post.videoData != nil {
-                    ActivityBadge(activityType: activity)
-                        .padding(12)
-                }
-            }
-
-            // Music display (TikTok/Instagram style)
-            if let songTitle = post.songTitle, let artistName = post.artistName {
-                MusicBadge(
-                    songTitle: songTitle,
-                    artistName: artistName,
-                    isPlaying: isPlayingMusic,
-                    onTap: {
-                        isPlayingMusic.toggle()
-                    }
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-            }
-
-            // Workout stats
-            if post.duration != nil || post.setCount != nil {
-                WorkoutStatsBarEnhanced(duration: post.duration, setCount: post.setCount)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-            }
-
-            // Inline exercise preview (collapsible)
-            if let workout = sharedWorkout {
-                exercisePreviewSection(workout)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-            }
-
-            // Follow Workout Button (if workout data available)
-            if sharedWorkout != nil {
-                FollowWorkoutButton {
-                    showWorkoutDetail = true
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-            }
-
-            // Actions row with "Learn this" button
-            PostActionsRowAnimated(
-                post: post,
-                isLiked: $isLiked,
-                showComments: $showComments,
-                onLearnThis: post.workoutType != nil ? {
-                    if let highlight = post.exerciseHighlight {
-                        onLearnThis(highlight)
-                    }
-                } : nil,
-                currentUserId: currentUserId,
-                currentUserName: currentUserName
-            )
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
         }
         .background(GQColors.surfaceBase)
         .overlay(
             Rectangle()
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
-        // Post entry animation
         .opacity(hasAppeared ? 1 : 0)
         .offset(y: hasAppeared ? 0 : 20)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onChange(of: geo.frame(in: .global).midY) { _, midY in
+                        let screenMid = UIScreen.main.bounds.height / 2
+                        let zone = UIScreen.main.bounds.height * 0.2
+                        let inCenter = abs(midY - screenMid) < zone
+                        if post.songTitle != nil {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                isPlayingMusic = inCenter
+                            }
+                        }
+                    }
+            }
+        )
         .onAppear {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 hasAppeared = true
@@ -376,70 +287,425 @@ struct PostCardV2: View {
         }
     }
 
-    @ViewBuilder
-    private func exercisePreviewSection(_ workout: SharedWorkoutData) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    showExercisePreview.toggle()
-                }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "list.bullet")
-                        .font(.system(size: 12))
-                        .foregroundColor(GQColors.cyanSpark)
-                    Text("\(workout.exercises.count) exercises")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white.opacity(0.8))
-                    Spacer()
-                    Image(systemName: showExercisePreview ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.gray)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-            }
-            .buttonStyle(.plain)
+    // MARK: - Extracted ViewBuilders
 
-            if showExercisePreview {
-                VStack(alignment: .leading, spacing: 6) {
-                    let previewExercises = Array(workout.exercises.prefix(4))
-                    ForEach(previewExercises) { ex in
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(Color.white.opacity(0.2))
-                                .frame(width: 6, height: 6)
-                            Text(ex.name)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.white.opacity(0.9))
-                            Spacer()
-                            let setCount = ex.sets.count
-                            let firstSet = ex.sets.first
-                            if let s = firstSet {
-                                Text("\(setCount)x\(s.reps) @ \(Int(s.weight)) lbs")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                    }
-                    if workout.exercises.count > 4 {
-                        Text("+ \(workout.exercises.count - 4) more")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(GQColors.cyanSpark)
-                            .padding(.top, 2)
-                    }
+    @ViewBuilder
+    private var headerRow: some View {
+        HStack {
+            PostHeaderEnhanced(post: post, activityType: detectedActivityType, locationName: post.locationName)
+
+            if post.authorId == currentUserId {
+                PostDeleteButton {
+                    deletePost()
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(Color.white.opacity(0.04))
-        .cornerRadius(10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.white.opacity(0.06), lineWidth: 0.5)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    @ViewBuilder
+    private var compactTextOnlyLayout: some View {
+        HStack(alignment: .top, spacing: 10) {
+            // Small avatar
+            Circle()
+                .fill(GQColors.primary)
+                .frame(width: 32, height: 32)
+                .overlay(
+                    Text(String(post.authorName.prefix(1)).uppercased())
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                )
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(post.authorName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("@\(post.authorUsername)")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textSecondary)
+                    Text(post.timestamp.timeAgoDisplay())
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                Text(post.caption)
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineSpacing(2)
+                    .lineLimit(3)
+
+                // Inline workout stats pill
+                if post.workoutType != nil || post.duration != nil {
+                    HStack(spacing: 8) {
+                        if let type = post.workoutType {
+                            Text(type)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(GQColors.cyanSpark)
+                        }
+                        if let duration = post.duration {
+                            HStack(spacing: 2) {
+                                Image(systemName: "clock")
+                                    .font(.system(size: 9))
+                                Text("\(duration)m")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .foregroundColor(GQColors.textSecondary)
+                        }
+                        if let sets = post.setCount {
+                            HStack(spacing: 2) {
+                                Image(systemName: "flame")
+                                    .font(.system(size: 9))
+                                Text("\(sets) sets")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                            .foregroundColor(GQColors.textSecondary)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(8)
+                }
+
+                // Inline actions
+                HStack(spacing: 20) {
+                    Button { showComments = true } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bubble.right")
+                                .font(.system(size: 12))
+                            if post.commentCount > 0 {
+                                Text("\(post.commentCount)")
+                                    .font(.system(size: 12))
+                            }
+                        }
+                        .foregroundColor(GQColors.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        if !isLiked {
+                            isLiked = true
+                            post.likeCount += 1
+                            #if canImport(UIKit)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            #endif
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: isLiked ? "heart.fill" : "heart")
+                                .font(.system(size: 12))
+                            if post.likeCount > 0 {
+                                Text("\(post.likeCount)")
+                                    .font(.system(size: 12))
+                            }
+                        }
+                        .foregroundColor(isLiked ? GQColors.primary : GQColors.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 4)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    @ViewBuilder
+    private var inspiredByBadge: some View {
+        if let inspiredBy = post.inspiredByUsername {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 11))
+                Text("Inspired by @\(inspiredBy)")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundColor(Color.white.opacity(0.6))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.08))
+            .cornerRadius(16)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+        }
+    }
+
+    @ViewBuilder
+    private var heroSection: some View {
+        if post.photoData != nil || post.videoData != nil {
+            photoHero
+        } else if sharedWorkout != nil {
+            WorkoutHeroCard(
+                workout: sharedWorkout,
+                workoutType: post.workoutType,
+                emotion: post.emotion,
+                duration: post.duration,
+                setCount: post.setCount,
+                exerciseHighlight: post.exerciseHighlight,
+                locationName: post.locationName
+            )
+            .padding(.horizontal, 16)
+        } else if post.workoutType != nil {
+            WorkoutHeroCard(
+                workout: nil,
+                workoutType: post.workoutType,
+                emotion: post.emotion,
+                duration: post.duration,
+                setCount: post.setCount,
+                exerciseHighlight: post.exerciseHighlight,
+                locationName: post.locationName
+            )
+            .padding(.horizontal, 16)
+        }
+    }
+
+    @ViewBuilder
+    private var photoHero: some View {
+        if post.mediaItems.count > 1 {
+            // Multi-media carousel with music overlay on image
+            ZStack(alignment: .bottom) {
+                ExerciseMediaCarousel(mediaItems: post.mediaItems)
+
+                if let song = post.songTitle, let artist = post.artistName {
+                    photoMusicBar(song: song, artist: artist)
+                        .padding(.bottom, 40) // above page dots
+                }
+            }
+            .clipped()
+        } else {
+            // Single photo/video with overlays
+            ZStack(alignment: .topLeading) {
+                ZStack(alignment: .topTrailing) {
+                    PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
+                        .scaleEffect(photoScale)
+
+                    if let activity = detectedActivityType, post.photoData != nil || post.videoData != nil {
+                        ActivityBadge(activityType: activity)
+                            .padding(12)
+                    }
+                }
+
+                // Emotion pill overlay
+                if let emotion = post.emotion {
+                    emotionPill(emotion)
+                        .padding(12)
+                }
+
+                // Music + stats at bottom of image
+                VStack(spacing: 0) {
+                    Spacer()
+
+                    if let song = post.songTitle, let artist = post.artistName {
+                        photoMusicBar(song: song, artist: artist)
+                    }
+
+                    if post.duration != nil || post.setCount != nil || post.workoutType != nil {
+                        photoStatsOverlay
+                    }
+                }
+            }
+            .clipped()
+            .onAppear {
+                withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) {
+                    photoScale = 1.02
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func photoMusicBar(song: String, artist: String) -> some View {
+        let isSpotify = post.musicSource?.lowercased().contains("spotify") == true
+
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isPlayingMusic.toggle()
+            }
+        } label: {
+            HStack(spacing: 8) {
+                MusicEQBars(barCount: 3, barWidth: 2.5, maxHeight: 12, color: .white.opacity(0.9), isPlaying: isPlayingMusic)
+
+                Text("\(song) — \(artist)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.9))
+                    .lineLimit(1)
+
+                if post.musicSource != nil {
+                    if isSpotify {
+                        SpotifyIcon(size: 16)
+                    } else {
+                        AppleMusicIcon(size: 16)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.black.opacity(0.25))
+            .background(.ultraThinMaterial)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule()
+                    .fill(.clear)
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+                    )
+            )
+            .fixedSize()
+            .environment(\.colorScheme, .dark)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var photoStatsOverlay: some View {
+        HStack(spacing: 12) {
+            if let type = post.workoutType {
+                Text(type)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            if let duration = post.duration, duration > 0 {
+                Text("\(duration) min")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            if let sets = post.setCount, sets > 0 {
+                Text("\(sets) sets")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            Spacer()
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.6)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
         )
+    }
+
+    @ViewBuilder
+    private var captionSection: some View {
+        if !post.caption.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(post.caption)
+                    .font(.system(size: 15))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineSpacing(2)
+                    .lineLimit(showFullCaption ? nil : 2)
+
+                if !showFullCaption && post.caption.count > 80 {
+                    Button("more") {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showFullCaption = true
+                        }
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+        }
+    }
+
+    @ViewBuilder
+    private var compactBottomBar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Only show music badge if post has no photo/video (otherwise it's on the image)
+            if post.photoData == nil && post.videoData == nil,
+               let songTitle = post.songTitle, let artistName = post.artistName {
+                MusicBadge(
+                    songTitle: songTitle,
+                    artistName: artistName,
+                    isPlaying: isPlayingMusic,
+                    musicSource: post.musicSource,
+                    onTap: {
+                        isPlayingMusic.toggle()
+                    }
+                )
+                .contextMenu {
+                    Button {
+                        openMusicSearch(song: songTitle, artist: artistName, service: .spotify)
+                    } label: {
+                        Label("Open in Spotify", systemImage: "arrow.up.right")
+                    }
+                    Button {
+                        openMusicSearch(song: songTitle, artist: artistName, service: .appleMusic)
+                    } label: {
+                        Label("Open in Apple Music", systemImage: "arrow.up.right")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+
+            if let voiceData = post.voiceNoteData, let duration = post.voiceNoteDuration {
+                VoiceNotePlayerView(audioData: voiceData, duration: duration)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+
+            PostActionsRowCompact(
+                post: post,
+                isLiked: $isLiked,
+                showComments: $showComments,
+                isSaved: $isSaved,
+                hasWorkout: sharedWorkout != nil,
+                onFollowWorkout: sharedWorkout != nil ? {
+                    showWorkoutDetail = true
+                } : nil,
+                onSave: sharedWorkout != nil ? {
+                    if let workout = sharedWorkout {
+                        saveWorkout(workout)
+                    }
+                } : nil,
+                currentUserId: currentUserId,
+                currentUserName: currentUserName
+            )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+    }
+
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func emotionPill(_ emotion: WorkoutEmotion) -> some View {
+        HStack(spacing: 4) {
+            Text(emotion.emoji)
+                .font(.system(size: 14))
+            Text(emotion.encouragement)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+    }
+
+    private func saveWorkout(_ workout: SharedWorkoutData) {
+        var saved = loadSavedWorkouts()
+        if !saved.contains(where: { $0.id == workout.id }) {
+            saved.append(workout)
+            if let data = try? JSONEncoder().encode(saved) {
+                UserDefaults.standard.set(data, forKey: "savedWorkouts")
+            }
+        }
+    }
+
+    private func loadSavedWorkouts() -> [SharedWorkoutData] {
+        guard let data = UserDefaults.standard.data(forKey: "savedWorkouts"),
+              let decoded = try? JSONDecoder().decode([SharedWorkoutData].self, from: data)
+        else { return [] }
+        return decoded
     }
 
     private func launchFollowWorkout(_ workout: SharedWorkoutData) {
@@ -449,9 +715,1054 @@ struct PostCardV2: View {
         appState.selectedTab = .home
     }
 
+    private enum MusicService { case spotify, appleMusic }
+
+    private func openMusicSearch(song: String, artist: String, service: MusicService) {
+        let query = "\(song) \(artist)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        #if canImport(UIKit)
+        switch service {
+        case .spotify:
+            if let appURL = URL(string: "spotify:search:\(query)"),
+               UIApplication.shared.canOpenURL(appURL) {
+                UIApplication.shared.open(appURL)
+            } else if let webURL = URL(string: "https://open.spotify.com/search/\(query)") {
+                UIApplication.shared.open(webURL)
+            }
+        case .appleMusic:
+            if let url = URL(string: "https://music.apple.com/search?term=\(query)") {
+                UIApplication.shared.open(url)
+            }
+        }
+        #endif
+    }
+
     private func deletePost() {
         modelContext.delete(post)
         try? modelContext.save()
+    }
+}
+
+// MARK: - Workout Hero Card
+
+struct WorkoutHeroCard: View {
+    let workout: SharedWorkoutData?
+    let workoutType: String?
+    let emotion: WorkoutEmotion?
+    let duration: Int?
+    let setCount: Int?
+    var exerciseHighlight: String? = nil
+    var locationName: String? = nil
+
+    @State private var shimmerOffset: CGFloat = -1
+    @State private var iconAnimating = false
+    @State private var breathingScale: CGFloat = 1.0
+    @State private var shape1Offset: CGSize = .zero
+    @State private var shape2Offset: CGSize = .zero
+    @State private var shape3Offset: CGSize = .zero
+    @State private var shape4Offset: CGSize = .zero
+    @State private var displayedDuration: Int = 0
+    @State private var displayedSetCount: Int = 0
+    @State private var statsAppeared = false
+    @State private var volumeBarAppeared = false
+    @State private var watermarkRocking = false
+    @State private var watermarkOpacity: Double = 0.07
+
+    private var cardioSubType: CardioSubType? {
+        guard workoutType == "Cardio" else { return nil }
+        return CardioSubType.from(exerciseHighlight)
+    }
+
+    private var gradientColors: [Color] {
+        if let type = workoutType, let wt = WorkoutType(rawValue: type) {
+            return GQGradients.workoutGradientColors(for: wt)
+        }
+        return [GQColors.deepBlue, GQColors.cyanSpark]
+    }
+
+    private var hasExercises: Bool {
+        guard let w = workout else { return false }
+        return !w.exercises.isEmpty
+    }
+
+    // MARK: - Watermark Icons
+
+    private var watermarkIcons: (String, String) {
+        guard let type = workoutType, let wt = WorkoutType(rawValue: type) else {
+            return ("dumbbell.fill", "figure.strengthtraining.traditional")
+        }
+        switch wt {
+        case .push: return ("dumbbell.fill", "figure.strengthtraining.traditional")
+        case .pull: return ("figure.strengthtraining.traditional", "arrow.down.circle.fill")
+        case .legs: return ("figure.walk", "figure.stand")
+        case .upper: return ("figure.arms.open", "dumbbell.fill")
+        case .lower: return ("figure.stand", "figure.walk")
+        case .fullBody: return ("figure.strengthtraining.traditional", "dumbbell.fill")
+        case .cardio: return ("figure.run", "heart.fill")
+        case .rest: return ("leaf.fill", "moon.fill")
+        }
+    }
+
+    // MARK: - Muscle Group Data
+
+    private var muscleGroups: [MuscleGroup] {
+        if let exercises = workout?.exercises, !exercises.isEmpty {
+            let groups = exercises.compactMap { MuscleGroup(rawValue: $0.muscleGroup) }
+            var seen = Set<MuscleGroup>()
+            return groups.filter { seen.insert($0).inserted }
+        }
+        guard let type = workoutType, let wt = WorkoutType(rawValue: type) else { return [] }
+        switch wt {
+        case .push: return [.chest, .triceps, .shoulders]
+        case .pull: return [.back, .biceps]
+        case .legs: return [.quads, .hamstrings, .glutes]
+        case .upper: return [.chest, .back, .shoulders]
+        case .lower: return [.quads, .hamstrings, .glutes, .calves]
+        case .fullBody: return [.chest, .back, .shoulders, .quads]
+        case .cardio: return [.cardio]
+        case .rest: return []
+        }
+    }
+
+    private func muscleGroupColor(_ group: MuscleGroup) -> Color {
+        switch group.color {
+        case "red": return .red
+        case "blue": return .blue
+        case "orange": return .orange
+        case "purple": return .purple
+        case "pink": return .pink
+        case "green": return .green
+        case "teal": return .teal
+        case "indigo": return .indigo
+        case "mint": return .mint
+        case "yellow": return .yellow
+        default: return .gray
+        }
+    }
+
+    private func exerciseVolume(_ ex: SharedWorkoutData.SharedExercise) -> Double {
+        ex.sets.reduce(0) { $0 + $1.weight * Double($1.reps) }
+    }
+
+    private func equipmentIcon(for exerciseName: String) -> String {
+        ExtendedExerciseDatabase.find(exerciseName)?.equipment.icon ?? "dumbbell.fill"
+    }
+
+    // MARK: - Shimmer Overlay
+
+    @ViewBuilder
+    private var shimmerOverlay: some View {
+        GeometryReader { geo in
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0),
+                    .init(color: .white.opacity(0.12), location: 0.45),
+                    .init(color: .white.opacity(0.2), location: 0.5),
+                    .init(color: .white.opacity(0.12), location: 0.55),
+                    .init(color: .clear, location: 1),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .frame(width: geo.size.width * 1.5)
+            .offset(x: geo.size.width * shimmerOffset)
+            .allowsHitTesting(false)
+        }
+    }
+
+    var body: some View {
+        if hasExercises {
+            exerciseHeroContent
+        } else {
+            statsOnlyContent
+        }
+    }
+
+    // MARK: - Exercise Hero Content
+
+    @ViewBuilder
+    private var exerciseHeroContent: some View {
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(
+                    LinearGradient(
+                        colors: gradientColors.map { $0.opacity(0.3) },
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            // Animated decorative watermark icons
+            VStack {
+                Spacer()
+                HStack {
+                    Spacer()
+                    ZStack {
+                        Image(systemName: watermarkIcons.0)
+                            .font(.system(size: 70, weight: .thin))
+                            .foregroundColor(.white.opacity(watermarkOpacity))
+                            .rotationEffect(.degrees(watermarkRocking ? -7 : -17))
+                            .offset(x: -30, y: -10)
+
+                        Image(systemName: watermarkIcons.1)
+                            .font(.system(size: 55, weight: .thin))
+                            .foregroundColor(.white.opacity(watermarkOpacity * 0.85))
+                            .rotationEffect(.degrees(watermarkRocking ? 20 : 10))
+                            .offset(x: 10, y: 15)
+                    }
+                    .padding(.trailing, 10)
+                    .padding(.bottom, 40)
+                }
+            }
+
+            // Floating energy particles
+            floatingParticles
+
+            VStack(alignment: .leading, spacing: 0) {
+                if let emotion = emotion {
+                    heroEmotionPill(emotion)
+                        .padding(.top, 14)
+                        .padding(.leading, 14)
+                }
+
+                Spacer().frame(height: emotion != nil ? 10 : 14)
+
+                muscleGroupIndicators
+                    .padding(.horizontal, 14)
+
+                Spacer().frame(height: 10)
+
+                exerciseTable
+
+                Spacer(minLength: 8)
+
+                heroStatsBar
+            }
+
+            shimmerOverlay
+        }
+        .frame(minHeight: 260)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).delay(0.3)) {
+                shimmerOffset = 1.5
+            }
+            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+                watermarkRocking = true
+            }
+            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+                watermarkOpacity = 0.10
+            }
+            volumeBarAppeared = true
+        }
+    }
+
+    // MARK: - Stats Only Content (Enhanced)
+
+    @ViewBuilder
+    private var statsOnlyContent: some View {
+        let isCardioWithRoute = cardioSubType?.isOutdoor == true
+        ZStack {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(
+                    LinearGradient(
+                        colors: gradientColors.map { $0.opacity(0.3) },
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            // Animated floating decorative shapes
+            ZStack {
+                Circle()
+                    .fill(.white.opacity(0.06))
+                    .frame(width: 80, height: 80)
+                    .offset(x: -90 + shape1Offset.width, y: -40 + shape1Offset.height)
+
+                Circle()
+                    .fill(.white.opacity(0.04))
+                    .frame(width: 50, height: 50)
+                    .offset(x: 100 + shape2Offset.width, y: 50 + shape2Offset.height)
+
+                Capsule()
+                    .fill(.white.opacity(0.05))
+                    .frame(width: 60, height: 20)
+                    .rotationEffect(.degrees(-25))
+                    .offset(x: 80 + shape3Offset.width, y: -60 + shape3Offset.height)
+
+                Circle()
+                    .fill(.white.opacity(0.07))
+                    .frame(width: 30, height: 30)
+                    .offset(x: -70 + shape4Offset.width, y: 60 + shape4Offset.height)
+            }
+
+            // Floating energy particles
+            floatingParticles
+
+            VStack(spacing: 8) {
+                if let emotion = emotion {
+                    heroEmotionPill(emotion)
+                }
+
+                if !muscleGroups.isEmpty {
+                    muscleGroupIndicators
+                        .padding(.horizontal, 14)
+                        .padding(.top, 4)
+                }
+
+                Spacer()
+
+                if let subType = cardioSubType {
+                    // Cardio-specific content
+                    if subType.isOutdoor {
+                        // Route visualization for outdoor cardio
+                        CardioRouteView(
+                            postId: exerciseHighlight ?? "route",
+                            distance: cardioDistanceKm,
+                            pace: cardioPace,
+                            gradientColors: [subType.color, GQColors.cyanSpark],
+                            locationName: locationName
+                        )
+                        .padding(.horizontal, 14)
+                    } else {
+                        // Indoor cardio icon + machine label
+                        cardioIconContent(subType)
+                    }
+                } else if let type = workoutType, let wt = WorkoutType(rawValue: type) {
+                    ZStack {
+                        Circle()
+                            .fill(gradientColors.first?.opacity(0.3) ?? .clear)
+                            .frame(width: 90, height: 90)
+                            .blur(radius: 15)
+
+                        Image(systemName: wt.icon)
+                            .font(.system(size: 60, weight: .medium))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .scaleEffect(breathingScale)
+                            .symbolEffect(.bounce, options: .repeating.speed(0.3), value: iconAnimating)
+                    }
+
+                    Text(type)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                } else if let type = workoutType {
+                    Text(type)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                }
+
+                // Count-up stat numbers
+                HStack(spacing: 6) {
+                    if let d = duration, d > 0 {
+                        Text("\(statsAppeared ? d : 0) min")
+                            .font(.system(size: 15, weight: .medium))
+                            .contentTransition(.numericText())
+                    }
+                    if let s = setCount, s > 0 {
+                        Text("\u{00B7}")
+                        Text("\(statsAppeared ? s : 0) sets")
+                            .font(.system(size: 15, weight: .medium))
+                            .contentTransition(.numericText())
+                    }
+                }
+                .foregroundColor(.white.opacity(0.8))
+
+                Spacer()
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 20)
+
+            shimmerOverlay
+        }
+        .frame(height: isCardioWithRoute ? 280 : 220)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).delay(0.3)) {
+                shimmerOffset = 1.5
+            }
+            // Breathing scale
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                breathingScale = 1.05
+            }
+            // Floating shapes drift
+            withAnimation(.easeInOut(duration: 3.5).repeatForever(autoreverses: true)) {
+                shape1Offset = CGSize(width: 8, height: -12)
+            }
+            withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true).delay(0.5)) {
+                shape2Offset = CGSize(width: -10, height: 8)
+            }
+            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true).delay(1)) {
+                shape3Offset = CGSize(width: -12, height: 10)
+            }
+            withAnimation(.easeInOut(duration: 4.5).repeatForever(autoreverses: true).delay(0.3)) {
+                shape4Offset = CGSize(width: 10, height: -8)
+            }
+            // Icon bounce trigger
+            iconAnimating = true
+            // Count-up stats
+            withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
+                statsAppeared = true
+            }
+        }
+    }
+
+    // MARK: - Cardio Icon Content (Indoor)
+
+    @ViewBuilder
+    private func cardioIconContent(_ subType: CardioSubType) -> some View {
+        ZStack {
+            Circle()
+                .fill(subType.color.opacity(0.3))
+                .frame(width: 90, height: 90)
+                .blur(radius: 15)
+
+            Image(systemName: subType.icon)
+                .font(.system(size: 55, weight: .medium))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [subType.color, GQColors.cyanSpark],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .scaleEffect(breathingScale)
+                .symbolEffect(.bounce, options: .repeating.speed(0.3), value: iconAnimating)
+        }
+
+        VStack(spacing: 2) {
+            Text(subType.rawValue)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.white)
+
+            if let machine = subType.machineLabel {
+                Text("on \(machine)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+        }
+    }
+
+    // MARK: - Cardio Helpers
+
+    private var cardioDistanceKm: Double {
+        guard let d = duration, d > 0 else { return 3.0 }
+        return Double(d) * 0.18
+    }
+
+    private var cardioPace: String {
+        guard let d = duration, d > 0 else { return "5:30" }
+        let dist = cardioDistanceKm
+        guard dist > 0 else { return "5:30" }
+        let paceMin = Double(d) / dist
+        let mins = Int(paceMin)
+        let secs = Int((paceMin - Double(mins)) * 60)
+        return "\(mins):\(String(format: "%02d", secs))"
+    }
+
+    // MARK: - Floating Energy Particles
+
+    @ViewBuilder
+    private var floatingParticles: some View {
+        ForEach(0..<7, id: \.self) { i in
+            FloatingParticle(
+                index: i,
+                color: gradientColors[i % gradientColors.count]
+            )
+        }
+    }
+
+    // MARK: - Muscle Group Indicators
+
+    @ViewBuilder
+    private var muscleGroupIndicators: some View {
+        let groups = muscleGroups
+        if !groups.isEmpty {
+            HStack(spacing: 6) {
+                ForEach(groups.prefix(5), id: \.self) { group in
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(muscleGroupColor(group))
+                            .frame(width: 7, height: 7)
+                        Text(group.rawValue)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white.opacity(0.85))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.white.opacity(0.12))
+                    .clipShape(Capsule())
+                }
+            }
+        }
+    }
+
+    // MARK: - Exercise Table (with equipment icons + volume bars)
+
+    @ViewBuilder
+    private var exerciseTable: some View {
+        if let exercises = workout?.exercises {
+            let displayExercises = Array(exercises.prefix(3))
+            let remaining = exercises.count - 3
+            let maxVol = displayExercises.map { exerciseVolume($0) }.max() ?? 1
+
+            VStack(spacing: 6) {
+                ForEach(displayExercises) { ex in
+                    let vol = exerciseVolume(ex)
+                    let proportion = maxVol > 0 ? vol / maxVol : 0
+
+                    exerciseRow(ex, proportion: proportion)
+                }
+
+                if remaining > 0 {
+                    Text("+\(remaining) more")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.white.opacity(0.5))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(.horizontal, 14)
+        }
+    }
+
+    @ViewBuilder
+    private func exerciseRow(_ ex: SharedWorkoutData.SharedExercise, proportion: Double) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: equipmentIcon(for: ex.name))
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.5))
+                .frame(width: 16)
+
+            Text(ex.name)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+                .lineLimit(1)
+
+            Spacer()
+
+            let setCount = ex.sets.count
+            let reps = ex.sets.first?.reps ?? 0
+            let weight = ex.sets.first?.weight ?? 0
+
+            Text("\(setCount)\u{00D7}\(reps)")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.7))
+
+            if weight > 0 {
+                Text("\(Int(weight)) lbs")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 60, alignment: .trailing)
+            } else {
+                Text("BW")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.7))
+                    .frame(width: 60, alignment: .trailing)
+            }
+        }
+        .padding(.vertical, 4)
+        .background(alignment: .leading) {
+            GeometryReader { geo in
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(
+                        LinearGradient(
+                            colors: gradientColors.map { $0.opacity(0.15) },
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: geo.size.width * (volumeBarAppeared ? max(proportion, 0.05) : 0), height: 24)
+                    .frame(maxHeight: .infinity, alignment: .center)
+                    .animation(.easeOut(duration: 0.6).delay(0.2), value: volumeBarAppeared)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var heroStatsBar: some View {
+        HStack(spacing: 12) {
+            if let type = workoutType {
+                Text(type)
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            if let d = duration, d > 0 {
+                Text("\(d) min")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            if let s = setCount, s > 0 {
+                Text("\(s) sets")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            Spacer()
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.5)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
+    }
+
+    @ViewBuilder
+    private func heroEmotionPill(_ emotion: WorkoutEmotion) -> some View {
+        HStack(spacing: 4) {
+            Text(emotion.emoji)
+                .font(.system(size: 14))
+            Text(emotion.encouragement)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial)
+        .cornerRadius(16)
+    }
+}
+
+// MARK: - Floating Particle
+
+struct FloatingParticle: View {
+    let index: Int
+    let color: Color
+
+    @State private var offsetY: CGFloat = 0
+    @State private var opacity: Double = 0
+
+    private var size: CGFloat { CGFloat.random(in: 3...6) }
+    private var startX: CGFloat { CGFloat(index * 47 + 20) }
+    private var speed: Double { Double.random(in: 3...5) }
+
+    var body: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [color.opacity(0.6), color.opacity(0.1)],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: size
+                )
+            )
+            .frame(width: size, height: size)
+            .offset(x: startX - 160, y: offsetY)
+            .opacity(opacity)
+            .onAppear {
+                withAnimation(.easeInOut(duration: speed).repeatForever(autoreverses: false).delay(Double(index) * 0.4)) {
+                    offsetY = -120
+                    opacity = 0
+                }
+                withAnimation(.easeIn(duration: 0.5).delay(Double(index) * 0.4)) {
+                    opacity = 0.7
+                }
+            }
+    }
+}
+
+// MARK: - Cardio Route View
+
+struct CardioRouteView: View {
+    let postId: String
+    let distance: Double
+    let pace: String
+    var gradientColors: [Color] = [GQColors.success, GQColors.cyanSpark]
+    var locationName: String? = nil
+
+    @State private var showRoute = false
+
+    private var routeCoordinates: [CLLocationCoordinate2D] {
+        var rng = SeededRNG(seed: postId.hashValue)
+        let count = Int.random(in: 8...12, using: &rng)
+
+        // Base location from locationName
+        let base: (lat: Double, lng: Double) = {
+            let loc = locationName?.lowercased() ?? ""
+            if loc.contains("arc") || loc.contains("queen") {
+                return (44.2253, -76.4951) // Kingston / Queen's area
+            } else if loc.contains("goodlife") && loc.contains("downtown") {
+                return (43.6510, -79.3832) // Toronto downtown
+            }
+            return (43.6510 + Double.random(in: -0.5...0.5, using: &rng),
+                    -79.3832 + Double.random(in: -0.5...0.5, using: &rng))
+        }()
+
+        var coords: [CLLocationCoordinate2D] = []
+        var lat = base.lat
+        var lng = base.lng
+        for _ in 0..<count {
+            lat += Double.random(in: -0.003...0.003, using: &rng)
+            lng += Double.random(in: -0.003...0.003, using: &rng)
+            coords.append(CLLocationCoordinate2D(latitude: lat, longitude: lng))
+        }
+        return coords
+    }
+
+    private var mapCameraPosition: MapCameraPosition {
+        let coords = routeCoordinates
+        guard !coords.isEmpty else { return .automatic }
+        let lats = coords.map(\.latitude)
+        let lngs = coords.map(\.longitude)
+        let center = CLLocationCoordinate2D(
+            latitude: (lats.min()! + lats.max()!) / 2,
+            longitude: (lngs.min()! + lngs.max()!) / 2
+        )
+        let span = MKCoordinateSpan(
+            latitudeDelta: (lats.max()! - lats.min()!) * 1.6 + 0.005,
+            longitudeDelta: (lngs.max()! - lngs.min()!) * 1.6 + 0.005
+        )
+        return .region(MKCoordinateRegion(center: center, span: span))
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            let coords = routeCoordinates
+
+            ZStack {
+                Map(initialPosition: mapCameraPosition, interactionModes: []) {
+                    if showRoute {
+                        MapPolyline(coordinates: coords)
+                            .stroke(
+                                LinearGradient(
+                                    colors: gradientColors,
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                lineWidth: 3
+                            )
+                    }
+
+                    // Start marker
+                    if let first = coords.first {
+                        Annotation("", coordinate: first) {
+                            Circle()
+                                .fill(GQColors.success)
+                                .frame(width: 14, height: 14)
+                                .overlay(
+                                    Text("S")
+                                        .font(.system(size: 7, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                        }
+                    }
+
+                    // End marker
+                    if let last = coords.last {
+                        Annotation("", coordinate: last) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 14, height: 14)
+                                .overlay(
+                                    Text("F")
+                                        .font(.system(size: 7, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                        }
+                    }
+                }
+                .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+                .colorScheme(.dark)
+            }
+            .frame(height: 160)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            // Stats pill
+            HStack(spacing: 16) {
+                HStack(spacing: 4) {
+                    Image(systemName: "map")
+                        .font(.system(size: 11))
+                        .foregroundColor(gradientColors.first ?? .green)
+                    Text(String(format: "%.1f km", distance))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+
+                HStack(spacing: 4) {
+                    Image(systemName: "speedometer")
+                        .font(.system(size: 11))
+                        .foregroundColor(gradientColors.last ?? .cyan)
+                    Text("\(pace) /km")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
+                }
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).delay(0.3)) {
+                showRoute = true
+            }
+        }
+    }
+}
+
+// MARK: - Seeded RNG for deterministic routes
+
+struct SeededRNG: RandomNumberGenerator {
+    var state: UInt64
+    init(seed: Int) {
+        state = UInt64(bitPattern: Int64(seed))
+        if state == 0 { state = 1 }
+    }
+    mutating func next() -> UInt64 {
+        state = state &* 6364136223846793005 &+ 1442695040888963407
+        return state
+    }
+}
+
+// MARK: - Compact Actions Row
+
+struct PostActionsRowCompact: View {
+    let post: Post
+    @Binding var isLiked: Bool
+    @Binding var showComments: Bool
+    @Binding var isSaved: Bool
+    var hasWorkout: Bool = false
+    var onFollowWorkout: (() -> Void)?
+    var onSave: (() -> Void)?
+    var currentUserId: UUID = UUID()
+    var currentUserName: String = ""
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var heartScale: CGFloat = 1.0
+    @State private var showParticles = false
+    @State private var displayedLikeCount: Int = 0
+    @State private var displayedCommentCount: Int = 0
+    @State private var showReactionPicker = false
+
+    var body: some View {
+        HStack(spacing: 16) {
+            compactLikeButton
+            compactCommentButton
+
+            if hasWorkout, let onFollow = onFollowWorkout {
+                compactFollowButton(onFollow)
+            }
+
+            Spacer()
+
+            if hasWorkout {
+                compactSaveButton
+            }
+
+            compactShareButton
+        }
+        .padding(.top, 4)
+        .onAppear {
+            displayedLikeCount = post.likeCount
+            displayedCommentCount = post.commentCount
+            checkIfLiked()
+        }
+    }
+
+    @ViewBuilder
+    private var compactLikeButton: some View {
+        ZStack(alignment: .top) {
+            if showReactionPicker {
+                HStack(spacing: 8) {
+                    ForEach(ReactionType.allCases, id: \.self) { reaction in
+                        Button {
+                            addReaction(reaction)
+                            withAnimation(.spring(response: 0.2)) { showReactionPicker = false }
+                        } label: {
+                            Text(reaction.emoji)
+                                .font(.system(size: 24))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
+                )
+                .offset(y: -44)
+                .transition(.scale(scale: 0.5, anchor: .bottom).combined(with: .opacity))
+                .zIndex(10)
+            }
+
+            Button {
+                performLikeAnimation()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isLiked ? "heart.fill" : "heart")
+                        .font(.system(size: 20))
+                        .foregroundColor(isLiked ? .red : .white)
+                        .scaleEffect(heartScale)
+
+                    if displayedLikeCount > 0 {
+                        AnimatedCounter(value: displayedLikeCount)
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.4)
+                    .onEnded { _ in
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                            showReactionPicker.toggle()
+                        }
+                    }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var compactCommentButton: some View {
+        Button {
+            showComments = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "bubble.right")
+                    .font(.system(size: 18))
+
+                if displayedCommentCount > 0 {
+                    AnimatedCounter(value: displayedCommentCount)
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(.white)
+    }
+
+    @ViewBuilder
+    private func compactFollowButton(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "figure.run")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("Follow")
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundColor(GQColors.cyanSpark)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(GQColors.cyanSpark.opacity(0.12))
+            .cornerRadius(12)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var compactSaveButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                isSaved.toggle()
+            }
+            if isSaved { onSave?() }
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            #endif
+        } label: {
+            Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
+                .font(.system(size: 18))
+                .foregroundColor(isSaved ? GQColors.cyanSpark : .white.opacity(0.6))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var compactShareButton: some View {
+        Button {
+            // Share action
+        } label: {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 18))
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(.white)
+    }
+
+    // MARK: - Like Logic
+
+    private func performLikeAnimation() {
+        let wasLiked = isLiked
+
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+            isLiked.toggle()
+            post.likeCount += isLiked ? 1 : -1
+        }
+
+        if isLiked {
+            let like = Like(
+                postId: post.id,
+                userId: currentUserId,
+                userName: currentUserName
+            )
+            modelContext.insert(like)
+        } else {
+            let postId = post.id
+            let userId = currentUserId
+            let descriptor = FetchDescriptor<Like>(
+                predicate: #Predicate { $0.postId == postId && $0.userId == userId }
+            )
+            if let existingLikes = try? modelContext.fetch(descriptor) {
+                for like in existingLikes {
+                    modelContext.delete(like)
+                }
+            }
+        }
+        try? modelContext.save()
+
+        withAnimation(.spring(response: 0.2, dampingFraction: 0.4)) {
+            heartScale = 1.3
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(150))
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                heartScale = 1.0
+            }
+        }
+
+        if !wasLiked {
+            showParticles = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(600))
+                showParticles = false
+            }
+        }
+
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            displayedLikeCount = post.likeCount
+        }
+    }
+
+    private func checkIfLiked() {
+        let postId = post.id
+        let userId = currentUserId
+        let descriptor = FetchDescriptor<Like>(
+            predicate: #Predicate { $0.postId == postId && $0.userId == userId }
+        )
+        if let likes = try? modelContext.fetch(descriptor), !likes.isEmpty {
+            isLiked = true
+        }
+    }
+
+    private func addReaction(_ type: ReactionType) {
+        let reaction = Reaction(
+            odId: currentUserId,
+            odUsername: currentUserName,
+            targetType: "post",
+            targetId: post.id,
+            reactionType: type
+        )
+        modelContext.insert(reaction)
+        try? modelContext.save()
+
+        if !isLiked {
+            performLikeAnimation()
+        }
     }
 }
 
@@ -490,15 +1801,10 @@ struct WorkingOutNowRow: View {
     @EnvironmentObject var appState: AppState
     var recentFriendCount: Int = 0
 
-    // Simulated friends working out (would be real-time in production)
-    private let workoutFriends: [(name: String, type: String, minutes: Int, workout: String, exercises: String)] = [
-        ("Alex", "Push", 23, "Push Day", "Bench Press, Incline DB, Tricep Dips"),
-        ("Jordan", "Legs", 45, "Leg Day", "Squats, Leg Press, Romanian DL"),
-        ("Sam", "Cardio", 12, "Cardio", "Treadmill Intervals, Jump Rope"),
-        ("Taylor", "Pull", 37, "Pull Day", "Deadlifts, Barbell Rows, Pull-ups")
-    ]
+    private let socialService = SocialActivityService.shared
 
     @State private var selectedFriend: String?
+    @State private var pulseGreen = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -508,8 +1814,8 @@ struct WorkingOutNowRow: View {
                     HStack(spacing: 3) {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 10))
-                            .foregroundColor(GQColors.cyanSpark)
-                        Text("\(recentFriendCount)")
+                            .foregroundColor(GQColors.terracotta)
+                        Text("\(socialService.friendsActiveToday)")
                             .font(.system(size: 13, weight: .bold))
                             .foregroundColor(.white)
                     }
@@ -519,22 +1825,25 @@ struct WorkingOutNowRow: View {
                 }
                 .frame(width: 40)
 
-                // Active friends
-                ForEach(workoutFriends, id: \.name) { friend in
+                // Active friends from SocialActivityService
+                ForEach(socialService.activeFriends) { friend in
                     Button {
                         selectedFriend = friend.name
                     } label: {
                         VStack(spacing: 4) {
                             ZStack {
                                 Circle()
-                                    .stroke(GQColors.cyanSpark.opacity(0.5), lineWidth: 2)
+                                    .stroke(
+                                        friend.isLive ? GQColors.success.opacity(pulseGreen ? 0.8 : 0.4) : GQColors.cyanSpark.opacity(0.5),
+                                        lineWidth: 2
+                                    )
                                     .frame(width: 48, height: 48)
 
                                 Circle()
                                     .fill(Color.white.opacity(0.1))
                                     .frame(width: 40, height: 40)
                                     .overlay(
-                                        Text(String(friend.name.prefix(1)))
+                                        Text(friend.avatarInitial)
                                             .font(.system(size: 15, weight: .bold))
                                             .foregroundColor(.white)
                                     )
@@ -544,11 +1853,11 @@ struct WorkingOutNowRow: View {
                                     Spacer()
                                     HStack {
                                         Spacer()
-                                        Text(friend.type.prefix(1))
+                                        Text(String(friend.workoutType.prefix(1)))
                                             .font(.system(size: 8, weight: .bold))
                                             .foregroundColor(.white)
                                             .frame(width: 16, height: 16)
-                                            .background(GQColors.success)
+                                            .background(friend.isLive ? GQColors.success : GQColors.cyanSpark)
                                             .clipShape(Circle())
                                             .overlay(Circle().stroke(Color.black, lineWidth: 1.5))
                                     }
@@ -559,7 +1868,7 @@ struct WorkingOutNowRow: View {
                             Text(friend.name)
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(.white)
-                            Text("\(friend.minutes)m")
+                            Text("\(friend.minutesElapsed)m")
                                 .font(.system(size: 10))
                                 .foregroundColor(.gray)
                         }
@@ -571,12 +1880,17 @@ struct WorkingOutNowRow: View {
             .padding(.vertical, 4)
         }
         .padding(.vertical, 8)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                pulseGreen = true
+            }
+        }
         .sheet(item: Binding<WorkoutStoryItem?>(
             get: {
                 guard let name = selectedFriend,
-                      let friend = workoutFriends.first(where: { $0.name == name })
+                      let friend = socialService.activeFriends.first(where: { $0.name == name })
                 else { return nil }
-                return WorkoutStoryItem(name: friend.name, type: friend.type, minutes: friend.minutes, workout: friend.workout, exercises: friend.exercises)
+                return WorkoutStoryItem(name: friend.name, type: friend.workoutType, minutes: friend.minutesElapsed, workout: "\(friend.workoutType) Day", exercises: friend.exercise)
             },
             set: { item in
                 selectedFriend = item?.name
@@ -679,7 +1993,7 @@ struct WorkoutStorySheet: View {
                     HStack(spacing: 6) {
                         Image(systemName: "clock")
                             .font(.system(size: 13))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
                         Text("\(friend.minutes) min")
                             .font(.system(size: 13))
                             .foregroundColor(GQColors.textTertiary)
@@ -714,6 +2028,7 @@ struct WorkoutStorySheet: View {
 struct PostHeaderEnhanced: View {
     let post: Post
     let activityType: DetectedActivity?
+    var locationName: String? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -738,9 +2053,24 @@ struct PostHeaderEnhanced: View {
                         .foregroundColor(GQColors.textTertiary)
                 }
 
-                Text(post.timestamp.timeAgoDisplay())
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textTertiary)
+                HStack(spacing: 4) {
+                    Text(post.timestamp.timeAgoDisplay())
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textTertiary)
+
+                    if let location = locationName {
+                        Text("·")
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textTertiary)
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 9))
+                            .foregroundColor(GQColors.textTertiary)
+                        Text(location)
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textTertiary)
+                            .lineLimit(1)
+                    }
+                }
             }
 
             Spacer()
@@ -771,7 +2101,7 @@ struct WorkoutStatsBarEnhanced: View {
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
                         .font(.system(size: 13))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("\(duration) min")
                         .font(.system(size: 13))
                         .foregroundColor(GQColors.textTertiary)
@@ -782,7 +2112,7 @@ struct WorkoutStatsBarEnhanced: View {
                 HStack(spacing: 6) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 13))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.terracotta)
                     Text("\(sets) sets")
                         .font(.system(size: 13))
                         .foregroundColor(GQColors.textTertiary)
@@ -850,7 +2180,7 @@ struct PostMediaView: View {
                     Image(uiImage: uiImage)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(minHeight: 350, maxHeight: 500)
+                        .frame(minHeight: 420, maxHeight: 550)
                         .clipped()
                         .scaleEffect(imageScale)
                         .onTapGesture(count: 2) {
@@ -875,7 +2205,7 @@ struct PostMediaView: View {
                     Image(nsImage: nsImage)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(minHeight: 350, maxHeight: 500)
+                        .frame(minHeight: 420, maxHeight: 550)
                         .clipped()
                 }
                 #endif
@@ -961,10 +2291,10 @@ struct PostActionsRow: View {
                         Text("Learn")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.vividPurple)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(GQColors.cyanSpark.opacity(0.12))
+                    .background(GQColors.vividPurple.opacity(0.12))
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
@@ -1098,10 +2428,10 @@ struct PostActionsRowAnimated: View {
                         Text("Learn")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.vividPurple)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(GQColors.cyanSpark.opacity(0.12))
+                    .background(GQColors.vividPurple.opacity(0.12))
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
@@ -2615,61 +3945,67 @@ struct CommunityFeedView: View {
     @ViewBuilder
     private func challengeSpotlightCard(_ challenge: CommunityChallenge) -> some View {
         let communityName = yourCommunities.first(where: { $0.id == challenge.communityId })?.name ?? "Community"
-        VStack(alignment: .leading, spacing: 10) {
-            // Community label
-            Text(communityName)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(GQColors.cyanSpark)
-                .lineLimit(1)
+        Button {
+            // Navigate to challenge detail (no-op for now)
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                // Community label
+                Text(communityName)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(GQColors.cyanSpark)
+                    .lineLimit(1)
 
-            // Challenge title
-            Text(challenge.title)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.white)
-                .lineLimit(2)
-
-            // Progress bar
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(height: 6)
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .frame(width: geo.size.width * challenge.progress, height: 6)
-                }
-            }
-            .frame(height: 6)
-
-            // Stats row
-            HStack {
-                Text("\(challenge.currentProgress)/\(challenge.goalTarget)")
-                    .font(.system(size: 11, weight: .semibold))
+                // Challenge title
+                Text(challenge.title)
+                    .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.white)
-                Spacer()
-                Text("\(challenge.daysRemaining)d left")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.orange)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.orange.opacity(0.15))
-                    .cornerRadius(6)
-            }
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, minHeight: 34, alignment: .topLeading)
 
-            // Participants
-            Text("\(challenge.participantIds.count) participating")
-                .font(.system(size: 10))
-                .foregroundColor(GQColors.textTertiary)
+                // Progress bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.1))
+                            .frame(height: 6)
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: geo.size.width * challenge.progress, height: 6)
+                    }
+                }
+                .frame(height: 6)
+
+                // Stats row
+                HStack {
+                    Text("\(challenge.currentProgress)/\(challenge.goalTarget)")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Text("\(challenge.daysRemaining)d left")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.orange.opacity(0.15))
+                        .cornerRadius(6)
+                }
+
+                // Participants
+                Text("\(challenge.participantIds.count) participating")
+                    .font(.system(size: 10))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(14)
+            .frame(width: 220)
+            .homeSocialCard(accent: GQColors.vividPurple, emphasized: true, cornerRadius: 14)
         }
-        .padding(14)
-        .frame(width: 220)
-        .homeSocialCard(accent: GQColors.vividPurple, emphasized: true, cornerRadius: 14)
+        .gqInteractive(scale: 0.96, haptic: .light)
     }
 
     // MARK: - Your Communities Section
@@ -3649,57 +4985,48 @@ struct CommunityDetailView: View {
     @ViewBuilder
     private var challengeCards: some View {
         ForEach(activeChallenges) { challenge in
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Image(systemName: "trophy.fill")
-                        .foregroundColor(.yellow)
-                    Text("ACTIVE CHALLENGE")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(GQColors.textTertiary)
-                        .tracking(1)
-                    Spacer()
-                    Text("\(challenge.daysRemaining)d left")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(GQColors.sunsetOrange)
-                }
+            Button {
+                // Navigate to challenge detail (no-op for now)
+            } label: {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Image(systemName: "trophy.fill")
+                            .foregroundColor(.yellow)
+                        Text("ACTIVE CHALLENGE")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(GQColors.textTertiary)
+                            .tracking(1)
+                        Spacer()
+                        Text("\(challenge.daysRemaining)d left")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(GQColors.sunsetOrange)
+                    }
 
-                Text(challenge.title)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    Text(challenge.title)
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
 
-                AnimatedProgressBar(
-                    progress: challenge.progress,
-                    height: 8,
-                    colors: [GQColors.vividPurple, GQColors.cyanSpark]
-                )
-
-                HStack {
-                    Text("\(challenge.currentProgress) / \(challenge.goalTarget) \(challenge.goalType.rawValue.lowercased())")
-                        .font(.system(size: 12))
-                        .foregroundColor(.gray)
-                    Spacer()
-                    Text("\(challenge.participantIds.count) participating")
-                        .font(.system(size: 12))
-                        .foregroundColor(.gray)
-                }
-            }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.white.opacity(0.05))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [GQColors.vividPurple.opacity(0.3), GQColors.cyanSpark.opacity(0.3)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 1
-                            )
+                    AnimatedProgressBar(
+                        progress: challenge.progress,
+                        height: 8,
+                        colors: [GQColors.vividPurple, GQColors.cyanSpark]
                     )
-            )
-            .padding(.horizontal, 16)
+
+                    HStack {
+                        Text("\(challenge.currentProgress) / \(challenge.goalTarget) \(challenge.goalType.rawValue.lowercased())")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                        Spacer()
+                        Text("\(challenge.participantIds.count) participating")
+                            .font(.system(size: 12))
+                            .foregroundColor(.gray)
+                    }
+                }
+                .padding(14)
+                .homeSocialCard(cornerRadius: 14, subtle: true)
+                .padding(.horizontal, 16)
+            }
+            .gqInteractive(scale: 0.97, haptic: .light)
         }
     }
 
@@ -4172,21 +5499,35 @@ struct PostTagsRow: View {
                     }
 
                     // Spotify playlist link
-                    if post.spotifyPlaylistURL != nil {
-                        PostTagBadge(
-                            icon: "music.note",
-                            text: "Spotify Playlist",
-                            color: Color(hex: "1DB954")
-                        )
+                    if let spotifyURLString = post.spotifyPlaylistURL, let url = URL(string: spotifyURLString) {
+                        Button {
+                            #if canImport(UIKit)
+                            UIApplication.shared.open(url)
+                            #endif
+                        } label: {
+                            PostTagBadge(
+                                icon: "music.note",
+                                text: "Spotify Playlist",
+                                color: Color(hex: "1DB954")
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     // Apple Music playlist link
-                    if post.appleMusicPlaylistURL != nil {
-                        PostTagBadge(
-                            icon: "music.note",
-                            text: "Apple Music",
-                            color: Color(hex: "FC3C44")
-                        )
+                    if let appleMusicURLString = post.appleMusicPlaylistURL, let url = URL(string: appleMusicURLString) {
+                        Button {
+                            #if canImport(UIKit)
+                            UIApplication.shared.open(url)
+                            #endif
+                        } label: {
+                            PostTagBadge(
+                                icon: "music.note",
+                                text: "Apple Music",
+                                color: Color(hex: "FC3C44")
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -4298,34 +5639,31 @@ struct ExerciseMediaCarousel: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .automatic))
-                .frame(height: 300)
+                .frame(minHeight: 420, maxHeight: 550)
 
                 // Exercise indicator pills
                 if mediaItems.count > 1 {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(Array(mediaItems.enumerated()), id: \.element.id) { index, media in
-                                Button {
-                                    withAnimation {
-                                        selectedIndex = index
-                                    }
-                                } label: {
-                                    Text(media.exerciseName ?? "General")
-                                        .font(.system(size: 11, weight: selectedIndex == index ? .semibold : .regular))
-                                        .foregroundColor(selectedIndex == index ? .white : GQColors.textSecondary)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 5)
-                                        .background(
-                                            selectedIndex == index
-                                                ? GQColors.vividPurple
-                                                : Color.white.opacity(0.1)
-                                        )
-                                        .cornerRadius(12)
+                    HStack(spacing: 6) {
+                        ForEach(Array(mediaItems.enumerated()), id: \.element.id) { index, media in
+                            Button {
+                                withAnimation {
+                                    selectedIndex = index
                                 }
-                                .buttonStyle(.plain)
+                            } label: {
+                                Text(media.exerciseName ?? "General")
+                                    .font(.system(size: 11, weight: selectedIndex == index ? .semibold : .regular))
+                                    .foregroundColor(selectedIndex == index ? .white : GQColors.textSecondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        selectedIndex == index
+                                            ? GQColors.vividPurple
+                                            : Color.white.opacity(0.1)
+                                    )
+                                    .cornerRadius(12)
                             }
+                            .buttonStyle(.plain)
                         }
-                        .padding(.horizontal, 16)
                     }
                 }
             }

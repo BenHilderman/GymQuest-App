@@ -96,6 +96,16 @@ struct HomeView: View {
                     )
                     .padding(.horizontal, 16)
 
+                    // FRIENDS ACTIVE TODAY
+                    FriendsActiveTodayRow()
+                        .padding(.horizontal, 16)
+
+                    // SQUAD CHALLENGE (if active)
+                    if FeatureFlags.shared.squadsEnabled, let squad = activeSquad, let challenge = squadChallenge {
+                        SquadChallengeCard(squad: squad, challenge: challenge)
+                            .padding(.horizontal, 16)
+                    }
+
                     // ACTIVITY SUMMARY (from connected integrations)
                     ActivitySummaryCard()
                         .padding(.horizontal, 16)
@@ -1935,6 +1945,152 @@ struct WorkoutTypeCard: View {
             )
         }
         .buttonStyle(GQInteractiveStyle())
+    }
+}
+
+// MARK: - Friends Active Today Row
+
+struct FriendsActiveTodayRow: View {
+    private let socialService = SocialActivityService.shared
+    @State private var pulseGreen = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Header
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(GQColors.success)
+                    .frame(width: 8, height: 8)
+                    .opacity(pulseGreen ? 1.0 : 0.4)
+
+                Text("Friends Active")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+
+                Text("\(socialService.friendsActiveToday)")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(GQColors.cyanSpark)
+
+                Spacer()
+            }
+
+            // Horizontal avatar scroll
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(socialService.activeFriends) { friend in
+                        VStack(spacing: 4) {
+                            ZStack {
+                                Circle()
+                                    .stroke(
+                                        friend.isLive ? GQColors.success : Color.white.opacity(0.15),
+                                        lineWidth: friend.isLive ? 2.5 : 1.5
+                                    )
+                                    .frame(width: 46, height: 46)
+
+                                Circle()
+                                    .fill(Color.white.opacity(0.08))
+                                    .frame(width: 38, height: 38)
+                                    .overlay(
+                                        Text(friend.avatarInitial)
+                                            .font(.system(size: 14, weight: .bold))
+                                            .foregroundColor(.white)
+                                    )
+                            }
+
+                            Text(friend.name)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                                .lineLimit(1)
+
+                            Text(friend.workoutType)
+                                .font(.system(size: 9))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        .frame(width: 52)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .homeSocialCard(accent: GQColors.success, emphasized: false)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                pulseGreen = true
+            }
+        }
+    }
+}
+
+// MARK: - Squad Challenge Card
+
+struct SquadChallengeCard: View {
+    let squad: Squad
+    let challenge: SquadChallenge
+
+    private var progress: Double {
+        guard challenge.targetValue > 0 else { return 0 }
+        return min(1.0, Double(challenge.currentValue) / Double(challenge.targetValue))
+    }
+
+    private var daysRemaining: Int {
+        max(0, Calendar.current.dateComponents([.day], from: Date(), to: challenge.endDate).day ?? 0)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.cyanSpark)
+                Text(squad.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.7))
+                Spacer()
+                Text("\(daysRemaining)d left")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+
+            Text(challenge.title)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(.white)
+
+            // Progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.white.opacity(0.08))
+                        .frame(height: 6)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * progress, height: 6)
+                }
+            }
+            .frame(height: 6)
+
+            HStack {
+                Text("\(challenge.currentValue)/\(challenge.targetValue)")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                Spacer()
+                HStack(spacing: 4) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(GQColors.cyanSpark)
+                    Text("+\(challenge.xpReward) XP")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.cyanSpark)
+                }
+            }
+        }
+        .padding(14)
+        .homeSocialCard(accent: GQColors.vividPurple, emphasized: false)
     }
 }
 

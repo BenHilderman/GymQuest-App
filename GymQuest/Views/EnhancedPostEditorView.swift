@@ -50,6 +50,10 @@ struct EnhancedPostEditorView: View {
     @State private var showMusicPicker = false
     @State private var selectedExerciseForMedia: String? = nil  // nil = general media
 
+    // Voice note
+    @State private var voiceNoteData: Data?
+    @State private var voiceNoteDuration: TimeInterval = 0
+
     // Error handling
     @State private var showError = false
     @State private var errorMessage = ""
@@ -71,6 +75,12 @@ struct EnhancedPostEditorView: View {
 
                     // Caption editor
                     CaptionEditor(caption: $caption)
+
+                    // Voice note recorder
+                    if FeatureFlags.shared.voiceNotesEnabled {
+                        VoiceNoteRecorderView(voiceNoteData: $voiceNoteData, voiceNoteDuration: $voiceNoteDuration)
+                            .padding(.horizontal, 16)
+                    }
 
                     // Exercise media gallery
                     ExerciseMediaGalleryView(
@@ -245,7 +255,9 @@ struct EnhancedPostEditorView: View {
             taggedSquadNames: taggedSquads.map { $0.name },
             spotifyPlaylistURL: spotifyPlaylistURL.isEmpty ? nil : spotifyPlaylistURL,
             appleMusicPlaylistURL: appleMusicPlaylistURL.isEmpty ? nil : appleMusicPlaylistURL,
-            workoutEmotion: selectedEmotion?.rawValue
+            workoutEmotion: selectedEmotion?.rawValue,
+            voiceNoteData: voiceNoteData,
+            voiceNoteDuration: voiceNoteDuration > 0 ? voiceNoteDuration : nil
         )
 
         if let song = selectedSong {

@@ -22,21 +22,20 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo</string>
-				<string>gymquest</string>
 			</array>
 		</dict>
 	</array>
-	<key>NSHealthShareUsageDescription</key>
-	<string>GymQuest reads your health data to show activity metrics, recovery insights, and sync workouts from Apple Health.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>GymQuest can write workout data to Apple Health so your workouts are tracked across all your fitness apps.</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>GIDClientID</key>
 	<string>672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo.apps.googleusercontent.com</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>GymQuest uses your microphone to record voice notes for posts and to transcribe food descriptions.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>GymQuest uses speech recognition to convert spoken food descriptions into text.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>GymQuest uses your health data to track workouts, calories, and activity stats.</string>
+	<string>GymQuest reads your health data to track fitness progress.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>GymQuest saves your workout data to Apple Health to keep your fitness records in sync.</string>
+	<string>GymQuest saves workout data to Apple Health.</string>
 </dict>
 </plist>

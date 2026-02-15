@@ -48,6 +48,7 @@ struct ActiveWorkoutView: View {
     @State private var showMusicPicker = false
     @State private var workoutSong: Song?
     @State private var isSharingLive = false
+    @State private var partyService = WorkoutPartyService()
 
     init(profile: UserProfile, workoutType: WorkoutType = .push, exercises: [ActiveExercise] = []) {
         self.profile = profile
@@ -92,8 +93,16 @@ struct ActiveWorkoutView: View {
                 // Header with timer and progress
                 workoutHeader
 
-                // Music bar placeholder
-                EmptyView()
+                // Workout Party bar (visible when broadcasting)
+                if isSharingLive && partyService.isActive && FeatureFlags.shared.workoutPartyEnabled {
+                    WorkoutPartyBar(
+                        partyService: partyService,
+                        accentColors: workoutTypeColors,
+                        onSendReaction: { emoji in partyService.sendReaction(emoji) },
+                        onSendHype: { hype in partyService.sendHype(hype) }
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 // Compact rest timer bar
                 if isResting && !restTimerHidden {
@@ -131,6 +140,21 @@ struct ActiveWorkoutView: View {
                 // Bottom bar
                 bottomBar
             }
+
+            // Floating reactions overlay
+            if isSharingLive && partyService.isActive {
+                FloatingReactionsOverlay(reactions: partyService.activeReactions)
+            }
+
+            // Incoming hype banner
+            if let hype = partyService.activeHypeBanner {
+                VStack {
+                    HypeToastBanner(message: hype)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    Spacer()
+                }
+                .padding(.top, 60)
+            }
         }
         .gqPageBackground()
         .onAppear {
@@ -140,6 +164,7 @@ struct ActiveWorkoutView: View {
         .onDisappear {
             timer?.invalidate()
             restTimer?.invalidate()
+            partyService.stopParty()
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isResting && !restTimerHidden)
         .sheet(isPresented: $showingAddExercise) {
@@ -221,8 +246,10 @@ struct ActiveWorkoutView: View {
                         isSharingLive.toggle()
                         if isSharingLive {
                             updateLiveStatus()
+                            partyService.startParty()
                         } else {
                             appState.liveWorkoutStatus = nil
+                            partyService.stopParty()
                         }
                     }
                 } label: {
@@ -240,6 +267,17 @@ struct ActiveWorkoutView: View {
                         )
                 }
                 .buttonStyle(.plain)
+
+                if isSharingLive {
+                    HStack(spacing: 4) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 10))
+                        Text("\(SocialActivityService.shared.liveCount) active")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .foregroundColor(GQColors.success)
+                    .transition(.opacity)
+                }
 
                 Spacer()
 
@@ -651,6 +689,10 @@ struct ActiveSet: Identifiable {
     var weight: Double
     var isCompleted: Bool = false
     var rpe: Int? = nil
+
+    var volume: Double {
+        weight * Double(reps)
+    }
 }
 
 // MARK: - Active Exercise Card
