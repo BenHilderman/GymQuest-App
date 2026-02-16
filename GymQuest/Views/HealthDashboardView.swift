@@ -598,21 +598,7 @@ struct ActivitySummaryCard: View {
             }
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(GQColors.surfaceBase)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(
-                            LinearGradient(
-                                colors: [integration.readinessLevel.color.opacity(0.2), Color.white.opacity(0.05)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-        )
+        .homeSocialCard(accent: integration.readinessLevel.color, cornerRadius: 14, sweepDelay: 3.5)
         .onAppear { loadRecentWorkoutTypes() }
     }
 

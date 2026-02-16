@@ -518,23 +518,7 @@ struct HomeActionButton: View {
                     .foregroundColor(GQColors.textTertiary)
             }
             .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(GQColors.surfaceBase)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
-                    .opacity(isPrimary ? 0 : 1)
-            )
-            .modifier(ConditionalAnimatedBorder(isActive: isPrimary, cornerRadius: 16))
+            .modifier(HomeActionButtonSurface(isPrimary: isPrimary, accentColor: accentColor))
         }
         .buttonStyle(GQInteractiveStyle())
         .onAppear {
@@ -561,6 +545,28 @@ struct ConditionalAnimatedBorder: ViewModifier {
             )
         } else {
             content
+        }
+    }
+}
+
+struct HomeActionButtonSurface: ViewModifier {
+    let isPrimary: Bool
+    let accentColor: Color
+
+    func body(content: Content) -> some View {
+        if isPrimary {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(GQColors.surfaceBase)
+                )
+                .overlay(
+                    AmbientLightSweep(delay: 0.5, cornerRadius: 16)
+                )
+                .modifier(ConditionalAnimatedBorder(isActive: true, cornerRadius: 16))
+        } else {
+            content
+                .homeSocialCard(accent: accentColor, sweepDelay: 2.0)
         }
     }
 }
@@ -848,8 +854,7 @@ struct WeeklyProgressCard: View {
             }
         }
         .padding(18)
-        .background(GQColors.surfaceBase)
-        .cornerRadius(16)
+        .homeSocialCard(sweepDelay: 0.0)
         .onAppear {
             withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
                 circleAnimated = true
@@ -2012,7 +2017,7 @@ struct FriendsActiveTodayRow: View {
             }
         }
         .padding(14)
-        .homeSocialCard(accent: GQColors.success, emphasized: false)
+        .homeSocialCard(accent: GQColors.success, emphasized: false, sweepDelay: 1.0)
         .onAppear {
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 pulseGreen = true
@@ -2090,7 +2095,7 @@ struct SquadChallengeCard: View {
             }
         }
         .padding(14)
-        .homeSocialCard(accent: GQColors.vividPurple, emphasized: false)
+        .homeSocialCard(accent: GQColors.vividPurple, emphasized: false, sweepDelay: 2.5)
     }
 }
 

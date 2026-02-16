@@ -15,6 +15,7 @@ import SwiftData
 struct WorkoutDetailSheet: View {
     let workoutData: SharedWorkoutData
     let onFollow: () -> Void
+    var onAddExercise: ((SharedWorkoutData.SharedExercise) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -51,7 +52,8 @@ struct WorkoutDetailSheet: View {
                         ForEach(Array(workoutData.exercises.enumerated()), id: \.element.id) { index, exercise in
                             ExercisePreviewCard(
                                 index: index + 1,
-                                exercise: exercise
+                                exercise: exercise,
+                                onAddExercise: onAddExercise
                             )
                         }
                     }
@@ -87,43 +89,70 @@ struct WorkoutDetailSheet: View {
 struct ExercisePreviewCard: View {
     let index: Int
     let exercise: SharedWorkoutData.SharedExercise
+    var onAddExercise: ((SharedWorkoutData.SharedExercise) -> Void)? = nil
 
     @State private var isExpanded = false
+    @State private var showAddedCheck = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Button {
-                withAnimation(.spring(response: 0.3)) {
-                    isExpanded.toggle()
+            HStack(spacing: 12) {
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(GQColors.vividPurple.opacity(0.2))
+                                .frame(width: 36, height: 36)
+                            Text("\(index)")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(exercise.name)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+
+                            Text("\(exercise.sets.count) sets • \(exercise.muscleGroup)")
+                                .font(.caption)
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .foregroundColor(GQColors.textTertiary)
+                    }
                 }
-            } label: {
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(GQColors.vividPurple.opacity(0.2))
-                            .frame(width: 36, height: 36)
-                        Text("\(index)")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
+                .buttonStyle(GQInteractiveStyle())
+
+                if onAddExercise != nil {
+                    Button {
+                        onAddExercise?(exercise)
+                        withAnimation(.spring(response: 0.3)) {
+                            showAddedCheck = true
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                            withAnimation { showAddedCheck = false }
+                        }
+                    } label: {
+                        Image(systemName: showAddedCheck ? "checkmark" : "plus")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(showAddedCheck ? GQColors.success : .white)
+                            .frame(width: 30, height: 30)
+                            .background(
+                                Circle()
+                                    .fill(showAddedCheck ? GQColors.success.opacity(0.2) : Color.white.opacity(0.1))
+                            )
                     }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(exercise.name)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-
-                        Text("\(exercise.sets.count) sets • \(exercise.muscleGroup)")
-                            .font(.caption)
-                            .foregroundColor(GQColors.textSecondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .foregroundColor(GQColors.textTertiary)
+                    .buttonStyle(.plain)
+                    .disabled(showAddedCheck)
                 }
             }
-            .buttonStyle(GQInteractiveStyle())
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: 12) {

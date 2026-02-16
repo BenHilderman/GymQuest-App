@@ -122,6 +122,50 @@ struct ContentView: View {
     }
 }
 
+// MARK: - Tab Bar Notch Shape
+
+struct TabBarNotchShape: Shape {
+    let notchRadius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let midX = rect.midX
+        let transition: CGFloat = 8
+        let notchLeft = midX - notchRadius - transition
+        let notchRight = midX + notchRadius + transition
+
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: notchLeft, y: rect.minY))
+
+        // Smooth entry curve into notch
+        path.addQuadCurve(
+            to: CGPoint(x: midX - notchRadius, y: rect.minY + notchRadius * 0.35),
+            control: CGPoint(x: midX - notchRadius - transition * 0.15, y: rect.minY)
+        )
+
+        // Semicircular scoop
+        path.addArc(
+            center: CGPoint(x: midX, y: rect.minY + notchRadius * 0.35),
+            radius: notchRadius,
+            startAngle: .degrees(180),
+            endAngle: .degrees(0),
+            clockwise: true
+        )
+
+        // Smooth exit curve out of notch
+        path.addQuadCurve(
+            to: CGPoint(x: notchRight, y: rect.minY),
+            control: CGPoint(x: midX + notchRadius + transition * 0.15, y: rect.minY)
+        )
+
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
 // MARK: - Floating Glass Tab Bar
 
 struct FloatingTabBar: View {
@@ -192,15 +236,13 @@ struct FloatingTabBar: View {
             .padding(.bottom, 2)
         }
         .background(
-            Rectangle()
-                .fill(GQColors.deepBlack.opacity(0.96))
-                .overlay(
-                    Rectangle()
-                        .fill(GQColors.borderSubtle)
-                        .frame(height: 0.5),
-                    alignment: .top
-                )
-                .ignoresSafeArea(.container, edges: .bottom)
+            ZStack(alignment: .top) {
+                TabBarNotchShape(notchRadius: 17)
+                    .fill(GQColors.deepBlack)
+                TabBarNotchShape(notchRadius: 17)
+                    .stroke(GQColors.borderSubtle.opacity(0.4), lineWidth: 0.5)
+            }
+            .ignoresSafeArea(.container, edges: .bottom)
         )
     }
 }

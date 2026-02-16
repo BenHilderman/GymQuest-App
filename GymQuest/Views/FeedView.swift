@@ -201,6 +201,7 @@ struct PostCardV2: View {
 
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
+    @Query private var allComments: [Comment]
     @State private var isLiked = false
     @State private var showVideoPlayer = false
     @State private var showComments = false
@@ -225,16 +226,25 @@ struct PostCardV2: View {
         post.photoData == nil && post.videoData == nil
     }
 
+    private var topComment: Comment? {
+        allComments
+            .filter { $0.postId == post.id }
+            .sorted { $0.timestamp > $1.timestamp }
+            .first
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if isCompactPost {
                 compactTextOnlyLayout
+                inlineCommentPreview
             } else {
                 headerRow
                 inspiredByBadge
                 heroSection
                 captionSection
                 compactBottomBar
+                inlineCommentPreview
             }
         }
         .background(GQColors.surfaceBase)
@@ -279,10 +289,21 @@ struct PostCardV2: View {
         }
         .sheet(isPresented: $showWorkoutDetail) {
             if let workout = sharedWorkout {
-                WorkoutDetailSheet(workoutData: workout) {
-                    showWorkoutDetail = false
-                    launchFollowWorkout(workout)
-                }
+                WorkoutDetailSheet(
+                    workoutData: workout,
+                    onFollow: {
+                        showWorkoutDetail = false
+                        launchFollowWorkout(workout)
+                    },
+                    onAddExercise: { exercise in
+                        let mg = MuscleGroup(rawValue: exercise.muscleGroup) ?? .chest
+                        let sets = exercise.sets.map { ActiveSet(reps: $0.reps, weight: $0.weight) }
+                        let active = ActiveExercise(name: exercise.name, muscleGroup: mg, sets: sets)
+                        if appState.activeWorkout != nil {
+                            appState.activeWorkout?.exercises.append(active)
+                        }
+                    }
+                )
             }
         }
     }
@@ -445,7 +466,12 @@ struct PostCardV2: View {
                 duration: post.duration,
                 setCount: post.setCount,
                 exerciseHighlight: post.exerciseHighlight,
-                locationName: post.locationName
+                locationName: post.locationName,
+                onCopy: {
+                    if let workout = sharedWorkout {
+                        saveWorkout(workout)
+                    }
+                }
             )
             .padding(.horizontal, 16)
         } else if post.workoutType != nil {
@@ -674,6 +700,51 @@ struct PostCardV2: View {
         }
     }
 
+    @ViewBuilder
+    private var inlineCommentPreview: some View {
+        if post.commentCount > 0, let comment = topComment {
+            VStack(alignment: .leading, spacing: 4) {
+                Button {
+                    showComments = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                Text(String(comment.authorName.prefix(1)))
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(.white)
+                            )
+
+                        Text(comment.authorName)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Text(comment.content)
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textSecondary)
+                            .lineLimit(1)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                if post.commentCount > 1 {
+                    Button {
+                        showComments = true
+                    } label: {
+                        Text("View all \(post.commentCount) comments")
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+        }
+    }
+
     // MARK: - Helpers
 
     @ViewBuilder
@@ -752,7 +823,9 @@ struct WorkoutHeroCard: View {
     let setCount: Int?
     var exerciseHighlight: String? = nil
     var locationName: String? = nil
+    var onCopy: (() -> Void)? = nil
 
+    @State private var showCopied = false
     @State private var shimmerOffset: CGFloat = -1
     @State private var iconAnimating = false
     @State private var breathingScale: CGFloat = 1.0
@@ -1298,6 +1371,32 @@ struct WorkoutHeroCard: View {
                     .font(.system(size: 13, weight: .medium))
             }
             Spacer()
+
+            if let onCopy {
+                Button {
+                    onCopy()
+                    withAnimation(.spring(response: 0.3)) {
+                        showCopied = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        withAnimation { showCopied = false }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(showCopied ? "Saved" : "Copy")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(14)
+                }
+                .buttonStyle(.plain)
+                .disabled(showCopied)
+            }
         }
         .foregroundColor(.white)
         .padding(.horizontal, 14)

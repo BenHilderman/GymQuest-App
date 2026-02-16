@@ -679,7 +679,7 @@ struct HomeEnergyBackground: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(hex: "020307"), Color(hex: "04050A"), Color(hex: "06070D")],
+                colors: [Color(hex: "020208"), Color(hex: "04050C"), Color(hex: "070810")],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -709,15 +709,50 @@ struct HomeEnergyBackground: View {
             )
             .ignoresSafeArea()
 
-            AuroraFlowBackground()
-                .opacity(0.86)
+            // Deep indigo glow
+            RadialGradient(
+                colors: [
+                    Color(hex: "4A3AFF").opacity(0.04),
+                    Color(hex: "2A1A6E").opacity(0.03),
+                    Color.clear
+                ],
+                center: UnitPoint(x: 0.5, y: 0.38),
+                startRadius: 0,
+                endRadius: 600
+            )
+            .ignoresSafeArea()
+
+            // Warm pink-purple accent
+            RadialGradient(
+                colors: [
+                    Color(hex: "FF74C7").opacity(0.035),
+                    Color(hex: "C95BFF").opacity(0.02),
+                    Color.clear
+                ],
+                center: UnitPoint(x: 0.7, y: 0.3),
+                startRadius: 0,
+                endRadius: 380
+            )
+            .ignoresSafeArea()
+
+            // Starfield
+            StarfieldOverlay()
+                .opacity(0.85)
                 .blendMode(.screen)
+                .ignoresSafeArea()
+
+            AuroraFlowBackground()
+                .opacity(0.92)
+                .blendMode(.screen)
+                .ignoresSafeArea()
+
+            ShimmerSweepOverlay()
                 .ignoresSafeArea()
 
             RadialGradient(
                 colors: [Color.clear, Color.black.opacity(0.20), Color.black.opacity(0.36)],
                 center: .center,
-                startRadius: 130,
+                startRadius: 100,
                 endRadius: 760
             )
             .blendMode(.multiply)
@@ -729,6 +764,9 @@ struct HomeEnergyBackground: View {
                 endPoint: .bottom
             )
             .ignoresSafeArea()
+
+            GrainOverlay(opacity: 0.015)
+                .ignoresSafeArea()
         }
         .ignoresSafeArea()
     }
@@ -894,6 +932,113 @@ private struct AuroraFlowBackground: View {
                 endRadius: max(size.width, size.height) * 0.55
             )
         )
+    }
+}
+
+// MARK: - Starfield Overlay (Sparkle Dust)
+
+struct StarfieldOverlay: View {
+    private struct Sparkle {
+        let x: CGFloat
+        let y: CGFloat
+        let radius: CGFloat
+        let speed: CGFloat
+        let offset: CGFloat
+        let isBlue: Bool
+    }
+
+    private let sparkles: [Sparkle]
+
+    init() {
+        var rng = SeededRNG(seed: 42)
+        var built: [Sparkle] = []
+        for _ in 0..<50 {
+            let x = CGFloat.random(in: 0...1, using: &rng)
+            let y = CGFloat.random(in: 0...1, using: &rng)
+            let radius = CGFloat.random(in: 0.3...0.8, using: &rng)
+            let speed = CGFloat.random(in: 0.3...1.2, using: &rng)
+            let offset = CGFloat.random(in: 0...(.pi * 2), using: &rng)
+            let isBlue = CGFloat.random(in: 0...1, using: &rng) < 0.1
+            built.append(Sparkle(x: x, y: y, radius: radius, speed: speed, offset: offset, isBlue: isBlue))
+        }
+        sparkles = built
+    }
+
+    private static let paleBlue = Color(hex: "D4E4FF")
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 15.0, paused: false)) { timeline in
+            Canvas { context, size in
+                let time = timeline.date.timeIntervalSinceReferenceDate
+                for sparkle in sparkles {
+                    let raw = sin(time * Double(sparkle.speed) + Double(sparkle.offset))
+                    let normalized = (raw + 1) / 2 // 0–1
+                    let sharp = pow(normalized, 3) // sharp flash peaks
+                    let opacity = sharp * 0.25 // 0.0–0.25
+
+                    let pt = CGPoint(x: sparkle.x * size.width, y: sparkle.y * size.height)
+                    let rect = CGRect(
+                        x: pt.x - sparkle.radius,
+                        y: pt.y - sparkle.radius,
+                        width: sparkle.radius * 2,
+                        height: sparkle.radius * 2
+                    )
+                    context.opacity = opacity
+                    context.fill(
+                        Path(ellipseIn: rect),
+                        with: .color(sparkle.isBlue ? Self.paleBlue : .white)
+                    )
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Shimmer Sweep Overlay
+
+struct ShimmerSweepOverlay: View {
+    @State private var sweeping = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let bandWidth: CGFloat = 120
+            let startX: CGFloat = -300
+            let endX: CGFloat = geo.size.width + 300
+
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .clear,
+                            Color.white.opacity(0.04),
+                            Color.white.opacity(0.07),
+                            Color.white.opacity(0.04),
+                            .clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: bandWidth, height: geo.size.height * 1.5)
+                .rotationEffect(.degrees(25))
+                .offset(x: sweeping ? endX : startX)
+                .blendMode(.screen)
+                .onAppear { startCycle() }
+        }
+        .allowsHitTesting(false)
+        .clipped()
+    }
+
+    private func startCycle() {
+        sweeping = false
+        withAnimation(.easeInOut(duration: 3.0)) {
+            sweeping = true
+        }
+        // After sweep (3s) + pause (5s) = 8s total, reset and repeat
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) {
+            startCycle()
+        }
     }
 }
 
@@ -1325,6 +1470,123 @@ struct WorkoutFlowCardModifier: ViewModifier {
     }
 }
 
+// MARK: - Noise / Grain Texture
+
+private enum SilkNoiseTexture {
+    static let shared: CGImage = {
+        let size = 256
+        var rng = SystemRandomNumberGenerator()
+        // Generate raw noise into a float buffer for blur passes
+        var buf = [Float](repeating: 0, count: size * size)
+        for i in 0 ..< size * size {
+            buf[i] = Float(UInt8.random(in: 0...255, using: &rng))
+        }
+        // 2-pass box blur (radius 2) for silky softness
+        func boxBlur(_ src: inout [Float], _ dst: inout [Float], _ w: Int, _ r: Int) {
+            let span = r * 2 + 1
+            let invSpan = 1.0 / Float(span)
+            for y in 0 ..< w {
+                var sum: Float = 0
+                for x in 0 ..< span { sum += src[y * w + min(x, w - 1)] }
+                for x in 0 ..< w {
+                    dst[y * w + x] = sum * invSpan
+                    let add = min(x + r + 1, w - 1)
+                    let sub = max(x - r, 0)
+                    sum += src[y * w + add] - src[y * w + sub]
+                }
+            }
+        }
+        // Horizontal then vertical, repeated twice
+        var tmp = [Float](repeating: 0, count: size * size)
+        boxBlur(&buf, &tmp, size, 2)
+        // Transpose for vertical pass
+        var transposed = [Float](repeating: 0, count: size * size)
+        for y in 0 ..< size { for x in 0 ..< size { transposed[x * size + y] = tmp[y * size + x] } }
+        var transOut = [Float](repeating: 0, count: size * size)
+        boxBlur(&transposed, &transOut, size, 2)
+        // Transpose back
+        for y in 0 ..< size { for x in 0 ..< size { buf[y * size + x] = transOut[x * size + y] } }
+        // Second pass
+        boxBlur(&buf, &tmp, size, 2)
+        for y in 0 ..< size { for x in 0 ..< size { transposed[x * size + y] = tmp[y * size + x] } }
+        boxBlur(&transposed, &transOut, size, 2)
+        for y in 0 ..< size { for x in 0 ..< size { buf[y * size + x] = transOut[x * size + y] } }
+        // Write to CGContext
+        let context = CGContext(
+            data: nil, width: size, height: size,
+            bitsPerComponent: 8, bytesPerRow: size,
+            space: CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        )!
+        let data = context.data!.bindMemory(to: UInt8.self, capacity: size * size)
+        for i in 0 ..< size * size {
+            data[i] = UInt8(max(0, min(255, buf[i])))
+        }
+        return context.makeImage()!
+    }()
+}
+
+struct GrainOverlay: View {
+    var opacity: Double = 0.02
+
+    var body: some View {
+        Image(decorative: SilkNoiseTexture.shared, scale: 2)
+            .resizable(resizingMode: .tile)
+            .blendMode(.overlay)
+            .opacity(opacity)
+            .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Ambient Light Sweep
+
+struct AmbientLightSweep: View {
+    var delay: Double = 0
+    var cornerRadius: CGFloat = 16
+
+    @State private var offsetX: CGFloat = -200
+
+    var body: some View {
+        GeometryReader { geo in
+            let bandWidth: CGFloat = 80
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0.0),
+                    .init(color: .white.opacity(0.06), location: 0.25),
+                    .init(color: .white.opacity(0.10), location: 0.5),
+                    .init(color: .white.opacity(0.06), location: 0.75),
+                    .init(color: .clear, location: 1.0)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: bandWidth, height: geo.size.height * 1.6)
+            .rotationEffect(.degrees(25))
+            .offset(x: offsetX, y: -geo.size.height * 0.2)
+            .onAppear {
+                let totalWidth = geo.size.width + bandWidth + 200
+                offsetX = -bandWidth - 100
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    startSweepCycle(totalWidth: totalWidth)
+                }
+            }
+        }
+        .blendMode(.screen)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .allowsHitTesting(false)
+    }
+
+    private func startSweepCycle(totalWidth: CGFloat) {
+        offsetX = -200
+        withAnimation(.easeInOut(duration: 2.5)) {
+            offsetX = totalWidth
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8.5) {
+            startSweepCycle(totalWidth: totalWidth)
+        }
+    }
+}
+
 // MARK: - Home/Social Surface Styles
 
 struct HomeSocialCardModifier: ViewModifier {
@@ -1332,26 +1594,110 @@ struct HomeSocialCardModifier: ViewModifier {
     var emphasized: Bool
     var cornerRadius: CGFloat
     var subtle: Bool
+    var sweepDelay: Double
 
     func body(content: Content) -> some View {
         content
+            // 1. Gradient background (lit-from-above 3D feel)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(GQColors.surfaceBase)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: "222222"), Color(hex: "1C1C1C"), Color(hex: "171717")],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
             )
+            // 2. Stronger top-leading radial glow
+            .overlay(
+                RadialGradient(
+                    colors: [
+                        Color.white.opacity(subtle ? 0.04 : 0.09),
+                        Color.white.opacity(subtle ? 0.015 : 0.03),
+                        Color.clear
+                    ],
+                    center: .topLeading,
+                    startRadius: 0,
+                    endRadius: 300
+                )
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            )
+            // 3. Extended glass highlight
+            .overlay(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(subtle ? 0.03 : 0.08),
+                        Color.white.opacity(subtle ? 0.008 : 0.015),
+                        Color.clear
+                    ],
+                    startPoint: .top,
+                    endPoint: UnitPoint(x: 0.5, y: 0.65)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            )
+            // 4. Grain texture (barely-there)
+            .overlay(
+                GrainOverlay(opacity: 0.006)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            )
+            // 5. Inner shadow at bottom
+            .overlay(
+                VStack {
+                    Spacer()
+                    LinearGradient(
+                        colors: [Color.clear, Color.black.opacity(subtle ? 0.04 : 0.10)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 40)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            )
+            // 6. Subtle dark inset border (depth)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.black.opacity(subtle ? 0.04 : 0.08),
+                                Color.black.opacity(subtle ? 0.02 : 0.04)
+                            ],
+                            startPoint: .bottom,
+                            endPoint: .top
+                        ),
+                        lineWidth: 0.5
+                    )
+            )
+            // 7. 4-stop rim-light stroke border
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
                         LinearGradient(
-                            colors: subtle
-                                ? [Color.white.opacity(0.05), Color.white.opacity(0.02)]
-                                : [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                            stops: subtle
+                                ? [
+                                    .init(color: Color.white.opacity(0.06), location: 0.0),
+                                    .init(color: Color.white.opacity(0.02), location: 0.35),
+                                    .init(color: Color.white.opacity(0.01), location: 0.7),
+                                    .init(color: Color.white.opacity(0.03), location: 1.0)
+                                ]
+                                : [
+                                    .init(color: Color.white.opacity(0.13), location: 0.0),
+                                    .init(color: Color.white.opacity(0.05), location: 0.35),
+                                    .init(color: Color.white.opacity(0.03), location: 0.7),
+                                    .init(color: Color.white.opacity(0.06), location: 1.0)
+                                ],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
                         lineWidth: 1
                     )
             )
+            // 7. Ambient light sweep
+            .overlay(
+                AmbientLightSweep(delay: sweepDelay, cornerRadius: cornerRadius)
+            )
+            // 8. Animated gradient border (emphasized only)
             .overlay {
                 if emphasized, let accent {
                     RoundedRectangle(cornerRadius: cornerRadius)
@@ -1364,7 +1710,18 @@ struct HomeSocialCardModifier: ViewModifier {
                         )
                 }
             }
-            .shadow(color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.22 : 0.18)), radius: subtle ? 0 : (emphasized ? 8 : 6), y: subtle ? 0 : (emphasized ? 3 : 2))
+            // 9. Contact shadow (tight grounding)
+            .shadow(
+                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.14 : 0.12)),
+                radius: subtle ? 0 : (emphasized ? 2 : 1.5),
+                y: subtle ? 0 : 1
+            )
+            // 10. Ambient shadow (soft depth)
+            .shadow(
+                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.26 : 0.22)),
+                radius: subtle ? 0 : (emphasized ? 12 : 9),
+                y: subtle ? 0 : (emphasized ? 4 : 3)
+            )
     }
 }
 
@@ -1458,14 +1815,16 @@ extension View {
         accent: Color? = nil,
         emphasized: Bool = false,
         cornerRadius: CGFloat = 16,
-        subtle: Bool = false
+        subtle: Bool = false,
+        sweepDelay: Double = 0
     ) -> some View {
         modifier(
             HomeSocialCardModifier(
                 accent: accent,
                 emphasized: emphasized,
                 cornerRadius: cornerRadius,
-                subtle: subtle
+                subtle: subtle,
+                sweepDelay: sweepDelay
             )
         )
     }
