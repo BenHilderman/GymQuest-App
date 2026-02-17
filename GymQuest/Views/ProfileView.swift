@@ -132,7 +132,7 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 12) {
+                VStack(spacing: 8) {
                     // Edge-to-edge: no card wrapper
                     profileHeader
 
@@ -143,14 +143,16 @@ struct ProfileView: View {
                     // Cards
                     unifiedStatsCard
 
-                    if let insights = EmotionInsightsService.shared.computeInsights(from: posts) {
-                        collapsibleEmotionCard(insights: insights)
+                    // Tab bar + content merged into one card
+                    VStack(spacing: 0) {
+                        profileTabBar
+                        profileTabContent
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 12)
                     }
-
-                    profileTabBar
-                    profileTabContent
+                    .homeSocialCard(cornerRadius: 14)
                 }
-                .gqScreenHorizontalPadding()
+                .padding(.horizontal, 10)
                 .padding(.top, GQLayout.pageTop)
                 .padding(.bottom, GQLayout.pageBottom)
             }
@@ -223,24 +225,30 @@ struct ProfileView: View {
                     .foregroundColor(GQColors.textSecondary)
             }
 
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Button {
                     showingSettings = true
                 } label: {
                     Text("Edit Profile")
                         .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .homeSocialCard(cornerRadius: 14)
                 }
-                .buttonStyle(HomeSocialSecondaryButtonStyle(cornerRadius: 12))
+                .buttonStyle(GQInteractiveStyle())
 
                 Button {
                     selectedTab = .workouts
                 } label: {
                     Text("Workout Archive")
                         .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .homeSocialCard(cornerRadius: 14)
                 }
-                .buttonStyle(HomeSocialSecondaryButtonStyle(cornerRadius: 12))
+                .buttonStyle(GQInteractiveStyle())
             }
         }
         .padding(14)
@@ -415,7 +423,6 @@ struct ProfileView: View {
                 .buttonStyle(.plain)
             }
         }
-        .homeSocialCard(cornerRadius: 12, subtle: true)
     }
 
     @ViewBuilder
@@ -593,7 +600,6 @@ private struct ProfileEmptyState: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 34)
-        .homeSocialCard(accent: profileNeutralAccent)
     }
 }
 
@@ -740,7 +746,7 @@ struct WorkoutHistoryRowV2: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(workout.title ?? workout.type.rawValue)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(1)
 
@@ -800,7 +806,7 @@ struct WorkoutHistoryRow: View {
             // Workout info
             VStack(alignment: .leading, spacing: 4) {
                 Text(post.workoutType ?? "Workout")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
                     .lineLimit(1)
 
@@ -1116,7 +1122,7 @@ struct PostDetailView: View {
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(post.authorName)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.white)
                             Text(post.timestamp.formatted(date: .abbreviated, time: .shortened))
                                 .font(.system(size: 13))

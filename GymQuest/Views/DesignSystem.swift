@@ -765,8 +765,6 @@ struct HomeEnergyBackground: View {
             )
             .ignoresSafeArea()
 
-            GrainOverlay(opacity: 0.015)
-                .ignoresSafeArea()
         }
         .ignoresSafeArea()
     }
@@ -1589,6 +1587,45 @@ struct AmbientLightSweep: View {
 
 // MARK: - Home/Social Surface Styles
 
+// Soft light that slowly drifts across the card surface
+private struct DriftingGlow: View {
+    var cornerRadius: CGFloat
+    var subtle: Bool
+    @State private var drift = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let size = max(geo.size.width, geo.size.height) * 0.9
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.white.opacity(subtle ? 0.025 : 0.055),
+                            Color.white.opacity(subtle ? 0.008 : 0.018),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: size * 0.5
+                    )
+                )
+                .frame(width: size, height: size)
+                .offset(
+                    x: drift ? geo.size.width * 0.2 : -geo.size.width * 0.3,
+                    y: drift ? geo.size.height * 0.15 : -geo.size.height * 0.25
+                )
+                .blendMode(.screen)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .allowsHitTesting(false)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 7.0).repeatForever(autoreverses: true)) {
+                drift = true
+            }
+        }
+    }
+}
+
 struct HomeSocialCardModifier: ViewModifier {
     var accent: Color?
     var emphasized: Bool
@@ -1603,18 +1640,18 @@ struct HomeSocialCardModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: "222222"), Color(hex: "1C1C1C"), Color(hex: "171717")],
+                            colors: [Color(hex: "1F1F1F"), Color(hex: "1A1A1A"), Color(hex: "141414")],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
             )
-            // 2. Stronger top-leading radial glow
+            // 2. Dim ambient radial glow (static base)
             .overlay(
                 RadialGradient(
                     colors: [
-                        Color.white.opacity(subtle ? 0.04 : 0.09),
-                        Color.white.opacity(subtle ? 0.015 : 0.03),
+                        Color.white.opacity(subtle ? 0.02 : 0.04),
+                        Color.white.opacity(subtle ? 0.008 : 0.015),
                         Color.clear
                     ],
                     center: .topLeading,
@@ -1623,45 +1660,45 @@ struct HomeSocialCardModifier: ViewModifier {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             )
-            // 3. Extended glass highlight
+            // 3. Subtle glass highlight (top-down)
             .overlay(
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(subtle ? 0.03 : 0.08),
-                        Color.white.opacity(subtle ? 0.008 : 0.015),
+                        Color.white.opacity(subtle ? 0.015 : 0.035),
+                        Color.white.opacity(subtle ? 0.005 : 0.01),
                         Color.clear
                     ],
                     startPoint: .top,
-                    endPoint: UnitPoint(x: 0.5, y: 0.65)
+                    endPoint: UnitPoint(x: 0.5, y: 0.6)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             )
-            // 4. Grain texture (barely-there)
+            // 4. Drifting light — slowly moves across the card
             .overlay(
-                GrainOverlay(opacity: 0.006)
-                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                DriftingGlow(cornerRadius: cornerRadius, subtle: subtle)
             )
-            // 5. Inner shadow at bottom
+            // 5. (grain removed)
+            // 6. Inner shadow at bottom (vignette)
             .overlay(
                 VStack {
                     Spacer()
                     LinearGradient(
-                        colors: [Color.clear, Color.black.opacity(subtle ? 0.04 : 0.10)],
+                        colors: [Color.clear, Color.black.opacity(subtle ? 0.05 : 0.12)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: 40)
+                    .frame(height: 44)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             )
-            // 6. Subtle dark inset border (depth)
+            // 7. Dark inset border (depth)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.black.opacity(subtle ? 0.04 : 0.08),
-                                Color.black.opacity(subtle ? 0.02 : 0.04)
+                                Color.black.opacity(subtle ? 0.05 : 0.10),
+                                Color.black.opacity(subtle ? 0.02 : 0.05)
                             ],
                             startPoint: .bottom,
                             endPoint: .top
@@ -1669,23 +1706,23 @@ struct HomeSocialCardModifier: ViewModifier {
                         lineWidth: 0.5
                     )
             )
-            // 7. 4-stop rim-light stroke border
+            // 8. Rim-light stroke border
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
                         LinearGradient(
                             stops: subtle
                                 ? [
-                                    .init(color: Color.white.opacity(0.06), location: 0.0),
-                                    .init(color: Color.white.opacity(0.02), location: 0.35),
-                                    .init(color: Color.white.opacity(0.01), location: 0.7),
-                                    .init(color: Color.white.opacity(0.03), location: 1.0)
+                                    .init(color: Color.white.opacity(0.05), location: 0.0),
+                                    .init(color: Color.white.opacity(0.015), location: 0.35),
+                                    .init(color: Color.white.opacity(0.008), location: 0.7),
+                                    .init(color: Color.white.opacity(0.025), location: 1.0)
                                 ]
                                 : [
-                                    .init(color: Color.white.opacity(0.13), location: 0.0),
-                                    .init(color: Color.white.opacity(0.05), location: 0.35),
-                                    .init(color: Color.white.opacity(0.03), location: 0.7),
-                                    .init(color: Color.white.opacity(0.06), location: 1.0)
+                                    .init(color: Color.white.opacity(0.12), location: 0.0),
+                                    .init(color: Color.white.opacity(0.04), location: 0.35),
+                                    .init(color: Color.white.opacity(0.02), location: 0.7),
+                                    .init(color: Color.white.opacity(0.05), location: 1.0)
                                 ],
                             startPoint: .top,
                             endPoint: .bottom
@@ -1693,11 +1730,11 @@ struct HomeSocialCardModifier: ViewModifier {
                         lineWidth: 1
                     )
             )
-            // 7. Ambient light sweep
+            // 9. Ambient light sweep
             .overlay(
                 AmbientLightSweep(delay: sweepDelay, cornerRadius: cornerRadius)
             )
-            // 8. Animated gradient border (emphasized only)
+            // 10. Animated gradient border (emphasized only)
             .overlay {
                 if emphasized, let accent {
                     RoundedRectangle(cornerRadius: cornerRadius)
@@ -1710,17 +1747,17 @@ struct HomeSocialCardModifier: ViewModifier {
                         )
                 }
             }
-            // 9. Contact shadow (tight grounding)
+            // 11. Contact shadow
             .shadow(
-                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.14 : 0.12)),
+                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.16 : 0.14)),
                 radius: subtle ? 0 : (emphasized ? 2 : 1.5),
                 y: subtle ? 0 : 1
             )
-            // 10. Ambient shadow (soft depth)
+            // 12. Ambient shadow
             .shadow(
-                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.26 : 0.22)),
-                radius: subtle ? 0 : (emphasized ? 12 : 9),
-                y: subtle ? 0 : (emphasized ? 4 : 3)
+                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.30 : 0.26)),
+                radius: subtle ? 0 : (emphasized ? 16 : 12),
+                y: subtle ? 0 : (emphasized ? 5 : 4)
             )
     }
 }

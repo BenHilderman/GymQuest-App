@@ -55,7 +55,7 @@ struct HomeView: View {
     private var homeContent: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 14) {
                     // DATE HEADER WITH GREETING
                     VStack(spacing: 4) {
                         Text("Hi, \(firstName)!")
@@ -106,9 +106,6 @@ struct HomeView: View {
                             .padding(.horizontal, 16)
                     }
 
-                    // ACTIVITY SUMMARY (from connected integrations)
-                    ActivitySummaryCard()
-                        .padding(.horizontal, 16)
 
                     // MAIN ACTIONS - 3 Big Buttons
                     VStack(spacing: 12) {
@@ -556,14 +553,7 @@ struct HomeActionButtonSurface: ViewModifier {
     func body(content: Content) -> some View {
         if isPrimary {
             content
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(GQColors.surfaceBase)
-                )
-                .overlay(
-                    AmbientLightSweep(delay: 0.5, cornerRadius: 16)
-                )
-                .modifier(ConditionalAnimatedBorder(isActive: true, cornerRadius: 16))
+                .homeSocialCard(accent: accentColor, emphasized: true, sweepDelay: 0.5)
         } else {
             content
                 .homeSocialCard(accent: accentColor, sweepDelay: 2.0)
@@ -759,6 +749,39 @@ struct WeeklyProgressCard: View {
         }
     }
 
+    private var suggestedNextWorkout: WorkoutType {
+        let recentTypes = workouts
+            .sorted { $0.date > $1.date }
+            .prefix(3)
+            .filter { $0.type != .rest }
+            .map(\.type)
+        guard let lastType = recentTypes.first else { return .push }
+        switch lastType {
+        case .push: return .pull
+        case .pull: return .legs
+        case .legs: return .push
+        case .upper: return .lower
+        case .lower: return .upper
+        case .fullBody, .cardio, .rest: return .push
+        }
+    }
+
+    @ViewBuilder
+    private var nextUpRow: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "dumbbell.fill")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.vividPurple)
+            Text("Next up: ")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.7))
+            + Text(suggestedNextWorkout.rawValue)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(GQColors.vividPurple)
+            Spacer()
+        }
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             // Header with count and progress circle
@@ -852,6 +875,9 @@ struct WeeklyProgressCard: View {
                     .staggeredAppear(index: index)
                 }
             }
+
+            // Next up suggestion
+            nextUpRow
         }
         .padding(18)
         .homeSocialCard(sweepDelay: 0.0)
@@ -1484,7 +1510,7 @@ struct StartWorkoutSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 14) {
                     Text("What are you training today?")
                         .font(.title3)
                         .fontWeight(.semibold)

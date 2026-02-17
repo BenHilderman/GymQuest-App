@@ -43,7 +43,7 @@ struct TrainingProgressView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: GQLayout.sectionSpacing) {
+                VStack(spacing: 10) {
                     // 1. Three-Ring Header
                     StatsRingHeader(sessionsThisWeek: sessionsThisWeek)
                         .gqScreenHorizontalPadding()
@@ -1459,7 +1459,7 @@ struct FullCalendarView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: GQLayout.sectionSpacing) {
+                VStack(spacing: 10) {
                     GQScreenTitleBlock(
                         title: "Workout Calendar",
                         subtitle: selectedMonth.formatted(.dateTime.month(.wide).year()),
