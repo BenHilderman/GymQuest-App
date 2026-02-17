@@ -519,6 +519,9 @@ struct GQGradients {
         case .fullBody: return GQColors.cyanSpark
         case .cardio: return GQColors.success
         case .rest: return Color.white.opacity(0.12)
+        case .glutes: return GQColors.vividPurple
+        case .abs: return GQColors.deepBlue
+        case .other: return GQColors.cyanSpark
         }
     }
 
@@ -533,6 +536,9 @@ struct GQGradients {
         case .fullBody: return [GQColors.cyanSpark, GQColors.deepBlue]
         case .cardio: return [GQColors.success, GQColors.cyanSpark]
         case .rest: return [Color.white.opacity(0.15), Color.white.opacity(0.08)]
+        case .glutes: return [GQColors.vividPurple, GQColors.cyanSpark]
+        case .abs: return [GQColors.deepBlue, GQColors.vividPurple]
+        case .other: return [GQColors.cyanSpark, GQColors.deepBlue]
         }
     }
 }

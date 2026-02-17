@@ -872,6 +872,9 @@ struct WorkoutHeroCard: View {
         case .fullBody: return ("figure.strengthtraining.traditional", "dumbbell.fill")
         case .cardio: return ("figure.run", "heart.fill")
         case .rest: return ("leaf.fill", "moon.fill")
+        case .glutes: return ("figure.walk", "figure.stand")
+        case .abs: return ("figure.core.training", "dumbbell.fill")
+        case .other: return ("questionmark.circle.fill", "dumbbell.fill")
         }
     }
 
@@ -893,6 +896,9 @@ struct WorkoutHeroCard: View {
         case .fullBody: return [.chest, .back, .shoulders, .quads]
         case .cardio: return [.cardio]
         case .rest: return []
+        case .glutes: return [.glutes, .hamstrings]
+        case .abs: return [.core]
+        case .other: return []
         }
     }
 

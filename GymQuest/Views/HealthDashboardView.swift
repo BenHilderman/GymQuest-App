@@ -638,7 +638,7 @@ struct ActivitySummaryCard: View {
         case .legs: return .push
         case .upper: return .lower
         case .lower: return .upper
-        case .fullBody, .cardio, .rest: return .push
+        case .fullBody, .cardio, .rest, .glutes, .abs, .other: return .push
         }
     }
 

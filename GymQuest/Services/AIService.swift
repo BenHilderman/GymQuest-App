@@ -562,6 +562,15 @@ class AIService: ObservableObject {
 
         case .rest:
             return "Active recovery counts. Light movement today speeds up recovery for tomorrow."
+
+        case .glutes:
+            return "Glute work done. Progressive overload on hip thrusts is key for growth."
+
+        case .abs:
+            return "Core session complete. Prioritize bracing patterns for transfer to compound lifts."
+
+        case .other:
+            return "Custom session logged. Track your progress and adjust volume next time."
         }
     }
 

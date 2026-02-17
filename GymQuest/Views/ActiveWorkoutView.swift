@@ -50,14 +50,23 @@ struct ActiveWorkoutView: View {
     @State private var isSharingLive = false
     @State private var partyService = WorkoutPartyService()
 
-    init(profile: UserProfile, workoutType: WorkoutType = .push, exercises: [ActiveExercise] = []) {
+    let customTitle: String?
+
+    /// Display name: uses custom title for ".other" workouts, otherwise the enum rawValue.
+    var displayTitle: String {
+        customTitle ?? displayTitle
+    }
+
+    init(profile: UserProfile, workoutType: WorkoutType = .push, exercises: [ActiveExercise] = [], customTitle: String? = nil) {
         self.profile = profile
+        self.customTitle = customTitle
         self._workoutType = State(initialValue: workoutType)
         self._exercises = State(initialValue: exercises)
     }
 
     init(profile: UserProfile) {
         self.profile = profile
+        self.customTitle = nil
         self._workoutType = State(initialValue: .push)
         self._exercises = State(initialValue: [])
     }
@@ -171,7 +180,7 @@ struct ActiveWorkoutView: View {
             AddExerciseToSessionSheet(exercises: $exercises, workoutType: workoutType)
         }
         .sheet(isPresented: $showMusicPicker) {
-            MusicPickerSheet(selectedSong: $workoutSong, activityType: workoutType.rawValue)
+            MusicPickerSheet(selectedSong: $workoutSong, activityType: displayTitle)
         }
         .sheet(item: $showingFormDemo) { exercise in
             ExerciseFormDemoSheet(exerciseName: exercise.name)
@@ -231,7 +240,7 @@ struct ActiveWorkoutView: View {
                     Text("Live Workout")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
-                    Text(workoutType.rawValue)
+                    Text(displayTitle)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(width: 32, height: 32)
@@ -380,7 +389,7 @@ struct ActiveWorkoutView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(GQGradients.workoutGradient(for: workoutType))
                 .padding(.top, 40)
-            Text("Ready to crush \(workoutType.rawValue)?")
+            Text("Ready to crush \(displayTitle)?")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.white)
             Text("Add your first exercise to get started")
@@ -1513,6 +1522,11 @@ struct WorkoutSessionCompletionSheet: View {
     let workoutType: WorkoutType
     let profile: UserProfile
     let onDismiss: () -> Void
+    var customTitle: String?
+
+    var displayTitle: String {
+        customTitle ?? workoutType.rawValue
+    }
 
     @State private var caption = ""
     @State private var hasCompleted = false
@@ -1620,7 +1634,7 @@ struct WorkoutSessionCompletionSheet: View {
                 enhancedEditorContent
             }
             .sheet(isPresented: $showMusicPicker) {
-                MusicPickerSheet(selectedSong: $selectedSong, activityType: workoutType.rawValue)
+                MusicPickerSheet(selectedSong: $selectedSong, activityType: displayTitle)
             }
             .onAppear {
                 showConfetti = true
@@ -1663,7 +1677,7 @@ struct WorkoutSessionCompletionSheet: View {
                         font: .system(size: 28, weight: .bold)
                     )
 
-                    Text(workoutType.rawValue)
+                    Text(displayTitle)
                         .font(.system(size: 15))
                         .foregroundColor(GQColors.textSecondary)
                 }
@@ -1806,7 +1820,7 @@ struct WorkoutSessionCompletionSheet: View {
             MusicSelectorSection(
                 selectedSong: $selectedSong,
                 showMusicPicker: $showMusicPicker,
-                activityType: workoutType.rawValue
+                activityType: displayTitle
             )
 
             customizePostButton
@@ -2275,7 +2289,7 @@ struct WorkoutSessionCompletionSheet: View {
         modelContext.insert(workout)
 
         let captionText = caption.isEmpty
-            ? "Just finished a \(workoutType.rawValue) workout!"
+            ? "Just finished a \(displayTitle) workout!"
             : caption
 
         // Create post with all the rich data
@@ -2286,7 +2300,7 @@ struct WorkoutSessionCompletionSheet: View {
             caption: captionText,
             photoData: photoData,
             videoData: videoData,
-            workoutType: workoutType.rawValue,
+            workoutType: displayTitle,
             duration: duration,
             setCount: totalSets,
             songTitle: selectedSong?.title,
@@ -2341,8 +2355,8 @@ struct WorkoutSessionCompletionSheet: View {
                 authorId: profile.id,
                 authorName: profile.name,
                 authorUsername: profile.username,
-                caption: caption.isEmpty ? "Just finished a \(workoutType.rawValue) workout!" : caption,
-                workoutType: workoutType.rawValue,
+                caption: caption.isEmpty ? "Just finished a \(displayTitle) workout!" : caption,
+                workoutType: displayTitle,
                 duration: duration,
                 setCount: totalSets,
                 songTitle: selectedSong?.title,

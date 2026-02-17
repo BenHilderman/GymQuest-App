@@ -415,6 +415,9 @@ enum WorkoutType: String, Codable, CaseIterable {
     case fullBody = "Full Body"
     case cardio = "Cardio"
     case rest = "Active Recovery"
+    case glutes = "Glutes"
+    case abs = "Abs"
+    case other = "Other"
 
     var icon: String {
         switch self {
@@ -426,6 +429,9 @@ enum WorkoutType: String, Codable, CaseIterable {
         case .fullBody: return "figure.strengthtraining.traditional"
         case .cardio: return "figure.run"
         case .rest: return "leaf.fill"
+        case .glutes: return "figure.walk"
+        case .abs: return "figure.core.training"
+        case .other: return "questionmark.circle.fill"
         }
     }
 

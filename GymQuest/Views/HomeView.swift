@@ -746,6 +746,9 @@ struct WeeklyProgressCard: View {
         case .fullBody: return "Full"
         case .cardio: return "Cardio"
         case .rest: return "Rest"
+        case .glutes: return "Glutes"
+        case .abs: return "Abs"
+        case .other: return "Other"
         }
     }
 
@@ -762,7 +765,7 @@ struct WeeklyProgressCard: View {
         case .legs: return .push
         case .upper: return .lower
         case .lower: return .upper
-        case .fullBody, .cardio, .rest: return .push
+        case .fullBody, .cardio, .rest, .glutes, .abs, .other: return .push
         }
     }
 
@@ -1871,6 +1874,9 @@ struct StartWorkoutSheet: View {
         case .fullBody: muscleGroups = [.chest, .back, .quads, .shoulders, .biceps]
         case .cardio: muscleGroups = [.cardio]
         case .rest: muscleGroups = [.core]
+        case .glutes: muscleGroups = [.glutes, .hamstrings]
+        case .abs: muscleGroups = [.core]
+        case .other: muscleGroups = [.chest, .back, .shoulders]
         }
 
         let allExercises = ExtendedExerciseDatabase.exercises

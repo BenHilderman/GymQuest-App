@@ -515,6 +515,12 @@ class PRService: ObservableObject {
             return "Conditioning logged. Heart health matters too."
         case .rest:
             return "Recovery counts. Active rest accelerates progress."
+        case .glutes:
+            return "Glute work logged. Progressive overload is key."
+        case .abs:
+            return "Core training done. Strong core supports all lifts."
+        case .other:
+            return "Custom workout complete. Keep showing up."
         }
     }
 }

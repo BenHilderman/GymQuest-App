@@ -27,6 +27,7 @@ struct WorkoutTypeSelectionView: View {
     let profile: UserProfile
 
     @State private var selectedType: WorkoutType?
+    @State private var customName: String = ""
 
     private let workoutTypes: [WorkoutTypeOption] = [
         .init(type: .push, description: "Chest, shoulders, triceps"),
@@ -36,7 +37,9 @@ struct WorkoutTypeSelectionView: View {
         .init(type: .lower, description: "Full lower body focus"),
         .init(type: .fullBody, description: "Complete full-body session"),
         .init(type: .cardio, description: "Running, cycling, intervals"),
-        .init(type: .rest, description: "Active recovery and mobility")
+        .init(type: .rest, description: "Active recovery and mobility"),
+        .init(type: .glutes, description: "Glutes, hip thrusts, kickbacks"),
+        .init(type: .abs, description: "Core, abs, obliques")
     ]
 
     private var selectedAccent: Color {
@@ -73,6 +76,9 @@ struct WorkoutTypeSelectionView: View {
                                     selectedType = option.type
                                 }
                             }
+
+                            // "Other" card with custom name input
+                            otherWorkoutCard
                         }
                         .padding(.horizontal, 20)
                         .padding(.bottom, 16)
@@ -110,7 +116,7 @@ struct WorkoutTypeSelectionView: View {
             Button {
                 startWorkout()
             } label: {
-                Text(selectedType == nil ? "Select a Workout Type" : "Start \(selectedType!.rawValue)")
+                Text(startButtonLabel)
             }
             .buttonStyle(HomeSocialPrimaryButtonStyle(accent: selectedAccent))
             .disabled(selectedType == nil)
@@ -126,10 +132,58 @@ struct WorkoutTypeSelectionView: View {
         )
     }
 
+    private var startButtonLabel: String {
+        guard let selectedType else { return "Select a Workout Type" }
+        if selectedType == .other {
+            let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "Start Other" : "Start \(trimmed)"
+        }
+        return "Start \(selectedType.rawValue)"
+    }
+
+    private var otherWorkoutCard: some View {
+        let otherOption = WorkoutTypeOption(type: .other, description: "Custom workout type")
+        let isSelected = selectedType == .other
+
+        return VStack(spacing: 0) {
+            WorkoutTypeSelectionCard(
+                option: otherOption,
+                isSelected: isSelected
+            ) {
+                HapticManager.shared.select()
+                selectedType = .other
+            }
+
+            if isSelected {
+                TextField("Enter workout name...", text: $customName)
+                    .font(.system(size: 15))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.white.opacity(0.06))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(otherOption.accent.opacity(0.3), lineWidth: 1)
+                    )
+                    .padding(.top, 8)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
+    }
+
     private func startWorkout() {
         guard let selectedType else { return }
         HapticManager.shared.impact(.medium)
-        appState.startWorkout(type: selectedType)
+        if selectedType == .other {
+            let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
+            appState.startWorkout(type: selectedType, customTitle: trimmed.isEmpty ? nil : trimmed)
+        } else {
+            appState.startWorkout(type: selectedType)
+        }
         dismiss()
     }
 }

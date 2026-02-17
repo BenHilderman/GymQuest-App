@@ -180,8 +180,8 @@ class AppState: ObservableObject {
 
     var isWorkoutActive: Bool { activeWorkout != nil }
 
-    func startWorkout(type: WorkoutType, exercises: [ActiveExercise] = []) {
-        activeWorkout = ActiveWorkoutState(workoutType: type, exercises: exercises, startTime: Date())
+    func startWorkout(type: WorkoutType, exercises: [ActiveExercise] = [], customTitle: String? = nil) {
+        activeWorkout = ActiveWorkoutState(workoutType: type, exercises: exercises, startTime: Date(), customTitle: customTitle)
     }
 
     func endWorkout() {
@@ -222,6 +222,7 @@ struct ActiveWorkoutState {
     var exercises: [ActiveExercise]
     var startTime: Date
     var elapsedTime: Int = 0
+    var customTitle: String?
 }
 
 // MARK: - Database Error View
