@@ -54,7 +54,7 @@ struct ActiveWorkoutView: View {
 
     /// Display name: uses custom title for ".other" workouts, otherwise the enum rawValue.
     var displayTitle: String {
-        customTitle ?? displayTitle
+        customTitle ?? workoutType.rawValue
     }
 
     init(profile: UserProfile, workoutType: WorkoutType = .push, exercises: [ActiveExercise] = [], customTitle: String? = nil) {
@@ -90,14 +90,11 @@ struct ActiveWorkoutView: View {
     }
 
     private var workoutAccentColor: Color {
-        workoutTypeColors.first ?? GQColors.primary
+        GQColors.vividPurple
     }
 
     var body: some View {
         ZStack {
-            // Solid dark background
-            Color(white: 0.05).ignoresSafeArea()
-
             VStack(spacing: 0) {
                 // Header with timer and progress
                 workoutHeader
@@ -222,7 +219,8 @@ struct ActiveWorkoutView: View {
     // MARK: - Header
 
     private var workoutHeader: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
+            // Row 1: Close | Title + icon | Broadcast | Timer
             HStack(spacing: 12) {
                 Button {
                     showingCancelConfirmation = true
@@ -236,20 +234,27 @@ struct ActiveWorkoutView: View {
                 }
                 .buttonStyle(.plain)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Live Workout")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
+                // Workout type icon + title with context menu for type change
+                HStack(spacing: 8) {
+                    Image(systemName: workoutType.icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(workoutAccentColor)
                     Text(displayTitle)
                         .font(.system(size: 18, weight: .semibold))
                         .foregroundColor(.white)
-                        .frame(width: 32, height: 32)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(Circle())
+                        .lineLimit(1)
                 }
-                .buttonStyle(.plain)
+                .contextMenu {
+                    ForEach(WorkoutType.allCases, id: \.self) { type in
+                        Button {
+                            workoutType = type
+                        } label: {
+                            Label(type.rawValue, systemImage: type.icon)
+                        }
+                    }
+                }
 
-                // Broadcast toggle
+                // Broadcast toggle (with inline viewer count)
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         isSharingLive.toggle()
@@ -262,123 +267,63 @@ struct ActiveWorkoutView: View {
                         }
                     }
                 } label: {
-                    Image(systemName: isSharingLive ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(isSharingLive ? GQColors.success : GQColors.textTertiary)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(isSharingLive ? GQColors.success.opacity(0.15) : Color.white.opacity(0.08))
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(isSharingLive ? GQColors.success.opacity(0.4) : Color.clear, lineWidth: 1)
-                        )
+                    HStack(spacing: 4) {
+                        Image(systemName: isSharingLive ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash")
+                            .font(.system(size: 13, weight: .semibold))
+                        if isSharingLive {
+                            Text("\(SocialActivityService.shared.liveCount)")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                    }
+                    .foregroundColor(isSharingLive ? GQColors.success : GQColors.textTertiary)
+                    .frame(height: 32)
+                    .padding(.horizontal, isSharingLive ? 10 : 0)
+                    .frame(minWidth: 32)
+                    .background(
+                        Capsule()
+                            .fill(isSharingLive ? GQColors.success.opacity(0.15) : Color.white.opacity(0.08))
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(isSharingLive ? GQColors.success.opacity(0.4) : Color.clear, lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
 
-                if isSharingLive {
-                    HStack(spacing: 4) {
-                        Image(systemName: "person.2.fill")
-                            .font(.system(size: 10))
-                        Text("\(SocialActivityService.shared.liveCount) active")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundColor(GQColors.success)
-                    .transition(.opacity)
-                }
-
                 Spacer()
 
+                // Timer chip
                 Text(formatTime(elapsedTime))
                     .font(.system(size: 18, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .homeSocialCard(
-                        accent: workoutTypeColors.first ?? GQColors.vividPurple,
+                        accent: workoutAccentColor,
                         emphasized: false,
                         cornerRadius: 12
                     )
             }
 
-            HStack(spacing: 8) {
-                Menu {
-                    ForEach(WorkoutType.allCases, id: \.self) { type in
-                        Button(type.rawValue) { workoutType = type }
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: workoutType.icon)
-                        Text("Type")
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                    }
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule().fill(workoutAccentColor.opacity(0.2))
-                    )
-                    .overlay(
-                        Capsule().stroke(workoutAccentColor.opacity(0.3), lineWidth: 0.5)
-                    )
-                }
+            // Row 2: Progress bar with inline sets counter
+            HStack(spacing: 10) {
+                AnimatedProgressBar(
+                    progress: totalSetsCount == 0 ? 0 : Double(completedSetsCount) / Double(totalSetsCount),
+                    height: 7,
+                    colors: [GQColors.vividPurple]
+                )
+                .frame(height: 7)
 
-                Spacer()
-
-                Text(totalSetsCount == 0 ? "No sets yet" : "\(completedSetsCount)/\(totalSetsCount) sets complete")
-                    .font(.system(size: 12, weight: .medium))
+                Text(totalSetsCount == 0 ? "0/0" : "\(completedSetsCount)/\(totalSetsCount)")
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundColor(GQColors.textSecondary)
-            }
-
-            AnimatedProgressBar(
-                progress: totalSetsCount == 0 ? 0 : Double(completedSetsCount) / Double(totalSetsCount),
-                height: 7,
-                colors: [workoutTypeColors.first ?? GQColors.vividPurple]
-            )
-            .frame(height: 7)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    WorkoutFlowMetricChip(
-                        icon: "figure.strengthtraining.traditional",
-                        value: "\(exercises.count)",
-                        label: "Exercises",
-                        color: workoutTypeColors.first ?? GQColors.vividPurple
-                    )
-
-                    WorkoutFlowMetricChip(
-                        icon: "checkmark.circle",
-                        value: "\(completedSetsCount)",
-                        label: "Done Sets",
-                        color: workoutTypeColors.last ?? GQColors.cyanSpark
-                    )
-
-                    WorkoutFlowMetricChip(
-                        icon: "scalemass.fill",
-                        value: totalVolume >= 1000
-                            ? String(format: "%.1fk", totalVolume / 1000)
-                            : "\(Int(totalVolume))",
-                        label: "Volume",
-                        color: GQColors.cyanSpark
-                    )
-
-                    WorkoutFlowMetricChip(
-                        icon: "flame.fill",
-                        value: "\(completedSetsCount * 8)",
-                        label: "Est. Cal",
-                        color: GQColors.success
-                    )
-                }
-                .buttonStyle(.plain)
+                    .frame(minWidth: 32, alignment: .trailing)
             }
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, 10)
-        .background(GQColors.surfaceOverlay.opacity(0.86))
+        .homeSocialCard(accent: workoutAccentColor, cornerRadius: 0)
     }
 
     // MARK: - Add Exercise Button
@@ -439,7 +384,7 @@ struct ActiveWorkoutView: View {
 
     private var bottomBar: some View {
         HStack(spacing: 16) {
-            if let lastExercise = exercises.last {
+            if let _ = exercises.last {
                 Button {
                     if let last = exercises.last { addSetToExercise(last) }
                 } label: {
@@ -448,34 +393,20 @@ struct ActiveWorkoutView: View {
                 .buttonStyle(HomeSocialSecondaryButtonStyle())
                 .frame(maxWidth: 150)
             }
-            Spacer()
             Button { finishWorkout() } label: {
                 Text("Finish")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(workoutAccentColor)
-                    )
             }
             .buttonStyle(
-                HomeSocialPrimaryButtonStyle(
-                    accent: workoutTypeColors.first ?? GQColors.vividPurple
-                )
+                HomeSocialPrimaryButtonStyle(accent: workoutAccentColor)
             )
-            .frame(maxWidth: 220)
         }
         .padding(16)
-        .background(
-            Color(white: 0.08)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(Color.white.opacity(0.08))
-                        .frame(height: 0.5)
-                }
-        )
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.06))
+                .frame(height: 0.5)
+        }
     }
 
     // MARK: - Helpers
@@ -725,7 +656,7 @@ struct ActiveExerciseCard: View {
     }
 
     private var workoutAccent: Color {
-        workoutTypeColors.first ?? GQColors.vividPurple
+        GQColors.vividPurple
     }
 
     var body: some View {
@@ -844,7 +775,7 @@ struct ActiveSetRow: View {
     @State private var showCheckParticles = false
 
     private var workoutColor: Color {
-        workoutTypeColors.first ?? GQColors.primary
+        GQColors.vividPurple
     }
 
     var body: some View {
@@ -1655,19 +1586,19 @@ struct WorkoutSessionCompletionSheet: View {
                     ZStack {
                         // Glow behind icon
                         Circle()
-                            .fill((workoutTypeColors.first ?? GQColors.primary).opacity(0.15))
+                            .fill(GQColors.vividPurple.opacity(0.15))
                             .frame(width: 120, height: 120)
                             .blur(radius: 30)
 
                         AnimatedGradientCircle(
                             size: 90,
                             lineWidth: 3,
-                            colors: workoutTypeColors + [workoutTypeColors.first ?? GQColors.primary]
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple]
                         )
 
                         Image(systemName: workoutType.icon)
                             .font(.system(size: 36, weight: .medium))
-                            .foregroundColor(workoutTypeColors.first ?? GQColors.primary)
+                            .foregroundColor(GQColors.vividPurple)
                     }
                     .breathingFloat(intensity: 0.5)
 
@@ -1720,7 +1651,7 @@ struct WorkoutSessionCompletionSheet: View {
                 Spacer()
             }
 
-            GlassCard(accentColor: workoutTypeColors.first ?? GQColors.primary) {
+            GlassCard(accentColor: GQColors.vividPurple) {
                 VStack(spacing: 16) {
                     HStack(spacing: 24) {
                         CompletionStatItem(
@@ -1737,7 +1668,7 @@ struct WorkoutSessionCompletionSheet: View {
                         )
                         CompletionStatItem(
                             icon: "figure.strengthtraining.traditional",
-                            iconColor: workoutTypeColors.first ?? GQColors.primary,
+                            iconColor: GQColors.vividPurple,
                             value: "\(exercises.count)",
                             label: "exercises"
                         )
@@ -1791,7 +1722,7 @@ struct WorkoutSessionCompletionSheet: View {
                 }
             }
             .padding(16)
-            .homeSocialCard(accent: workoutTypeColors.first ?? GQColors.cyanSpark)
+            .homeSocialCard(accent: GQColors.vividPurple)
         }
     }
 
@@ -1896,7 +1827,7 @@ struct WorkoutSessionCompletionSheet: View {
             .font(.system(size: 16, weight: .bold))
         }
         .disabled(hasCompleted)
-        .buttonStyle(HomeSocialPrimaryButtonStyle(accent: workoutTypeColors.first ?? GQColors.cyanSpark, cornerRadius: 18))
+        .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.vividPurple, cornerRadius: 18))
         .gqScreenHorizontalPadding()
     }
 
