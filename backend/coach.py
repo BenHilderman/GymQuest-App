@@ -1,17 +1,16 @@
 """
-coach.py - the AI brain behind workout advice
+coach.py - agentic AI coaching with tool use
 
-uses LangChain to talk to Groq's LLM (llama 3.3 70b). the cool part is
-we inject all the user's training data into the prompt so the AI actually
-knows what's going on - it's not just generic advice.
+upgraded from a single-shot prompt to a ReAct agent that can:
+1. retrieve exercises from the FAISS knowledge base (RAG)
+2. calculate training load metrics (ACWR, strain, volume)
+3. check volume status against Israetel's volume landmarks
 
-how it works:
-1. build a prompt with user stats (ACWR, strain, volume, etc.)
-2. send it to Groq via LangChain
-3. if no API key, fall back to rule-based responses (still useful!)
+the agent reasons step by step: it checks your training load, searches
+for relevant exercises, then gives grounded advice that references
+actual exercises and your actual numbers.
 
-the fallback mode isn't just a cop-out - it uses the same sports science
-logic as the main AI, just without the natural language generation.
+still falls back to rule-based responses if no API key is set.
 
 - ben
 """
@@ -22,14 +21,15 @@ from typing import Dict, Any, List, Optional
 import logging
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 # LangChain imports
 try:
-    from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
-    from langchain_core.output_parsers import StrOutputParser
-    from langchain_groq import ChatGroq  # Using Groq (free & fast)
+    from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+    from langchain_core.tools import tool
+    from langchain_groq import ChatGroq
+    from langchain.agents import create_react_agent, AgentExecutor
+    from langchain_core.prompts import PromptTemplate
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
@@ -38,49 +38,169 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-# the prompt template - this is what the AI "sees" before answering
-# variables in {braces} get filled in with real user data
-
-SYSTEM_PROMPT = """You are GymQuest AI Coach - direct, actionable fitness advice.
+AGENT_SYSTEM_PROMPT = """You are GymQuest AI Coach - an expert fitness advisor that uses tools to give grounded, data-driven advice.
 
 USER: {name} | Goal: {goal} | Level: {level} | Days/Week: {days_per_week}
 Injuries: {injuries}
 
-TRAINING METRICS:
-- ACWR: {acwr} (0.8-1.3 optimal, >1.5 = injury risk)
-- Strain: {strain_score}/100
-- Sessions this week: {sessions_this_week}
-- Avg RPE: {avg_rpe}
-
-VOLUME BY MUSCLE:
-{weekly_volume}
+You have access to these tools:
+- retrieve_exercises: Search the exercise knowledge base for exercises matching a query
+- calculate_training_load: Analyze workout history to get ACWR, strain, volume metrics
+- check_volume_status: Check if a muscle group is under/optimal/over volume
 
 RULES:
-1. MAX 3 sentences unless asked for details
-2. Reference their actual numbers
-3. If ACWR > 1.5 or strain > 80, recommend deload
-4. Be specific: "3x10 at RPE 7" not "moderate intensity"
-5. End with ONE clear action
-"""
+1. Always check training load before recommending workout changes
+2. Search for exercises when recommending specific movements
+3. Reference actual numbers from the tools (ACWR, strain, sets)
+4. If ACWR > 1.5 or strain > 80, recommend deload
+5. If the user has injuries, search for safe alternatives
+6. Be specific: "3x10 at RPE 7" not "moderate intensity"
+7. MAX 4 sentences unless asked for details
+8. End with ONE clear action item
+
+{agent_scratchpad}"""
+
+
+# ReAct prompt template - this drives the agent's think/act/observe loop
+REACT_PROMPT = """Answer the following questions as best you can. You have access to the following tools:
+
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original question
+
+CONTEXT:
+User: {name} | Goal: {goal} | Level: {level} | Days/Week: {days_per_week}
+Injuries: {injuries}
+
+RULES:
+1. Always check training load before recommending workout changes
+2. Search for exercises when recommending specific movements
+3. Reference actual numbers (ACWR, strain, sets)
+4. If ACWR > 1.5 or strain > 80, recommend deload
+5. If the user has injuries, avoid contraindicated movements
+6. Be specific with prescriptions: "3x10 at RPE 7" not "moderate intensity"
+7. MAX 4 sentences unless asked for details
+8. End with ONE clear action item
+
+Begin!
+
+Question: {input}
+Thought:{agent_scratchpad}"""
 
 
 class EnhancedCoach:
     """
-    the main coach class. tries to use Groq's LLM for smart responses,
-    but if there's no API key it'll still give decent advice using
-    if-then rules based on the user's numbers.
+    agentic coach that reasons step by step using tools.
+
+    the ReAct loop:
+      1. THINK: what does the user need?
+      2. ACT: call a tool (retrieve exercises, check load, etc.)
+      3. OBSERVE: read the tool output
+      4. repeat until confident, then give a final answer
+
+    falls back to rule-based responses when no API key is available.
     """
 
-    def __init__(self):
-        if LANGCHAIN_AVAILABLE:
-            # Build the prompt template
-            self.system_template = SystemMessagePromptTemplate.from_template(SYSTEM_PROMPT)
-            self.human_template = HumanMessagePromptTemplate.from_template("{question}")
-            self.chat_prompt = ChatPromptTemplate.from_messages([
-                self.system_template,
-                self.human_template
-            ])
-            self.output_parser = StrOutputParser()
+    def __init__(self, rag_engine=None, training_calculator=None):
+        self.rag_engine = rag_engine
+        self.training_calculator = training_calculator
+        self._tools = None
+        self._agent_executor = None
+
+    def _build_tools(self, workouts: List[Dict], load_metrics: Dict[str, Any]):
+        """create LangChain tools that close over the current request context"""
+
+        rag = self.rag_engine
+        calc = self.training_calculator
+
+        @tool
+        def retrieve_exercises(query: str) -> str:
+            """Search the exercise knowledge base for exercises matching a query. Use this to find exercises for a muscle group, movement pattern, or equipment type."""
+            if rag is None:
+                return "Exercise search unavailable"
+            results = rag.search(query, top_k=5)
+            if not results:
+                return "No matching exercises found"
+            lines = []
+            for r in results:
+                ex = r.get("exercise", {})
+                name = r["source"]
+                muscle = ex.get("muscleGroup", "unknown")
+                equipment = ex.get("equipment", "unknown")
+                secondary = ", ".join(ex.get("secondaryMuscles", []))
+                cues = "; ".join(ex.get("cues", [])[:2])
+                compound = "compound" if ex.get("isCompound") else "isolation"
+                score = r["relevance_score"]
+                lines.append(f"- {name} ({muscle}, {equipment}, {compound}, score={score:.2f}) secondary=[{secondary}] cues=[{cues}]")
+            return "\n".join(lines)
+
+        @tool
+        def calculate_training_load(analysis_request: str) -> str:
+            """Analyze the user's recent workout history to get training load metrics including ACWR, strain score, weekly volume by muscle, and session count. Pass any string to trigger the analysis."""
+            return json.dumps({
+                "acwr": load_metrics.get("acwr", 1.0),
+                "strain_score": load_metrics.get("strain_score", 0),
+                "sessions_this_week": load_metrics.get("sessions_this_week", 0),
+                "avg_rpe": load_metrics.get("avg_rpe_this_week", 0),
+                "weekly_volume": load_metrics.get("weekly_volume", {}),
+                "monotony": load_metrics.get("monotony", 1.0),
+                "acute_load": load_metrics.get("acute_load", 0),
+                "chronic_load": load_metrics.get("chronic_load", 0),
+            }, indent=2)
+
+        @tool
+        def check_volume_status(muscle_group: str) -> str:
+            """Check if a specific muscle group is under/optimal/high/over volume based on Israetel's volume landmarks. Input should be a muscle group name like 'Chest', 'Back', 'Legs', etc."""
+            volume_status = load_metrics.get("volume_status", {})
+            weekly_volume = load_metrics.get("weekly_volume", {})
+
+            # volume landmarks from training_load.py
+            landmarks = {
+                "Chest":     {"MV": 10, "MEV": 12, "MAV": 20, "MRV": 24},
+                "Back":      {"MV": 10, "MEV": 14, "MAV": 22, "MRV": 26},
+                "Shoulders": {"MV": 8,  "MEV": 10, "MAV": 18, "MRV": 22},
+                "Biceps":    {"MV": 6,  "MEV": 8,  "MAV": 16, "MRV": 20},
+                "Triceps":   {"MV": 6,  "MEV": 8,  "MAV": 16, "MRV": 20},
+                "Legs":      {"MV": 8,  "MEV": 12, "MAV": 20, "MRV": 26},
+                "Core":      {"MV": 4,  "MEV": 6,  "MAV": 12, "MRV": 16},
+            }
+
+            # try to match the muscle group (case-insensitive)
+            matched = None
+            for key in landmarks:
+                if key.lower() == muscle_group.lower():
+                    matched = key
+                    break
+
+            if matched is None:
+                return f"Unknown muscle group: {muscle_group}. Known groups: {', '.join(landmarks.keys())}"
+
+            current_sets = weekly_volume.get(matched, 0)
+            status = volume_status.get(matched, "no data")
+            lm = landmarks[matched]
+
+            return json.dumps({
+                "muscle_group": matched,
+                "current_weekly_sets": current_sets,
+                "status": status,
+                "landmarks": {
+                    "MV_maintenance": lm["MV"],
+                    "MEV_minimum_effective": lm["MEV"],
+                    "MAV_max_adaptive": lm["MAV"],
+                    "MRV_max_recoverable": lm["MRV"],
+                },
+            }, indent=2)
+
+        return [retrieve_exercises, calculate_training_load, check_volume_status]
 
     async def get_advice(
         self,
@@ -91,63 +211,59 @@ class EnhancedCoach:
         api_key: Optional[str] = None
     ) -> str:
         """
-        main method - takes a user question and returns coaching advice.
-        tries Groq first, falls back to rule-based if no API key.
+        main method - runs the ReAct agent to answer the user's question.
+        the agent will use tools to look up exercises, check training load,
+        and assess volume before giving its final answer.
         """
         if not LANGCHAIN_AVAILABLE:
             return self._fallback_response(prompt, profile, load_metrics)
 
-        # Use Groq API key (free tier available at console.groq.com)
         key = api_key or os.getenv("GROQ_API_KEY")
         if not key:
             return self._fallback_response(prompt, profile, load_metrics)
 
         try:
-            volume_text = self._format_volume(load_metrics.get("weekly_volume", {}))
+            # build tools that close over the current request data
+            tools = self._build_tools(workouts, load_metrics)
 
-            # stuff all the user's data into a dict for the prompt template
-            chain_input = {
+            llm = ChatGroq(
+                api_key=key,
+                model="llama-3.3-70b-versatile",
+                temperature=0.7,
+                max_tokens=500,
+            )
+
+            # build the ReAct agent
+            react_prompt = PromptTemplate.from_template(REACT_PROMPT)
+
+            agent = create_react_agent(
+                llm=llm,
+                tools=tools,
+                prompt=react_prompt,
+            )
+
+            executor = AgentExecutor(
+                agent=agent,
+                tools=tools,
+                verbose=False,
+                max_iterations=5,
+                handle_parsing_errors=True,
+            )
+
+            result = await executor.ainvoke({
+                "input": prompt,
                 "name": profile.get("name", "Athlete"),
                 "goal": profile.get("goal", "General Fitness"),
                 "level": profile.get("level", 1),
                 "days_per_week": profile.get("days_per_week", 4),
                 "injuries": profile.get("injuries") or "None",
-                "acwr": load_metrics.get("acwr", 1.0),
-                "strain_score": load_metrics.get("strain_score", 0),
-                "sessions_this_week": load_metrics.get("sessions_this_week", 0),
-                "avg_rpe": load_metrics.get("avg_rpe_this_week", 0),
-                "weekly_volume": volume_text,
-                "question": prompt
-            }
+            })
 
-            # groq gives us free access to llama 3.3 70b - pretty wild
-            # the "chain" is LangChain's way of piping: prompt -> llm -> parse output
-            llm = ChatGroq(
-                api_key=key,
-                model="llama-3.3-70b-versatile",
-                temperature=0.7,  # some creativity, not too random
-                max_tokens=300    # keep responses concise
-            )
-
-            chain = self.chat_prompt | llm | self.output_parser
-            response = await chain.ainvoke(chain_input)  # async so we don't block
-
-            return response
+            return result.get("output", self._fallback_response(prompt, profile, load_metrics))
 
         except Exception as e:
-            logger.error(f"LangChain/Groq error: {str(e)}")
+            logger.error(f"Agent error: {str(e)}")
             return self._fallback_response(prompt, profile, load_metrics)
-
-    def _format_volume(self, volume: Dict[str, int]) -> str:
-        """turn the volume dict into something readable for the prompt"""
-        if not volume:
-            return "No data yet"
-
-        lines = []
-        for muscle, sets in sorted(volume.items()):
-            status = "LOW" if sets < 8 else "HIGH" if sets > 18 else "GOOD"
-            lines.append(f"- {muscle}: {sets} sets ({status})")
-        return "\n".join(lines)
 
     def _fallback_response(
         self,
@@ -170,7 +286,6 @@ class EnhancedCoach:
             return f"Hold up {name}. ACWR at {acwr:.1f}, strain at {strain:.0f}%. " \
                    f"You need a deload - cut volume 40-50%, focus on recovery."
 
-        # check what they're asking about and respond accordingly
         if "warm" in prompt_lower:
             return "5 min cardio, dynamic stretches, 2 light sets at 50%. Done."
 
@@ -194,7 +309,6 @@ class EnhancedCoach:
                 return f"ACWR is {acwr:.1f}. Time to deload - half the volume, same weights."
             return f"ACWR at {acwr:.1f}. No deload needed yet."
 
-        # didn't match anything specific, give a general status
         return f"What's up {name}? {sessions} sessions this week, ACWR {acwr:.1f}. " \
                f"Ask about volume, deloads, or if you should train today."
 

@@ -32,7 +32,7 @@ Tests/                           ← Quality Engineering
 
 **Workout Engine** · Live set tracking, auto PR detection, rest timers with haptics, RPE, ghost data, milestone celebrations
 
-**AI Coach** · Context aware coaching via OpenAI, Groq, Ollama, or offline demo mode
+**AI Coach** · Agentic coaching via LangChain ReAct agent, FAISS RAG over 72 exercises, ACWR/strain analytics, multi-provider LLM (Groq, OpenAI, Ollama), offline demo mode
 
 **Gamification** · 11 XP levels, quests, squad challenges, forgiveness tokens
 
@@ -47,6 +47,24 @@ Tests/                           ← Quality Engineering
 **CI/CD** · GitHub Actions · GitLab · Buildkite · CircleCI · Xcode Cloud · Bitrise · Fastlane
 
 **Security** · CodeQL · Dependabot · Semgrep · Trivy · Syft SBOM
+
+---
+
+## Backend
+
+```
+backend/
+├── main.py              FastAPI server (coach, search, training-load endpoints)
+├── coach.py             LangChain ReAct agent with 3 tools
+├── rag_engine.py        FAISS + Sentence Transformers (all-MiniLM-L6-v2)
+├── training_load.py     ACWR, strain, volume, monotony analytics
+├── data/exercises.json  72-exercise knowledge base
+└── eval/                25-case / 118-session evaluation harness
+```
+
+```bash
+cd backend && pip install -r requirements.txt && uvicorn main:app --port 8000
+```
 
 ---
 

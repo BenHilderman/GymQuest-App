@@ -1,9 +1,10 @@
 """
-main.py · FastAPI server for GymQuest
+main.py - FastAPI server for GymQuest
 
-Backend that powers the AI coach. Two main components:
+Backend that powers the AI coach. Three main components:
 1. training load math (ACWR, strain) - see training_load.py
-2. AI responses via LangChain + Groq - see coach.py
+2. RAG engine (FAISS + sentence-transformers) - see rag_engine.py
+3. agentic AI coaching with tool use - see coach.py
 
 to run locally:
     pip install -r requirements.txt
@@ -23,6 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from training_load import TrainingLoadCalculator
+from rag_engine import RAGEngine
 from coach import EnhancedCoach
 
 logging.basicConfig(level=logging.INFO)
@@ -30,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="GymQuest AI Backend",
-    description="Training load analytics and AI coaching",
-    version="1.0.0"
+    description="Training load analytics, exercise RAG, and agentic AI coaching",
+    version="2.0.0"
 )
 
 # let the iOS app talk to us
@@ -43,8 +45,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- services ---
 training_calculator = TrainingLoadCalculator()
-coach = EnhancedCoach()
+rag_engine = RAGEngine()
+coach = EnhancedCoach(rag_engine=rag_engine, training_calculator=training_calculator)
 
 
 # --- pydantic models for request/response validation ---
@@ -80,17 +84,27 @@ class CoachResponse(BaseModel):
     needs_deload: bool
 
 
+class SearchRequest(BaseModel):
+    query: str
+    top_k: Optional[int] = 5
+
+
 # --- endpoints ---
 
 @app.get("/")
 async def root():
     """quick health check"""
-    return {"status": "healthy", "service": "GymQuest AI Backend"}
+    return {
+        "status": "healthy",
+        "service": "GymQuest AI Backend",
+        "version": "2.0.0",
+        "rag_indexed": len(rag_engine.exercises),
+    }
 
 
 @app.post("/api/coach", response_model=CoachResponse)
 async def get_coach_advice(request: CoachRequest):
-    """main endpoint - calculates training load, then asks the AI for advice"""
+    """main endpoint - runs the agentic coach with RAG + training load tools"""
     try:
         logger.info(f"Coach request from {request.profile.name}")
 
@@ -108,7 +122,7 @@ async def get_coach_advice(request: CoachRequest):
 
         needs_deload = load_metrics.get("acwr", 1.0) > 1.5 or load_metrics.get("strain_score", 0) > 80
 
-        # now ask the AI
+        # run the agentic coach (ReAct loop with tool use)
         ai_response = await coach.get_advice(
             prompt=request.prompt,
             profile=request.profile.model_dump(),
@@ -126,6 +140,21 @@ async def get_coach_advice(request: CoachRequest):
 
     except Exception as e:
         logger.error(f"Coach error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/search")
+async def search_exercises(request: SearchRequest):
+    """semantic search over the exercise knowledge base via FAISS"""
+    try:
+        results = rag_engine.search(request.query, top_k=request.top_k)
+        return {
+            "query": request.query,
+            "results": results,
+            "count": len(results),
+        }
+    except Exception as e:
+        logger.error(f"Search error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

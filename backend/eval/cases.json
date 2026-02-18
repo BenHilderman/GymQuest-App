@@ -1,0 +1,3551 @@
+{
+  "version": "1.0",
+  "description": "25 evaluation cases for GymQuest AI Coach (~120 sessions total)",
+  "categories": [
+    "deload_detection",
+    "injury_safety",
+    "volume_balancing",
+    "exercise_selection",
+    "beginner_guidance",
+    "recovery_advice"
+  ],
+  "cases": [
+    {
+      "id": 1,
+      "category": "deload_detection",
+      "name": "High ACWR deload trigger",
+      "prompt": "What should I do today?",
+      "profile": {
+        "name": "Alex",
+        "goal": "Hypertrophy",
+        "level": 12,
+        "days_per_week": 5,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Push",
+          "duration": 75,
+          "rpe": 9,
+          "total_sets": 24,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 12
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 8
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-14",
+          "type": "Pull",
+          "duration": 70,
+          "rpe": 9,
+          "total_sets": 22,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 14
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 8
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Legs",
+          "duration": 80,
+          "rpe": 9,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 20
+            }
+          ]
+        },
+        {
+          "date": "2024-01-12",
+          "type": "Push",
+          "duration": 70,
+          "rpe": 8,
+          "total_sets": 22,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 10
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 8
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Pull",
+          "duration": 65,
+          "rpe": 9,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 12
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 8
+            }
+          ]
+        },
+        {
+          "date": "2024-01-10",
+          "type": "Legs",
+          "duration": 75,
+          "rpe": 8,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 18
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Push",
+          "duration": 70,
+          "rpe": 9,
+          "total_sets": 22,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 10
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 8
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "deload",
+          "recovery",
+          "volume"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [],
+        "metrics_check": {
+          "acwr_above": 1.3
+        }
+      }
+    },
+    {
+      "id": 2,
+      "category": "deload_detection",
+      "name": "High strain with moderate ACWR",
+      "prompt": "Can I add more volume this week?",
+      "profile": {
+        "name": "Jordan",
+        "goal": "Strength",
+        "level": 18,
+        "days_per_week": 4,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 90,
+          "rpe": 9,
+          "total_sets": 26,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 2
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-14",
+          "type": "Lower",
+          "duration": 85,
+          "rpe": 9,
+          "total_sets": 22,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 16
+            },
+            {
+              "muscle": "Core",
+              "sets": 6
+            }
+          ]
+        },
+        {
+          "date": "2024-01-12",
+          "type": "Upper",
+          "duration": 90,
+          "rpe": 8,
+          "total_sets": 24,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Lower",
+          "duration": 80,
+          "rpe": 9,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 14
+            },
+            {
+              "muscle": "Core",
+              "sets": 6
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Upper",
+          "duration": 85,
+          "rpe": 8,
+          "total_sets": 24,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Back",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 2
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 2
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "strain",
+          "fatigue",
+          "recovery"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [],
+        "metrics_check": {
+          "strain_above": 60
+        }
+      }
+    },
+    {
+      "id": 3,
+      "category": "deload_detection",
+      "name": "Optimal ACWR no deload needed",
+      "prompt": "Do I need a deload?",
+      "profile": {
+        "name": "Sam",
+        "goal": "Hypertrophy",
+        "level": 8,
+        "days_per_week": 4,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-08",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-06",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-04",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-02",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-01",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2023-12-30",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2023-12-28",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2023-12-26",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2023-12-24",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2023-12-22",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2023-12-20",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2023-12-18",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "no deload",
+          "optimal",
+          "good"
+        ],
+        "should_not_mention": [
+          "deload now",
+          "back off",
+          "injury risk"
+        ],
+        "rag_should_retrieve": [],
+        "metrics_check": {
+          "acwr_between": [
+            0.8,
+            1.3
+          ]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "category": "injury_safety",
+      "name": "Shoulder injury avoids overhead pressing",
+      "prompt": "What shoulder exercises should I do?",
+      "profile": {
+        "name": "Maya",
+        "goal": "Hypertrophy",
+        "level": 10,
+        "days_per_week": 4,
+        "injuries": "rotator cuff strain"
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 50,
+          "rpe": 6,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 8
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 6
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Upper",
+          "duration": 50,
+          "rpe": 6,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 8
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 6
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "rotator cuff",
+          "injury",
+          "lateral raise"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Lateral Raise",
+          "Rear Delt Fly",
+          "Face Pulls"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 5,
+      "category": "injury_safety",
+      "name": "Knee injury avoids heavy squats",
+      "prompt": "What can I do for legs today?",
+      "profile": {
+        "name": "Tyler",
+        "goal": "General Fitness",
+        "level": 5,
+        "days_per_week": 3,
+        "injuries": "ACL recovery, no heavy squatting"
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Full Body",
+          "duration": 45,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Full Body",
+          "duration": 45,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Full Body",
+          "duration": 45,
+          "rpe": 5,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 5,
+          "total_sets": 10,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 3
+            },
+            {
+              "muscle": "Back",
+              "sets": 3
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-07",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 5,
+          "total_sets": 10,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 3
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-05",
+          "type": "Full Body",
+          "duration": 45,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "ACL",
+          "knee",
+          "safe"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Leg Extension",
+          "Seated Leg Curl",
+          "Leg Press"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 6,
+      "category": "injury_safety",
+      "name": "Lower back pain avoids deadlifts",
+      "prompt": "Give me a back workout",
+      "profile": {
+        "name": "Chris",
+        "goal": "Hypertrophy",
+        "level": 7,
+        "days_per_week": 4,
+        "injuries": "chronic lower back pain"
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Push",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Legs",
+          "duration": 50,
+          "rpe": 6,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 14
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Push",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Legs",
+          "duration": 50,
+          "rpe": 6,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 14
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "back",
+          "lower back",
+          "pain"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Lat Pulldown",
+          "Seated Cable Row",
+          "Cable"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 7,
+      "category": "volume_balancing",
+      "name": "Chest over volume, back under",
+      "prompt": "How's my training balance looking?",
+      "profile": {
+        "name": "Ryan",
+        "goal": "Hypertrophy",
+        "level": 14,
+        "days_per_week": 5,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Chest",
+          "duration": 70,
+          "rpe": 8,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 16
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-14",
+          "type": "Chest",
+          "duration": 65,
+          "rpe": 8,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 14
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Back",
+          "duration": 40,
+          "rpe": 6,
+          "total_sets": 10,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-12",
+          "type": "Legs",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 14
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Chest",
+          "duration": 60,
+          "rpe": 8,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 12
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "chest",
+          "volume",
+          "back",
+          "imbalance"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [],
+        "metrics_check": {
+          "volume_over": [
+            "Chest"
+          ]
+        }
+      }
+    },
+    {
+      "id": 8,
+      "category": "volume_balancing",
+      "name": "All muscles under volume",
+      "prompt": "Am I training enough?",
+      "profile": {
+        "name": "Lisa",
+        "goal": "Hypertrophy",
+        "level": 3,
+        "days_per_week": 4,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Full Body",
+          "duration": 30,
+          "rpe": 5,
+          "total_sets": 8,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 2
+            },
+            {
+              "muscle": "Back",
+              "sets": 2
+            },
+            {
+              "muscle": "Legs",
+              "sets": 2
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Full Body",
+          "duration": 30,
+          "rpe": 5,
+          "total_sets": 8,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 2
+            },
+            {
+              "muscle": "Back",
+              "sets": 2
+            },
+            {
+              "muscle": "Legs",
+              "sets": 2
+            },
+            {
+              "muscle": "Core",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Full Body",
+          "duration": 30,
+          "rpe": 5,
+          "total_sets": 8,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 2
+            },
+            {
+              "muscle": "Back",
+              "sets": 2
+            },
+            {
+              "muscle": "Legs",
+              "sets": 2
+            },
+            {
+              "muscle": "Core",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Full Body",
+          "duration": 30,
+          "rpe": 5,
+          "total_sets": 8,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 2
+            },
+            {
+              "muscle": "Back",
+              "sets": 2
+            },
+            {
+              "muscle": "Legs",
+              "sets": 2
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-07",
+          "type": "Full Body",
+          "duration": 30,
+          "rpe": 5,
+          "total_sets": 8,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 2
+            },
+            {
+              "muscle": "Back",
+              "sets": 2
+            },
+            {
+              "muscle": "Legs",
+              "sets": 2
+            },
+            {
+              "muscle": "Core",
+              "sets": 2
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "volume",
+          "more",
+          "sets",
+          "increase"
+        ],
+        "should_not_mention": [
+          "deload",
+          "too much",
+          "reduce"
+        ],
+        "rag_should_retrieve": [],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 9,
+      "category": "volume_balancing",
+      "name": "Good volume distribution",
+      "prompt": "How's my volume?",
+      "profile": {
+        "name": "Jake",
+        "goal": "Hypertrophy",
+        "level": 11,
+        "days_per_week": 4,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 65,
+          "rpe": 7,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 2
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-14",
+          "type": "Lower",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 14
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-12",
+          "type": "Upper",
+          "duration": 65,
+          "rpe": 7,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 2
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-10",
+          "type": "Lower",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 14
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "balanced",
+          "good",
+          "optimal"
+        ],
+        "should_not_mention": [
+          "reduce",
+          "too much"
+        ],
+        "rag_should_retrieve": [],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 10,
+      "category": "exercise_selection",
+      "name": "Chest exercise recommendation",
+      "prompt": "What exercises should I do for chest today?",
+      "profile": {
+        "name": "Derek",
+        "goal": "Hypertrophy",
+        "level": 9,
+        "days_per_week": 4,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Pull",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 8
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Legs",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 12
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Push",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 6
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Pull",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 8
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "chest",
+          "press",
+          "fly"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Bench Press",
+          "Incline",
+          "Cable Fly",
+          "Dumbbell Press"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 11,
+      "category": "exercise_selection",
+      "name": "Back exercise with bodyweight only",
+      "prompt": "I only have a pull-up bar. What back exercises can I do?",
+      "profile": {
+        "name": "Kai",
+        "goal": "General Fitness",
+        "level": 4,
+        "days_per_week": 3,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-07",
+          "type": "Full Body",
+          "duration": 35,
+          "rpe": 6,
+          "total_sets": 10,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 3
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-05",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "pull-up",
+          "chin-up",
+          "bodyweight"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Pull-ups",
+          "Chin-ups"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 12,
+      "category": "exercise_selection",
+      "name": "Leg exercise machine-only",
+      "prompt": "What leg exercises can I do on machines?",
+      "profile": {
+        "name": "Nina",
+        "goal": "Hypertrophy",
+        "level": 6,
+        "days_per_week": 4,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Lower",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Lower",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-07",
+          "type": "Upper",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 5
+            },
+            {
+              "muscle": "Back",
+              "sets": 5
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-05",
+          "type": "Lower",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "machine",
+          "leg"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Leg Press",
+          "Leg Extension",
+          "Hack Squat",
+          "Seated Leg Curl"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 13,
+      "category": "exercise_selection",
+      "name": "Core exercise variety",
+      "prompt": "I need new core exercises, I'm bored of planks",
+      "profile": {
+        "name": "Emma",
+        "goal": "General Fitness",
+        "level": 7,
+        "days_per_week": 3,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Full Body",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 6
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Full Body",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Full Body",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 6
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Full Body",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-07",
+          "type": "Full Body",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 6
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "core",
+          "variety"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Cable Crunch",
+          "Hanging Leg Raise",
+          "Russian Twist",
+          "Ab Wheel Rollout"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 14,
+      "category": "beginner_guidance",
+      "name": "Complete beginner first workout",
+      "prompt": "I've never worked out before. What should I do?",
+      "profile": {
+        "name": "Taylor",
+        "goal": "General Fitness",
+        "level": 1,
+        "days_per_week": 3,
+        "injuries": ""
+      },
+      "workouts": [],
+      "expected": {
+        "should_mention": [
+          "beginner",
+          "start",
+          "form",
+          "RPE"
+        ],
+        "should_not_mention": [
+          "deload",
+          "ACWR",
+          "advanced"
+        ],
+        "rag_should_retrieve": [],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 15,
+      "category": "beginner_guidance",
+      "name": "Beginner asks about RPE",
+      "prompt": "What is RPE and how hard should I train?",
+      "profile": {
+        "name": "Morgan",
+        "goal": "Hypertrophy",
+        "level": 2,
+        "days_per_week": 3,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Full Body",
+          "duration": 35,
+          "rpe": 5,
+          "total_sets": 10,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 3
+            },
+            {
+              "muscle": "Back",
+              "sets": 3
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Full Body",
+          "duration": 35,
+          "rpe": 5,
+          "total_sets": 10,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 3
+            },
+            {
+              "muscle": "Back",
+              "sets": 3
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Full Body",
+          "duration": 35,
+          "rpe": 5,
+          "total_sets": 10,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 3
+            },
+            {
+              "muscle": "Back",
+              "sets": 3
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Full Body",
+          "duration": 35,
+          "rpe": 5,
+          "total_sets": 10,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 3
+            },
+            {
+              "muscle": "Back",
+              "sets": 3
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-07",
+          "type": "Full Body",
+          "duration": 30,
+          "rpe": 5,
+          "total_sets": 9,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 3
+            },
+            {
+              "muscle": "Back",
+              "sets": 3
+            },
+            {
+              "muscle": "Legs",
+              "sets": 3
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "RPE",
+          "7",
+          "8",
+          "reserve"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 16,
+      "category": "beginner_guidance",
+      "name": "Beginner progressive overload question",
+      "prompt": "How do I know when to add weight?",
+      "profile": {
+        "name": "Avery",
+        "goal": "Strength",
+        "level": 2,
+        "days_per_week": 3,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Full Body",
+          "duration": 40,
+          "rpe": 6,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "progressive",
+          "overload",
+          "weight",
+          "reps"
+        ],
+        "should_not_mention": [
+          "deload"
+        ],
+        "rag_should_retrieve": [],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 17,
+      "category": "recovery_advice",
+      "name": "High monotony training",
+      "prompt": "My progress has stalled, help",
+      "profile": {
+        "name": "Blake",
+        "goal": "Hypertrophy",
+        "level": 10,
+        "days_per_week": 5,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-14",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-12",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "variety",
+          "monotony",
+          "change",
+          "different"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [],
+        "metrics_check": {
+          "monotony_above": 1.5
+        }
+      }
+    },
+    {
+      "id": 18,
+      "category": "recovery_advice",
+      "name": "Should rest today",
+      "prompt": "Should I rest today or train?",
+      "profile": {
+        "name": "Drew",
+        "goal": "Hypertrophy",
+        "level": 13,
+        "days_per_week": 5,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Push",
+          "duration": 75,
+          "rpe": 9,
+          "total_sets": 22,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 10
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 8
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-14",
+          "type": "Pull",
+          "duration": 70,
+          "rpe": 9,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 12
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 8
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Legs",
+          "duration": 80,
+          "rpe": 9,
+          "total_sets": 22,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 18
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-12",
+          "type": "Push",
+          "duration": 70,
+          "rpe": 8,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 8
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Pull",
+          "duration": 65,
+          "rpe": 8,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 8
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "rest",
+          "recovery",
+          "strain"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [],
+        "metrics_check": {
+          "strain_above": 50
+        }
+      }
+    },
+    {
+      "id": 19,
+      "category": "recovery_advice",
+      "name": "Low RPE could push harder",
+      "prompt": "Am I training hard enough?",
+      "profile": {
+        "name": "Quinn",
+        "goal": "Hypertrophy",
+        "level": 6,
+        "days_per_week": 4,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 50,
+          "rpe": 5,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Lower",
+          "duration": 45,
+          "rpe": 5,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 8
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Upper",
+          "duration": 50,
+          "rpe": 5,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Lower",
+          "duration": 45,
+          "rpe": 5,
+          "total_sets": 12,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 8
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "RPE",
+          "intensity",
+          "harder",
+          "push"
+        ],
+        "should_not_mention": [
+          "deload",
+          "rest"
+        ],
+        "rag_should_retrieve": [],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 20,
+      "category": "exercise_selection",
+      "name": "Compound vs isolation for strength",
+      "prompt": "Should I focus on compound or isolation exercises?",
+      "profile": {
+        "name": "Reese",
+        "goal": "Strength",
+        "level": 8,
+        "days_per_week": 4,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Lower",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Lower",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-07",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "compound",
+          "strength",
+          "squat",
+          "deadlift",
+          "bench",
+          "press"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Barbell Squat",
+          "Deadlift",
+          "Bench Press",
+          "Overhead Press"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 21,
+      "category": "deload_detection",
+      "name": "Undertrained needs more volume",
+      "prompt": "I feel like I could do more. Should I?",
+      "profile": {
+        "name": "Jess",
+        "goal": "Hypertrophy",
+        "level": 5,
+        "days_per_week": 4,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 30,
+          "rpe": 5,
+          "total_sets": 8,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 3
+            },
+            {
+              "muscle": "Back",
+              "sets": 3
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-07",
+          "type": "Upper",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 5
+            },
+            {
+              "muscle": "Back",
+              "sets": 5
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-05",
+          "type": "Lower",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-03",
+          "type": "Upper",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 5
+            },
+            {
+              "muscle": "Back",
+              "sets": 5
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-01",
+          "type": "Lower",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2023-12-29",
+          "type": "Upper",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 5
+            },
+            {
+              "muscle": "Back",
+              "sets": 5
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2023-12-27",
+          "type": "Lower",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2023-12-25",
+          "type": "Upper",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 5
+            },
+            {
+              "muscle": "Back",
+              "sets": 5
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2023-12-23",
+          "type": "Lower",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2023-12-21",
+          "type": "Upper",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 5
+            },
+            {
+              "muscle": "Back",
+              "sets": 5
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2023-12-19",
+          "type": "Lower",
+          "duration": 50,
+          "rpe": 7,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 10
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "increase",
+          "more",
+          "volume",
+          "add"
+        ],
+        "should_not_mention": [
+          "deload",
+          "reduce",
+          "back off"
+        ],
+        "rag_should_retrieve": [],
+        "metrics_check": {
+          "acwr_below": 1.0
+        }
+      }
+    },
+    {
+      "id": 22,
+      "category": "recovery_advice",
+      "name": "Warm-up recommendation",
+      "prompt": "What should my warm-up look like?",
+      "profile": {
+        "name": "Tara",
+        "goal": "General Fitness",
+        "level": 4,
+        "days_per_week": 3,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Full Body",
+          "duration": 45,
+          "rpe": 6,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Full Body",
+          "duration": 45,
+          "rpe": 6,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Full Body",
+          "duration": 45,
+          "rpe": 6,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Full Body",
+          "duration": 45,
+          "rpe": 6,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-07",
+          "type": "Full Body",
+          "duration": 45,
+          "rpe": 6,
+          "total_sets": 14,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 4
+            },
+            {
+              "muscle": "Back",
+              "sets": 4
+            },
+            {
+              "muscle": "Legs",
+              "sets": 4
+            },
+            {
+              "muscle": "Core",
+              "sets": 2
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "warm",
+          "cardio",
+          "stretch",
+          "light"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 23,
+      "category": "injury_safety",
+      "name": "Wrist injury dumbbell alternatives",
+      "prompt": "My wrist hurts with barbell exercises. What can I do instead?",
+      "profile": {
+        "name": "Leo",
+        "goal": "Hypertrophy",
+        "level": 9,
+        "days_per_week": 4,
+        "injuries": "wrist pain with barbell grip"
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Push",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Pull",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 6
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Push",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Pull",
+          "duration": 55,
+          "rpe": 7,
+          "total_sets": 16,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 6
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "wrist",
+          "dumbbell",
+          "machine",
+          "neutral grip"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Dumbbell Press",
+          "Machine Chest Press",
+          "Hammer Curl"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 24,
+      "category": "volume_balancing",
+      "name": "Neglected legs needs attention",
+      "prompt": "What muscles am I neglecting?",
+      "profile": {
+        "name": "Cody",
+        "goal": "Hypertrophy",
+        "level": 11,
+        "days_per_week": 5,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Upper",
+          "duration": 70,
+          "rpe": 8,
+          "total_sets": 22,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Back",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 2
+            }
+          ]
+        },
+        {
+          "date": "2024-01-14",
+          "type": "Upper",
+          "duration": 65,
+          "rpe": 8,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 4
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Upper",
+          "duration": 65,
+          "rpe": 7,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 8
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-12",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 3
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Upper",
+          "duration": 60,
+          "rpe": 7,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 6
+            },
+            {
+              "muscle": "Back",
+              "sets": 6
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 3
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 3
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "legs",
+          "neglect",
+          "lower body",
+          "imbalance"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [
+          "Barbell Squat",
+          "Leg Press",
+          "Romanian Deadlift"
+        ],
+        "metrics_check": {}
+      }
+    },
+    {
+      "id": 25,
+      "category": "deload_detection",
+      "name": "High RPE every session",
+      "prompt": "I go to failure every set. Is that okay?",
+      "profile": {
+        "name": "Max",
+        "goal": "Hypertrophy",
+        "level": 15,
+        "days_per_week": 5,
+        "injuries": ""
+      },
+      "workouts": [
+        {
+          "date": "2024-01-15",
+          "type": "Push",
+          "duration": 70,
+          "rpe": 10,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 8
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-14",
+          "type": "Pull",
+          "duration": 65,
+          "rpe": 10,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 8
+            }
+          ]
+        },
+        {
+          "date": "2024-01-13",
+          "type": "Legs",
+          "duration": 75,
+          "rpe": 10,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 16
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-12",
+          "type": "Push",
+          "duration": 70,
+          "rpe": 10,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 8
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-11",
+          "type": "Pull",
+          "duration": 65,
+          "rpe": 10,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 8
+            }
+          ]
+        },
+        {
+          "date": "2024-01-10",
+          "type": "Legs",
+          "duration": 75,
+          "rpe": 10,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Legs",
+              "sets": 16
+            },
+            {
+              "muscle": "Core",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-09",
+          "type": "Push",
+          "duration": 70,
+          "rpe": 10,
+          "total_sets": 20,
+          "exercises": [
+            {
+              "muscle": "Chest",
+              "sets": 8
+            },
+            {
+              "muscle": "Shoulders",
+              "sets": 8
+            },
+            {
+              "muscle": "Triceps",
+              "sets": 4
+            }
+          ]
+        },
+        {
+          "date": "2024-01-08",
+          "type": "Pull",
+          "duration": 65,
+          "rpe": 10,
+          "total_sets": 18,
+          "exercises": [
+            {
+              "muscle": "Back",
+              "sets": 10
+            },
+            {
+              "muscle": "Biceps",
+              "sets": 8
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "should_mention": [
+          "RPE",
+          "failure",
+          "fatigue",
+          "reserve"
+        ],
+        "should_not_mention": [],
+        "rag_should_retrieve": [],
+        "metrics_check": {
+          "strain_above": 60
+        }
+      }
+    }
+  ]
+}
