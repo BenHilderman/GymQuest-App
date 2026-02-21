@@ -25,6 +25,7 @@ struct ActivityView: View {
     @Query(sort: \PREvent.date, order: .reverse) private var prEvents: [PREvent]
 
     @State private var showingWorkoutTypePicker = false
+    @State private var showingMealLog = false
 
     var body: some View {
         Group {
@@ -66,6 +67,43 @@ struct ActivityView: View {
                     )
                     .padding(.horizontal, 16)
 
+                    // MAIN ACTIONS
+                    VStack(spacing: 12) {
+                        HomeActionCard(
+                            icon: "figure.strengthtraining.traditional",
+                            title: "Start Workout",
+                            subtitle: todayWorkout != nil ? "Completed today" : "Begin a live session",
+                            accentColor: GQColors.vividPurple,
+                            isPrimary: true
+                        ) {
+                            showingWorkoutTypePicker = true
+                        }
+                        .bounceAppear(delay: 0.1)
+
+                        HomeActionCard(
+                            icon: "fork.knife",
+                            title: "Log Food",
+                            subtitle: "Track nutrition",
+                            accentColor: GQColors.coralRed,
+                            isPrimary: false
+                        ) {
+                            showingMealLog = true
+                        }
+                        .bounceAppear(delay: 0.2)
+
+                        HomeActionCard(
+                            icon: "chart.line.uptrend.xyaxis",
+                            title: "View Progress",
+                            subtitle: "\(streak) day streak",
+                            accentColor: GQColors.success,
+                            isPrimary: false
+                        ) {
+                            appState.selectedTab = .log
+                        }
+                        .bounceAppear(delay: 0.3)
+                    }
+                    .padding(.horizontal, 16)
+
                     // STATS & PROGRESS
                     statsAndProgressSection
 
@@ -98,6 +136,9 @@ struct ActivityView: View {
                 StartWorkoutSheet(selectedType: .constant(.push)) {
                     showingWorkoutTypePicker = false
                 }
+            }
+            .sheet(isPresented: $showingMealLog) {
+                MealLogView(profile: profile)
             }
         }
     }
