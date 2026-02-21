@@ -47,6 +47,8 @@ struct WorkoutTypeSelectionView: View {
         return GQGradients.workoutGradientColors(for: selectedType).first ?? GQColors.vividPurple
     }
 
+    @State private var tapScale: WorkoutType? = nil
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -59,33 +61,66 @@ struct WorkoutTypeSelectionView: View {
                                 .font(.system(size: 32, weight: .bold))
                                 .foregroundColor(.white)
 
-                            Text("Choose your session type and start when you're ready.")
+                            Text("Tap to start.")
                                 .font(.system(size: 15))
                                 .foregroundColor(GQColors.textSecondary)
                         }
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
 
-                        VStack(spacing: 10) {
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                             ForEach(workoutTypes) { option in
-                                WorkoutTypeSelectionCard(
+                                CompactWorkoutTypeCard(
                                     option: option,
-                                    isSelected: selectedType == option.type
+                                    isTapped: tapScale == option.type
                                 ) {
                                     HapticManager.shared.select()
-                                    selectedType = option.type
+                                    if option.type == .custom {
+                                        selectedType = .custom
+                                    } else {
+                                        tapScale = option.type
+                                        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {}
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                            selectedType = option.type
+                                            startWorkout()
+                                        }
+                                    }
                                 }
                             }
-
-                            // "Other" card with custom name input
-                            otherWorkoutCard
                         }
                         .padding(.horizontal, 20)
-                        .padding(.bottom, 16)
+
+                        // "Other" card with inline text field
+                        if selectedType == .custom {
+                            VStack(spacing: 8) {
+                                TextField("Enter workout name...", text: $customName)
+                                    .font(.system(size: 15))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.white.opacity(0.06))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(GQColors.vividPurple.opacity(0.3), lineWidth: 1)
+                                    )
+
+                                Button {
+                                    startWorkout()
+                                } label: {
+                                    Text("Go")
+                                }
+                                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.vividPurple))
+                            }
+                            .padding(.horizontal, 20)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+
+                        Spacer(minLength: 40)
                     }
                 }
-
-                bottomBar
             }
             .gqPageBackground()
         }
@@ -111,74 +146,10 @@ struct WorkoutTypeSelectionView: View {
         .padding(.top, 16)
     }
 
-    private var bottomBar: some View {
-        VStack(spacing: 10) {
-            Button {
-                startWorkout()
-            } label: {
-                Text(startButtonLabel)
-            }
-            .buttonStyle(HomeSocialPrimaryButtonStyle(accent: selectedAccent))
-            .disabled(selectedType == nil)
-            .opacity(selectedType == nil ? 0.55 : 1.0)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 20)
-        .background(
-            Rectangle()
-                .fill(GQColors.surfaceOverlay.opacity(0.86))
-                .ignoresSafeArea(edges: .bottom)
-        )
-    }
-
-    private var startButtonLabel: String {
-        guard let selectedType else { return "Select a Workout Type" }
-        if selectedType == .other {
-            let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? "Start Other" : "Start \(trimmed)"
-        }
-        return "Start \(selectedType.rawValue)"
-    }
-
-    private var otherWorkoutCard: some View {
-        let otherOption = WorkoutTypeOption(type: .other, description: "Custom workout type")
-        let isSelected = selectedType == .other
-
-        return VStack(spacing: 0) {
-            WorkoutTypeSelectionCard(
-                option: otherOption,
-                isSelected: isSelected
-            ) {
-                HapticManager.shared.select()
-                selectedType = .other
-            }
-
-            if isSelected {
-                TextField("Enter workout name...", text: $customName)
-                    .font(.system(size: 15))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.white.opacity(0.06))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(otherOption.accent.opacity(0.3), lineWidth: 1)
-                    )
-                    .padding(.top, 8)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSelected)
-    }
-
     private func startWorkout() {
         guard let selectedType else { return }
         HapticManager.shared.impact(.medium)
-        if selectedType == .other {
+        if selectedType == .custom {
             let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
             appState.startWorkout(type: selectedType, customTitle: trimmed.isEmpty ? nil : trimmed)
         } else {
@@ -188,43 +159,34 @@ struct WorkoutTypeSelectionView: View {
     }
 }
 
-private struct WorkoutTypeSelectionCard: View {
+private struct CompactWorkoutTypeCard: View {
     let option: WorkoutTypeOption
-    let isSelected: Bool
+    var isTapped: Bool = false
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 14) {
+            VStack(spacing: 6) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(option.accent.opacity(0.16))
-                        .frame(width: 44, height: 44)
+                        .frame(width: 36, height: 36)
 
                     Image(systemName: option.type.icon)
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(option.accent)
                 }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(option.type.rawValue)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-
-                    Text(option.description)
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(isSelected ? option.accent : GQColors.textTertiary)
+                Text(option.type.rawValue)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 13)
-            .homeSocialCard(accent: option.accent, emphasized: isSelected)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .homeSocialCard(accent: option.accent)
+            .scaleEffect(isTapped ? 0.92 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isTapped)
         }
         .buttonStyle(GQInteractiveStyle())
     }

@@ -30,7 +30,9 @@ targets:
     type: application
     platform: [iOS, macOS]
     sources:
-      - GymQuest
+      - path: GymQuest
+        excludes:
+          - "Services/HapticManager.swift"
     dependencies:
       - package: GoogleSignIn
     settings:
@@ -58,6 +60,8 @@ targets:
           - CFBundleURLSchemes:
               - com.googleusercontent.apps.672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo
         GIDClientID: 672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo.apps.googleusercontent.com
+        NSHealthShareUsageDescription: "GymQuest uses your health data to track workouts, activity, and fitness progress."
+        NSHealthUpdateUsageDescription: "GymQuest saves your workout data to Apple Health."
 
   GymQuestTests:
     type: bundle.unit-test

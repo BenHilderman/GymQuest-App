@@ -92,9 +92,26 @@ final class FeatureFlags: ObservableObject {
         didSet { save("voiceNotesEnabled", value: voiceNotesEnabled) }
     }
 
+    /// Gym location sharing with friends during workouts
+    @Published var gymLocationSharing: Bool {
+        didSet { save("gymLocationSharing", value: gymLocationSharing) }
+    }
+
+    /// Premium subscription features (AI workouts, advanced analytics, etc.)
+    @Published var premiumEnabled: Bool {
+        didSet { save("premiumEnabled", value: premiumEnabled) }
+    }
+
     /// Dev mode: skip authentication (for testing)
     @Published var devSkipAuth: Bool {
         didSet { save("devSkipAuth", value: devSkipAuth) }
+    }
+
+    // MARK: - One-Time Prompt Tracking
+
+    var hasSeenGymLocationPrompt: Bool {
+        get { defaults.bool(forKey: "hasSeenGymLocationPrompt") }
+        set { defaults.set(newValue, forKey: "hasSeenGymLocationPrompt") }
     }
 
     // MARK: - Initialization
@@ -122,7 +139,9 @@ final class FeatureFlags: ObservableObject {
         self.nutritionEnabled = defaults.object(forKey: prefix + "nutritionEnabled") as? Bool ?? true
         self.workoutPartyEnabled = defaults.object(forKey: prefix + "workoutPartyEnabled") as? Bool ?? true
         self.voiceNotesEnabled = defaults.object(forKey: prefix + "voiceNotesEnabled") as? Bool ?? true
+        self.gymLocationSharing = defaults.object(forKey: prefix + "gymLocationSharing") as? Bool ?? true
         self.devSkipAuth = defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? true
+        self.premiumEnabled = defaults.object(forKey: prefix + "premiumEnabled") as? Bool ?? true
     }
 
     private func save(_ key: String, value: Bool) {
@@ -148,6 +167,7 @@ final class FeatureFlags: ObservableObject {
         repeatWorkoutEnabled = true
         workoutPartyEnabled = true
         voiceNotesEnabled = true
+        gymLocationSharing = true
     }
 
     /// Reset to default feature state
@@ -168,6 +188,7 @@ final class FeatureFlags: ObservableObject {
         nutritionEnabled = true
         workoutPartyEnabled = true
         voiceNotesEnabled = true
+        gymLocationSharing = true
     }
 
     /// Check if app is in demo mode (no external dependencies needed)

@@ -163,6 +163,13 @@ enum ExerciseCategory: String, Codable, CaseIterable {
     case cardio = "Cardio"
     case compound = "Compound"
     case isolation = "Isolation"
+    case hiit = "HIIT"
+    case plyometric = "Plyometric"
+    case olympic = "Olympic"
+    case calisthenics = "Calisthenics"
+    case yoga = "Yoga"
+    case martialArts = "Martial Arts"
+    case sport = "Sport"
 }
 
 /// Equipment types for exercises
@@ -174,6 +181,15 @@ enum Equipment: String, Codable, CaseIterable {
     case bodyweight = "Bodyweight"
     case band = "Band"
     case kettlebell = "Kettlebell"
+    case foamRoller = "Foam Roller"
+    case medicineBall = "Medicine Ball"
+    case box = "Box"
+    case heavyBag = "Heavy Bag"
+    case swimGear = "Swim Gear"
+    case treadmill = "Treadmill"
+    case bike = "Bike"
+    case rower = "Rower"
+    case jumpRope = "Jump Rope"
     case other = "Other"
 
     var icon: String {
@@ -185,6 +201,15 @@ enum Equipment: String, Codable, CaseIterable {
         case .bodyweight: return "figure.stand"
         case .band: return "lasso"
         case .kettlebell: return "scalemass.fill"
+        case .foamRoller: return "cylinder.fill"
+        case .medicineBall: return "circle.fill"
+        case .box: return "square.fill"
+        case .heavyBag: return "figure.boxing"
+        case .swimGear: return "figure.pool.swim"
+        case .treadmill: return "figure.run"
+        case .bike: return "bicycle"
+        case .rower: return "figure.rower"
+        case .jumpRope: return "figure.jumprope"
         case .other: return "questionmark.circle"
         }
     }
@@ -417,7 +442,7 @@ enum WorkoutType: String, Codable, CaseIterable {
     case rest = "Active Recovery"
     case glutes = "Glutes"
     case abs = "Abs"
-    case other = "Other"
+    case custom = "Custom"
 
     var icon: String {
         switch self {
@@ -431,12 +456,17 @@ enum WorkoutType: String, Codable, CaseIterable {
         case .rest: return "leaf.fill"
         case .glutes: return "figure.walk"
         case .abs: return "figure.core.training"
-        case .other: return "questionmark.circle.fill"
+        case .custom: return "slider.horizontal.3"
         }
     }
 
     var color: Color {
         return Color(red: 0.0, green: 0.9, blue: 0.9) // Cyan accent
+    }
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = raw == "Other" ? .custom : (WorkoutType(rawValue: raw) ?? .custom)
     }
 }
 
@@ -504,6 +534,8 @@ enum MuscleGroup: String, Codable, CaseIterable {
     case calves = "Calves"
     case core = "Core"
     case cardio = "Cardio"
+    case fullBody = "Full Body"
+    case flexibility = "Flexibility"
 
     var color: String {
         switch self {
@@ -518,12 +550,14 @@ enum MuscleGroup: String, Codable, CaseIterable {
         case .calves: return "mint"
         case .core: return "yellow"
         case .cardio: return "red"
+        case .fullBody: return "cyan"
+        case .flexibility: return "blue"
         }
     }
 
     var optimalWeeklySets: Int {
         switch self {
-        case .chest: return 12 // Assuming twice a week 6 sets a workout.
+        case .chest: return 12
         case .back: return 15
         case .shoulders: return 12
         case .biceps: return 10
@@ -534,6 +568,8 @@ enum MuscleGroup: String, Codable, CaseIterable {
         case .calves: return 8
         case .core: return 8
         case .cardio: return 0
+        case .fullBody: return 0
+        case .flexibility: return 0
         }
     }
 }
@@ -625,6 +661,69 @@ final class UserProfile {
     var googleId: String?
     var dateOfBirth: Date?
 
+    // Fitness profile fields
+    var genderRaw: String?
+    var heightCm: Double?
+    var weightKg: Double?
+    var weightUnitRaw: String = WeightUnit.lbs.rawValue
+    var heightUnitRaw: String = HeightUnit.ftIn.rawValue
+    var workoutEnvironmentRaw: String?
+    var experienceLevelRaw: String?
+    var availableEquipmentJSON: String = "[]"
+    var fitnessProfileCompleted: Bool = false
+    var isPremium: Bool = false
+
+    // Computed wrappers for raw-stored enums
+    var gender: Gender? {
+        get { genderRaw.flatMap { Gender(rawValue: $0) } }
+        set { genderRaw = newValue?.rawValue }
+    }
+
+    var weightUnit: WeightUnit {
+        get { WeightUnit(rawValue: weightUnitRaw) ?? .lbs }
+        set { weightUnitRaw = newValue.rawValue }
+    }
+
+    var heightUnit: HeightUnit {
+        get { HeightUnit(rawValue: heightUnitRaw) ?? .ftIn }
+        set { heightUnitRaw = newValue.rawValue }
+    }
+
+    var workoutEnvironment: WorkoutEnvironment? {
+        get { workoutEnvironmentRaw.flatMap { WorkoutEnvironment(rawValue: $0) } }
+        set { workoutEnvironmentRaw = newValue?.rawValue }
+    }
+
+    var experienceLevel: ExperienceLevel? {
+        get { experienceLevelRaw.flatMap { ExperienceLevel(rawValue: $0) } }
+        set { experienceLevelRaw = newValue?.rawValue }
+    }
+
+    var availableEquipment: [EquipmentType] {
+        get {
+            guard let data = availableEquipmentJSON.data(using: .utf8),
+                  let raw = try? JSONDecoder().decode([String].self, from: data) else { return [] }
+            return raw.compactMap { EquipmentType(rawValue: $0) }
+        }
+        set {
+            let raw = newValue.map { $0.rawValue }
+            if let data = try? JSONEncoder().encode(raw),
+               let str = String(data: data, encoding: .utf8) {
+                availableEquipmentJSON = str
+            }
+        }
+    }
+
+    // MARK: - Unit Conversion Helpers
+
+    static func lbsToKg(_ lbs: Double) -> Double { lbs * 0.453592 }
+    static func kgToLbs(_ kg: Double) -> Double { kg / 0.453592 }
+    static func ftInToCm(feet: Int, inches: Int) -> Double { Double(feet * 12 + inches) * 2.54 }
+    static func cmToFtIn(_ cm: Double) -> (feet: Int, inches: Int) {
+        let totalInches = Int(cm / 2.54)
+        return (totalInches / 12, totalInches % 12)
+    }
+
     init(
         id: UUID = UUID(),
         name: String = "Athlete",
@@ -698,6 +797,50 @@ enum FitnessGoal: String, Codable, CaseIterable {
     case strength = "Strength"
     case performance = "Performance"
     case general = "General Fitness"
+}
+
+// MARK: - Fitness Profile Enums
+
+enum Gender: String, Codable, CaseIterable {
+    case male = "Male"
+    case female = "Female"
+    case nonBinary = "Non-Binary"
+    case preferNotToSay = "Prefer Not to Say"
+}
+
+enum WeightUnit: String, Codable, CaseIterable {
+    case kg = "kg"
+    case lbs = "lbs"
+}
+
+enum HeightUnit: String, Codable, CaseIterable {
+    case cm = "cm"
+    case ftIn = "ft/in"
+}
+
+enum WorkoutEnvironment: String, Codable, CaseIterable {
+    case home = "Home"
+    case gym = "Gym"
+    case both = "Both"
+    case outdoor = "Outdoor"
+}
+
+enum ExperienceLevel: String, Codable, CaseIterable {
+    case beginner = "Beginner"
+    case intermediate = "Intermediate"
+    case advanced = "Advanced"
+}
+
+enum EquipmentType: String, Codable, CaseIterable {
+    case barbell = "Barbell"
+    case dumbbells = "Dumbbells"
+    case kettlebells = "Kettlebells"
+    case cables = "Cables"
+    case machines = "Machines"
+    case resistanceBands = "Resistance Bands"
+    case pullUpBar = "Pull-Up Bar"
+    case bench = "Bench"
+    case bodyweightOnly = "Bodyweight Only"
 }
 
 enum AIProvider: String, Codable, CaseIterable {
@@ -1614,6 +1757,80 @@ final class CommunityMembership {
     }
 }
 
+// MARK: - Community Event
+
+enum CommunityEventType: String, Codable, CaseIterable {
+    case workout = "Workout"
+    case meetup = "Meetup"
+    case competition = "Competition"
+    case social = "Social"
+
+    var icon: String {
+        switch self {
+        case .workout: return "figure.strengthtraining.traditional"
+        case .meetup: return "person.3.fill"
+        case .competition: return "trophy.fill"
+        case .social: return "party.popper.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .workout: return GQColors.cyanSpark
+        case .meetup: return GQColors.vividPurple
+        case .competition: return GQColors.electricGold
+        case .social: return GQColors.sunsetOrange
+        }
+    }
+}
+
+@Model
+final class CommunityEvent {
+    var id: UUID
+    var communityId: UUID
+    var creatorId: UUID
+    var creatorName: String
+    var title: String
+    var eventDescription: String
+    var location: String?
+    var date: Date
+    var endDate: Date?
+    var maxAttendees: Int?
+    var attendeeIds: [UUID]
+    var eventType: CommunityEventType
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        communityId: UUID = UUID(),
+        creatorId: UUID = UUID(),
+        creatorName: String = "",
+        title: String = "",
+        eventDescription: String = "",
+        location: String? = nil,
+        date: Date = Date(),
+        endDate: Date? = nil,
+        maxAttendees: Int? = nil,
+        attendeeIds: [UUID] = [],
+        eventType: CommunityEventType = .workout,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.communityId = communityId
+        self.creatorId = creatorId
+        self.creatorName = creatorName
+        self.title = title
+        self.eventDescription = eventDescription
+        self.location = location
+        self.date = date
+        self.endDate = endDate
+        self.maxAttendees = maxAttendees
+        self.attendeeIds = attendeeIds
+        self.eventType = eventType
+        self.createdAt = createdAt
+    }
+}
+
 // MARK: - Community Challenge
 
 enum ChallengeGoalType: String, Codable, CaseIterable {
@@ -2190,84 +2407,229 @@ struct FoodNutritionEstimator {
         let fat: Int
     }
 
-    private static let foodDatabase: [String: NutritionInfo] = [
+    struct FoodEntry {
+        let caloriesPer100g: Int
+        let proteinPer100g: Int
+        let carbsPer100g: Int
+        let fatPer100g: Int
+        let defaultServingGrams: Int
+        let servingDescription: String
+    }
+
+    // MARK: - USDA-aligned per-100g food database (~120+ entries)
+
+    private static let foodDatabase: [String: FoodEntry] = [
         // Proteins
-        "egg": NutritionInfo(calories: 70, protein: 6, carbs: 1, fat: 5),
-        "eggs": NutritionInfo(calories: 70, protein: 6, carbs: 1, fat: 5),
-        "chicken": NutritionInfo(calories: 165, protein: 31, carbs: 0, fat: 4),
-        "chicken breast": NutritionInfo(calories: 165, protein: 31, carbs: 0, fat: 4),
-        "steak": NutritionInfo(calories: 270, protein: 26, carbs: 0, fat: 18),
-        "beef": NutritionInfo(calories: 250, protein: 26, carbs: 0, fat: 15),
-        "salmon": NutritionInfo(calories: 208, protein: 20, carbs: 0, fat: 13),
-        "tuna": NutritionInfo(calories: 130, protein: 28, carbs: 0, fat: 1),
-        "shrimp": NutritionInfo(calories: 100, protein: 20, carbs: 1, fat: 1),
-        "tofu": NutritionInfo(calories: 80, protein: 8, carbs: 2, fat: 5),
-        "turkey": NutritionInfo(calories: 170, protein: 30, carbs: 0, fat: 5),
-        "bacon": NutritionInfo(calories: 120, protein: 9, carbs: 0, fat: 9),
-        "protein shake": NutritionInfo(calories: 150, protein: 25, carbs: 8, fat: 2),
-        "whey": NutritionInfo(calories: 120, protein: 24, carbs: 3, fat: 1),
-        "greek yogurt": NutritionInfo(calories: 100, protein: 17, carbs: 6, fat: 1),
-        "yogurt": NutritionInfo(calories: 100, protein: 10, carbs: 12, fat: 3),
+        "egg": FoodEntry(caloriesPer100g: 155, proteinPer100g: 13, carbsPer100g: 1, fatPer100g: 11, defaultServingGrams: 50, servingDescription: "1 large egg"),
+        "eggs": FoodEntry(caloriesPer100g: 155, proteinPer100g: 13, carbsPer100g: 1, fatPer100g: 11, defaultServingGrams: 50, servingDescription: "1 large egg"),
+        "chicken": FoodEntry(caloriesPer100g: 165, proteinPer100g: 31, carbsPer100g: 0, fatPer100g: 4, defaultServingGrams: 170, servingDescription: "1 breast"),
+        "chicken breast": FoodEntry(caloriesPer100g: 165, proteinPer100g: 31, carbsPer100g: 0, fatPer100g: 4, defaultServingGrams: 170, servingDescription: "1 breast"),
+        "chicken thigh": FoodEntry(caloriesPer100g: 209, proteinPer100g: 26, carbsPer100g: 0, fatPer100g: 11, defaultServingGrams: 115, servingDescription: "1 thigh"),
+        "steak": FoodEntry(caloriesPer100g: 271, proteinPer100g: 26, carbsPer100g: 0, fatPer100g: 18, defaultServingGrams: 225, servingDescription: "8 oz steak"),
+        "beef": FoodEntry(caloriesPer100g: 250, proteinPer100g: 26, carbsPer100g: 0, fatPer100g: 15, defaultServingGrams: 115, servingDescription: "4 oz patty"),
+        "ground beef": FoodEntry(caloriesPer100g: 250, proteinPer100g: 26, carbsPer100g: 0, fatPer100g: 15, defaultServingGrams: 115, servingDescription: "4 oz"),
+        "salmon": FoodEntry(caloriesPer100g: 208, proteinPer100g: 20, carbsPer100g: 0, fatPer100g: 13, defaultServingGrams: 170, servingDescription: "1 fillet"),
+        "tuna": FoodEntry(caloriesPer100g: 130, proteinPer100g: 28, carbsPer100g: 0, fatPer100g: 1, defaultServingGrams: 85, servingDescription: "1 can"),
+        "shrimp": FoodEntry(caloriesPer100g: 99, proteinPer100g: 24, carbsPer100g: 0, fatPer100g: 0, defaultServingGrams: 85, servingDescription: "3 oz"),
+        "tofu": FoodEntry(caloriesPer100g: 76, proteinPer100g: 8, carbsPer100g: 2, fatPer100g: 5, defaultServingGrams: 125, servingDescription: "1/2 block"),
+        "turkey": FoodEntry(caloriesPer100g: 135, proteinPer100g: 30, carbsPer100g: 0, fatPer100g: 1, defaultServingGrams: 85, servingDescription: "3 oz"),
+        "turkey breast": FoodEntry(caloriesPer100g: 135, proteinPer100g: 30, carbsPer100g: 0, fatPer100g: 1, defaultServingGrams: 85, servingDescription: "3 oz"),
+        "bacon": FoodEntry(caloriesPer100g: 541, proteinPer100g: 37, carbsPer100g: 1, fatPer100g: 42, defaultServingGrams: 24, servingDescription: "3 slices"),
+        "protein shake": FoodEntry(caloriesPer100g: 400, proteinPer100g: 80, carbsPer100g: 13, fatPer100g: 7, defaultServingGrams: 32, servingDescription: "1 scoop"),
+        "whey": FoodEntry(caloriesPer100g: 400, proteinPer100g: 80, carbsPer100g: 13, fatPer100g: 7, defaultServingGrams: 32, servingDescription: "1 scoop"),
+        "greek yogurt": FoodEntry(caloriesPer100g: 59, proteinPer100g: 10, carbsPer100g: 4, fatPer100g: 0, defaultServingGrams: 170, servingDescription: "1 cup"),
+        "yogurt": FoodEntry(caloriesPer100g: 61, proteinPer100g: 3, carbsPer100g: 5, fatPer100g: 3, defaultServingGrams: 170, servingDescription: "1 cup"),
+        "cottage cheese": FoodEntry(caloriesPer100g: 98, proteinPer100g: 11, carbsPer100g: 3, fatPer100g: 4, defaultServingGrams: 115, servingDescription: "1/2 cup"),
+        "pork": FoodEntry(caloriesPer100g: 242, proteinPer100g: 27, carbsPer100g: 0, fatPer100g: 14, defaultServingGrams: 115, servingDescription: "4 oz"),
+        "pork chop": FoodEntry(caloriesPer100g: 231, proteinPer100g: 26, carbsPer100g: 0, fatPer100g: 13, defaultServingGrams: 140, servingDescription: "1 chop"),
+        "lamb": FoodEntry(caloriesPer100g: 294, proteinPer100g: 25, carbsPer100g: 0, fatPer100g: 21, defaultServingGrams: 115, servingDescription: "4 oz"),
+        "tilapia": FoodEntry(caloriesPer100g: 96, proteinPer100g: 20, carbsPer100g: 0, fatPer100g: 2, defaultServingGrams: 115, servingDescription: "1 fillet"),
+        "cod": FoodEntry(caloriesPer100g: 82, proteinPer100g: 18, carbsPer100g: 0, fatPer100g: 1, defaultServingGrams: 115, servingDescription: "1 fillet"),
+        "crab": FoodEntry(caloriesPer100g: 97, proteinPer100g: 19, carbsPer100g: 0, fatPer100g: 2, defaultServingGrams: 85, servingDescription: "3 oz"),
+        "lobster": FoodEntry(caloriesPer100g: 89, proteinPer100g: 19, carbsPer100g: 0, fatPer100g: 1, defaultServingGrams: 145, servingDescription: "1 tail"),
+        "scallops": FoodEntry(caloriesPer100g: 69, proteinPer100g: 12, carbsPer100g: 3, fatPer100g: 1, defaultServingGrams: 85, servingDescription: "3 oz"),
+        "jerky": FoodEntry(caloriesPer100g: 410, proteinPer100g: 33, carbsPer100g: 11, fatPer100g: 26, defaultServingGrams: 28, servingDescription: "1 oz"),
+        "beef jerky": FoodEntry(caloriesPer100g: 410, proteinPer100g: 33, carbsPer100g: 11, fatPer100g: 26, defaultServingGrams: 28, servingDescription: "1 oz"),
 
         // Carbs
-        "rice": NutritionInfo(calories: 200, protein: 4, carbs: 45, fat: 0),
-        "bread": NutritionInfo(calories: 80, protein: 3, carbs: 15, fat: 1),
-        "toast": NutritionInfo(calories: 80, protein: 3, carbs: 15, fat: 1),
-        "pasta": NutritionInfo(calories: 220, protein: 8, carbs: 43, fat: 1),
-        "oatmeal": NutritionInfo(calories: 150, protein: 5, carbs: 27, fat: 3),
-        "oats": NutritionInfo(calories: 150, protein: 5, carbs: 27, fat: 3),
-        "potato": NutritionInfo(calories: 160, protein: 4, carbs: 37, fat: 0),
-        "sweet potato": NutritionInfo(calories: 110, protein: 2, carbs: 26, fat: 0),
-        "banana": NutritionInfo(calories: 105, protein: 1, carbs: 27, fat: 0),
-        "apple": NutritionInfo(calories: 95, protein: 0, carbs: 25, fat: 0),
+        "rice": FoodEntry(caloriesPer100g: 130, proteinPer100g: 3, carbsPer100g: 28, fatPer100g: 0, defaultServingGrams: 195, servingDescription: "1 cup cooked"),
+        "brown rice": FoodEntry(caloriesPer100g: 123, proteinPer100g: 3, carbsPer100g: 26, fatPer100g: 1, defaultServingGrams: 195, servingDescription: "1 cup cooked"),
+        "bread": FoodEntry(caloriesPer100g: 265, proteinPer100g: 9, carbsPer100g: 49, fatPer100g: 3, defaultServingGrams: 30, servingDescription: "1 slice"),
+        "toast": FoodEntry(caloriesPer100g: 265, proteinPer100g: 9, carbsPer100g: 49, fatPer100g: 3, defaultServingGrams: 30, servingDescription: "1 slice"),
+        "whole wheat bread": FoodEntry(caloriesPer100g: 252, proteinPer100g: 12, carbsPer100g: 43, fatPer100g: 4, defaultServingGrams: 30, servingDescription: "1 slice"),
+        "pasta": FoodEntry(caloriesPer100g: 131, proteinPer100g: 5, carbsPer100g: 25, fatPer100g: 1, defaultServingGrams: 200, servingDescription: "1 cup cooked"),
+        "spaghetti": FoodEntry(caloriesPer100g: 131, proteinPer100g: 5, carbsPer100g: 25, fatPer100g: 1, defaultServingGrams: 200, servingDescription: "1 cup cooked"),
+        "oatmeal": FoodEntry(caloriesPer100g: 68, proteinPer100g: 2, carbsPer100g: 12, fatPer100g: 1, defaultServingGrams: 235, servingDescription: "1 cup cooked"),
+        "oats": FoodEntry(caloriesPer100g: 389, proteinPer100g: 17, carbsPer100g: 66, fatPer100g: 7, defaultServingGrams: 40, servingDescription: "1/2 cup dry"),
+        "potato": FoodEntry(caloriesPer100g: 77, proteinPer100g: 2, carbsPer100g: 17, fatPer100g: 0, defaultServingGrams: 213, servingDescription: "1 medium"),
+        "sweet potato": FoodEntry(caloriesPer100g: 86, proteinPer100g: 2, carbsPer100g: 20, fatPer100g: 0, defaultServingGrams: 130, servingDescription: "1 medium"),
+        "banana": FoodEntry(caloriesPer100g: 89, proteinPer100g: 1, carbsPer100g: 23, fatPer100g: 0, defaultServingGrams: 118, servingDescription: "1 medium"),
+        "apple": FoodEntry(caloriesPer100g: 52, proteinPer100g: 0, carbsPer100g: 14, fatPer100g: 0, defaultServingGrams: 182, servingDescription: "1 medium"),
+        "orange": FoodEntry(caloriesPer100g: 47, proteinPer100g: 1, carbsPer100g: 12, fatPer100g: 0, defaultServingGrams: 131, servingDescription: "1 medium"),
+        "blueberries": FoodEntry(caloriesPer100g: 57, proteinPer100g: 1, carbsPer100g: 14, fatPer100g: 0, defaultServingGrams: 148, servingDescription: "1 cup"),
+        "strawberries": FoodEntry(caloriesPer100g: 32, proteinPer100g: 1, carbsPer100g: 8, fatPer100g: 0, defaultServingGrams: 152, servingDescription: "1 cup"),
+        "grapes": FoodEntry(caloriesPer100g: 69, proteinPer100g: 1, carbsPer100g: 18, fatPer100g: 0, defaultServingGrams: 92, servingDescription: "1 cup"),
+        "mango": FoodEntry(caloriesPer100g: 60, proteinPer100g: 1, carbsPer100g: 15, fatPer100g: 0, defaultServingGrams: 165, servingDescription: "1 cup"),
+        "quinoa": FoodEntry(caloriesPer100g: 120, proteinPer100g: 4, carbsPer100g: 21, fatPer100g: 2, defaultServingGrams: 185, servingDescription: "1 cup cooked"),
+        "bagel": FoodEntry(caloriesPer100g: 257, proteinPer100g: 10, carbsPer100g: 50, fatPer100g: 2, defaultServingGrams: 105, servingDescription: "1 bagel"),
+        "tortilla": FoodEntry(caloriesPer100g: 218, proteinPer100g: 6, carbsPer100g: 36, fatPer100g: 5, defaultServingGrams: 64, servingDescription: "1 large"),
+        "cereal": FoodEntry(caloriesPer100g: 379, proteinPer100g: 7, carbsPer100g: 84, fatPer100g: 1, defaultServingGrams: 30, servingDescription: "1 cup"),
+        "granola": FoodEntry(caloriesPer100g: 471, proteinPer100g: 10, carbsPer100g: 64, fatPer100g: 20, defaultServingGrams: 55, servingDescription: "1/2 cup"),
+        "pancake": FoodEntry(caloriesPer100g: 227, proteinPer100g: 6, carbsPer100g: 28, fatPer100g: 10, defaultServingGrams: 77, servingDescription: "1 large"),
+        "pancakes": FoodEntry(caloriesPer100g: 227, proteinPer100g: 6, carbsPer100g: 28, fatPer100g: 10, defaultServingGrams: 77, servingDescription: "1 large"),
+        "waffle": FoodEntry(caloriesPer100g: 291, proteinPer100g: 8, carbsPer100g: 33, fatPer100g: 14, defaultServingGrams: 75, servingDescription: "1 waffle"),
+        "french toast": FoodEntry(caloriesPer100g: 229, proteinPer100g: 10, carbsPer100g: 24, fatPer100g: 10, defaultServingGrams: 65, servingDescription: "1 slice"),
+        "corn": FoodEntry(caloriesPer100g: 86, proteinPer100g: 3, carbsPer100g: 19, fatPer100g: 1, defaultServingGrams: 90, servingDescription: "1 ear"),
 
         // Fats & Misc
-        "avocado": NutritionInfo(calories: 240, protein: 3, carbs: 12, fat: 22),
-        "peanut butter": NutritionInfo(calories: 190, protein: 7, carbs: 7, fat: 16),
-        "cheese": NutritionInfo(calories: 110, protein: 7, carbs: 0, fat: 9),
-        "butter": NutritionInfo(calories: 100, protein: 0, carbs: 0, fat: 11),
-        "olive oil": NutritionInfo(calories: 120, protein: 0, carbs: 0, fat: 14),
-        "nuts": NutritionInfo(calories: 170, protein: 5, carbs: 6, fat: 15),
-        "almonds": NutritionInfo(calories: 165, protein: 6, carbs: 6, fat: 14),
+        "avocado": FoodEntry(caloriesPer100g: 160, proteinPer100g: 2, carbsPer100g: 9, fatPer100g: 15, defaultServingGrams: 150, servingDescription: "1 whole"),
+        "peanut butter": FoodEntry(caloriesPer100g: 588, proteinPer100g: 25, carbsPer100g: 20, fatPer100g: 50, defaultServingGrams: 32, servingDescription: "2 tbsp"),
+        "almond butter": FoodEntry(caloriesPer100g: 614, proteinPer100g: 21, carbsPer100g: 19, fatPer100g: 56, defaultServingGrams: 32, servingDescription: "2 tbsp"),
+        "cheese": FoodEntry(caloriesPer100g: 402, proteinPer100g: 25, carbsPer100g: 1, fatPer100g: 33, defaultServingGrams: 28, servingDescription: "1 slice"),
+        "cheddar": FoodEntry(caloriesPer100g: 402, proteinPer100g: 25, carbsPer100g: 1, fatPer100g: 33, defaultServingGrams: 28, servingDescription: "1 slice"),
+        "mozzarella": FoodEntry(caloriesPer100g: 280, proteinPer100g: 28, carbsPer100g: 3, fatPer100g: 17, defaultServingGrams: 28, servingDescription: "1 oz"),
+        "cream cheese": FoodEntry(caloriesPer100g: 342, proteinPer100g: 6, carbsPer100g: 4, fatPer100g: 34, defaultServingGrams: 28, servingDescription: "2 tbsp"),
+        "butter": FoodEntry(caloriesPer100g: 717, proteinPer100g: 1, carbsPer100g: 0, fatPer100g: 81, defaultServingGrams: 14, servingDescription: "1 tbsp"),
+        "olive oil": FoodEntry(caloriesPer100g: 884, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 100, defaultServingGrams: 14, servingDescription: "1 tbsp"),
+        "coconut oil": FoodEntry(caloriesPer100g: 862, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 100, defaultServingGrams: 14, servingDescription: "1 tbsp"),
+        "nuts": FoodEntry(caloriesPer100g: 607, proteinPer100g: 20, carbsPer100g: 21, fatPer100g: 54, defaultServingGrams: 28, servingDescription: "1 oz"),
+        "almonds": FoodEntry(caloriesPer100g: 579, proteinPer100g: 21, carbsPer100g: 22, fatPer100g: 50, defaultServingGrams: 28, servingDescription: "1 oz"),
+        "walnuts": FoodEntry(caloriesPer100g: 654, proteinPer100g: 15, carbsPer100g: 14, fatPer100g: 65, defaultServingGrams: 28, servingDescription: "1 oz"),
+        "cashews": FoodEntry(caloriesPer100g: 553, proteinPer100g: 18, carbsPer100g: 30, fatPer100g: 44, defaultServingGrams: 28, servingDescription: "1 oz"),
+        "peanuts": FoodEntry(caloriesPer100g: 567, proteinPer100g: 26, carbsPer100g: 16, fatPer100g: 49, defaultServingGrams: 28, servingDescription: "1 oz"),
+        "trail mix": FoodEntry(caloriesPer100g: 462, proteinPer100g: 14, carbsPer100g: 44, fatPer100g: 29, defaultServingGrams: 40, servingDescription: "1/4 cup"),
+        "hummus": FoodEntry(caloriesPer100g: 166, proteinPer100g: 8, carbsPer100g: 14, fatPer100g: 10, defaultServingGrams: 30, servingDescription: "2 tbsp"),
+        "guacamole": FoodEntry(caloriesPer100g: 160, proteinPer100g: 2, carbsPer100g: 9, fatPer100g: 15, defaultServingGrams: 30, servingDescription: "2 tbsp"),
 
         // Drinks
-        "coffee": NutritionInfo(calories: 5, protein: 0, carbs: 0, fat: 0),
-        "milk": NutritionInfo(calories: 120, protein: 8, carbs: 12, fat: 5),
-        "juice": NutritionInfo(calories: 110, protein: 1, carbs: 26, fat: 0),
-        "smoothie": NutritionInfo(calories: 200, protein: 8, carbs: 35, fat: 4),
+        "coffee": FoodEntry(caloriesPer100g: 1, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0, defaultServingGrams: 240, servingDescription: "1 cup"),
+        "latte": FoodEntry(caloriesPer100g: 56, proteinPer100g: 3, carbsPer100g: 5, fatPer100g: 3, defaultServingGrams: 240, servingDescription: "1 cup"),
+        "milk": FoodEntry(caloriesPer100g: 42, proteinPer100g: 3, carbsPer100g: 5, fatPer100g: 1, defaultServingGrams: 240, servingDescription: "1 cup"),
+        "whole milk": FoodEntry(caloriesPer100g: 61, proteinPer100g: 3, carbsPer100g: 5, fatPer100g: 3, defaultServingGrams: 240, servingDescription: "1 cup"),
+        "almond milk": FoodEntry(caloriesPer100g: 15, proteinPer100g: 1, carbsPer100g: 1, fatPer100g: 1, defaultServingGrams: 240, servingDescription: "1 cup"),
+        "oat milk": FoodEntry(caloriesPer100g: 47, proteinPer100g: 1, carbsPer100g: 7, fatPer100g: 2, defaultServingGrams: 240, servingDescription: "1 cup"),
+        "juice": FoodEntry(caloriesPer100g: 45, proteinPer100g: 1, carbsPer100g: 10, fatPer100g: 0, defaultServingGrams: 240, servingDescription: "1 cup"),
+        "orange juice": FoodEntry(caloriesPer100g: 45, proteinPer100g: 1, carbsPer100g: 10, fatPer100g: 0, defaultServingGrams: 240, servingDescription: "1 cup"),
+        "smoothie": FoodEntry(caloriesPer100g: 54, proteinPer100g: 2, carbsPer100g: 10, fatPer100g: 1, defaultServingGrams: 350, servingDescription: "1 large"),
+        "protein smoothie": FoodEntry(caloriesPer100g: 71, proteinPer100g: 7, carbsPer100g: 9, fatPer100g: 1, defaultServingGrams: 350, servingDescription: "1 large"),
+        "soda": FoodEntry(caloriesPer100g: 41, proteinPer100g: 0, carbsPer100g: 11, fatPer100g: 0, defaultServingGrams: 355, servingDescription: "1 can"),
+        "beer": FoodEntry(caloriesPer100g: 43, proteinPer100g: 0, carbsPer100g: 4, fatPer100g: 0, defaultServingGrams: 355, servingDescription: "1 can"),
+        "wine": FoodEntry(caloriesPer100g: 83, proteinPer100g: 0, carbsPer100g: 3, fatPer100g: 0, defaultServingGrams: 148, servingDescription: "1 glass"),
+        "energy drink": FoodEntry(caloriesPer100g: 45, proteinPer100g: 0, carbsPer100g: 11, fatPer100g: 0, defaultServingGrams: 250, servingDescription: "1 can"),
 
         // Meals
-        "salad": NutritionInfo(calories: 150, protein: 5, carbs: 12, fat: 8),
-        "sandwich": NutritionInfo(calories: 350, protein: 18, carbs: 35, fat: 14),
-        "burger": NutritionInfo(calories: 450, protein: 25, carbs: 35, fat: 22),
-        "pizza": NutritionInfo(calories: 300, protein: 12, carbs: 36, fat: 12),
-        "burrito": NutritionInfo(calories: 500, protein: 20, carbs: 55, fat: 20),
-        "sushi": NutritionInfo(calories: 250, protein: 12, carbs: 35, fat: 6),
-        "soup": NutritionInfo(calories: 150, protein: 8, carbs: 18, fat: 5),
-        "wrap": NutritionInfo(calories: 350, protein: 18, carbs: 35, fat: 14),
+        "salad": FoodEntry(caloriesPer100g: 20, proteinPer100g: 1, carbsPer100g: 4, fatPer100g: 0, defaultServingGrams: 300, servingDescription: "1 large bowl"),
+        "chicken salad": FoodEntry(caloriesPer100g: 110, proteinPer100g: 14, carbsPer100g: 4, fatPer100g: 5, defaultServingGrams: 200, servingDescription: "1 serving"),
+        "sandwich": FoodEntry(caloriesPer100g: 175, proteinPer100g: 9, carbsPer100g: 18, fatPer100g: 7, defaultServingGrams: 200, servingDescription: "1 sandwich"),
+        "burger": FoodEntry(caloriesPer100g: 225, proteinPer100g: 13, carbsPer100g: 18, fatPer100g: 11, defaultServingGrams: 200, servingDescription: "1 burger"),
+        "cheeseburger": FoodEntry(caloriesPer100g: 250, proteinPer100g: 14, carbsPer100g: 18, fatPer100g: 14, defaultServingGrams: 215, servingDescription: "1 burger"),
+        "pizza": FoodEntry(caloriesPer100g: 266, proteinPer100g: 11, carbsPer100g: 33, fatPer100g: 10, defaultServingGrams: 107, servingDescription: "1 slice"),
+        "burrito": FoodEntry(caloriesPer100g: 177, proteinPer100g: 9, carbsPer100g: 22, fatPer100g: 6, defaultServingGrams: 285, servingDescription: "1 burrito"),
+        "sushi": FoodEntry(caloriesPer100g: 143, proteinPer100g: 6, carbsPer100g: 21, fatPer100g: 4, defaultServingGrams: 170, servingDescription: "6 pieces"),
+        "soup": FoodEntry(caloriesPer100g: 30, proteinPer100g: 2, carbsPer100g: 4, fatPer100g: 1, defaultServingGrams: 250, servingDescription: "1 bowl"),
+        "chicken soup": FoodEntry(caloriesPer100g: 36, proteinPer100g: 4, carbsPer100g: 3, fatPer100g: 1, defaultServingGrams: 250, servingDescription: "1 bowl"),
+        "wrap": FoodEntry(caloriesPer100g: 175, proteinPer100g: 9, carbsPer100g: 18, fatPer100g: 7, defaultServingGrams: 200, servingDescription: "1 wrap"),
+        "taco": FoodEntry(caloriesPer100g: 210, proteinPer100g: 11, carbsPer100g: 21, fatPer100g: 10, defaultServingGrams: 78, servingDescription: "1 taco"),
+        "tacos": FoodEntry(caloriesPer100g: 210, proteinPer100g: 11, carbsPer100g: 21, fatPer100g: 10, defaultServingGrams: 78, servingDescription: "1 taco"),
+        "stir fry": FoodEntry(caloriesPer100g: 117, proteinPer100g: 8, carbsPer100g: 10, fatPer100g: 5, defaultServingGrams: 250, servingDescription: "1 serving"),
+        "fried rice": FoodEntry(caloriesPer100g: 163, proteinPer100g: 5, carbsPer100g: 20, fatPer100g: 7, defaultServingGrams: 200, servingDescription: "1 serving"),
+        "mac and cheese": FoodEntry(caloriesPer100g: 164, proteinPer100g: 6, carbsPer100g: 18, fatPer100g: 7, defaultServingGrams: 200, servingDescription: "1 serving"),
+        "ramen": FoodEntry(caloriesPer100g: 436, proteinPer100g: 10, carbsPer100g: 62, fatPer100g: 17, defaultServingGrams: 85, servingDescription: "1 pack"),
+        "noodles": FoodEntry(caloriesPer100g: 138, proteinPer100g: 5, carbsPer100g: 25, fatPer100g: 2, defaultServingGrams: 200, servingDescription: "1 cup cooked"),
+        "chicken wings": FoodEntry(caloriesPer100g: 203, proteinPer100g: 18, carbsPer100g: 0, fatPer100g: 14, defaultServingGrams: 85, servingDescription: "3 wings"),
+        "wings": FoodEntry(caloriesPer100g: 203, proteinPer100g: 18, carbsPer100g: 0, fatPer100g: 14, defaultServingGrams: 85, servingDescription: "3 wings"),
+        "fries": FoodEntry(caloriesPer100g: 312, proteinPer100g: 3, carbsPer100g: 41, fatPer100g: 15, defaultServingGrams: 117, servingDescription: "1 medium"),
+        "french fries": FoodEntry(caloriesPer100g: 312, proteinPer100g: 3, carbsPer100g: 41, fatPer100g: 15, defaultServingGrams: 117, servingDescription: "1 medium"),
+
+        // Snacks & Desserts
+        "protein bar": FoodEntry(caloriesPer100g: 350, proteinPer100g: 25, carbsPer100g: 40, fatPer100g: 10, defaultServingGrams: 60, servingDescription: "1 bar"),
+        "granola bar": FoodEntry(caloriesPer100g: 471, proteinPer100g: 10, carbsPer100g: 64, fatPer100g: 20, defaultServingGrams: 42, servingDescription: "1 bar"),
+        "chips": FoodEntry(caloriesPer100g: 536, proteinPer100g: 7, carbsPer100g: 53, fatPer100g: 35, defaultServingGrams: 28, servingDescription: "1 oz"),
+        "popcorn": FoodEntry(caloriesPer100g: 375, proteinPer100g: 12, carbsPer100g: 74, fatPer100g: 4, defaultServingGrams: 28, servingDescription: "3 cups"),
+        "chocolate": FoodEntry(caloriesPer100g: 546, proteinPer100g: 5, carbsPer100g: 60, fatPer100g: 31, defaultServingGrams: 40, servingDescription: "1 bar"),
+        "dark chocolate": FoodEntry(caloriesPer100g: 546, proteinPer100g: 5, carbsPer100g: 60, fatPer100g: 31, defaultServingGrams: 40, servingDescription: "1 bar"),
+        "ice cream": FoodEntry(caloriesPer100g: 207, proteinPer100g: 4, carbsPer100g: 24, fatPer100g: 11, defaultServingGrams: 132, servingDescription: "1 cup"),
+        "cookie": FoodEntry(caloriesPer100g: 502, proteinPer100g: 5, carbsPer100g: 65, fatPer100g: 25, defaultServingGrams: 30, servingDescription: "1 cookie"),
+        "cookies": FoodEntry(caloriesPer100g: 502, proteinPer100g: 5, carbsPer100g: 65, fatPer100g: 25, defaultServingGrams: 30, servingDescription: "1 cookie"),
+        "brownie": FoodEntry(caloriesPer100g: 405, proteinPer100g: 5, carbsPer100g: 51, fatPer100g: 21, defaultServingGrams: 56, servingDescription: "1 piece"),
+        "donut": FoodEntry(caloriesPer100g: 421, proteinPer100g: 5, carbsPer100g: 49, fatPer100g: 23, defaultServingGrams: 60, servingDescription: "1 donut"),
+        "cake": FoodEntry(caloriesPer100g: 257, proteinPer100g: 3, carbsPer100g: 36, fatPer100g: 12, defaultServingGrams: 80, servingDescription: "1 slice"),
+        "muffin": FoodEntry(caloriesPer100g: 340, proteinPer100g: 5, carbsPer100g: 45, fatPer100g: 16, defaultServingGrams: 113, servingDescription: "1 muffin"),
+        "rice cake": FoodEntry(caloriesPer100g: 387, proteinPer100g: 8, carbsPer100g: 82, fatPer100g: 3, defaultServingGrams: 9, servingDescription: "1 cake"),
+
+        // Vegetables
+        "broccoli": FoodEntry(caloriesPer100g: 34, proteinPer100g: 3, carbsPer100g: 7, fatPer100g: 0, defaultServingGrams: 91, servingDescription: "1 cup"),
+        "spinach": FoodEntry(caloriesPer100g: 23, proteinPer100g: 3, carbsPer100g: 4, fatPer100g: 0, defaultServingGrams: 30, servingDescription: "1 cup raw"),
+        "kale": FoodEntry(caloriesPer100g: 49, proteinPer100g: 4, carbsPer100g: 9, fatPer100g: 1, defaultServingGrams: 67, servingDescription: "1 cup"),
+        "carrots": FoodEntry(caloriesPer100g: 41, proteinPer100g: 1, carbsPer100g: 10, fatPer100g: 0, defaultServingGrams: 61, servingDescription: "1 medium"),
+        "tomato": FoodEntry(caloriesPer100g: 18, proteinPer100g: 1, carbsPer100g: 4, fatPer100g: 0, defaultServingGrams: 123, servingDescription: "1 medium"),
+        "cucumber": FoodEntry(caloriesPer100g: 15, proteinPer100g: 1, carbsPer100g: 4, fatPer100g: 0, defaultServingGrams: 52, servingDescription: "1/2 cup"),
+        "bell pepper": FoodEntry(caloriesPer100g: 31, proteinPer100g: 1, carbsPer100g: 6, fatPer100g: 0, defaultServingGrams: 119, servingDescription: "1 medium"),
+        "mushrooms": FoodEntry(caloriesPer100g: 22, proteinPer100g: 3, carbsPer100g: 3, fatPer100g: 0, defaultServingGrams: 70, servingDescription: "1 cup"),
+        "onion": FoodEntry(caloriesPer100g: 40, proteinPer100g: 1, carbsPer100g: 9, fatPer100g: 0, defaultServingGrams: 110, servingDescription: "1 medium"),
+        "asparagus": FoodEntry(caloriesPer100g: 20, proteinPer100g: 2, carbsPer100g: 4, fatPer100g: 0, defaultServingGrams: 134, servingDescription: "1 cup"),
+        "green beans": FoodEntry(caloriesPer100g: 31, proteinPer100g: 2, carbsPer100g: 7, fatPer100g: 0, defaultServingGrams: 125, servingDescription: "1 cup"),
+        "zucchini": FoodEntry(caloriesPer100g: 17, proteinPer100g: 1, carbsPer100g: 3, fatPer100g: 0, defaultServingGrams: 113, servingDescription: "1 medium"),
+        "cauliflower": FoodEntry(caloriesPer100g: 25, proteinPer100g: 2, carbsPer100g: 5, fatPer100g: 0, defaultServingGrams: 107, servingDescription: "1 cup"),
+        "edamame": FoodEntry(caloriesPer100g: 121, proteinPer100g: 12, carbsPer100g: 9, fatPer100g: 5, defaultServingGrams: 155, servingDescription: "1 cup"),
+
+        // Legumes/Grains
+        "black beans": FoodEntry(caloriesPer100g: 132, proteinPer100g: 9, carbsPer100g: 24, fatPer100g: 1, defaultServingGrams: 172, servingDescription: "1 cup"),
+        "chickpeas": FoodEntry(caloriesPer100g: 164, proteinPer100g: 9, carbsPer100g: 27, fatPer100g: 3, defaultServingGrams: 164, servingDescription: "1 cup"),
+        "lentils": FoodEntry(caloriesPer100g: 116, proteinPer100g: 9, carbsPer100g: 20, fatPer100g: 0, defaultServingGrams: 198, servingDescription: "1 cup"),
     ]
 
+    // MARK: - Public API
+
     static func estimate(from text: String) -> NutritionInfo {
+        estimate(from: text, weightGrams: nil)
+    }
+
+    static func estimate(from text: String, weightGrams: Int? = nil) -> NutritionInfo {
         let items = text.lowercased()
             .components(separatedBy: CharacterSet(charactersIn: ",;&+\n"))
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
 
         var totalCal = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0
+        var isFirstItem = true
 
         for item in items {
             let (quantity, foodKey) = parseQuantity(from: item)
 
-            if let info = matchFood(foodKey) {
-                totalCal += info.calories * quantity
-                totalProtein += info.protein * quantity
-                totalCarbs += info.carbs * quantity
-                totalFat += info.fat * quantity
+            if let entry = matchFood(foodKey) {
+                let grams: Int
+                if isFirstItem, let w = weightGrams {
+                    grams = w
+                } else {
+                    grams = entry.defaultServingGrams
+                }
+
+                totalCal += entry.caloriesPer100g * grams / 100 * quantity
+                totalProtein += entry.proteinPer100g * grams / 100 * quantity
+                totalCarbs += entry.carbsPer100g * grams / 100 * quantity
+                totalFat += entry.fatPer100g * grams / 100 * quantity
             }
+
+            isFirstItem = false
         }
 
         return NutritionInfo(calories: totalCal, protein: totalProtein, carbs: totalCarbs, fat: totalFat)
     }
+
+    static func defaultServing(for text: String) -> (grams: Int, description: String)? {
+        let items = text.lowercased()
+            .components(separatedBy: CharacterSet(charactersIn: ",;&+\n"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        guard let first = items.first else { return nil }
+        let (_, foodKey) = parseQuantity(from: first)
+        guard let entry = matchFood(foodKey) else { return nil }
+        return (grams: entry.defaultServingGrams, description: entry.servingDescription)
+    }
+
+    // MARK: - Private helpers
 
     private static func parseQuantity(from text: String) -> (Int, String) {
         let words = text.split(separator: " ").map { String($0) }
@@ -2287,11 +2649,11 @@ struct FoodNutritionEstimator {
         return (1, text)
     }
 
-    private static func matchFood(_ text: String) -> NutritionInfo? {
+    private static func matchFood(_ text: String) -> FoodEntry? {
         let cleaned = text.trimmingCharacters(in: .whitespaces)
 
         // Exact match first
-        if let info = foodDatabase[cleaned] { return info }
+        if let entry = foodDatabase[cleaned] { return entry }
 
         // Try matching longest key first (e.g., "chicken breast" before "chicken")
         let sortedKeys = foodDatabase.keys.sorted { $0.count > $1.count }
@@ -2423,6 +2785,26 @@ final class WorkoutTemplate {
         set {
             exerciseData = try? JSONEncoder().encode(newValue)
         }
+    }
+
+    static func fromSharedWorkout(_ workout: SharedWorkoutData, userId: UUID) -> WorkoutTemplate {
+        let templateExercises = workout.exercises.enumerated().map { index, exercise in
+            TemplateExercise(
+                name: exercise.name,
+                muscleGroup: exercise.muscleGroup,
+                suggestedSets: exercise.sets.count,
+                suggestedReps: "\(exercise.sets.first?.reps ?? 10)",
+                suggestedWeight: exercise.sets.first?.weight,
+                order: index
+            )
+        }
+        return WorkoutTemplate(
+            odId: userId,
+            name: "\(workout.title) (from @\(workout.authorUsername))",
+            workoutType: WorkoutType(rawValue: workout.workoutType) ?? .push,
+            exercises: templateExercises,
+            estimatedDuration: workout.estimatedDuration
+        )
     }
 }
 
@@ -2630,24 +3012,7 @@ struct ExerciseDatabase {
     }
 }
 
-// MARK: - Extended Exercise Metadata (GymQuest 2.0)
-
-/// Rich exercise metadata for learning, demos, and robot generation
-struct ExerciseMetadata: Codable, Identifiable {
-    var id: UUID = UUID()
-    let name: String
-    let muscleGroup: MuscleGroup
-    let category: ExerciseCategory
-    let equipment: Equipment
-    let difficulty: ExerciseDifficulty
-    let primaryMuscles: [String]
-    let secondaryMuscles: [String]
-    let aliases: [String]
-    let movementPattern: MovementPattern
-    let cues: [String] // Form cues
-    let commonMistakes: [String]
-    let variations: [String]
-}
+// MARK: - Movement Pattern
 
 /// Movement patterns for robot demo generation
 enum MovementPattern: String, Codable, CaseIterable {
@@ -2664,353 +3029,18 @@ enum MovementPattern: String, Codable, CaseIterable {
     case plank = "Plank"
     case row = "Row"
     case press = "Press"
+    case jump = "Jump"
+    case sprint = "Sprint"
+    case throw_ = "Throw"
+    case kick = "Kick"
+    case swim = "Swim"
+    case cycle = "Cycle"
+    case flow = "Flow"
+    case strike = "Strike"
 
     var baseMotionId: String {
         rawValue.lowercased().replacingOccurrences(of: " ", with: "_")
     }
 }
 
-/// Extended exercise database with full metadata
-struct ExtendedExerciseDatabase {
-    static let exercises: [ExerciseMetadata] = [
-        // CHEST - Push
-        ExerciseMetadata(
-            name: "Bench Press",
-            muscleGroup: .chest,
-            category: .push,
-            equipment: .barbell,
-            difficulty: .intermediate,
-            primaryMuscles: ["Chest", "Pectoralis Major"],
-            secondaryMuscles: ["Triceps", "Front Deltoids"],
-            aliases: ["Flat Bench", "Barbell Bench"],
-            movementPattern: .press,
-            cues: ["Retract shoulder blades", "Arch upper back slightly", "Bar path: diagonal from chest to lockout"],
-            commonMistakes: ["Flaring elbows too wide", "Bouncing off chest", "Lifting hips off bench"],
-            variations: ["Close Grip", "Wide Grip", "Pause Reps"]
-        ),
-        ExerciseMetadata(
-            name: "Incline Bench Press",
-            muscleGroup: .chest,
-            category: .push,
-            equipment: .barbell,
-            difficulty: .intermediate,
-            primaryMuscles: ["Upper Chest", "Clavicular Pectoralis"],
-            secondaryMuscles: ["Front Deltoids", "Triceps"],
-            aliases: ["Incline Barbell Press", "Incline Press"],
-            movementPattern: .press,
-            cues: ["Set bench to 30-45 degrees", "Touch bar to upper chest", "Keep wrists stacked over elbows"],
-            commonMistakes: ["Bench angle too steep", "Pressing too high on chest", "Excessive arch"],
-            variations: ["Dumbbell Incline", "Smith Machine Incline"]
-        ),
-        ExerciseMetadata(
-            name: "Dumbbell Press",
-            muscleGroup: .chest,
-            category: .push,
-            equipment: .dumbbell,
-            difficulty: .beginner,
-            primaryMuscles: ["Chest", "Pectoralis Major"],
-            secondaryMuscles: ["Triceps", "Front Deltoids"],
-            aliases: ["DB Press", "Flat Dumbbell Press", "Dumbbell Bench Press"],
-            movementPattern: .press,
-            cues: ["Control the descent", "Squeeze at the top", "Keep dumbbells from drifting outward"],
-            commonMistakes: ["Going too heavy too soon", "Not controlling the negative", "Inconsistent range of motion"],
-            variations: ["Neutral Grip", "Single Arm", "Alternating"]
-        ),
-        ExerciseMetadata(
-            name: "Push-ups",
-            muscleGroup: .chest,
-            category: .push,
-            equipment: .bodyweight,
-            difficulty: .beginner,
-            primaryMuscles: ["Chest", "Pectoralis Major"],
-            secondaryMuscles: ["Triceps", "Core", "Front Deltoids"],
-            aliases: ["Pushups", "Press-ups"],
-            movementPattern: .push,
-            cues: ["Hands slightly wider than shoulders", "Body in straight line", "Chest to floor each rep"],
-            commonMistakes: ["Hips sagging", "Incomplete range of motion", "Flaring elbows 90 degrees"],
-            variations: ["Incline", "Decline", "Diamond", "Wide"]
-        ),
-        ExerciseMetadata(
-            name: "Cable Fly",
-            muscleGroup: .chest,
-            category: .isolation,
-            equipment: .cable,
-            difficulty: .beginner,
-            primaryMuscles: ["Chest", "Pectoralis Major"],
-            secondaryMuscles: ["Front Deltoids"],
-            aliases: ["Cable Crossover", "Cable Chest Fly"],
-            movementPattern: .push,
-            cues: ["Slight bend in elbows", "Squeeze chest at the center", "Control the stretch"],
-            commonMistakes: ["Using too much weight", "Bending elbows too much", "Rushing the movement"],
-            variations: ["High to Low", "Low to High", "Single Arm"]
-        ),
-
-        // BACK - Pull
-        ExerciseMetadata(
-            name: "Deadlift",
-            muscleGroup: .back,
-            category: .compound,
-            equipment: .barbell,
-            difficulty: .advanced,
-            primaryMuscles: ["Erector Spinae", "Glutes", "Hamstrings"],
-            secondaryMuscles: ["Traps", "Lats", "Forearms", "Core"],
-            aliases: ["Conventional Deadlift", "Barbell Deadlift"],
-            movementPattern: .hinge,
-            cues: ["Bar over mid-foot", "Brace core hard", "Push floor away, don't pull up"],
-            commonMistakes: ["Rounding lower back", "Bar drifting forward", "Hyperextending at top"],
-            variations: ["Sumo", "Romanian", "Trap Bar", "Deficit"]
-        ),
-        ExerciseMetadata(
-            name: "Barbell Row",
-            muscleGroup: .back,
-            category: .pull,
-            equipment: .barbell,
-            difficulty: .intermediate,
-            primaryMuscles: ["Lats", "Rhomboids", "Rear Deltoids"],
-            secondaryMuscles: ["Biceps", "Erector Spinae", "Core"],
-            aliases: ["Bent Over Row", "BB Row", "Pendlay Row"],
-            movementPattern: .row,
-            cues: ["Hinge at hips ~45 degrees", "Pull to lower chest/upper abs", "Squeeze shoulder blades"],
-            commonMistakes: ["Using momentum", "Standing too upright", "Rounding back"],
-            variations: ["Underhand Grip", "Pendlay", "Yates Row"]
-        ),
-        ExerciseMetadata(
-            name: "Pull-ups",
-            muscleGroup: .back,
-            category: .pull,
-            equipment: .bodyweight,
-            difficulty: .intermediate,
-            primaryMuscles: ["Lats", "Biceps"],
-            secondaryMuscles: ["Rear Deltoids", "Rhomboids", "Core"],
-            aliases: ["Pullups", "Chin-ups"],
-            movementPattern: .pull,
-            cues: ["Start from dead hang", "Pull elbows down and back", "Chin over bar"],
-            commonMistakes: ["Kipping", "Incomplete range of motion", "Not fully extending at bottom"],
-            variations: ["Wide Grip", "Chin-up", "Neutral Grip", "Weighted"]
-        ),
-        ExerciseMetadata(
-            name: "Lat Pulldown",
-            muscleGroup: .back,
-            category: .pull,
-            equipment: .cable,
-            difficulty: .beginner,
-            primaryMuscles: ["Lats"],
-            secondaryMuscles: ["Biceps", "Rear Deltoids", "Rhomboids"],
-            aliases: ["Cable Pulldown", "Wide Grip Pulldown"],
-            movementPattern: .pull,
-            cues: ["Lean back slightly", "Pull bar to upper chest", "Squeeze lats at bottom"],
-            commonMistakes: ["Leaning back too far", "Using momentum", "Pulling behind neck"],
-            variations: ["Close Grip", "Underhand", "Single Arm"]
-        ),
-
-        // LEGS - Squat/Hinge/Lunge
-        ExerciseMetadata(
-            name: "Squat",
-            muscleGroup: .quads,
-            category: .compound,
-            equipment: .barbell,
-            difficulty: .intermediate,
-            primaryMuscles: ["Quads", "Glutes"],
-            secondaryMuscles: ["Hamstrings", "Core", "Erector Spinae"],
-            aliases: ["Back Squat", "Barbell Squat", "High Bar Squat"],
-            movementPattern: .squat,
-            cues: ["Brace core before descent", "Knees track over toes", "Depth: hip crease below knee"],
-            commonMistakes: ["Knees caving inward", "Forward lean", "Rising on toes"],
-            variations: ["Front Squat", "Low Bar", "Pause Squat", "Box Squat"]
-        ),
-        ExerciseMetadata(
-            name: "Leg Press",
-            muscleGroup: .quads,
-            category: .compound,
-            equipment: .machine,
-            difficulty: .beginner,
-            primaryMuscles: ["Quads", "Glutes"],
-            secondaryMuscles: ["Hamstrings"],
-            aliases: ["45 Degree Leg Press", "Sled Leg Press"],
-            movementPattern: .squat,
-            cues: ["Feet shoulder width apart", "Lower until 90 degrees", "Don't lock knees at top"],
-            commonMistakes: ["Letting lower back round", "Partial reps", "Locking knees"],
-            variations: ["Single Leg", "High Foot", "Low Foot", "Wide Stance"]
-        ),
-        ExerciseMetadata(
-            name: "Romanian Deadlift",
-            muscleGroup: .hamstrings,
-            category: .compound,
-            equipment: .barbell,
-            difficulty: .intermediate,
-            primaryMuscles: ["Hamstrings", "Glutes"],
-            secondaryMuscles: ["Erector Spinae", "Core"],
-            aliases: ["RDL", "Stiff Leg Deadlift"],
-            movementPattern: .hinge,
-            cues: ["Soft knee bend", "Push hips back", "Bar stays close to legs"],
-            commonMistakes: ["Rounding back", "Going too low", "Bending knees too much"],
-            variations: ["Single Leg", "Dumbbell", "Deficit"]
-        ),
-        ExerciseMetadata(
-            name: "Lunges",
-            muscleGroup: .quads,
-            category: .compound,
-            equipment: .bodyweight,
-            difficulty: .beginner,
-            primaryMuscles: ["Quads", "Glutes"],
-            secondaryMuscles: ["Hamstrings", "Core"],
-            aliases: ["Walking Lunges", "Forward Lunges"],
-            movementPattern: .lunge,
-            cues: ["Step far enough forward", "Back knee almost touches ground", "Torso stays upright"],
-            commonMistakes: ["Knee going past toes", "Leaning forward", "Short steps"],
-            variations: ["Reverse", "Walking", "Deficit", "Bulgarian Split Squat"]
-        ),
-        ExerciseMetadata(
-            name: "Hip Thrust",
-            muscleGroup: .glutes,
-            category: .compound,
-            equipment: .barbell,
-            difficulty: .intermediate,
-            primaryMuscles: ["Glutes"],
-            secondaryMuscles: ["Hamstrings", "Core"],
-            aliases: ["Barbell Hip Thrust", "Glute Bridge"],
-            movementPattern: .hinge,
-            cues: ["Upper back on bench", "Drive through heels", "Squeeze glutes at top"],
-            commonMistakes: ["Hyperextending lower back", "Not reaching full extension", "Bar placement too high"],
-            variations: ["Single Leg", "Banded", "Dumbbell"]
-        ),
-
-        // SHOULDERS - Press/Raise
-        ExerciseMetadata(
-            name: "Overhead Press",
-            muscleGroup: .shoulders,
-            category: .push,
-            equipment: .barbell,
-            difficulty: .intermediate,
-            primaryMuscles: ["Front Deltoids", "Lateral Deltoids"],
-            secondaryMuscles: ["Triceps", "Upper Chest", "Core"],
-            aliases: ["Military Press", "OHP", "Standing Press"],
-            movementPattern: .press,
-            cues: ["Bar starts at shoulders", "Press straight up", "Lock out overhead"],
-            commonMistakes: ["Excessive back arch", "Pressing forward", "Not locking out"],
-            variations: ["Seated", "Push Press", "Behind Neck", "Dumbbell"]
-        ),
-        ExerciseMetadata(
-            name: "Lateral Raises",
-            muscleGroup: .shoulders,
-            category: .isolation,
-            equipment: .dumbbell,
-            difficulty: .beginner,
-            primaryMuscles: ["Lateral Deltoids"],
-            secondaryMuscles: ["Front Deltoids", "Traps"],
-            aliases: ["Side Raises", "Lateral Dumbbell Raises"],
-            movementPattern: .push,
-            cues: ["Slight bend in elbows", "Lead with elbows", "Raise to shoulder height"],
-            commonMistakes: ["Using too much weight", "Swinging", "Shrugging traps"],
-            variations: ["Cable", "Incline", "Leaning"]
-        ),
-
-        // ARMS - Curl/Extension
-        ExerciseMetadata(
-            name: "Bicep Curls",
-            muscleGroup: .biceps,
-            category: .isolation,
-            equipment: .dumbbell,
-            difficulty: .beginner,
-            primaryMuscles: ["Biceps"],
-            secondaryMuscles: ["Forearms"],
-            aliases: ["Dumbbell Curls", "DB Curls", "Standing Curls"],
-            movementPattern: .curl,
-            cues: ["Keep elbows pinned", "Full range of motion", "Control the negative"],
-            commonMistakes: ["Swinging body", "Moving elbows forward", "Partial reps"],
-            variations: ["Hammer", "Incline", "Concentration", "Preacher"]
-        ),
-        ExerciseMetadata(
-            name: "Tricep Pushdown",
-            muscleGroup: .triceps,
-            category: .isolation,
-            equipment: .cable,
-            difficulty: .beginner,
-            primaryMuscles: ["Triceps"],
-            secondaryMuscles: [],
-            aliases: ["Cable Pushdown", "Tricep Pressdown", "Rope Pushdown"],
-            movementPattern: .tricepsExtension,
-            cues: ["Elbows stay at sides", "Full extension at bottom", "Squeeze triceps"],
-            commonMistakes: ["Moving elbows", "Leaning forward too much", "Not fully extending"],
-            variations: ["Rope", "V-Bar", "Straight Bar", "Single Arm"]
-        ),
-        ExerciseMetadata(
-            name: "Skull Crushers",
-            muscleGroup: .triceps,
-            category: .isolation,
-            equipment: .barbell,
-            difficulty: .intermediate,
-            primaryMuscles: ["Triceps"],
-            secondaryMuscles: [],
-            aliases: ["Lying Tricep Extension", "French Press", "Nose Breakers"],
-            movementPattern: .tricepsExtension,
-            cues: ["Lower bar to forehead/behind head", "Keep elbows pointed up", "Extend fully"],
-            commonMistakes: ["Flaring elbows", "Moving upper arms", "Using too much weight"],
-            variations: ["EZ Bar", "Dumbbell", "Incline", "Behind Head"]
-        ),
-
-        // CORE
-        ExerciseMetadata(
-            name: "Plank",
-            muscleGroup: .core,
-            category: .core,
-            equipment: .bodyweight,
-            difficulty: .beginner,
-            primaryMuscles: ["Rectus Abdominis", "Transverse Abdominis"],
-            secondaryMuscles: ["Obliques", "Glutes", "Shoulders"],
-            aliases: ["Front Plank", "Forearm Plank"],
-            movementPattern: .plank,
-            cues: ["Straight line from head to heels", "Squeeze glutes", "Don't let hips sag"],
-            commonMistakes: ["Hips too high", "Hips sagging", "Looking up"],
-            variations: ["Side Plank", "Weighted", "RKC Plank"]
-        ),
-        ExerciseMetadata(
-            name: "Leg Raises",
-            muscleGroup: .core,
-            category: .core,
-            equipment: .bodyweight,
-            difficulty: .intermediate,
-            primaryMuscles: ["Lower Abs", "Hip Flexors"],
-            secondaryMuscles: ["Obliques"],
-            aliases: ["Lying Leg Raises", "Hanging Leg Raises"],
-            movementPattern: .plank,
-            cues: ["Keep lower back pressed down", "Control the descent", "Don't swing"],
-            commonMistakes: ["Using momentum", "Arching lower back", "Bending knees too much"],
-            variations: ["Hanging", "Captain's Chair", "Weighted"]
-        )
-    ]
-
-    /// Find exercise by name (case-insensitive, checks aliases)
-    static func find(_ name: String) -> ExerciseMetadata? {
-        let lowercaseName = name.lowercased()
-        return exercises.first { metadata in
-            metadata.name.lowercased() == lowercaseName ||
-            metadata.aliases.contains { $0.lowercased() == lowercaseName }
-        }
-    }
-
-    /// Find exercises by muscle group
-    static func byMuscleGroup(_ group: MuscleGroup) -> [ExerciseMetadata] {
-        exercises.filter { $0.muscleGroup == group }
-    }
-
-    /// Find exercises by movement pattern (for robot demos)
-    static func byMovementPattern(_ pattern: MovementPattern) -> [ExerciseMetadata] {
-        exercises.filter { $0.movementPattern == pattern }
-    }
-
-    /// Find exercises by equipment
-    static func byEquipment(_ equipment: Equipment) -> [ExerciseMetadata] {
-        exercises.filter { $0.equipment == equipment }
-    }
-
-    /// Search exercises by query (name, aliases, muscles)
-    static func search(_ query: String) -> [ExerciseMetadata] {
-        let lowercaseQuery = query.lowercased()
-        return exercises.filter { metadata in
-            metadata.name.lowercased().contains(lowercaseQuery) ||
-            metadata.aliases.contains { $0.lowercased().contains(lowercaseQuery) } ||
-            metadata.primaryMuscles.contains { $0.lowercased().contains(lowercaseQuery) }
-        }
-    }
-}
+// ExtendedExerciseDatabase and ExerciseMetadata are now in ExerciseDatabase.swift

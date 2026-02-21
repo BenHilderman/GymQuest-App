@@ -92,11 +92,6 @@ struct TikTokFeedView: View {
                     Spacer()
                 }
 
-                // Position indicator
-                if !filteredPosts.isEmpty {
-                    positionIndicator
-                }
-
                 // Swipe-up tutorial overlay (first launch only)
                 if showTutorial {
                     DiscoverTutorialOverlay {
@@ -137,6 +132,10 @@ struct TikTokFeedView: View {
                     )
                     .frame(height: geometry.size.height)
                     .id(index)
+                    .scrollTransition(.animated(.easeInOut(duration: 0.25))) { content, phase in
+                        content
+                            .opacity(phase.isIdentity ? 1 : 0.4)
+                    }
                 }
             }
             .scrollTargetLayout()
@@ -199,7 +198,7 @@ struct TikTokFeedView: View {
                     .cornerRadius(10)
             }
             .padding(.trailing, 16)
-            .padding(.bottom, 90)
+            .padding(.bottom, 96)
         }
     }
 }
@@ -227,6 +226,7 @@ struct TikTokPostCard: View {
     @State private var isBookmarked = false
     @State private var isFollowing = false
     @State private var commentCount: Int = 0
+    @State private var showingCopySheet = false
 
     private var sharedWorkout: SharedWorkoutData? {
         post.getSharedWorkout()
@@ -278,6 +278,11 @@ struct TikTokPostCard: View {
         .confirmationDialog("Open Music", isPresented: $showMusicActions) {
             musicActionButtons
         }
+        .sheet(isPresented: $showingCopySheet) {
+            if let workout = sharedWorkout {
+                WorkoutCopySheet(workoutData: workout, profile: profile)
+            }
+        }
     }
 
     // MARK: - Double Tap
@@ -294,48 +299,55 @@ struct TikTokPostCard: View {
     // MARK: - Content Overlay
 
     private var contentOverlay: some View {
-        HStack(alignment: .bottom) {
+        ZStack(alignment: .bottom) {
+            // Invisible spacer to fill full card height
+            Color.clear
+
+            // Right side buttons — positioned independently, higher up
+            HStack {
+                Spacer()
+                rightSideButtons
+            }
+
+            // Bottom info — full width, just above tab bar
             leftSideInfo
-            rightSideButtons
         }
     }
 
     // MARK: - Left Side Info
 
     private var leftSideInfo: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Spacer()
+        VStack(alignment: .leading, spacing: 5) {
             authorRow
-            captionText
-            workoutStats
-            hashtagPills
-            musicSection
+            captionWithTags
+            musicTicker
         }
         .padding(.horizontal, 16)
-        .padding(.bottom, 100)
+        .padding(.trailing, 60)
+        .padding(.bottom, 4)
     }
 
     @ViewBuilder
     private var authorRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Circle()
                 .fill(GQColors.primary)
-                .frame(width: 40, height: 40)
+                .frame(width: 30, height: 30)
                 .overlay(
                     Text(String(post.authorName.prefix(1)).uppercased())
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                         .foregroundColor(.white)
                 )
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text("@\(post.authorUsername)")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.white)
 
                 if let workoutType = post.workoutType {
                     Text(workoutType)
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.7))
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
                 }
             }
 
@@ -350,10 +362,10 @@ struct TikTokPostCard: View {
             toggleFollow()
         } label: {
             Text(isFollowing ? "Following" : "Follow")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(isFollowing ? .white.opacity(0.7) : .white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
                 .background(
                     RoundedRectangle(cornerRadius: 4)
                         .fill(isFollowing ? GQColors.elevatedSurface : GQColors.surfaceBase)
@@ -379,35 +391,53 @@ struct TikTokPostCard: View {
     private var captionText: some View {
         if !post.caption.isEmpty {
             Text(post.caption)
-                .font(.system(size: 14))
-                .foregroundColor(.white)
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.9))
                 .lineLimit(2)
-                .frame(maxWidth: 280, alignment: .leading)
+                .frame(maxWidth: 220, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var captionWithTags: some View {
+        if !post.caption.isEmpty {
+            let cleanCaption = post.caption.split(separator: " ").filter { !$0.hasPrefix("#") }.joined(separator: " ")
+            let hashtags = post.caption.split(separator: " ").filter { $0.hasPrefix("#") }
+
+            (Text(cleanCaption)
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.85))
+            + Text(hashtags.isEmpty ? "" : " ")
+            + Text(hashtags.joined(separator: " "))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(GQColors.cyanSpark))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     @ViewBuilder
     private var workoutStats: some View {
         if post.duration != nil || post.setCount != nil {
-            HStack(spacing: 16) {
+            HStack(spacing: 12) {
                 if let duration = post.duration {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Image(systemName: "clock.fill")
-                            .font(.system(size: 12))
+                            .font(.system(size: 10))
                         Text("\(duration)m")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                     }
                 }
                 if let sets = post.setCount {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 12))
+                            .font(.system(size: 10))
                         Text("\(sets) sets")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                     }
                 }
             }
-            .foregroundColor(.white.opacity(0.9))
+            .foregroundColor(.white.opacity(0.7))
         }
     }
 
@@ -419,12 +449,12 @@ struct TikTokPostCard: View {
                     HStack(spacing: 6) {
                         ForEach(hashtags, id: \.self) { tag in
                             Text(tag)
-                                .font(.system(size: 12, weight: .medium))
+                                .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(GQColors.cyanSpark)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(GQColors.cyanSpark.opacity(0.15))
-                                .cornerRadius(10)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(GQColors.cyanSpark.opacity(0.12))
+                                .cornerRadius(8)
                         }
                     }
                 }
@@ -433,9 +463,23 @@ struct TikTokPostCard: View {
     }
 
     @ViewBuilder
+    private var musicTicker: some View {
+        if let song = post.songTitle {
+            MusicMarqueeTicker(songTitle: song, artistName: post.artistName)
+                .onTapGesture {
+                    if hasPlaylist {
+                        showPlaylistPreview = true
+                    } else {
+                        showMusicActions = true
+                    }
+                }
+        }
+    }
+
+    @ViewBuilder
     private var musicSection: some View {
         if let song = post.songTitle {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
                 MusicMarqueeTicker(songTitle: song, artistName: post.artistName)
                     .onTapGesture {
                         showMusicActions = true
@@ -471,9 +515,7 @@ struct TikTokPostCard: View {
     // MARK: - Right Side Buttons
 
     private var rightSideButtons: some View {
-        VStack(spacing: 20) {
-            Spacer()
-
+        VStack(spacing: 18) {
             // Like button with long-press reaction picker
             ZStack(alignment: .leading) {
                 if showReactionPicker {
@@ -524,7 +566,7 @@ struct TikTokPostCard: View {
             // Share button
             TikTokActionButton(
                 icon: "arrowshape.turn.up.right.fill",
-                count: 0,
+                count: nil,
                 color: .white
             ) {
                 showShare = true
@@ -538,25 +580,9 @@ struct TikTokPostCard: View {
             ) {
                 toggleBookmark()
             }
-
-            // Follow Workout (only when post has shared workout data)
-            if sharedWorkout != nil {
-                TikTokActionButton(
-                    icon: "figure.run",
-                    count: nil,
-                    color: GQColors.cyanSpark
-                ) {
-                    if let workout = sharedWorkout {
-                        let exercises = workout.toActiveExercises()
-                        let workoutType = WorkoutType(rawValue: workout.workoutType) ?? .push
-                        appState.startWorkout(type: workoutType, exercises: exercises)
-                        appState.selectedTab = .home
-                    }
-                }
-            }
         }
-        .padding(.trailing, 12)
-        .padding(.bottom, 100)
+        .padding(.trailing, 8)
+        .padding(.bottom, 130)
     }
 
     // MARK: - Actions
@@ -698,6 +724,7 @@ struct PostBackground: View {
 
     @State private var player: AVPlayer?
     @State private var isPlaying = true
+    @State private var videoAspectRatio: CGFloat?
 
     var body: some View {
         Group {
@@ -715,12 +742,20 @@ struct PostBackground: View {
     @ViewBuilder
     private func videoContent(videoData: Data) -> some View {
         ZStack {
+            Color.black.ignoresSafeArea()
+
             if let player = player {
-                VideoPlayer(player: player)
-                    .ignoresSafeArea()
-                    .disabled(true)
-            } else {
-                Color.black.ignoresSafeArea()
+                if let ratio = videoAspectRatio, ratio > 1.0 {
+                    // Horizontal video — letterbox with fit
+                    VideoPlayer(player: player)
+                        .aspectRatio(ratio, contentMode: .fit)
+                        .disabled(true)
+                } else {
+                    // Vertical or unknown — fill
+                    VideoPlayer(player: player)
+                        .ignoresSafeArea()
+                        .disabled(true)
+                }
             }
 
             Color.clear
@@ -752,10 +787,21 @@ struct PostBackground: View {
     private func photoContent(photoData: Data) -> some View {
         #if canImport(UIKit)
         if let uiImage = UIImage(data: photoData) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .ignoresSafeArea()
+            let imageRatio = uiImage.size.width / uiImage.size.height
+            if imageRatio > 1.0 {
+                // Landscape photo — fit with black bars
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
+                    .ignoresSafeArea()
+            } else {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .ignoresSafeArea()
+            }
         }
         #endif
     }
@@ -775,11 +821,11 @@ struct PostBackground: View {
 
     private var readabilityGradient: some View {
         LinearGradient(
-            colors: [
-                Color.black.opacity(0.3),
-                Color.clear,
-                Color.clear,
-                Color.black.opacity(0.7)
+            stops: [
+                .init(color: Color.black.opacity(0.15), location: 0),
+                .init(color: Color.clear, location: 0.25),
+                .init(color: Color.clear, location: 0.6),
+                .init(color: Color.black.opacity(0.4), location: 1.0)
             ],
             startPoint: .top,
             endPoint: .bottom
@@ -791,6 +837,28 @@ struct PostBackground: View {
             .appendingPathComponent(post.id.uuidString)
             .appendingPathExtension("mp4")
         try? data.write(to: tempURL)
+
+        let asset = AVAsset(url: tempURL)
+
+        // Detect aspect ratio
+        Task {
+            if let tracks = try? await asset.loadTracks(withMediaType: .video),
+               let track = tracks.first {
+                let size = try? await track.load(.naturalSize)
+                let transform = try? await track.load(.preferredTransform)
+                if let size = size, let transform = transform {
+                    let transformed = size.applying(transform)
+                    let width = abs(transformed.width)
+                    let height = abs(transformed.height)
+                    if height > 0 {
+                        await MainActor.run {
+                            videoAspectRatio = width / height
+                        }
+                    }
+                }
+            }
+        }
+
         let avPlayer = AVPlayer(url: tempURL)
         avPlayer.isMuted = true
         avPlayer.play()
@@ -1151,16 +1219,16 @@ struct TikTokActionButton: View {
                 withAnimation { isPressed = false }
             }
         }) {
-            VStack(spacing: 4) {
+            VStack(spacing: 2) {
                 Image(systemName: icon)
-                    .font(.system(size: 28))
+                    .font(.system(size: 24))
                     .foregroundColor(color)
-                    .scaleEffect(isPressed ? 1.3 : 1.0)
+                    .scaleEffect(isPressed ? 1.2 : 1.0)
 
                 if let count = count, count > 0 {
                     Text(formatCount(count))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white.opacity(0.8))
                 }
             }
         }
@@ -1525,25 +1593,17 @@ struct MusicMarqueeTicker: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "opticaldisc.fill")
-                .font(.system(size: 14))
-                .foregroundColor(.white)
-                .rotationEffect(.degrees(scrollOffset * 2))
+        HStack(spacing: 8) {
+            Image(systemName: "music.note")
+                .font(.system(size: 12))
+                .foregroundColor(.white.opacity(0.7))
 
             Text(displayText)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.white.opacity(0.85))
                 .lineLimit(1)
-                .offset(x: scrollOffset)
         }
-        .frame(maxWidth: 220, alignment: .leading)
-        .clipped()
-        .onAppear {
-            withAnimation(.linear(duration: 6).repeatForever(autoreverses: true)) {
-                scrollOffset = -30
-            }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

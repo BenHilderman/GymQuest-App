@@ -521,7 +521,7 @@ struct GQGradients {
         case .rest: return Color.white.opacity(0.12)
         case .glutes: return GQColors.vividPurple
         case .abs: return GQColors.deepBlue
-        case .other: return GQColors.cyanSpark
+        case .custom: return GQColors.cyanSpark
         }
     }
 
@@ -538,7 +538,7 @@ struct GQGradients {
         case .rest: return [Color.white.opacity(0.15), Color.white.opacity(0.08)]
         case .glutes: return [GQColors.vividPurple, GQColors.cyanSpark]
         case .abs: return [GQColors.deepBlue, GQColors.vividPurple]
-        case .other: return [GQColors.cyanSpark, GQColors.deepBlue]
+        case .custom: return [GQColors.cyanSpark, GQColors.deepBlue]
         }
     }
 }
@@ -1994,13 +1994,27 @@ extension View {
 
     func gqPageBackground(tint: Color = GQColors.cyanSpark) -> some View {
         self
-            .background(HomeEnergyBackground())
+            .background {
+                ZStack {
+                    Color(hex: "0A0A0A")
+                    HomeEnergyBackground()
+                        .opacity(0.25)
+                }
+                .ignoresSafeArea()
+            }
             .modifier(GQPageChromeModifier(tint: tint))
     }
 
     func gqHomePageBackground(tint: Color = GQColors.cyanSpark) -> some View {
         self
-            .background(HomeEnergyBackground())
+            .background {
+                ZStack {
+                    Color(hex: "0A0A0A")
+                    HomeEnergyBackground()
+                        .opacity(0.25)
+                }
+                .ignoresSafeArea()
+            }
             .modifier(GQPageChromeModifier(tint: tint))
     }
 
@@ -2141,6 +2155,34 @@ struct NeonButtonStyle: ButtonStyle {
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed { HapticManager.shared.tap() }
             }
+    }
+}
+
+// MARK: - Workout Type Badge
+
+struct WorkoutTypeBadge: View {
+    let type: WorkoutType
+    var size: CGFloat = 40
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(GQGradients.workoutGradient(for: type))
+                .frame(width: size, height: size)
+            Image(systemName: type.icon)
+                .font(.system(size: size * 0.4, weight: .semibold))
+                .foregroundColor(.white)
+        }
+    }
+}
+
+struct WorkoutTypeBadgeFromString: View {
+    let typeName: String
+    var size: CGFloat = 40
+
+    var body: some View {
+        let workoutType = WorkoutType(rawValue: typeName) ?? .custom
+        WorkoutTypeBadge(type: workoutType, size: size)
     }
 }
 

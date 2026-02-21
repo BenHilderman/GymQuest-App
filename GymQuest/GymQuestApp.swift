@@ -21,6 +21,7 @@ struct GymQuestApp: App {
     let databaseError: String?  // Non-nil if database failed to initialize
     @StateObject private var appState = AppState()
     @StateObject private var featureFlags = FeatureFlags.shared
+    @StateObject private var subscriptionService = SubscriptionService.shared
 
     init() {
         let schema = Schema([
@@ -69,6 +70,7 @@ struct GymQuestApp: App {
             CommunityPost.self,
             CommunityMembership.self,
             CommunityChallenge.self,
+            CommunityEvent.self,
 
             // Templates (GymQuest 2.0)
             WorkoutTemplate.self,
@@ -143,6 +145,7 @@ struct GymQuestApp: App {
                 RootView()
                     .environmentObject(appState)
                     .environmentObject(featureFlags)
+                    .environmentObject(subscriptionService)
                     .modelContainer(container)
                     .preferredColorScheme(.dark)
                     .onOpenURL { url in
@@ -175,6 +178,7 @@ class AppState: ObservableObject {
 
     // Workout state management
     @Published var activeWorkout: ActiveWorkoutState?
+    @Published var isWorkoutPaused = false
     @Published var showingWorkoutStartOptions = false
     @Published var liveWorkoutStatus: LiveWorkoutStatus?
 
@@ -182,10 +186,20 @@ class AppState: ObservableObject {
 
     func startWorkout(type: WorkoutType, exercises: [ActiveExercise] = [], customTitle: String? = nil) {
         activeWorkout = ActiveWorkoutState(workoutType: type, exercises: exercises, startTime: Date(), customTitle: customTitle)
+        isWorkoutPaused = false
     }
 
     func endWorkout() {
         activeWorkout = nil
+        isWorkoutPaused = false
+    }
+
+    func pauseWorkout() {
+        isWorkoutPaused = true
+    }
+
+    func resumeWorkout() {
+        isWorkoutPaused = false
     }
 
     // where we are in the auth flow
@@ -195,20 +209,18 @@ class AppState: ObservableObject {
         case authenticated
     }
 
-    // GymQuest 2.0 tabs - Home first with the one-screen rule
+    // 4-tab layout: Feed, Home, Log, You + center button
     enum Tab: String, CaseIterable {
-        case home = "Home"
         case feed = "Feed"
-        case coach = "Coach"
-        case progress = "Progress"
-        case profile = "Profile"
+        case home = "Home"
+        case log = "Log"
+        case profile = "You"
 
         var icon: String {
             switch self {
+            case .feed: return "person.2.fill"
             case .home: return "house.fill"
-            case .feed: return "rectangle.stack.fill"
-            case .coach: return "bubble.left.and.bubble.right.fill"
-            case .progress: return "chart.bar.fill"
+            case .log: return "square.and.pencil"
             case .profile: return "person.fill"
             }
         }

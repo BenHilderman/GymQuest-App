@@ -21,96 +21,19 @@ struct CoachView: View {
     let workouts: [Workout]
     @ObservedObject var aiService: AIService
 
-    @State private var selectedTab: Int = 0
     @State private var showingFormStudio = false
     @State private var formStudioExercise: FormExercise?
-
-    private var selectedTabAccent: Color {
-        switch selectedTab {
-        case 0: return GQColors.vividPurple
-        case 1: return GQColors.cyanSpark
-        default: return GQColors.electricGold
-        }
-    }
+    @State private var showingPlanBuilder = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 14) {
-                GQScreenTitleBlock(
-                    title: "Coach",
-                    subtitle: "Chat, plan, and form support in one place.",
-                    accent: selectedTabAccent
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-
-                HStack(spacing: 8) {
-                    CoachTab(
-                        title: "Chat",
-                        icon: "message.fill",
-                        accent: GQColors.vividPurple,
-                        isSelected: selectedTab == 0
-                    ) {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            selectedTab = 0
-                        }
-                    }
-                    CoachTab(
-                        title: "Plan",
-                        icon: "doc.text.fill",
-                        accent: GQColors.cyanSpark,
-                        isSelected: selectedTab == 1
-                    ) {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            selectedTab = 1
-                        }
-                    }
-                    CoachTab(
-                        title: "Form",
-                        icon: "play.rectangle.on.rectangle",
-                        accent: GQColors.electricGold,
-                        isSelected: selectedTab == 2
-                    ) {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            selectedTab = 2
-                        }
-                    }
-                }
-                .padding(6)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.white.opacity(0.05))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-                .padding(.horizontal, 16)
-
-                if selectedTab == 0 {
-                    ChatSection(
-                        chatMessages: chatMessages,
-                        profile: profile,
-                        workouts: workouts,
-                        aiService: aiService,
-                        modelContext: modelContext
-                    )
-                } else if selectedTab == 1 {
-                    PlanSection(
-                        profile: profile,
-                        workouts: workouts,
-                        aiService: aiService,
-                        modelContext: modelContext
-                    )
-                } else {
-                    FormStudioLauncher(
-                        profile: profile,
-                        modelContext: modelContext,
-                        showingFormStudio: $showingFormStudio,
-                        formStudioExercise: $formStudioExercise
-                    )
-                }
-            }
+            ChatSection(
+                chatMessages: chatMessages,
+                profile: profile,
+                workouts: workouts,
+                aiService: aiService,
+                modelContext: modelContext
+            )
             .gqPageBackground()
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -119,6 +42,24 @@ struct CoachView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     NavBarLogo()
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button {
+                            showingPlanBuilder = true
+                        } label: {
+                            Label("Build Training Plan", systemImage: "doc.text.fill")
+                        }
+                        Button {
+                            openFormStudio()
+                        } label: {
+                            Label("Form Studio", systemImage: "play.rectangle.on.rectangle")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
+                }
             }
             .sheet(isPresented: $showingFormStudio) {
                 if let exercise = formStudioExercise {
@@ -126,6 +67,40 @@ struct CoachView: View {
                         FormStudioView(oduserId: profile.id.uuidString, exercise: exercise)
                     }
                 }
+            }
+            .sheet(isPresented: $showingPlanBuilder) {
+                NavigationStack {
+                    PlanSection(
+                        profile: profile,
+                        workouts: workouts,
+                        aiService: aiService,
+                        modelContext: modelContext
+                    )
+                    .navigationTitle("Plan Builder")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") { showingPlanBuilder = false }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func openFormStudio() {
+        try? FormContentSeeder.seedIfNeeded(modelContext: modelContext)
+        let repo = FormRepository(modelContext: modelContext)
+        let exercises = repo.allExercises()
+        if let first = exercises.first {
+            formStudioExercise = first
+            showingFormStudio = true
+        } else {
+            FormContentSeeder.seedSampleData(modelContext: modelContext)
+            let refreshed = repo.allExercises()
+            if let first = refreshed.first {
+                formStudioExercise = first
+                showingFormStudio = true
             }
         }
     }
@@ -358,8 +333,8 @@ struct ChatSection: View {
                                 Text(prompt)
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(.white)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
                                     .background(
                                         Capsule()
                                             .fill(color.opacity(0.17))

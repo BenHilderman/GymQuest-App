@@ -519,7 +519,7 @@ class PRService: ObservableObject {
             return "Glute work logged. Progressive overload is key."
         case .abs:
             return "Core training done. Strong core supports all lifts."
-        case .other:
+        case .custom:
             return "Custom workout complete. Keep showing up."
         }
     }

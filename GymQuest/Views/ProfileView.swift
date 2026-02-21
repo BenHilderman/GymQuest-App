@@ -27,6 +27,7 @@ struct ProfileView: View {
     @State private var selectedPost: Post?
     @State private var selectedTab: ProfileContentTab = .posts
     @State private var emotionInsightsExpanded = false
+    @State private var showingCoach = false
 
     private var profileAccent: Color {
         profileNeutralAccent
@@ -43,105 +44,19 @@ struct ProfileView: View {
         }
     }
 
-    private var totalLikeCount: Int {
-        userPosts.reduce(0) { $0 + $1.likeCount }
-    }
-
-    private var workoutsThisMonth: Int {
-        let calendar = Calendar.current
-        guard let monthRange = calendar.dateInterval(of: .month, for: Date()) else { return 0 }
-        return workouts.filter { monthRange.contains($0.date) }.count
-    }
-
-    private var averageWorkoutDuration: Int {
-        let completed = workouts.filter { $0.duration > 0 }
-        guard !completed.isEmpty else { return 0 }
-        return completed.reduce(0) { $0 + $1.duration } / completed.count
-    }
-
-    private var workoutHighlights: [WorkoutType] {
-        var seen = Set<WorkoutType>()
-        var ordered: [WorkoutType] = []
-
-        for workout in workouts {
-            guard !seen.contains(workout.type) else { continue }
-            seen.insert(workout.type)
-            ordered.append(workout.type)
-            if ordered.count == 6 { break }
-        }
-
-        return ordered
-    }
-
-    private func highlightColor(for type: WorkoutType) -> Color {
-        switch type {
-        case .legs, .lower:
-            return Color(hex: "FF9500")
-        case .cardio:
-            return Color(hex: "007AFF")
-        case .rest:
-            return GQColors.textSecondary
-        default:
-            return Color.white.opacity(0.84)
-        }
-    }
-
-    // Computed XP level info
-    private var levelInfo: (level: Int, currentXP: Int, nextXP: Int) {
-        UserProfile.calculateLevel(from: profile.xp)
-    }
-
-    private var xpProgress: Double {
-        guard levelInfo.nextXP > 0 else { return 0 }
-        return min(1.0, Double(levelInfo.currentXP) / Double(levelInfo.nextXP))
-    }
-
-    // Lifetime stats (exclude rest days)
     private var totalWorkoutCount: Int {
         workouts.filter { $0.type != .rest }.count
-    }
-
-    private var totalVolume: Double {
-        workouts.reduce(0.0) { $0 + $1.totalVolume }
-    }
-
-    private var totalMinutes: Int {
-        workouts.reduce(0) { $0 + $1.duration }
-    }
-
-    private var profileStreak: Int {
-        let calendar = Calendar.current
-        var streak = 0
-        var checkDate = calendar.startOfDay(for: Date())
-        for _ in 0..<365 {
-            let hasSession = workouts.contains { calendar.isDate($0.date, inSameDayAs: checkDate) }
-            if hasSession {
-                streak += 1
-            } else if streak > 0 {
-                break
-            }
-            checkDate = calendar.date(byAdding: .day, value: -1, to: checkDate) ?? checkDate
-        }
-        return streak
-    }
-
-    private var profileStreakDisplay: String {
-        profileStreak > 0 ? "\u{1F525} \(profileStreak)" : "0"
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 8) {
+                VStack(spacing: 12) {
                     // Edge-to-edge: no card wrapper
                     profileHeader
 
-                    if !workoutHighlights.isEmpty {
-                        profileHighlights
-                    }
-
-                    // Cards
-                    unifiedStatsCard
+                    // AI Coach entry
+                    aiCoachCard
 
                     // Tab bar + content merged into one card
                     VStack(spacing: 0) {
@@ -152,7 +67,7 @@ struct ProfileView: View {
                     }
                     .homeSocialCard(cornerRadius: 14)
                 }
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 16)
                 .padding(.top, GQLayout.pageTop)
                 .padding(.bottom, GQLayout.pageBottom)
             }
@@ -199,89 +114,140 @@ struct ProfileView: View {
                     PostDetailView(post: selectedPost, profile: profile)
                 }
             }
+            .sheet(isPresented: $showingCoach) {
+                CoachView(profile: profile, workouts: Array(workouts), aiService: AIService())
+            }
         }
     }
 
+    // MARK: - AI Coach Card
+
+    private var aiCoachCard: some View {
+        Button {
+            showingCoach = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(GQColors.cyanSpark.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(GQColors.cyanSpark)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("AI Coach")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("Chat, plans & form analysis")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(GQInteractiveStyle())
+    }
+
     private var profileHeader: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Avatar + stat columns row
+            HStack(spacing: 20) {
                 profileAvatar
 
                 HStack(spacing: 0) {
-                    ProfileSocialMetric(value: "\(userPosts.count)", label: "Posts")
-                    ProfileSocialMetric(value: "\(workouts.count)", label: "Workouts")
-                    ProfileSocialMetric(value: "\(totalLikeCount)", label: "Likes")
-                    ProfileSocialMetric(value: profileStreakDisplay, label: "Streak")
+                    igStatColumn(value: "\(userPosts.count)", label: "Posts")
+                    igStatColumn(value: "\(totalWorkoutCount)", label: "Workouts")
+                    igStatColumn(value: "\(profile.xp)", label: "XP")
                 }
-                .frame(maxWidth: .infinity)
             }
 
-            VStack(alignment: .leading, spacing: 4) {
+            // Name + level
+            VStack(alignment: .leading, spacing: 2) {
                 Text(profile.name)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
-                Text("\(UserProfile.levelTitle(for: profile.level)) • Lv.\(profile.level)")
+                Text("\(UserProfile.levelTitle(for: profile.level)) · Lv.\(profile.level)")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(GQColors.textSecondary)
+                    .foregroundColor(GQColors.textTertiary)
             }
 
-            HStack(spacing: 8) {
-                Button {
-                    showingSettings = true
-                } label: {
-                    Text("Edit Profile")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .homeSocialCard(cornerRadius: 14)
-                }
-                .buttonStyle(GQInteractiveStyle())
-
-                Button {
-                    selectedTab = .workouts
-                } label: {
-                    Text("Workout Archive")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .homeSocialCard(cornerRadius: 14)
-                }
-                .buttonStyle(GQInteractiveStyle())
+            // Edit Profile button
+            Button {
+                showingSettings = true
+            } label: {
+                Text("Edit Profile")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(.clear)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
             }
+            .buttonStyle(GQInteractiveStyle())
         }
         .padding(14)
     }
 
-    private var profileAvatar: some View {
-        Group {
-            #if canImport(UIKit)
-            if let photoData = profile.profilePhotoData, let image = UIImage(data: photoData) {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                avatarInitial
-            }
-            #elseif canImport(AppKit)
-            if let photoData = profile.profilePhotoData, let image = NSImage(data: photoData) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-            } else {
-                avatarInitial
-            }
-            #else
-            avatarInitial
-            #endif
+    private func igStatColumn(value: String, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textSecondary)
         }
-        .frame(width: 68, height: 68)
-        .clipShape(Circle())
-        .overlay(
-            Circle()
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
+        .frame(maxWidth: .infinity)
+    }
+
+    private var profileAvatar: some View {
+        ZStack {
+            AnimatedGradientCircle(
+                size: 84,
+                lineWidth: 2,
+                colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                duration: 6.0
+            )
+
+            Group {
+                #if canImport(UIKit)
+                if let photoData = profile.profilePhotoData, let image = UIImage(data: photoData) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    avatarInitial
+                }
+                #elseif canImport(AppKit)
+                if let photoData = profile.profilePhotoData, let image = NSImage(data: photoData) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    avatarInitial
+                }
+                #else
+                avatarInitial
+                #endif
+            }
+            .frame(width: 80, height: 80)
+            .clipShape(Circle())
+        }
     }
 
     private var avatarInitial: some View {
@@ -291,35 +257,6 @@ struct ProfileView: View {
             Text(String(profile.name.prefix(1)).uppercased())
                 .font(.system(size: 30, weight: .bold))
                 .foregroundColor(.white)
-        }
-    }
-
-    private var profileHighlights: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(workoutHighlights, id: \.self) { type in
-                    VStack(spacing: 5) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.white.opacity(0.06))
-                                .frame(width: 48, height: 48)
-                            Circle()
-                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                                .frame(width: 48, height: 48)
-
-                            Image(systemName: type.icon)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(highlightColor(for: type))
-                        }
-
-                        Text(type.rawValue)
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(GQColors.textSecondary)
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .padding(.horizontal, 2)
         }
     }
 
@@ -474,52 +411,6 @@ struct ProfileView: View {
                 }
             }
 
-        case .activity:
-            VStack(spacing: 12) {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                    ProfileActivityMetricCard(
-                        icon: "heart.fill",
-                        value: "\(totalLikeCount)",
-                        label: "Total Likes",
-                        tint: Color(hex: "FF3B30")
-                    )
-                    ProfileActivityMetricCard(
-                        icon: "clock",
-                        value: averageWorkoutDuration > 0 ? "\(averageWorkoutDuration)m" : "--",
-                        label: "Avg Duration",
-                        tint: Color(hex: "FF9500")
-                    )
-                    ProfileActivityMetricCard(
-                        icon: "calendar",
-                        value: "\(workoutsThisMonth)",
-                        label: "This Month",
-                        tint: Color(hex: "30D158")
-                    )
-                    ProfileActivityMetricCard(
-                        icon: "bolt.fill",
-                        value: "\(profile.xp)",
-                        label: "Total XP",
-                        tint: Color(hex: "FFD60A")
-                    )
-                }
-
-                if !userPosts.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Recent Posts")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-
-                        ForEach(userPosts.prefix(2)) { post in
-                            Button {
-                                selectedPost = post
-                            } label: {
-                                ProfilePostCard(post: post)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -527,59 +418,15 @@ struct ProfileView: View {
 private enum ProfileContentTab: CaseIterable {
     case posts
     case workouts
-    case activity
 
     var icon: String {
         switch self {
         case .posts: return "square.grid.3x3.fill"
         case .workouts: return "list.bullet.rectangle"
-        case .activity: return "chart.bar.xaxis"
         }
     }
 }
 
-private struct ProfileSocialMetric: View {
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.white)
-            Text(label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(GQColors.textTertiary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-private struct ProfileActivityMetricCard: View {
-    let icon: String
-    let value: String
-    let label: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(tint)
-
-            Text(value)
-                .font(.system(size: 21, weight: .bold))
-                .foregroundColor(.white)
-
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundColor(GQColors.textTertiary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .homeSocialCard(accent: profileNeutralAccent, subtle: true)
-    }
-}
 
 private struct ProfileEmptyState: View {
     let icon: String
@@ -603,98 +450,6 @@ private struct ProfileEmptyState: View {
     }
 }
 
-// MARK: - XP & Lifetime Stats Extensions
-
-extension ProfileView {
-    @ViewBuilder
-    var unifiedStatsCard: some View {
-        VStack(spacing: 14) {
-            // Top row: Workouts | Level | Volume | Time
-            HStack(spacing: 0) {
-                ProfileLifetimeStatItem(
-                    icon: "dumbbell.fill",
-                    value: "\(totalWorkoutCount)",
-                    label: "Workouts",
-                    color: Color.white
-                )
-
-                Rectangle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 1, height: 28)
-
-                ProfileLifetimeStatItem(
-                    icon: "star.fill",
-                    value: "Lv.\(profile.level)",
-                    label: UserProfile.levelTitle(for: profile.level),
-                    color: Color(hex: "FFD60A")
-                )
-
-                Rectangle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 1, height: 28)
-
-                ProfileLifetimeStatItem(
-                    icon: "scalemass.fill",
-                    value: formatVolume(totalVolume),
-                    label: "Volume",
-                    color: Color(hex: "30D158")
-                )
-
-                Rectangle()
-                    .fill(Color.white.opacity(0.1))
-                    .frame(width: 1, height: 28)
-
-                ProfileLifetimeStatItem(
-                    icon: "clock.fill",
-                    value: formatHours(totalMinutes),
-                    label: "Time",
-                    color: Color(hex: "FF9500")
-                )
-            }
-
-            // XP Progress
-            VStack(spacing: 6) {
-                AnimatedProgressBar(
-                    progress: xpProgress,
-                    height: 6,
-                    colors: [Color.white.opacity(0.4), Color.white.opacity(0.7)]
-                )
-
-                HStack {
-                    Text(UserProfile.levelTitle(for: levelInfo.level))
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white)
-
-                    Spacer()
-
-                    Text("\(levelInfo.currentXP) / \(levelInfo.nextXP) XP")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-        .padding(.vertical, 12)
-        .homeSocialCard()
-    }
-
-    private func formatVolume(_ volume: Double) -> String {
-        if volume >= 1_000_000 {
-            return String(format: "%.1fM", volume / 1_000_000)
-        } else if volume >= 1_000 {
-            return String(format: "%.1fk", volume / 1_000)
-        }
-        return "\(Int(volume))"
-    }
-
-    private func formatHours(_ minutes: Int) -> String {
-        let hours = minutes / 60
-        if hours >= 1000 {
-            return String(format: "%.1fk", Double(hours) / 1000)
-        }
-        return "\(hours)h"
-    }
-}
 
 // MARK: - Profile Lifetime Stat Item
 
@@ -734,15 +489,8 @@ struct WorkoutHistoryRowV2: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(iconAccent.opacity(0.16))
-                .frame(width: 42, height: 42)
-                .overlay(
-                    Image(systemName: workout.type.icon)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(iconAccent)
-                )
+        HStack(spacing: 10) {
+            WorkoutTypeBadge(type: workout.type, size: 42)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(workout.title ?? workout.type.rawValue)
@@ -885,6 +633,13 @@ struct ProfilePostThumbnail: View {
                     .frame(minWidth: 0, maxWidth: .infinity)
                     .aspectRatio(1, contentMode: .fit)
                     .clipped()
+                    .overlay(
+                        LinearGradient(
+                            colors: [.black.opacity(0.4), .clear],
+                            startPoint: .bottom,
+                            endPoint: .center
+                        )
+                    )
             } else if post.videoData != nil {
                 GQColors.surfaceElevated
                     .aspectRatio(1, contentMode: .fit)
@@ -894,18 +649,20 @@ struct ProfilePostThumbnail: View {
                             .foregroundColor(.white.opacity(0.8))
                     )
             } else {
-                // No media - show workout type icon
+                // No media - show workout type badge
                 GQColors.surfaceBase
                     .aspectRatio(1, contentMode: .fit)
                     .overlay(
                         VStack(spacing: 6) {
-                            Image(systemName: "dumbbell.fill")
-                                .font(.system(size: 24))
-                                .foregroundColor(profilePrimaryAccent)
                             if let type = post.workoutType {
+                                WorkoutTypeBadgeFromString(typeName: type, size: 36)
                                 Text(type)
                                     .font(.system(size: 10, weight: .medium))
                                     .foregroundColor(GQColors.textTertiary)
+                            } else {
+                                Image(systemName: "dumbbell.fill")
+                                    .font(.system(size: 24))
+                                    .foregroundColor(profilePrimaryAccent)
                             }
                         }
                     )
@@ -918,6 +675,13 @@ struct ProfilePostThumbnail: View {
                     .frame(minWidth: 0, maxWidth: .infinity)
                     .aspectRatio(1, contentMode: .fit)
                     .clipped()
+                    .overlay(
+                        LinearGradient(
+                            colors: [.black.opacity(0.4), .clear],
+                            startPoint: .bottom,
+                            endPoint: .center
+                        )
+                    )
             } else {
                 GQColors.surfaceBase
                     .aspectRatio(1, contentMode: .fit)
@@ -928,6 +692,13 @@ struct ProfilePostThumbnail: View {
                     )
             }
             #endif
+        }
+        .overlay(alignment: .bottomLeading) {
+            if let type = post.workoutType {
+                WorkoutTypeBadgeFromString(typeName: type, size: 24)
+                    .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
+                    .padding(4)
+            }
         }
         .cornerRadius(4)
     }

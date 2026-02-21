@@ -21,7 +21,7 @@ import AppKit
 // MARK: - Feed Tab
 
 enum FeedTab: String, CaseIterable {
-    case friends = "Friends"
+    case social = "Social"
     case discover = "Discover"
     case communities = "Communities"
 }
@@ -36,62 +36,34 @@ struct FeedView: View {
 
     let profile: UserProfile
 
-    @State private var selectedTab: FeedTab = .friends
+    @State private var selectedFeedTab: FeedTab = .social
     @State private var showLearnPanel = false
     @State private var selectedExerciseForLearn: String?
+    @State private var activeSquad: Squad?
+    @State private var squadChallenge: SquadChallenge?
 
     // Friends posts (from people you follow)
     var friendsPosts: [Post] {
         posts.filter { $0.authorId != profile.id }
     }
 
-    // Discovery posts (could be trending/popular)
-    var discoverPosts: [Post] {
-        posts
-    }
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Friends / Discover tabs
-                FeedTabsView(selectedTab: $selectedTab)
+                // Tab switcher pinned at top
+                FeedTabsView(selectedTab: $selectedFeedTab)
 
-                // Content based on selected tab
-                if selectedTab == .communities {
-                    CommunityFeedView(profile: profile)
-                } else if selectedTab == .discover {
-                    // TikTok-style full screen feed for Discover
+                // Tab content
+                switch selectedFeedTab {
+                case .social:
+                    socialFeedContent
+                case .discover:
                     TikTokFeedView(profile: profile)
-                        .ignoresSafeArea()
-                } else {
-                    // Traditional feed for Friends
-                    ScrollView {
-                        // Stories row — friends working out now
-                        WorkingOutNowRow(recentFriendCount: friendsPosts.filter { $0.timestamp > Date().addingTimeInterval(-86400) }.count)
-                            .padding(.top, 6)
-
-                        LazyVStack(spacing: 0) {
-                            if friendsPosts.isEmpty {
-                                EmptyFeedView(onCreatePost: { appState.showingLogWorkout = true })
-                            } else {
-                                ForEach(friendsPosts) { post in
-                                    PostCardV2(
-                                        post: post,
-                                        currentUserId: profile.id,
-                                        currentUserName: profile.name
-                                    )
-
-                                    Rectangle()
-                                        .fill(GQColors.borderSubtle)
-                                        .frame(height: 8)
-                                }
-                            }
-                        }
-                        .padding(.bottom, 100)
-                    }
-                    .scrollContentBackground(.hidden)
+                case .communities:
+                    CommunityFeedView(profile: profile)
                 }
             }
+            .scrollContentBackground(.hidden)
             .gqPageBackground()
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -101,6 +73,7 @@ struct FeedView: View {
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 SocialSeeder.seedIfNeeded(modelContext: modelContext)
+                loadActiveSquad()
             }
             .sheet(isPresented: $showLearnPanel) {
                 if let exerciseName = selectedExerciseForLearn {
@@ -118,6 +91,58 @@ struct FeedView: View {
                     .presentationDragIndicator(.visible)
                 }
             }
+        }
+    }
+
+    // MARK: - Social Feed Content
+
+    @ViewBuilder
+    private var socialFeedContent: some View {
+        ScrollView {
+            // Stories row — friends working out now
+            WorkingOutNowRow(recentFriendCount: friendsPosts.filter { $0.timestamp > Date().addingTimeInterval(-86400) }.count)
+
+            // Squad challenge (if active)
+            if featureFlags.squadsEnabled, let squad = activeSquad, let challenge = squadChallenge {
+                SquadChallengeCard(squad: squad, challenge: challenge)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+            }
+
+            LazyVStack(spacing: 0) {
+                if friendsPosts.isEmpty {
+                    EmptyFeedView(onCreatePost: { appState.showingLogWorkout = true })
+                } else {
+                    ForEach(friendsPosts) { post in
+                        PostCardV2(
+                            post: post,
+                            currentUserId: profile.id,
+                            currentUserName: profile.name,
+                            profile: profile
+                        )
+
+                        Rectangle()
+                            .fill(GQColors.borderSubtle)
+                            .frame(height: 4)
+                    }
+                }
+            }
+            .padding(.bottom, 100)
+        }
+    }
+
+    // MARK: - Load Active Squad
+
+    private func loadActiveSquad() {
+        guard featureFlags.squadsEnabled else { return }
+
+        let squadService = SquadService.shared
+        squadService.configure(modelContext: modelContext)
+
+        let userSquads = squadService.getUserSquads(userId: profile.id)
+        if let squad = userSquads.first {
+            activeSquad = squad
+            squadChallenge = squadService.getActiveChallenge(squadId: squad.id)
         }
     }
 
@@ -143,7 +168,7 @@ struct FeedView: View {
     }
 }
 
-// MARK: - Feed Tabs (Friends / Discover)
+// MARK: - Feed Tabs (Social / Discover / Communities)
 
 struct FeedTabsView: View {
     @Binding var selectedTab: FeedTab
@@ -188,7 +213,7 @@ struct FeedTabsView: View {
         .padding(.horizontal, 32)
         .padding(.top, 8)
         .padding(.bottom, 4)
-        .background(GQColors.surfaceBase)
+        .background(GQColors.surfaceBase.ignoresSafeArea(edges: .top))
     }
 }
 
@@ -198,6 +223,7 @@ struct PostCardV2: View {
     let post: Post
     let currentUserId: UUID
     var currentUserName: String = ""
+    var profile: UserProfile? = nil
 
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
@@ -211,6 +237,8 @@ struct PostCardV2: View {
     @State private var isSaved = false
     @State private var showFullCaption = false
     @State private var photoScale: CGFloat = 1.0
+    @State private var showingCopySheet = false
+    @State private var copySheetWorkout: SharedWorkoutData?
 
     var detectedActivityType: DetectedActivity? {
         guard let activity = post.detectedActivity else { return nil }
@@ -306,6 +334,11 @@ struct PostCardV2: View {
                 )
             }
         }
+        .sheet(isPresented: $showingCopySheet) {
+            if let workout = copySheetWorkout, let userProfile = profile {
+                WorkoutCopySheet(workoutData: workout, profile: userProfile)
+            }
+        }
     }
 
     // MARK: - Extracted ViewBuilders
@@ -361,9 +394,15 @@ struct PostCardV2: View {
                 if post.workoutType != nil || post.duration != nil {
                     HStack(spacing: 8) {
                         if let type = post.workoutType {
-                            Text(type)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(GQColors.cyanSpark)
+                            HStack(spacing: 4) {
+                                let wt = WorkoutType(rawValue: type) ?? .custom
+                                Image(systemName: wt.icon)
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(GQGradients.workoutColor(for: wt))
+                                Text(type)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(GQGradients.workoutColor(for: wt))
+                            }
                         }
                         if let duration = post.duration {
                             HStack(spacing: 2) {
@@ -763,27 +802,13 @@ struct PostCardV2: View {
     }
 
     private func saveWorkout(_ workout: SharedWorkoutData) {
-        var saved = loadSavedWorkouts()
-        if !saved.contains(where: { $0.id == workout.id }) {
-            saved.append(workout)
-            if let data = try? JSONEncoder().encode(saved) {
-                UserDefaults.standard.set(data, forKey: "savedWorkouts")
-            }
-        }
-    }
-
-    private func loadSavedWorkouts() -> [SharedWorkoutData] {
-        guard let data = UserDefaults.standard.data(forKey: "savedWorkouts"),
-              let decoded = try? JSONDecoder().decode([SharedWorkoutData].self, from: data)
-        else { return [] }
-        return decoded
+        copySheetWorkout = workout
+        showingCopySheet = true
     }
 
     private func launchFollowWorkout(_ workout: SharedWorkoutData) {
-        let exercises = workout.toActiveExercises()
-        let workoutType = WorkoutType(rawValue: workout.workoutType) ?? .push
-        appState.startWorkout(type: workoutType, exercises: exercises)
-        appState.selectedTab = .home
+        copySheetWorkout = workout
+        showingCopySheet = true
     }
 
     private enum MusicService { case spotify, appleMusic }
@@ -874,7 +899,7 @@ struct WorkoutHeroCard: View {
         case .rest: return ("leaf.fill", "moon.fill")
         case .glutes: return ("figure.walk", "figure.stand")
         case .abs: return ("figure.core.training", "dumbbell.fill")
-        case .other: return ("questionmark.circle.fill", "dumbbell.fill")
+        case .custom: return ("slider.horizontal.3", "dumbbell.fill")
         }
     }
 
@@ -898,7 +923,7 @@ struct WorkoutHeroCard: View {
         case .rest: return []
         case .glutes: return [.glutes, .hamstrings]
         case .abs: return [.core]
-        case .other: return []
+        case .custom: return []
         }
     }
 
@@ -1953,6 +1978,21 @@ struct WorkingOutNowRow: View {
                                             .foregroundColor(.white)
                                     )
 
+                                // Location pin (top-left, only if sharing gym)
+                                if friend.gymName != nil {
+                                    VStack {
+                                        HStack {
+                                            Image(systemName: "mappin.circle.fill")
+                                                .font(.system(size: 12))
+                                                .foregroundColor(GQColors.cyanSpark)
+                                                .background(Circle().fill(Color.black).frame(width: 14, height: 14))
+                                            Spacer()
+                                        }
+                                        Spacer()
+                                    }
+                                    .frame(width: 48, height: 48)
+                                }
+
                                 // Workout badge
                                 VStack {
                                     Spacer()
@@ -1985,6 +2025,17 @@ struct WorkingOutNowRow: View {
             .padding(.vertical, 4)
         }
         .padding(.vertical, 8)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.12, green: 0.13, blue: 0.22).opacity(0.6),
+                    Color(red: 0.04, green: 0.04, blue: 0.04)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(.container, edges: .horizontal)
+        )
         .onAppear {
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
                 pulseGreen = true
@@ -1995,14 +2046,14 @@ struct WorkingOutNowRow: View {
                 guard let name = selectedFriend,
                       let friend = socialService.activeFriends.first(where: { $0.name == name })
                 else { return nil }
-                return WorkoutStoryItem(name: friend.name, type: friend.workoutType, minutes: friend.minutesElapsed, workout: "\(friend.workoutType) Day", exercises: friend.exercise)
+                return WorkoutStoryItem(name: friend.name, type: friend.workoutType, minutes: friend.minutesElapsed, workout: "\(friend.workoutType) Day", exercises: friend.exercise, gymName: friend.gymName, gymArea: friend.gymArea, gymCoordinate: friend.gymCoordinate)
             },
             set: { item in
                 selectedFriend = item?.name
             }
         )) { friend in
             WorkoutStorySheet(friend: friend)
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
     }
@@ -2017,114 +2068,249 @@ struct WorkoutStoryItem: Identifiable {
     let minutes: Int
     let workout: String
     let exercises: String
+    let gymName: String?
+    let gymArea: String?
+    let gymCoordinate: (lat: Double, lng: Double)?
 }
 
 struct WorkoutStorySheet: View {
     let friend: WorkoutStoryItem
     @Environment(\.dismiss) private var dismiss
+    @State private var showJoinToast = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .stroke(GQColors.cyanSpark.opacity(0.5), lineWidth: 2)
-                        .frame(width: 52, height: 52)
-
-                    Circle()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 44, height: 44)
-                        .overlay(
-                            Text(String(friend.name.prefix(1)))
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(.white)
-                        )
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(friend.name)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 7, height: 7)
-                        Text("Working out now · \(friend.minutes)m")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textTertiary)
+        ZStack {
+            ScrollView {
+                VStack(spacing: 0) {
+                    headerSection
+                    workoutInfoCard
+                    if friend.gymName != nil {
+                        locationSection
                     }
+                    Spacer(minLength: 40)
                 }
-
-                Spacer()
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 24)
-            .padding(.bottom, 16)
 
-            // Workout info card
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: "figure.run")
-                        .font(.system(size: 14))
-                        .foregroundColor(GQColors.cyanSpark)
-                    Text(friend.workout)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+            joinConfirmationToast
+        }
+        .gqPageBackground()
+    }
+
+    // MARK: - Header
+
+    @ViewBuilder
+    private var headerSection: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .stroke(GQColors.cyanSpark.opacity(0.5), lineWidth: 2)
+                    .frame(width: 52, height: 52)
+
+                Circle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Text(String(friend.name.prefix(1)))
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(friend.name)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.white)
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 7, height: 7)
+                    Text("Working out now · \(friend.minutes)m")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textTertiary)
                 }
-
-                Divider()
-                    .overlay(Color.white.opacity(0.08))
-
-                // Exercise list
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(friend.exercises.components(separatedBy: ", "), id: \.self) { exercise in
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(Color.white.opacity(0.2))
-                                .frame(width: 5, height: 5)
-                            Text(exercise)
-                                .font(.system(size: 14))
-                                .foregroundColor(.white.opacity(0.8))
+                if let gymName = friend.gymName {
+                    HStack(spacing: 4) {
+                        Text("📍")
+                            .font(.system(size: 11))
+                        Text(gymName)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.cyanSpark)
+                        if let area = friend.gymArea {
+                            Text("·")
+                                .font(.system(size: 12))
+                                .foregroundColor(GQColors.textTertiary)
+                            Text(area)
+                                .font(.system(size: 12))
+                                .foregroundColor(GQColors.textTertiary)
                         }
                     }
                 }
-
-                Divider()
-                    .overlay(Color.white.opacity(0.08))
-
-                // Stats
-                HStack(spacing: 20) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textSecondary)
-                        Text("\(friend.minutes) min")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-                    HStack(spacing: 6) {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.cyanSpark)
-                        Text(friend.type)
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-                }
             }
-            .padding(16)
-            .background(Color.white.opacity(0.06))
-            .cornerRadius(14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
-            )
-            .padding(.horizontal, 20)
 
             Spacer()
         }
-        .gqPageBackground()
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 16)
+    }
+
+    // MARK: - Workout Info Card
+
+    @ViewBuilder
+    private var workoutInfoCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "figure.run")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.cyanSpark)
+                Text(friend.workout)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+
+            Divider()
+                .overlay(Color.white.opacity(0.08))
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(friend.exercises.components(separatedBy: ", "), id: \.self) { exercise in
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Color.white.opacity(0.2))
+                            .frame(width: 5, height: 5)
+                        Text(exercise)
+                            .font(.system(size: 14))
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                }
+            }
+
+            Divider()
+                .overlay(Color.white.opacity(0.08))
+
+            HStack(spacing: 20) {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                    Text("\(friend.minutes) min")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                HStack(spacing: 6) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.cyanSpark)
+                    Text(friend.type)
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+        )
+        .padding(.horizontal, 20)
+    }
+
+    // MARK: - Location Section
+
+    @ViewBuilder
+    private var locationSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Gym Location")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text("\(friend.name) is sharing")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                Spacer()
+            }
+
+            if let coord = friend.gymCoordinate {
+                Map(initialPosition: .region(MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: coord.lat, longitude: coord.lng),
+                    span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+                ))) {
+                    Marker(friend.gymName ?? "Gym", coordinate: CLLocationCoordinate2D(latitude: coord.lat, longitude: coord.lng))
+                        .tint(GQColors.cyanSpark)
+                }
+                .frame(height: 140)
+                .cornerRadius(12)
+                .allowsHitTesting(false)
+            }
+
+            Button {
+                #if canImport(UIKit)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                #endif
+                withAnimation(.spring(response: 0.4)) {
+                    showJoinToast = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    dismiss()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "figure.walk")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("On my way!")
+                        .font(.system(size: 15, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    LinearGradient(
+                        colors: [GQColors.deepBlue, GQColors.cyanSpark],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(12)
+            }
+        }
+        .padding(16)
+        .background(Color.white.opacity(0.06))
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+        )
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+    }
+
+    // MARK: - Join Confirmation Toast
+
+    @ViewBuilder
+    private var joinConfirmationToast: some View {
+        if showJoinToast {
+            VStack {
+                Spacer()
+                Text("🏃 On my way! \(friend.name) was notified")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(Color.white.opacity(0.15))
+                            .overlay(
+                                Capsule()
+                                    .stroke(GQColors.cyanSpark.opacity(0.3), lineWidth: 0.5)
+                            )
+                    )
+                    .padding(.bottom, 30)
+            }
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
     }
 }
 
@@ -4004,6 +4190,7 @@ struct CommunityFeedView: View {
             .padding(.top, 12)
         }
         .scrollContentBackground(.hidden)
+        .background(Color(hex: "0A0A0A").ignoresSafeArea())
         .onAppear {
             CommunitySeeder.seedIfNeeded(modelContext: modelContext, userId: profile.id)
         }
@@ -4108,7 +4295,7 @@ struct CommunityFeedView: View {
             }
             .padding(14)
             .frame(width: 220)
-            .homeSocialCard(accent: GQColors.vividPurple, emphasized: true, cornerRadius: 14)
+            .homeSocialCard(cornerRadius: 14, subtle: true)
         }
         .gqInteractive(scale: 0.96, haptic: .light)
     }
@@ -4168,18 +4355,12 @@ struct CommunityFeedView: View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [GQColors.vividPurple.opacity(0.7), GQColors.cyanSpark.opacity(0.7)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(Color.white.opacity(0.08))
                     .frame(width: 44, height: 44)
                     .overlay(
                         Image(systemName: "building.2.fill")
                             .font(.system(size: 18))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.cyanSpark.opacity(0.8))
                     )
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -4237,7 +4418,7 @@ struct CommunityFeedView: View {
                         .padding(.vertical, 7)
                         .background(
                             LinearGradient(
-                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                colors: [GQColors.vividPurple.opacity(0.6), GQColors.cyanSpark.opacity(0.5)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -4354,18 +4535,12 @@ struct CommunityFeedView: View {
 
     private var communityCircleIcon: some View {
         Circle()
-            .fill(
-                LinearGradient(
-                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .fill(Color.white.opacity(0.08))
             .frame(width: 50, height: 50)
             .overlay(
                 Image(systemName: "building.2.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.cyanSpark.opacity(0.8))
             )
     }
 
@@ -4415,18 +4590,12 @@ struct CommunityPreviewCard: View {
             HStack(spacing: 12) {
                 // Community icon
                 Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [GQColors.vividPurple.opacity(0.3), GQColors.cyanSpark.opacity(0.3)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(Color.white.opacity(0.08))
                     .frame(width: 50, height: 50)
                     .overlay(
                         Image(systemName: "building.2.fill")
                             .font(.system(size: 20))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.cyanSpark.opacity(0.8))
                     )
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -4486,18 +4655,12 @@ struct CommunityCard: View {
                         .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(Color.white.opacity(0.08))
                         .frame(width: 50, height: 50)
                         .overlay(
                             Image(systemName: "building.2.fill")
                                 .font(.system(size: 20))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.cyanSpark.opacity(0.8))
                         )
                 }
 
@@ -4792,6 +4955,7 @@ struct CommunitySearchRow: View {
 
 enum CommunitySection: String, CaseIterable {
     case feed = "Feed"
+    case events = "Events"
     case leaderboard = "Leaderboard"
     case members = "Members"
 }
@@ -4803,11 +4967,14 @@ struct CommunityDetailView: View {
     @Query private var allCommunities: [Community]
     @Query private var allChallenges: [CommunityChallenge]
     @Query private var allMemberships: [CommunityMembership]
+    @Query private var allEvents: [CommunityEvent]
 
     let community: Community
     let profile: UserProfile
 
     @State private var showingNewPost = false
+    @State private var showingCreateEvent = false
+    @State private var showingLeaveAlert = false
     @State private var selectedSection: CommunitySection = .feed
     @State private var showPartnerOnly = false
 
@@ -4831,6 +4998,11 @@ struct CommunityDetailView: View {
 
     private var memberships: [CommunityMembership] {
         allMemberships.filter { $0.communityId == community.id }
+    }
+
+    private var communityEvents: [CommunityEvent] {
+        allEvents.filter { $0.communityId == community.id }
+            .sorted { $0.date < $1.date }
     }
 
     var body: some View {
@@ -4861,6 +5033,17 @@ struct CommunityDetailView: View {
             .sheet(isPresented: $showingNewPost) {
                 NewCommunityPostSheet(community: community, profile: profile)
             }
+            .alert("Leave Community", isPresented: $showingLeaveAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Leave", role: .destructive) {
+                    leaveCommunity()
+                }
+            } message: {
+                Text("Are you sure you want to leave \(community.name)?")
+            }
+            .sheet(isPresented: $showingCreateEvent) {
+                CreateEventSheet(community: community, profile: profile)
+            }
         }
     }
 
@@ -4870,18 +5053,12 @@ struct CommunityDetailView: View {
     private var detailHeader: some View {
         VStack(spacing: 12) {
             Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(Color.white.opacity(0.08))
                 .frame(width: 80, height: 80)
                 .overlay(
                     Image(systemName: "building.2.fill")
                         .font(.system(size: 32))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.cyanSpark.opacity(0.8))
                 )
 
             HStack(spacing: 4) {
@@ -4973,7 +5150,7 @@ struct CommunityDetailView: View {
                     .padding(.vertical, 12)
                     .background(
                         LinearGradient(
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            colors: [GQColors.vividPurple.opacity(0.6), GQColors.cyanSpark.opacity(0.5)],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -4991,6 +5168,24 @@ struct CommunityDetailView: View {
                 .background(Color.white.opacity(0.05))
                 .cornerRadius(10)
                 .padding(.horizontal, 16)
+        } else if isMember && community.creatorId != profile.id {
+            Button {
+                showingLeaveAlert = true
+            } label: {
+                Text("Leave Community")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.coralRed)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(GQColors.coralRed.opacity(0.1))
+                    .cornerRadius(10)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(GQColors.coralRed.opacity(0.3), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
         }
     }
 
@@ -5016,7 +5211,7 @@ struct CommunityDetailView: View {
                     ForEach(activeNames, id: \.self) { name in
                         VStack(spacing: 6) {
                             Circle()
-                                .fill(GQGradients.primary)
+                                .fill(Color.white.opacity(0.1))
                                 .frame(width: 44, height: 44)
                                 .overlay(
                                     Text(String(name.prefix(1)))
@@ -5211,10 +5406,80 @@ struct CommunityDetailView: View {
         switch selectedSection {
         case .feed:
             communityFeedSection
+        case .events:
+            communityEventsSection
         case .leaderboard:
             communityLeaderboardSection
         case .members:
             communityMembersSection
+        }
+    }
+
+    // MARK: - Events Section
+
+    @ViewBuilder
+    private var communityEventsSection: some View {
+        VStack(spacing: 12) {
+            if isMember {
+                Button {
+                    showingCreateEvent = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle.fill")
+                        Text("Create Event")
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        LinearGradient(
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(10)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+            }
+
+            let upcoming = communityEvents.filter { $0.date > Date() }
+            if upcoming.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.system(size: 30))
+                        .foregroundColor(GQColors.textTertiary)
+                    Text("No upcoming events")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 30)
+            } else {
+                ForEach(upcoming) { event in
+                    CommunityEventCard(event: event, userId: profile.id, modelContext: modelContext)
+                }
+                .padding(.horizontal, 16)
+            }
+
+            let past = communityEvents.filter { $0.date <= Date() }
+            if !past.isEmpty {
+                Text("PAST EVENTS")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                ForEach(past.reversed().prefix(5)) { event in
+                    CommunityEventCard(event: event, userId: profile.id, modelContext: modelContext)
+                        .opacity(0.6)
+                }
+                .padding(.horizontal, 16)
+            }
         }
     }
 
@@ -5407,6 +5672,19 @@ struct CommunityDetailView: View {
         case 2: return Color(red: 0.8, green: 0.5, blue: 0.2)
         default: return .gray
         }
+    }
+
+    private func leaveCommunity() {
+        community.memberIds.removeAll { $0 == profile.id }
+        community.memberCount = max(0, community.memberCount - 1)
+
+        // Delete membership
+        if let membership = memberships.first(where: { $0.userId == profile.id }) {
+            modelContext.delete(membership)
+        }
+
+        try? modelContext.save()
+        dismiss()
     }
 }
 
@@ -5773,6 +6051,294 @@ struct ExerciseMediaCarousel: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Community Event Card
+
+struct CommunityEventCard: View {
+    let event: CommunityEvent
+    let userId: UUID
+    let modelContext: ModelContext
+
+    private var isAttending: Bool {
+        event.attendeeIds.contains(userId)
+    }
+
+    private var isFull: Bool {
+        if let max = event.maxAttendees {
+            return event.attendeeIds.count >= max
+        }
+        return false
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: event.eventType.icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(event.eventType.color)
+                    .frame(width: 32, height: 32)
+                    .background(event.eventType.color.opacity(0.15))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(event.title)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                    Text(event.eventType.rawValue)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(event.eventType.color)
+                }
+
+                Spacer()
+
+                Button {
+                    toggleRSVP()
+                } label: {
+                    Text(isAttending ? "Going" : (isFull ? "Full" : "RSVP"))
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(isAttending ? .white : GQColors.cyanSpark)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(isAttending ? GQColors.cyanSpark : GQColors.cyanSpark.opacity(0.15))
+                        .cornerRadius(16)
+                }
+                .buttonStyle(.plain)
+                .disabled(isFull && !isAttending)
+            }
+
+            if !event.eventDescription.isEmpty {
+                Text(event.eventDescription)
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textSecondary)
+                    .lineLimit(2)
+            }
+
+            HStack(spacing: 16) {
+                HStack(spacing: 4) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 11))
+                    Text(event.date.formatted(date: .abbreviated, time: .shortened))
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundColor(GQColors.textTertiary)
+
+                if let location = event.location, !location.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin")
+                            .font(.system(size: 11))
+                        Text(location)
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(GQColors.textTertiary)
+                }
+
+                Spacer()
+
+                HStack(spacing: 4) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 11))
+                    if let max = event.maxAttendees {
+                        Text("\(event.attendeeIds.count)/\(max)")
+                    } else {
+                        Text("\(event.attendeeIds.count)")
+                    }
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(14)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func toggleRSVP() {
+        if isAttending {
+            event.attendeeIds.removeAll { $0 == userId }
+        } else {
+            event.attendeeIds.append(userId)
+        }
+        try? modelContext.save()
+    }
+}
+
+// MARK: - Create Event Sheet
+
+struct CreateEventSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let community: Community
+    let profile: UserProfile
+
+    @State private var title = ""
+    @State private var eventDescription = ""
+    @State private var location = ""
+    @State private var eventDate = Date().addingTimeInterval(86400)
+    @State private var eventType: CommunityEventType = .workout
+    @State private var maxAttendeesText = ""
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("EVENT TYPE")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(0.5)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(CommunityEventType.allCases, id: \.self) { type in
+                                    Button {
+                                        eventType = type
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: type.icon)
+                                            Text(type.rawValue)
+                                        }
+                                        .font(.system(size: 13, weight: eventType == type ? .bold : .medium))
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .background(eventType == type ? type.color.opacity(0.3) : Color.white.opacity(0.08))
+                                        .cornerRadius(20)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 20)
+                                                .stroke(eventType == type ? type.color.opacity(0.5) : Color.white.opacity(0.1), lineWidth: 1)
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("TITLE")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(0.5)
+                        TextField("Event name", text: $title)
+                            .textFieldStyle(.plain)
+                            .padding()
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("DESCRIPTION")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(0.5)
+                        TextField("What's the event about?", text: $eventDescription, axis: .vertical)
+                            .lineLimit(3...5)
+                            .textFieldStyle(.plain)
+                            .padding()
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("LOCATION")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(0.5)
+                        TextField("Where? (optional)", text: $location)
+                            .textFieldStyle(.plain)
+                            .padding()
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("DATE & TIME")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(0.5)
+                        DatePicker("", selection: $eventDate, in: Date()...)
+                            .datePickerStyle(.compact)
+                            .labelsHidden()
+                            .tint(GQColors.cyanSpark)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("MAX ATTENDEES")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.gray)
+                            .tracking(0.5)
+                        TextField("Leave empty for unlimited", text: $maxAttendeesText)
+                            #if os(iOS)
+                            .keyboardType(.numberPad)
+                            #endif
+                            .textFieldStyle(.plain)
+                            .padding()
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                    }
+
+                    Button {
+                        createEvent()
+                    } label: {
+                        HStack {
+                            Image(systemName: "calendar.badge.plus")
+                            Text("Create Event")
+                        }
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(
+                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                .padding()
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("New Event")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func createEvent() {
+        let event = CommunityEvent(
+            communityId: community.id,
+            creatorId: profile.id,
+            creatorName: profile.name,
+            title: title.trimmingCharacters(in: .whitespaces),
+            eventDescription: eventDescription.trimmingCharacters(in: .whitespaces),
+            location: location.isEmpty ? nil : location.trimmingCharacters(in: .whitespaces),
+            date: eventDate,
+            maxAttendees: Int(maxAttendeesText),
+            attendeeIds: [profile.id],
+            eventType: eventType
+        )
+
+        modelContext.insert(event)
+        try? modelContext.save()
+        dismiss()
     }
 }
 

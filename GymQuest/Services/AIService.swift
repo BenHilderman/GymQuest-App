@@ -31,6 +31,12 @@ class AIService: ObservableObject {
         let daysPerWeek: Int       // Target training frequency
         let injuries: String       // AI avoids recommending exercises that aggravate these
         let level: Int             // 1-11 based on XP progression
+        let gender: String?
+        let heightCm: Double?
+        let weightKg: Double?
+        let experienceLevel: String?
+        let workoutEnvironment: String?
+        let availableEquipment: [String]
     }
 
     /// Computed statistics for AI analysis
@@ -73,7 +79,13 @@ class AIService: ObservableObject {
                 goal: profile.goal.rawValue,
                 daysPerWeek: profile.daysPerWeek,
                 injuries: profile.injuries,
-                level: profile.level
+                level: profile.level,
+                gender: profile.gender?.rawValue,
+                heightCm: profile.heightCm,
+                weightKg: profile.weightKg,
+                experienceLevel: profile.experienceLevel?.rawValue,
+                workoutEnvironment: profile.workoutEnvironment?.rawValue,
+                availableEquipment: profile.availableEquipment.map(\.rawValue)
             ),
             stats: StatsContext(
                 streak: calculateStreak(workouts: workouts),
@@ -189,6 +201,8 @@ class AIService: ObservableObject {
         - Reference their actual numbers (streak, sets, RPE)
         - Be specific: "Do 3x8 at RPE 7" not "consider moderate intensity"
         - Goal: \(profile.goal.rawValue) | Injuries: \(profile.injuries.isEmpty ? "none" : profile.injuries)
+        - Experience: \(profile.experienceLevel?.rawValue ?? "unknown") | Environment: \(profile.workoutEnvironment?.rawValue ?? "unknown")
+        - Equipment: \(profile.availableEquipment.map(\.rawValue).joined(separator: ", ").isEmpty ? "not specified" : profile.availableEquipment.map(\.rawValue).joined(separator: ", "))
         - If they need a deload, say it directly
         - End with ONE clear next action when relevant
         """
@@ -569,7 +583,7 @@ class AIService: ObservableObject {
         case .abs:
             return "Core session complete. Prioritize bracing patterns for transfer to compound lifts."
 
-        case .other:
+        case .custom:
             return "Custom session logged. Track your progress and adjust volume next time."
         }
     }

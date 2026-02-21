@@ -36,7 +36,7 @@ struct RootView: View {
                 }
 
             case .onboarding(let authMethod, let email, let googleId, let tempPassword):
-                OnboardingView(
+                AISetupChatView(
                     authMethod: authMethod,
                     email: email,
                     googleId: googleId,

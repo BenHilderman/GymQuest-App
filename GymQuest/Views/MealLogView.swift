@@ -29,9 +29,14 @@ struct MealLogView: View {
     @State private var manualProtein = ""
     @State private var manualCarbs = ""
     @State private var manualFat = ""
+    @State private var servingWeightText = ""
+
+    private var servingWeight: Int? {
+        Int(servingWeightText)
+    }
 
     private var estimation: FoodNutritionEstimator.NutritionInfo {
-        FoodNutritionEstimator.estimate(from: foodText)
+        FoodNutritionEstimator.estimate(from: foodText, weightGrams: servingWeight)
     }
 
     private var calories: Int { Int(manualCalories) ?? estimation.calories }
@@ -72,6 +77,60 @@ struct MealLogView: View {
                             if FeatureFlags.shared.voiceNotesEnabled {
                                 MealDictationButton(foodText: $foodText)
                                     .padding(.top, 12)
+                            }
+                        }
+                    }
+
+                    // Serving size input
+                    if !foodText.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("SERVING SIZE")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.gray)
+                                .tracking(0.5)
+
+                            HStack(spacing: 10) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "scalemass")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(GQColors.cyanSpark)
+                                    TextField("Weight", text: $servingWeightText)
+                                        #if os(iOS)
+                                        .keyboardType(.numberPad)
+                                        #endif
+                                        .textFieldStyle(.plain)
+                                    Text("g")
+                                        .foregroundColor(GQColors.textSecondary)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .background(Color.white.opacity(0.08))
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                )
+
+                                if let serving = FoodNutritionEstimator.defaultServing(for: foodText) {
+                                    Button {
+                                        servingWeightText = "\(serving.grams)"
+                                    } label: {
+                                        Text("\(serving.grams)g — \(serving.description)")
+                                            .font(.system(size: 12, weight: .medium))
+                                            .foregroundColor(GQColors.cyanSpark)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 8)
+                                            .background(GQColors.cyanSpark.opacity(0.12))
+                                            .cornerRadius(8)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+
+                            if servingWeight == nil {
+                                Text("Leave empty for default serving")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.gray.opacity(0.6))
                             }
                         }
                     }

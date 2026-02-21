@@ -52,21 +52,17 @@ struct ContentView: View {
             // All views rendered simultaneously, visibility controlled by opacity
             // This prevents the black flash by keeping views pre-rendered
             ZStack {
-                HomeView(profile: profile)
-                    .opacity(appState.selectedTab == .home ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .home)
-
                 FeedView(profile: profile)
                     .opacity(appState.selectedTab == .feed ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .feed)
 
-                CoachView(profile: profile, workouts: workouts, aiService: aiService)
-                    .opacity(appState.selectedTab == .coach ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .coach)
+                ActivityView(profile: profile)
+                    .opacity(appState.selectedTab == .home ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .home)
 
-                TrainingProgressView(profile: profile, workouts: workouts, aiService: aiService)
-                    .opacity(appState.selectedTab == .progress ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .progress)
+                LogView(profile: profile)
+                    .opacity(appState.selectedTab == .log ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .log)
 
                 ProfileView(profile: profile)
                     .opacity(appState.selectedTab == .profile ? 1 : 0)
@@ -92,8 +88,8 @@ struct ContentView: View {
             // Active workout view — kept alive outside the switch so state persists across tab changes
             if let workout = appState.activeWorkout {
                 ActiveWorkoutView(profile: profile, workoutType: workout.workoutType, exercises: workout.exercises, customTitle: workout.customTitle)
-                    .opacity(appState.selectedTab == .home ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .home)
+                    .opacity(appState.selectedTab == .home && !appState.isWorkoutPaused ? 1 : 0)
+                    .allowsHitTesting(appState.selectedTab == .home && !appState.isWorkoutPaused)
             }
 
             // Mini workout bar on non-Home tabs (positioned at bottom above tab bar)
@@ -102,6 +98,16 @@ struct ContentView: View {
                     Spacer()
                     MiniWorkoutBar(workoutType: appState.activeWorkout?.workoutType ?? .push) {
                         appState.selectedTab = .home
+                    }
+                }
+            }
+
+            // Resume bar when paused on Home tab
+            if appState.isWorkoutActive && appState.isWorkoutPaused && appState.selectedTab == .home {
+                VStack {
+                    Spacer()
+                    MiniWorkoutBar(workoutType: appState.activeWorkout?.workoutType ?? .push) {
+                        appState.resumeWorkout()
                     }
                 }
             }
@@ -174,16 +180,16 @@ struct FloatingTabBar: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                FloatingTabButton(tab: .home, icon: "house", selectedIcon: "house.fill", label: "Home")
-
                 ZStack(alignment: .topTrailing) {
-                    FloatingTabButton(tab: .feed, icon: "person.2", selectedIcon: "person.2.fill", label: "Social")
+                    FloatingTabButton(tab: .feed, icon: "person.2", selectedIcon: "person.2.fill", label: "Feed")
 
                     if SocialActivityService.shared.hasLiveFriends {
                         SocialActivityBadge()
                             .offset(x: -14, y: 2)
                     }
                 }
+
+                FloatingTabButton(tab: .home, icon: "house", selectedIcon: "house.fill", label: "Home")
 
                 // Center add button - with animated gradient border
                 Button {
@@ -227,9 +233,9 @@ struct FloatingTabBar: View {
                 .accessibilityLabel("Log workout")
                 .accessibilityHint("Double tap to start logging a new workout")
 
-                FloatingTabButton(tab: .progress, icon: "chart.bar", selectedIcon: "chart.bar.fill", label: "Stats")
+                FloatingTabButton(tab: .log, icon: "square.and.pencil", selectedIcon: "square.and.pencil", label: "Log")
 
-                FloatingTabButton(tab: .profile, icon: "person", selectedIcon: "person.fill", label: "Profile")
+                FloatingTabButton(tab: .profile, icon: "person", selectedIcon: "person.fill", label: "You")
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)

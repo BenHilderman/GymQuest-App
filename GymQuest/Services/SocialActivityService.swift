@@ -11,6 +11,9 @@ struct SimulatedFriendActivity: Identifiable {
     let exercise: String
     let minutesElapsed: Int
     let isLive: Bool
+    let gymName: String?
+    let gymArea: String?
+    let gymCoordinate: (lat: Double, lng: Double)?
 }
 
 // MARK: - Social Activity Service
@@ -27,6 +30,14 @@ final class SocialActivityService {
         generateActivity()
     }
 
+    private static let mockGyms: [(name: String, area: String, lat: Double, lng: Double)] = [
+        ("The ARC - Queen's", "Kingston, ON", 44.2253, -76.4951),
+        ("GoodLife Fitness Downtown", "Kingston, ON", 44.2312, -76.4860),
+        ("Anytime Fitness", "Kingston, ON", 44.2384, -76.5012),
+        ("Iron Works Gym", "Kingston, ON", 44.2298, -76.4783),
+        ("CrossFit Kingston", "Kingston, ON", 44.2421, -76.5103),
+    ]
+
     private func generateActivity() {
         let users = SocialSeeder.fakeUsers
         let workoutTypes = ["Push", "Pull", "Legs", "Upper", "Cardio"]
@@ -42,6 +53,9 @@ final class SocialActivityService {
 
         activeFriends = selected.enumerated().map { index, user in
             let isLive = index < 3 // first 3 are live
+            // ~70% of friends share gym location
+            let sharesLocation = Double.random(in: 0...1) < 0.7
+            let gym = sharesLocation ? Self.mockGyms.randomElement() : nil
             return SimulatedFriendActivity(
                 id: user.id,
                 name: user.name.components(separatedBy: " ").first ?? user.name,
@@ -50,7 +64,10 @@ final class SocialActivityService {
                 workoutType: workoutTypes[index % workoutTypes.count],
                 exercise: exercises[index % exercises.count],
                 minutesElapsed: Int.random(in: 8...52),
-                isLive: isLive
+                isLive: isLive,
+                gymName: gym?.name,
+                gymArea: gym?.area,
+                gymCoordinate: gym != nil ? (lat: gym!.lat, lng: gym!.lng) : nil
             )
         }
 

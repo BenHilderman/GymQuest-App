@@ -2,20 +2,17 @@
 //  HomeView.swift
 //  GymQuest
 //
-//  GymQuest 2.0 - Bold & Energetic Home Screen
-//  Hero card dominates, horizontal stat pills, minimal cards
-//  Inspired by: Nike Training Club, Peloton, Strava
+//  Home tab — weekly progress, quick stats, and recent workouts.
 //
 
 import SwiftUI
 import SwiftData
 
-struct HomeView: View {
+struct ActivityView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var featureFlags: FeatureFlags
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
-    @Query(sort: \QuestProgress.updatedAt, order: .reverse) private var questProgress: [QuestProgress]
 
     let profile: UserProfile
 
@@ -23,58 +20,31 @@ struct HomeView: View {
     @State private var streak: Int = 0
     @State private var weeklyProgress: (completed: Int, target: Int) = (0, 0)
     @State private var readinessLevel: ReadinessLevel = .good
-    @State private var latestPR: PRMoment?
-    @State private var activeQuest: (quest: Quest, progress: QuestProgress)?
-    @State private var activeSquad: Squad?
-    @State private var squadChallenge: SquadChallenge?
-    @State private var showingSquadView = false
-    @State private var showingMealLog = false
-    @State private var showingWorkoutTypePicker = false
-    @State private var totalSets: Int = 0
-    @State private var totalXP: Int = 0
-    @State private var headerAppeared = true
-    @State private var showingVideoGenerator = false
-    @State private var selectedWorkoutType: WorkoutType = .push
+    @Query(sort: \WorkoutTemplate.createdAt, order: .reverse) private var savedTemplates: [WorkoutTemplate]
 
-    // Extract first name from full name
-    var firstName: String {
-        profile.name.components(separatedBy: " ").first ?? profile.name
-    }
+    @Query(sort: \PREvent.date, order: .reverse) private var prEvents: [PREvent]
+
+    @State private var showingWorkoutTypePicker = false
 
     var body: some View {
         Group {
             if appState.isWorkoutActive {
                 ActiveWorkoutView(profile: profile)
             } else {
-                homeContent
+                activityContent
             }
         }
     }
 
+    // MARK: - Activity Content
+
     @ViewBuilder
-    private var homeContent: some View {
+    private var activityContent: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    // DATE HEADER WITH GREETING
-                    VStack(spacing: 4) {
-                        Text("Hi, \(firstName)!")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white)
-
-                        HStack(spacing: 6) {
-                            Text(Date().formatted(.dateTime.weekday(.wide)))
-                            Text("•")
-                            Text(Date().formatted(.dateTime.month(.abbreviated).day()))
-                        }
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 8)
-                    .offset(y: headerAppeared ? 0 : -20)
-                    .opacity(headerAppeared ? 1 : 0)
-                    .animation(.easeOut(duration: 0.5), value: headerAppeared)
+                    // GREETING HEADER
+                    greetingHeader
 
                     // WEEK OVERVIEW
                     WeeklyProgressCard(
@@ -96,59 +66,11 @@ struct HomeView: View {
                     )
                     .padding(.horizontal, 16)
 
-                    // FRIENDS ACTIVE TODAY
-                    FriendsActiveTodayRow()
-                        .padding(.horizontal, 16)
+                    // STATS & PROGRESS
+                    statsAndProgressSection
 
-                    // SQUAD CHALLENGE (if active)
-                    if FeatureFlags.shared.squadsEnabled, let squad = activeSquad, let challenge = squadChallenge {
-                        SquadChallengeCard(squad: squad, challenge: challenge)
-                            .padding(.horizontal, 16)
-                    }
-
-
-                    // MAIN ACTIONS - 3 Big Buttons
-                    VStack(spacing: 12) {
-                        // Start Workout - Primary
-                        HomeActionButton(
-                            icon: "figure.strengthtraining.traditional",
-                            title: "Start Workout",
-                            subtitle: todayWorkout != nil ? "Completed today" : "Begin a live session",
-                            accentColor: GQColors.vividPurple,
-                            isPrimary: true
-                        ) {
-                            showingWorkoutTypePicker = true
-                        }
-                        .bounceAppear(delay: 0.1)
-
-                        // Log Food
-                        HomeActionButton(
-                            icon: "fork.knife",
-                            title: "Log Food",
-                            subtitle: "Track nutrition",
-                            accentColor: GQColors.coralRed,
-                            isPrimary: false
-                        ) {
-                            showingMealLog = true
-                        }
-                        .bounceAppear(delay: 0.2)
-
-                        // View Progress
-                        HomeActionButton(
-                            icon: "chart.line.uptrend.xyaxis",
-                            title: "View Progress",
-                            subtitle: "\(streak) day streak",
-                            accentColor: GQColors.success,
-                            isPrimary: false
-                        ) {
-                            appState.selectedTab = .progress
-                        }
-                        .bounceAppear(delay: 0.3)
-
-                        // View Progress has context menu for Form Studio & Video Gen
-
-                    }
-                    .padding(.horizontal, 16)
+                    // RECENT WORKOUTS
+                    recentWorkoutsSection
 
                     Spacer(minLength: 40)
                 }
@@ -172,57 +94,310 @@ struct HomeView: View {
             .onAppear {
                 loadHomeData()
             }
-            .sheet(isPresented: $showingSquadView) {
-                SquadView(profile: profile)
-            }
-            .sheet(isPresented: $showingMealLog) {
-                MealLogView(profile: profile)
-            }
             .sheet(isPresented: $showingWorkoutTypePicker) {
-                StartWorkoutSheet(selectedType: $selectedWorkoutType) {
+                StartWorkoutSheet(selectedType: .constant(.push)) {
                     showingWorkoutTypePicker = false
                 }
             }
-            .sheet(isPresented: $showingVideoGenerator) {
-                VideoGeneratorView()
-            }
-            // Active workout is now shown inline on the Home tab via ContentView
         }
     }
 
+    // MARK: - Greeting Header
+
+    @ViewBuilder
+    private var greetingHeader: some View {
+        VStack(spacing: 4) {
+            Text("Hi, \(profile.name.components(separatedBy: " ").first ?? profile.name)!")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.white)
+
+            Text(Date().formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Stats & Progress
+
+    @ViewBuilder
+    private var statsAndProgressSection: some View {
+        VStack(spacing: 10) {
+            // Section header
+            Text("STATS & PROGRESS")
+                .font(GQTypography.sectionHeader)
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Metric chips
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    WorkoutFlowMetricChip(
+                        icon: "flame.fill",
+                        value: "\(streak)",
+                        label: "Streak",
+                        color: GQColors.success
+                    )
+                    WorkoutFlowMetricChip(
+                        icon: "dumbbell.fill",
+                        value: "\(workoutsThisWeek)",
+                        label: "This Week",
+                        color: GQColors.vividPurple
+                    )
+                    WorkoutFlowMetricChip(
+                        icon: "star.fill",
+                        value: "Lv \(profile.level)",
+                        label: "Level",
+                        color: GQColors.cyanSpark
+                    )
+                }
+                .padding(.vertical, 6)
+            }
+
+            // Lifetime Stats Card
+            lifetimeStatsCard
+
+            // Recent PRs Card
+            recentPRsCard
+        }
+        .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private var lifetimeStatsCard: some View {
+        VStack(spacing: 10) {
+            Text("LIFETIME")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+
+            HStack(spacing: 0) {
+                ProfileLifetimeStatItem(
+                    icon: "dumbbell.fill",
+                    value: "\(nonRestWorkouts.count)",
+                    label: "Workouts",
+                    color: .white
+                )
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 1, height: 28)
+
+                ProfileLifetimeStatItem(
+                    icon: "scalemass.fill",
+                    value: homeTotalVolumeFormatted,
+                    label: "Volume",
+                    color: Color(hex: "30D158")
+                )
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.1))
+                    .frame(width: 1, height: 28)
+
+                ProfileLifetimeStatItem(
+                    icon: "clock.fill",
+                    value: homeTotalDurationFormatted,
+                    label: "Time",
+                    color: Color(hex: "FF9500")
+                )
+            }
+        }
+        .padding(.vertical, 12)
+        .homeSocialCard()
+    }
+
+    @ViewBuilder
+    private var recentPRsCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("RECENT PRs")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+                .padding(.horizontal, 16)
+
+            if recentPRs.isEmpty {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 6) {
+                        Image(systemName: "trophy")
+                            .font(.system(size: 24))
+                            .foregroundColor(GQColors.textTertiary)
+                        Text("No PRs yet — keep pushing!")
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textSecondary)
+                    }
+                    .padding(.vertical, 12)
+                    Spacer()
+                }
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(recentPRs, id: \.id) { pr in
+                        HStack(spacing: 12) {
+                            Image(systemName: "trophy.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(GQColors.electricGold)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(pr.exerciseName)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                Text(pr.prType.rawValue)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+
+                            Spacer()
+
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(prValueFormatted(pr))
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+
+                                if let delta = pr.delta, delta > 0 {
+                                    Text("+\(Int(delta)) lbs")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(GQColors.success)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 12)
+        .homeSocialCard()
+    }
+
+    // MARK: - Recent Workouts
+
+    @ViewBuilder
+    private var recentWorkoutsSection: some View {
+        let recentWorkouts = Array(workouts.filter { $0.type != .rest }.prefix(3))
+        if !recentWorkouts.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("RECENT WORKOUTS")
+                    .font(GQTypography.sectionHeader)
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(1)
+                    .padding(.horizontal, 16)
+
+                VStack(spacing: 8) {
+                    ForEach(recentWorkouts) { workout in
+                        recentWorkoutRow(workout)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func recentWorkoutRow(_ workout: Workout) -> some View {
+        Button {
+            appState.selectedSession = workout
+        } label: {
+            HStack(spacing: 12) {
+                WorkoutTypeBadge(type: workout.type, size: 40)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(workout.title ?? workout.type.rawValue)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text(workout.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(workout.duration) min")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white)
+                    Text("\(workout.totalSets) sets")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            .padding(12)
+            .homeSocialCard(cornerRadius: 12)
+        }
+        .buttonStyle(GQInteractiveStyle())
+    }
+
+    // MARK: - Computed Properties
+
+    private var nonRestWorkouts: [Workout] {
+        workouts.filter { $0.type != .rest }
+    }
+
+    private var homeTotalVolumeFormatted: String {
+        let volume = workouts.reduce(0.0) { $0 + $1.totalVolume }
+        if volume >= 1_000_000 {
+            return String(format: "%.1fM", volume / 1_000_000)
+        } else if volume >= 1_000 {
+            return String(format: "%.1fk", volume / 1_000)
+        }
+        return "\(Int(volume))"
+    }
+
+    private var homeTotalDurationFormatted: String {
+        let totalMinutes = workouts.reduce(0) { $0 + $1.duration }
+        let hours = totalMinutes / 60
+        if hours >= 1000 {
+            return String(format: "%.1fk", Double(hours) / 1000)
+        }
+        return "\(hours)h"
+    }
+
+    private var recentPRs: [PREvent] {
+        Array(prEvents.prefix(3))
+    }
+
+    private func prValueFormatted(_ pr: PREvent) -> String {
+        switch pr.prType {
+        case .weightPR:
+            return "\(Int(pr.newValue)) lbs"
+        case .repPR:
+            return "\(Int(pr.newValue)) reps"
+        case .volumePR:
+            if pr.newValue >= 1000 {
+                return String(format: "%.1fk", pr.newValue / 1000)
+            }
+            return "\(Int(pr.newValue))"
+        case .estimated1RMPR:
+            return "\(Int(pr.newValue)) lbs"
+        }
+    }
+
+    private var workoutsThisWeek: Int {
+        let calendar = Calendar.current
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        return nonRestWorkouts.filter { $0.date >= weekStart }.count
+    }
+
+    // MARK: - Data Loading
+
     private func loadHomeData() {
-        // Seed Form Studio content if needed
         try? FormContentSeeder.seedIfNeeded(modelContext: modelContext)
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
-        // Check for today's workout
         todayWorkout = workouts.first { calendar.isDate($0.date, inSameDayAs: today) }
-
-        // Calculate streak
         streak = calculateStreak()
 
-        // Calculate weekly progress
         let weekStart = calendar.startOfWeek(for: Date())
         let weeklyWorkouts = workouts.filter { $0.date >= weekStart }
         weeklyProgress = (weeklyWorkouts.count, profile.daysPerWeek)
 
-        // Calculate total sets
-        totalSets = workouts.reduce(0) { $0 + $1.totalSets }
-
-        // Determine readiness
         readinessLevel = determineReadiness()
-
-        // Get latest PR
-        loadLatestPR()
-
-        // Get active quest
-        loadActiveQuest()
-
-        // Get active squad
-        loadActiveSquad()
-
     }
 
     private func calculateStreak() -> Int {
@@ -243,13 +418,11 @@ struct HomeView: View {
     }
 
     private func determineReadiness() -> ReadinessLevel {
-        // Use IntegrationManager's computed readiness if integrations are active
         let integration = IntegrationManager.shared
         if integration.hasAnyConnection && integration.recoveryScore > 0 {
             return integration.readinessLevel
         }
 
-        // Fallback: compute from workout data
         let calendar = Calendar.current
         let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: Date()) ?? Date()
         let recentWorkouts = workouts.filter { $0.date >= threeDaysAgo }
@@ -262,59 +435,6 @@ struct HomeView: View {
         if recentWorkouts.isEmpty { return .optimal }
 
         return .good
-    }
-
-    private func loadLatestPR() {
-        let descriptor = FetchDescriptor<PRMoment>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        latestPR = (try? modelContext.fetch(descriptor))?.first
-    }
-
-    private func loadActiveQuest() {
-        guard featureFlags.questsEnabled else { return }
-
-        let questService = QuestService.shared
-        questService.configure(modelContext: modelContext)
-        questService.seedDefaultQuests()
-
-        if let todaysQuest = questService.getTodaysQuest(userId: profile.id) {
-            activeQuest = todaysQuest
-        }
-
-        let descriptor = FetchDescriptor<Reaction>()
-        let reactions = (try? modelContext.fetch(descriptor)) ?? []
-
-        let mealDescriptor = FetchDescriptor<MealLog>()
-        let meals = (try? modelContext.fetch(mealDescriptor)) ?? []
-
-        let learningDescriptor = FetchDescriptor<LearningProgress>()
-        let learning = (try? modelContext.fetch(learningDescriptor)) ?? []
-
-        questService.evaluateProgress(
-            userId: profile.id,
-            workouts: Array(workouts),
-            reactions: reactions,
-            mealLogs: meals,
-            learningProgress: learning
-        )
-
-        if let updatedQuest = questService.getTodaysQuest(userId: profile.id) {
-            activeQuest = updatedQuest
-        }
-    }
-
-    private func loadActiveSquad() {
-        guard featureFlags.squadsEnabled else { return }
-
-        let squadService = SquadService.shared
-        squadService.configure(modelContext: modelContext)
-
-        let userSquads = squadService.getUserSquads(userId: profile.id)
-        if let squad = userSquads.first {
-            activeSquad = squad
-            squadChallenge = squadService.getActiveChallenge(squadId: squad.id)
-        }
     }
 
     private func logRestDay() {
@@ -333,179 +453,40 @@ struct HomeView: View {
         try? modelContext.save()
         loadHomeData()
     }
+
 }
 
-// MARK: - Readiness Level
+// MARK: - Home Action Card
 
-// ReadinessLevel is defined in IntegrationManager.swift
-
-// MARK: - Hero Action Card
-
-struct HeroActionCard: View {
-    let todayWorkout: Workout?
-    let weeklyProgress: (completed: Int, target: Int)
-    let onLogWorkout: () -> Void
-
-    @State private var gradientRotation: Double = 0
-
-    var progressPercentage: Double {
-        guard weeklyProgress.target > 0 else { return 0 }
-        return min(1.0, Double(weeklyProgress.completed) / Double(weeklyProgress.target))
-    }
-
-    var body: some View {
-        HeroCard {
-            VStack(spacing: 20) {
-                // Header
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("TODAY")
-                            .font(GQTypography.sectionHeader)
-                            .foregroundColor(GQColors.textTertiary)
-                            .tracking(1.5)
-
-                        Text(Date().formatted(.dateTime.weekday(.wide).month().day()))
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-
-                    Spacer()
-
-                    if todayWorkout != nil {
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.title3)
-                                .foregroundColor(GQColors.success)
-                            Text("Done")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(GQColors.success)
-                        }
-                    }
-                }
-
-                // CTA Button - Clear button with gradient border
-                Button(action: onLogWorkout) {
-                    HStack(spacing: 12) {
-                        Image(systemName: todayWorkout == nil ? "plus" : "arrow.right")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white.opacity(0.6))
-
-                        Text(todayWorkout == nil ? "Start Workout" : "Log Another")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white.opacity(0.6))
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.6))
-                    }
-                    .padding(.vertical, 16)
-                    .padding(.horizontal, 18)
-                    .background(
-                        ZStack {
-                            // Shadow for 3D
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(Color.black)
-                                .shadow(color: .black.opacity(0.5), radius: 10, y: 5)
-
-                            // Dark fill
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color(white: 0.16), Color(white: 0.08)],
-                                        startPoint: .top,
-                                        endPoint: .bottom
-                                    )
-                                )
-
-                            // Top highlight
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.white.opacity(0.1), Color.clear],
-                                        startPoint: .top,
-                                        endPoint: .center
-                                    )
-                                )
-                        }
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 2
-                            )
-                    )
-                }
-                .buttonStyle(GQInteractiveStyle())
-
-                // Weekly progress mini bar
-                VStack(spacing: 8) {
-                    HStack {
-                        Text("This Week")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(GQColors.textTertiary)
-
-                        Spacer()
-
-                        Text("\(weeklyProgress.completed)/\(weeklyProgress.target) sessions")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-
-                    AnimatedProgressBar(
-                        progress: progressPercentage,
-                        height: 5,
-                        colors: [progressPercentage >= 1.0 ? GQColors.success : GQColors.accent]
-                    )
-                }
-            }
-            .padding(20)
-        }
-        .padding(.horizontal, 16)
-    }
-}
-
-// MARK: - Home Action Button
-
-struct HomeActionButton: View {
+struct HomeActionCard: View {
     let icon: String
     let title: String
     let subtitle: String
     let accentColor: Color
     let isPrimary: Bool
     let action: () -> Void
-    @State private var pulseScale: CGFloat = 1.0
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 16) {
-                // Icon
+            HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(accentColor.opacity(0.15))
-                        .frame(width: 50, height: 50)
+                        .fill(accentColor.opacity(0.2))
+                        .frame(width: 44, height: 44)
 
                     Image(systemName: icon)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundColor(accentColor)
-                        .scaleEffect(isPrimary ? pulseScale : 1.0)
                 }
 
-                // Text
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundColor(.white)
 
                     Text(subtitle)
                         .font(.system(size: 13))
-                        .foregroundColor(GQColors.textTertiary)
+                        .foregroundColor(GQColors.textSecondary)
                 }
 
                 Spacer()
@@ -515,51 +496,35 @@ struct HomeActionButton: View {
                     .foregroundColor(GQColors.textTertiary)
             }
             .padding(16)
-            .modifier(HomeActionButtonSurface(isPrimary: isPrimary, accentColor: accentColor))
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.white.opacity(0.06))
+            )
+            .overlay(
+                Group {
+                    if isPrimary {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.clear)
+                            .animatedGradientBorder(
+                                cornerRadius: 16,
+                                lineWidth: 1.5,
+                                colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                                duration: 4.0
+                            )
+                    } else {
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    }
+                }
+            )
         }
         .buttonStyle(GQInteractiveStyle())
-        .onAppear {
-            guard isPrimary else { return }
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                pulseScale = 1.15
-            }
-        }
     }
 }
 
-// Helper for conditional animated border
-struct ConditionalAnimatedBorder: ViewModifier {
-    let isActive: Bool
-    let cornerRadius: CGFloat
+// MARK: - Readiness Level
 
-    func body(content: Content) -> some View {
-        if isActive {
-            content.animatedGradientBorder(
-                cornerRadius: cornerRadius,
-                lineWidth: 2,
-                colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
-                duration: 4.0
-            )
-        } else {
-            content
-        }
-    }
-}
-
-struct HomeActionButtonSurface: ViewModifier {
-    let isPrimary: Bool
-    let accentColor: Color
-
-    func body(content: Content) -> some View {
-        if isPrimary {
-            content
-                .homeSocialCard(accent: accentColor, emphasized: true, sweepDelay: 0.5)
-        } else {
-            content
-                .homeSocialCard(accent: accentColor, sweepDelay: 2.0)
-        }
-    }
-}
+// ReadinessLevel is defined in IntegrationManager.swift
 
 // MARK: - Day Tile View (for weekly calendar)
 
@@ -577,9 +542,7 @@ struct DayTileView: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            // The tile box
             ZStack {
-                // Base rectangle with gradient for completed workouts
                 RoundedRectangle(cornerRadius: 10)
                     .fill(tileBackground)
                     .frame(height: 44)
@@ -589,7 +552,6 @@ struct DayTileView: View {
                         y: 2
                     )
 
-                // Animated border only for today
                 if isToday && !hasWorkout {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color.clear)
@@ -602,10 +564,8 @@ struct DayTileView: View {
                         )
                 }
 
-                // Content inside the box
                 if hasWorkout {
                     if isRest {
-                        // Sleep icon for rest day
                         VStack(spacing: 2) {
                             Image(systemName: "moon.zzz.fill")
                                 .font(.system(size: 14))
@@ -615,14 +575,12 @@ struct DayTileView: View {
                                 .foregroundColor(.white.opacity(0.7))
                         }
                     } else {
-                        // Workout type icon with checkmark and label - white for contrast
                         VStack(spacing: 2) {
                             ZStack {
                                 Image(systemName: workout!.type.icon)
                                     .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(.white)
 
-                                // Larger checkmark badge with white background
                                 ZStack {
                                     Circle()
                                         .fill(Color.white)
@@ -640,12 +598,10 @@ struct DayTileView: View {
                         }
                     }
                 } else if isPast {
-                    // Missed day - subtle dash
                     Image(systemName: "minus")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(Color.white.opacity(0.15))
                 } else if isToday {
-                    // Today - plus icon
                     Image(systemName: "plus")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(
@@ -656,7 +612,6 @@ struct DayTileView: View {
                             )
                         )
                 } else {
-                    // Future day - empty or subtle indicator
                     Circle()
                         .fill(Color.white.opacity(0.1))
                         .frame(width: 6, height: 6)
@@ -668,14 +623,12 @@ struct DayTileView: View {
                 onTap?()
             }
 
-            // Date number below the box
             Text("\(dayNumber)")
                 .font(.system(size: 11, weight: isToday ? .bold : .medium))
                 .foregroundColor(isToday ? .white : isCompletedWorkout ? .white : GQColors.textTertiary)
         }
     }
 
-    // Computed property for tile background
     private var tileBackground: AnyShapeStyle {
         if hasWorkout {
             if isRest {
@@ -714,13 +667,11 @@ struct WeeklyProgressCard: View {
         return (0..<7).compactMap { cal.date(byAdding: .day, value: $0, to: monday) }
     }
 
-    // Get workout for a specific date
     func workoutForDate(_ date: Date) -> Workout? {
         let cal = Calendar.current
         return workouts.first { cal.isDate($0.date, inSameDayAs: date) }
     }
 
-    // Count only actual workouts (not rest days)
     var completedWorkouts: Int {
         weekDates.filter { date in
             guard let workout = workoutForDate(date) else { return false }
@@ -735,7 +686,6 @@ struct WeeklyProgressCard: View {
 
     let dayLabels = ["M", "T", "W", "T", "F", "S", "S"]
 
-    // Short label for workout type
     func workoutTypeLabel(_ type: WorkoutType) -> String {
         switch type {
         case .push: return "Push"
@@ -748,7 +698,7 @@ struct WeeklyProgressCard: View {
         case .rest: return "Rest"
         case .glutes: return "Glutes"
         case .abs: return "Abs"
-        case .other: return "Other"
+        case .custom: return "Other"
         }
     }
 
@@ -765,7 +715,7 @@ struct WeeklyProgressCard: View {
         case .legs: return .push
         case .upper: return .lower
         case .lower: return .upper
-        case .fullBody, .cardio, .rest, .glutes, .abs, .other: return .push
+        case .fullBody, .cardio, .rest, .glutes, .abs, .custom: return .push
         }
     }
 
@@ -787,7 +737,6 @@ struct WeeklyProgressCard: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Header with count and progress circle
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("THIS WEEK")
@@ -813,14 +762,11 @@ struct WeeklyProgressCard: View {
 
                 Spacer()
 
-                // Progress circle
                 ZStack {
-                    // Background circle
                     Circle()
                         .stroke(Color.white.opacity(0.1), lineWidth: 4)
                         .frame(width: 44, height: 44)
 
-                    // Progress arc with animated gradient
                     Circle()
                         .trim(from: 0, to: circleAnimated ? progressPercentage : 0)
                         .stroke(
@@ -834,14 +780,12 @@ struct WeeklyProgressCard: View {
                         .frame(width: 44, height: 44)
                         .rotationEffect(.degrees(-90))
 
-                    // Percentage text
                     Text("\(Int(progressPercentage * 100))%")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
                 }
             }
 
-            // Week calendar - rectangle style
             HStack(spacing: 6) {
                 ForEach(0..<7, id: \.self) { index in
                     let isToday = Calendar.current.isDateInToday(weekDates[index])
@@ -851,12 +795,10 @@ struct WeeklyProgressCard: View {
                     let dayNumber = Calendar.current.component(.day, from: weekDates[index])
 
                     VStack(spacing: 2) {
-                        // Day label (M, T, W...)
                         Text(dayLabels[index])
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(GQColors.textTertiary)
 
-                        // Day tile - smooth rectangle with date below
                         DayTileView(
                             dayNumber: dayNumber,
                             isToday: isToday,
@@ -867,7 +809,6 @@ struct WeeklyProgressCard: View {
                                 if isToday && !hasWorkout {
                                     showingDayOptions = true
                                 } else if hasWorkout && workout?.type != .rest {
-                                    // Tap on completed workout - show review
                                     selectedWorkoutForReview = workout
                                     showingWorkoutReview = true
                                 }
@@ -879,7 +820,6 @@ struct WeeklyProgressCard: View {
                 }
             }
 
-            // Next up suggestion
             nextUpRow
         }
         .padding(18)
@@ -928,9 +868,7 @@ struct WorkoutReviewSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // Header with workout type and date
                     HStack(spacing: 16) {
-                        // Workout type icon with gradient background
                         ZStack {
                             Circle()
                                 .fill(GQGradients.workoutGradient(for: workout.type))
@@ -955,39 +893,14 @@ struct WorkoutReviewSheet: View {
                     }
                     .padding(.horizontal)
 
-                    // Stats row
                     HStack(spacing: 12) {
-                        WorkoutStatBadge(
-                            icon: "clock.fill",
-                            value: "\(workout.duration)",
-                            label: "min",
-                            color: GQColors.cyanSpark
-                        )
-
-                        WorkoutStatBadge(
-                            icon: "number",
-                            value: "\(workout.totalSets)",
-                            label: "sets",
-                            color: GQColors.vividPurple
-                        )
-
-                        WorkoutStatBadge(
-                            icon: "scalemass.fill",
-                            value: formatVolume(workout.totalVolume),
-                            label: "lbs",
-                            color: GQColors.sunsetOrange
-                        )
-
-                        WorkoutStatBadge(
-                            icon: "gauge.high",
-                            value: "\(workout.rpe)",
-                            label: "RPE",
-                            color: workout.rpe >= 8 ? GQColors.coralRed : GQColors.success
-                        )
+                        WorkoutStatBadge(icon: "clock.fill", value: "\(workout.duration)", label: "min", color: GQColors.cyanSpark)
+                        WorkoutStatBadge(icon: "number", value: "\(workout.totalSets)", label: "sets", color: GQColors.vividPurple)
+                        WorkoutStatBadge(icon: "scalemass.fill", value: formatVolume(workout.totalVolume), label: "lbs", color: GQColors.sunsetOrange)
+                        WorkoutStatBadge(icon: "gauge.high", value: "\(workout.rpe)", label: "RPE", color: workout.rpe >= 8 ? GQColors.coralRed : GQColors.success)
                     }
                     .padding(.horizontal)
 
-                    // Exercises list
                     if !workout.exercises.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("EXERCISES")
@@ -1005,7 +918,6 @@ struct WorkoutReviewSheet: View {
                         }
                     }
 
-                    // Notes section
                     if !workout.notes.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("NOTES")
@@ -1095,7 +1007,6 @@ struct ExerciseReviewRow: View {
                     .foregroundColor(GQColors.textSecondary)
             }
 
-            // Sets summary
             HStack(spacing: 8) {
                 ForEach(exercise.sets.sorted(by: { $0.order < $1.order })) { set in
                     Text(setDisplayString(set))
@@ -1151,7 +1062,6 @@ struct ActiveQuestCard: View {
 
                 Spacer()
 
-                // XP reward badge
                 HStack(spacing: 4) {
                     Image(systemName: "bolt.fill")
                         .font(.system(size: 10))
@@ -1165,7 +1075,6 @@ struct ActiveQuestCard: View {
                 .cornerRadius(8)
             }
 
-            // Progress
             VStack(spacing: 8) {
                 AnimatedProgressBar(
                     progress: progress.progressPercentage,
@@ -1192,127 +1101,6 @@ struct ActiveQuestCard: View {
             }
         }
         .padding(18)
-    }
-}
-
-// MARK: - Latest PR Card V2
-
-struct LatestPRCardV2: View {
-    let prMoment: PRMoment
-
-    var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(GQColors.cyanSpark.opacity(0.2))
-                    .frame(width: 48, height: 48)
-
-                Image(systemName: "trophy.fill")
-                    .font(.title3)
-                    .foregroundColor(GQColors.cyanSpark)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("RECENT PR")
-                    .font(GQTypography.sectionHeader)
-                    .foregroundColor(GQColors.cyanSpark.opacity(0.8))
-                    .tracking(1)
-
-                if let exercise = prMoment.exerciseName {
-                    Text(exercise)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-
-                Text(prMoment.value)
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textSecondary)
-            }
-
-            Spacer()
-
-            if let improvement = prMoment.improvement {
-                Text(improvement)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(GQColors.success)
-            }
-        }
-        .padding(16)
-    }
-}
-
-// MARK: - Squad Highlight Card V2
-
-struct SquadHighlightCardV2: View {
-    let squad: Squad
-    let challenge: SquadChallenge?
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 14) {
-                HStack {
-                    Image(systemName: "person.3.fill")
-                        .font(.title3)
-                        .foregroundColor(GQColors.deepBlue)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("YOUR SQUAD")
-                            .font(GQTypography.sectionHeader)
-                            .foregroundColor(GQColors.textTertiary)
-                            .tracking(1)
-
-                        Text(squad.name)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-
-                    Spacer()
-
-                    HStack(spacing: 8) {
-                        if squad.streakWeeks > 0 {
-                            HStack(spacing: 3) {
-                                Image(systemName: "flame.fill")
-                                    .foregroundColor(GQColors.success)
-                                Text("\(squad.streakWeeks)w")
-                                    .foregroundColor(GQColors.success)
-                            }
-                            .font(.system(size: 11, weight: .semibold))
-                        }
-
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12))
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-                }
-
-                // Challenge preview
-                if let challenge = challenge {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(challenge.title)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.white.opacity(0.9))
-
-                            AnimatedProgressBar(
-                                progress: min(1.0, Double(challenge.currentValue) / Double(challenge.targetValue)),
-                                height: 4,
-                                colors: [GQColors.deepBlue, GQColors.cyanSpark]
-                            )
-                        }
-
-                        Text("\(challenge.currentValue)/\(challenge.targetValue)")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(GQColors.deepBlue)
-                    }
-                    .padding(12)
-                    .background(GQColors.deepBlue.opacity(0.1))
-                    .cornerRadius(10)
-                }
-            }
-            .padding(16)
-        }
-        .buttonStyle(GQInteractiveStyle())
     }
 }
 
@@ -1354,87 +1142,6 @@ struct ProfileAvatarButton: View {
                     Circle()
                         .stroke(GQGradients.glassBorder, lineWidth: 1)
                 )
-        }
-    }
-}
-
-// MARK: - Legacy Support Cards
-
-struct TodayActionCard: View {
-    let todayWorkout: Workout?
-    let onLogWorkout: () -> Void
-    let onContinueSession: () -> Void
-
-    var body: some View {
-        HeroActionCard(
-            todayWorkout: todayWorkout,
-            weeklyProgress: (0, 0),
-            onLogWorkout: todayWorkout == nil ? onLogWorkout : onContinueSession
-        )
-    }
-}
-
-struct InsightCard: View {
-    let weeklyProgress: (completed: Int, target: Int)
-    let readinessLevel: ReadinessLevel
-    let streak: Int
-
-    var body: some View {
-        GlassCard(accentColor: GQColors.deepBlue, showGlow: false) {
-            WeeklyProgressCard(
-                weeklyProgress: weeklyProgress,
-                readinessLevel: readinessLevel,
-                workouts: []
-            )
-        }
-    }
-}
-
-struct QuestCard: View {
-    let quest: Quest
-    let progress: QuestProgress
-
-    var body: some View {
-        GlassCard(accentColor: GQColors.vividPurple) {
-            ActiveQuestCard(quest: quest, progress: progress)
-        }
-    }
-}
-
-struct LatestPRCard: View {
-    let prMoment: PRMoment
-
-    var body: some View {
-        GlassCard(accentColor: GQColors.cyanSpark) {
-            LatestPRCardV2(prMoment: prMoment)
-        }
-    }
-}
-
-struct QuickStatsRow: View {
-    let totalWorkouts: Int
-    let streak: Int
-    let level: Int
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
-                StatPill(icon: "dumbbell.fill", value: "\(totalWorkouts)", label: "Workouts", color: GQColors.vividPurple)
-                StatPill(icon: "flame.fill", value: "\(streak)", label: "Streak", color: GQColors.success)
-                StatPill(icon: "trophy.fill", value: "Lv.\(level)", label: "Level", color: GQColors.cyanSpark)
-            }
-        }
-    }
-}
-
-struct SquadHighlightCard: View {
-    let squad: Squad
-    let challenge: SquadChallenge?
-    let onTap: () -> Void
-
-    var body: some View {
-        GlassCard(accentColor: GQColors.deepBlue, showGlow: false) {
-            SquadHighlightCardV2(squad: squad, challenge: challenge, onTap: onTap)
         }
     }
 }
@@ -1530,7 +1237,6 @@ struct StartWorkoutSheet: View {
 
                 Spacer()
 
-                // Start button
                 Button {
                     onStart()
                 } label: {
@@ -1855,7 +1561,6 @@ struct StartWorkoutSheet: View {
     }
 
     private func parseReps(_ repString: String) -> Int {
-        // "8-12" → 10, "15" → 15
         let parts = repString.components(separatedBy: "-")
         if parts.count == 2, let low = Int(parts[0]), let high = Int(parts[1]) {
             return (low + high) / 2
@@ -1876,7 +1581,7 @@ struct StartWorkoutSheet: View {
         case .rest: muscleGroups = [.core]
         case .glutes: muscleGroups = [.glutes, .hamstrings]
         case .abs: muscleGroups = [.core]
-        case .other: muscleGroups = [.chest, .back, .shoulders]
+        case .custom: muscleGroups = [.chest, .back, .shoulders]
         }
 
         let allExercises = ExtendedExerciseDatabase.exercises
@@ -1890,7 +1595,6 @@ struct StartWorkoutSheet: View {
             }
         }
 
-        // Ensure at least 4 exercises
         if selected.count < 4 {
             let remaining = allExercises.filter { ex in
                 muscleGroups.contains(ex.muscleGroup) && !selected.contains(where: { $0.name == ex.name })
@@ -1985,79 +1689,6 @@ struct WorkoutTypeCard: View {
     }
 }
 
-// MARK: - Friends Active Today Row
-
-struct FriendsActiveTodayRow: View {
-    private let socialService = SocialActivityService.shared
-    @State private var pulseGreen = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // Header
-            HStack(spacing: 8) {
-                Circle()
-                    .fill(GQColors.success)
-                    .frame(width: 8, height: 8)
-                    .opacity(pulseGreen ? 1.0 : 0.4)
-
-                Text("Friends Active")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
-
-                Text("\(socialService.friendsActiveToday)")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(GQColors.cyanSpark)
-
-                Spacer()
-            }
-
-            // Horizontal avatar scroll
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    ForEach(socialService.activeFriends) { friend in
-                        VStack(spacing: 4) {
-                            ZStack {
-                                Circle()
-                                    .stroke(
-                                        friend.isLive ? GQColors.success : Color.white.opacity(0.15),
-                                        lineWidth: friend.isLive ? 2.5 : 1.5
-                                    )
-                                    .frame(width: 46, height: 46)
-
-                                Circle()
-                                    .fill(Color.white.opacity(0.08))
-                                    .frame(width: 38, height: 38)
-                                    .overlay(
-                                        Text(friend.avatarInitial)
-                                            .font(.system(size: 14, weight: .bold))
-                                            .foregroundColor(.white)
-                                    )
-                            }
-
-                            Text(friend.name)
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.white.opacity(0.8))
-                                .lineLimit(1)
-
-                            Text(friend.workoutType)
-                                .font(.system(size: 9))
-                                .foregroundColor(GQColors.textTertiary)
-                        }
-                        .frame(width: 52)
-                    }
-                }
-            }
-        }
-        .padding(14)
-        .homeSocialCard(accent: GQColors.success, emphasized: false, sweepDelay: 1.0)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                pulseGreen = true
-            }
-        }
-    }
-}
-
 // MARK: - Squad Challenge Card
 
 struct SquadChallengeCard: View {
@@ -2092,7 +1723,6 @@ struct SquadChallengeCard: View {
                 .font(.system(size: 15, weight: .bold))
                 .foregroundColor(.white)
 
-            // Progress bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
@@ -2131,8 +1761,31 @@ struct SquadChallengeCard: View {
     }
 }
 
+// MARK: - Nutrition Pill
+
+struct NutritionPill: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundColor(color)
+            Text(value)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(GQColors.textTertiary)
+        }
+    }
+}
+
 #Preview {
-    HomeView(profile: UserProfile(name: "Ben", username: "ben"))
+    ActivityView(profile: UserProfile(name: "Ben", username: "ben"))
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
         .preferredColorScheme(.dark)

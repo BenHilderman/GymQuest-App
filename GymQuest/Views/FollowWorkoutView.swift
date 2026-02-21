@@ -908,6 +908,309 @@ struct WorkoutStatBlock: View {
     }
 }
 
+// MARK: - Workout Copy Sheet
+
+struct WorkoutCopySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appState: AppState
+
+    let workoutData: SharedWorkoutData
+    let profile: UserProfile
+
+    @State private var showingSaved = false
+    @State private var showingExercisePicker = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // Workout preview header
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "dumbbell.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(GQColors.cyanSpark)
+                        Text(workoutData.title)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                        Spacer()
+                    }
+
+                    HStack(spacing: 12) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 11))
+                            Text("~\(workoutData.estimatedDuration)m")
+                        }
+                        HStack(spacing: 4) {
+                            Image(systemName: "figure.strengthtraining.traditional")
+                                .font(.system(size: 11))
+                            Text("\(workoutData.exercises.count) exercises")
+                        }
+                        HStack(spacing: 4) {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 11))
+                            Text("@\(workoutData.authorUsername)")
+                        }
+                        Spacer()
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                }
+                .padding(16)
+                .background(Color.white.opacity(0.05))
+
+                // Exercises list
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(workoutData.exercises) { exercise in
+                            HStack(spacing: 10) {
+                                Circle()
+                                    .fill(GQColors.cyanSpark.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                    .overlay(
+                                        Image(systemName: "figure.strengthtraining.traditional")
+                                            .font(.system(size: 14))
+                                            .foregroundColor(GQColors.cyanSpark)
+                                    )
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(exercise.name)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white)
+                                    Text("\(exercise.sets.count) sets • \(exercise.muscleGroup)")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+
+                                Spacer()
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                // Action buttons
+                VStack(spacing: 10) {
+                    // Start Now
+                    Button {
+                        startWorkoutNow()
+                    } label: {
+                        HStack {
+                            Image(systemName: "play.fill")
+                            Text("Start Now")
+                        }
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            LinearGradient(
+                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+
+                    HStack(spacing: 10) {
+                        // Save for Later
+                        Button {
+                            saveForLater()
+                        } label: {
+                            HStack {
+                                Image(systemName: showingSaved ? "checkmark.circle.fill" : "bookmark")
+                                Text(showingSaved ? "Saved!" : "Save for Later")
+                            }
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(showingSaved ? GQColors.success : .white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(showingSaved)
+
+                        // Copy Single Exercise
+                        Button {
+                            showingExercisePicker = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "list.bullet.clipboard")
+                                Text("Pick Exercise")
+                            }
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.08))
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(16)
+                .background(Color(white: 0.05))
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Copy Workout")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .sheet(isPresented: $showingExercisePicker) {
+                ExercisePickerSheet(exercises: workoutData.exercises, profile: profile)
+            }
+        }
+    }
+
+    private func startWorkoutNow() {
+        let exercises = workoutData.toActiveExercises()
+        let workoutType = WorkoutType(rawValue: workoutData.workoutType) ?? .push
+        appState.startWorkout(type: workoutType, exercises: exercises)
+        appState.selectedTab = .home
+        dismiss()
+    }
+
+    private func saveForLater() {
+        let template = WorkoutTemplate.fromSharedWorkout(workoutData, userId: profile.id)
+        modelContext.insert(template)
+        try? modelContext.save()
+        withAnimation {
+            showingSaved = true
+        }
+    }
+}
+
+// MARK: - Exercise Picker Sheet
+
+struct ExercisePickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appState: AppState
+
+    let exercises: [SharedWorkoutData.SharedExercise]
+    let profile: UserProfile
+
+    @State private var savedExercises: Set<UUID> = []
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(exercises) { exercise in
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(exercise.name)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.white)
+                            Text("\(exercise.sets.count) sets • \(exercise.muscleGroup)")
+                                .font(.system(size: 12))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+
+                        Spacer()
+
+                        if savedExercises.contains(exercise.id) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(GQColors.success)
+                        } else {
+                            HStack(spacing: 8) {
+                                Button {
+                                    addToCurrentWorkout(exercise)
+                                } label: {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 22))
+                                        .foregroundColor(GQColors.cyanSpark)
+                                }
+                                .buttonStyle(.plain)
+
+                                Button {
+                                    saveExerciseAsTemplate(exercise)
+                                } label: {
+                                    Image(systemName: "bookmark")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(GQColors.vividPurple)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .listRowBackground(Color.white.opacity(0.05))
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Pick Exercises")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func addToCurrentWorkout(_ exercise: SharedWorkoutData.SharedExercise) {
+        let mg = MuscleGroup(rawValue: exercise.muscleGroup) ?? .chest
+        let sets = exercise.sets.map { ActiveSet(reps: $0.reps, weight: $0.weight) }
+        let active = ActiveExercise(name: exercise.name, muscleGroup: mg, sets: sets)
+
+        if appState.activeWorkout != nil {
+            appState.activeWorkout?.exercises.append(active)
+        }
+
+        withAnimation {
+            savedExercises.insert(exercise.id)
+        }
+    }
+
+    private func saveExerciseAsTemplate(_ exercise: SharedWorkoutData.SharedExercise) {
+        let tmplExercise = TemplateExercise(
+            name: exercise.name,
+            muscleGroup: exercise.muscleGroup,
+            suggestedSets: exercise.sets.count,
+            suggestedReps: "\(exercise.sets.first?.reps ?? 10)",
+            suggestedWeight: exercise.sets.first?.weight,
+            order: 0
+        )
+
+        let template = WorkoutTemplate(
+            odId: profile.id,
+            name: exercise.name,
+            workoutType: WorkoutType(rawValue: exercise.muscleGroup) ?? .push,
+            exercises: [tmplExercise],
+            estimatedDuration: exercise.sets.count * 3
+        )
+
+        modelContext.insert(template)
+        try? modelContext.save()
+
+        withAnimation {
+            savedExercises.insert(exercise.id)
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview {
