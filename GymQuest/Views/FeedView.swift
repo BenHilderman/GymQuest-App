@@ -1310,8 +1310,8 @@ struct WorkoutHeroCard: View {
     @ViewBuilder
     private var exerciseTable: some View {
         if let exercises = workout?.exercises {
-            let displayExercises = Array(exercises.prefix(3))
-            let remaining = exercises.count - 3
+            let displayExercises = Array(exercises.prefix(4))
+            let remaining = exercises.count - 4
             let maxVol = displayExercises.map { exerciseVolume($0) }.max() ?? 1
 
             VStack(spacing: 6) {
@@ -1333,8 +1333,31 @@ struct WorkoutHeroCard: View {
         }
     }
 
+    private func setsAreUniform(_ sets: [SharedWorkoutData.SharedExercise.SharedSet]) -> Bool {
+        guard let first = sets.first else { return true }
+        return sets.allSatisfy { $0.reps == first.reps && $0.weight == first.weight }
+    }
+
+    private func setsSummary(_ sets: [SharedWorkoutData.SharedExercise.SharedSet]) -> String {
+        let capped = Array(sets.prefix(4))
+        let parts = capped.map { s in
+            if s.weight > 0 {
+                return "\(Int(s.weight))\u{00D7}\(s.reps)"
+            } else {
+                return "BW\u{00D7}\(s.reps)"
+            }
+        }
+        let joined = parts.joined(separator: " \u{00B7} ")
+        if sets.count > 4 {
+            return joined + " +\(sets.count - 4)"
+        }
+        return joined
+    }
+
     @ViewBuilder
     private func exerciseRow(_ ex: SharedWorkoutData.SharedExercise, proportion: Double) -> some View {
+        let uniform = setsAreUniform(ex.sets)
+
         HStack(spacing: 6) {
             Image(systemName: equipmentIcon(for: ex.name))
                 .font(.system(size: 12))
@@ -1348,24 +1371,31 @@ struct WorkoutHeroCard: View {
 
             Spacer()
 
-            let setCount = ex.sets.count
-            let reps = ex.sets.first?.reps ?? 0
-            let weight = ex.sets.first?.weight ?? 0
+            if uniform {
+                let setCount = ex.sets.count
+                let reps = ex.sets.first?.reps ?? 0
+                let weight = ex.sets.first?.weight ?? 0
 
-            Text("\(setCount)\u{00D7}\(reps)")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
-
-            if weight > 0 {
-                Text("\(Int(weight)) lbs")
+                Text("\(setCount)\u{00D7}\(reps)")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 60, alignment: .trailing)
+
+                if weight > 0 {
+                    Text("\(Int(weight)) lbs")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 60, alignment: .trailing)
+                } else {
+                    Text("BW")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 60, alignment: .trailing)
+                }
             } else {
-                Text("BW")
-                    .font(.system(size: 13, weight: .medium))
+                Text(setsSummary(ex.sets))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.white.opacity(0.7))
-                    .frame(width: 60, alignment: .trailing)
+                    .lineLimit(1)
             }
         }
         .padding(.vertical, 4)
@@ -1721,10 +1751,16 @@ struct PostActionsRowCompact: View {
                 performLikeAnimation()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: isLiked ? "heart.fill" : "heart")
-                        .font(.system(size: 20))
-                        .foregroundColor(isLiked ? .red : .white)
-                        .scaleEffect(heartScale)
+                    ZStack {
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
+                            .font(.system(size: 20))
+                            .foregroundColor(isLiked ? .red : .white)
+                            .scaleEffect(heartScale)
+
+                        if showParticles {
+                            HeartBurstOverlay(isActive: showParticles)
+                        }
+                    }
 
                     if displayedLikeCount > 0 {
                         AnimatedCounter(value: displayedLikeCount)
@@ -1934,47 +1970,48 @@ struct WorkingOutNowRow: View {
     private let socialService = SocialActivityService.shared
 
     @State private var selectedFriend: String?
-    @State private var pulseGreen = false
+    @State private var pulsePhase: CGFloat = 0.4
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 // Summary cell
                 VStack(spacing: 3) {
                     HStack(spacing: 3) {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 10))
+                            .font(.system(size: 9))
                             .foregroundColor(GQColors.terracotta)
                         Text("\(socialService.friendsActiveToday)")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white)
                     }
                     Text("today")
-                        .font(.system(size: 10))
+                        .font(.system(size: 9))
                         .foregroundColor(GQColors.textTertiary)
                 }
-                .frame(width: 40)
+                .frame(width: 36)
 
                 // Active friends from SocialActivityService
                 ForEach(socialService.activeFriends) { friend in
                     Button {
                         selectedFriend = friend.name
                     } label: {
-                        VStack(spacing: 4) {
+                        VStack(spacing: 3) {
                             ZStack {
                                 Circle()
                                     .stroke(
-                                        friend.isLive ? GQColors.success.opacity(pulseGreen ? 0.8 : 0.4) : GQColors.cyanSpark.opacity(0.5),
+                                        friend.isLive ? GQColors.success.opacity(pulsePhase) : GQColors.cyanSpark.opacity(0.5),
                                         lineWidth: 2
                                     )
-                                    .frame(width: 48, height: 48)
+                                    .shadow(color: friend.isLive ? GQColors.success.opacity(pulsePhase * 0.5) : .clear, radius: 6)
+                                    .frame(width: 38, height: 38)
 
                                 Circle()
                                     .fill(Color.white.opacity(0.1))
-                                    .frame(width: 40, height: 40)
+                                    .frame(width: 32, height: 32)
                                     .overlay(
                                         Text(friend.avatarInitial)
-                                            .font(.system(size: 15, weight: .bold))
+                                            .font(.system(size: 13, weight: .bold))
                                             .foregroundColor(.white)
                                     )
 
@@ -1983,14 +2020,14 @@ struct WorkingOutNowRow: View {
                                     VStack {
                                         HStack {
                                             Image(systemName: "mappin.circle.fill")
-                                                .font(.system(size: 12))
+                                                .font(.system(size: 10))
                                                 .foregroundColor(GQColors.cyanSpark)
-                                                .background(Circle().fill(Color.black).frame(width: 14, height: 14))
+                                                .background(Circle().fill(Color.black).frame(width: 12, height: 12))
                                             Spacer()
                                         }
                                         Spacer()
                                     }
-                                    .frame(width: 48, height: 48)
+                                    .frame(width: 38, height: 38)
                                 }
 
                                 // Workout badge
@@ -1999,32 +2036,32 @@ struct WorkingOutNowRow: View {
                                     HStack {
                                         Spacer()
                                         Text(String(friend.workoutType.prefix(1)))
-                                            .font(.system(size: 8, weight: .bold))
+                                            .font(.system(size: 7, weight: .bold))
                                             .foregroundColor(.white)
-                                            .frame(width: 16, height: 16)
+                                            .frame(width: 14, height: 14)
                                             .background(friend.isLive ? GQColors.success : GQColors.cyanSpark)
                                             .clipShape(Circle())
                                             .overlay(Circle().stroke(Color.black, lineWidth: 1.5))
                                     }
                                 }
-                                .frame(width: 48, height: 48)
+                                .frame(width: 38, height: 38)
                             }
 
                             Text(friend.name)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.system(size: 10, weight: .medium))
                                 .foregroundColor(.white)
                             Text("\(friend.minutesElapsed)m")
-                                .font(.system(size: 10))
+                                .font(.system(size: 9))
                                 .foregroundColor(.gray)
                         }
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 3)
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background(
             LinearGradient(
                 colors: [
@@ -2038,7 +2075,7 @@ struct WorkingOutNowRow: View {
         )
         .onAppear {
             withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                pulseGreen = true
+                pulsePhase = 0.8
             }
         }
         .sheet(item: Binding<WorkoutStoryItem?>(
@@ -2668,10 +2705,16 @@ struct PostActionsRowAnimated: View {
                     performLikeAnimation()
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .font(.system(size: 22))
-                            .foregroundColor(isLiked ? .red : .white)
-                            .scaleEffect(heartScale)
+                        ZStack {
+                            Image(systemName: isLiked ? "heart.fill" : "heart")
+                                .font(.system(size: 22))
+                                .foregroundColor(isLiked ? .red : .white)
+                                .scaleEffect(heartScale)
+
+                            if showParticles {
+                                HeartBurstOverlay(isActive: showParticles)
+                            }
+                        }
 
                         // Animated counter
                         if displayedLikeCount > 0 {
@@ -4190,7 +4233,7 @@ struct CommunityFeedView: View {
             .padding(.top, 12)
         }
         .scrollContentBackground(.hidden)
-        .background(Color(hex: "0A0A0A").ignoresSafeArea())
+        .background(Color(hex: "000000").ignoresSafeArea())
         .onAppear {
             CommunitySeeder.seedIfNeeded(modelContext: modelContext, userId: profile.id)
         }

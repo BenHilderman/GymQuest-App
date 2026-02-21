@@ -325,10 +325,10 @@ struct GQColors {
 
     // Backgrounds - pure dark
     static let deepBlack = Color(hex: "000000")
-    static let background = Color(hex: "0A0A0A")
-    static let darkSurface = Color(hex: "111111")
-    static let cardBackground = Color(hex: "191919")
-    static let elevatedSurface = Color(hex: "222222")
+    static let background = Color(hex: "000000")
+    static let darkSurface = Color(hex: "0A0A0A")
+    static let cardBackground = Color(hex: "141414")
+    static let elevatedSurface = Color(hex: "1C1C1C")
 
     // Text
     static let textPrimary = Color.white
@@ -346,8 +346,8 @@ struct GQColors {
     static let accentLight = cyanSpark
 
     // Surface tokens - standardized surface colors
-    static let surfaceBase = Color(hex: "1C1C1C")
-    static let surfaceElevated = Color(hex: "262626")
+    static let surfaceBase = Color(hex: "161616")
+    static let surfaceElevated = Color(hex: "202020")
     static let surfaceOverlay = Color(hex: "2F2F2F")
     static let borderSubtle = Color.white.opacity(0.06)
     static let borderDefault = Color.white.opacity(0.11)
@@ -1254,28 +1254,37 @@ struct GradientText: View {
 
 struct NavBarLogo: View {
     var body: some View {
-        ZStack {
-            // Gradient border circle
-            Circle()
-                .stroke(
-                    LinearGradient(
-                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 2
-                )
-                .frame(width: 34, height: 34)
+        TimelineView(.animation) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            let angle = Angle.degrees(time.truncatingRemainder(dividingBy: 4.0) / 4.0 * 360)
 
-            // Background
-            Circle()
-                .fill(GQColors.surfaceElevated)
-                .frame(width: 32, height: 32)
+            ZStack {
+                // Animated gradient border circle driven by TimelineView
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            gradient: Gradient(colors: [
+                                GQColors.vividPurple,
+                                GQColors.cyanSpark,
+                                GQColors.vividPurple
+                            ]),
+                            center: .center
+                        ),
+                        lineWidth: 2
+                    )
+                    .frame(width: 34, height: 34)
+                    .rotationEffect(angle)
 
-            // Icon
-            Image(systemName: "dumbbell.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white)
+                // Background
+                Circle()
+                    .fill(GQColors.surfaceElevated)
+                    .frame(width: 30, height: 30)
+
+                // Icon
+                Image(systemName: "dumbbell.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+            }
         }
     }
 }
@@ -1996,7 +2005,7 @@ extension View {
         self
             .background {
                 ZStack {
-                    Color(hex: "0A0A0A")
+                    Color(hex: "000000")
                     HomeEnergyBackground()
                         .opacity(0.25)
                 }
@@ -2009,7 +2018,7 @@ extension View {
         self
             .background {
                 ZStack {
-                    Color(hex: "0A0A0A")
+                    Color(hex: "000000")
                     HomeEnergyBackground()
                         .opacity(0.25)
                 }
@@ -2692,6 +2701,60 @@ struct InteractivePostCard<Content: View>: View {
 struct AnimatedGradientView: View {
     var body: some View {
         EnergyBackground()
+    }
+}
+
+// MARK: - Heart Burst Overlay
+
+struct HeartBurstOverlay: View {
+    let isActive: Bool
+
+    private struct HeartParticle: Identifiable {
+        let id = UUID()
+        let angle: Double
+        let distance: CGFloat
+        let scale: CGFloat
+    }
+
+    @State private var particles: [HeartParticle] = []
+    @State private var animateOut = false
+
+    private func spawnParticles() {
+        particles = (0..<5).map { i in
+            let baseAngle = -90.0 + Double(i) * 40.0 - 80.0
+            let jitter = Double.random(in: -15...15)
+            return HeartParticle(
+                angle: baseAngle + jitter,
+                distance: CGFloat.random(in: 20...35),
+                scale: CGFloat.random(in: 0.4...0.7)
+            )
+        }
+        withAnimation(.easeOut(duration: 0.5)) {
+            animateOut = true
+        }
+    }
+
+    var body: some View {
+        ZStack {
+            ForEach(particles) { p in
+                let rad = p.angle * .pi / 180
+                let dx = animateOut ? cos(rad) * p.distance : 0
+                let dy = animateOut ? sin(rad) * p.distance : 0
+
+                Image(systemName: "heart.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(.red)
+                    .scaleEffect(animateOut ? p.scale * 0.3 : p.scale)
+                    .opacity(animateOut ? 0 : 1)
+                    .offset(x: dx, y: dy)
+            }
+        }
+        .onAppear {
+            if isActive {
+                spawnParticles()
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
