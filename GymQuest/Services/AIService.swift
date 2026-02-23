@@ -190,7 +190,7 @@ class AIService: ObservableObject {
         // System prompt: defines AI persona and includes user context. 
         // Could elaborate but want to focus on whats important, avoid confusion for the AI.
         let systemPrompt = """
-        You are GymQuest AI Coach. Be direct, punchy, and actionable. Talk like a real coach texting their client - short sentences, no fluff.
+        You are Lift AI Coach. Be direct, punchy, and actionable. Talk like a real coach texting their client - short sentences, no fluff.
 
         User Context:
         \(contextString)

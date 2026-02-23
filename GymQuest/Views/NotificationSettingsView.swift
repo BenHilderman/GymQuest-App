@@ -159,5 +159,4 @@ struct DayButton: View {
     NavigationStack {
         NotificationSettingsView()
     }
-    .preferredColorScheme(.light)
 }

@@ -203,7 +203,7 @@ struct NameStepView: View {
                 .foregroundColor(GQColors.textTertiary)
 
             TextField("Your name", text: $name)
-                .textFieldStyle(GymQuestTextFieldStyle())
+                .textFieldStyle(LiftAITextFieldStyle())
                 .font(.title3)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -479,7 +479,7 @@ struct PasswordStepView: View {
                 .foregroundColor(GQColors.textTertiary)
 
             SecureField("Password", text: $password)
-                .textFieldStyle(GymQuestTextFieldStyle())
+                .textFieldStyle(LiftAITextFieldStyle())
                 .font(.title3)
                 .padding(.horizontal, 32)
                 .padding(.top, 16)

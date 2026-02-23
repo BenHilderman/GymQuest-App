@@ -195,5 +195,4 @@ private struct CompactWorkoutTypeCard: View {
 #Preview {
     WorkoutTypeSelectionView(profile: UserProfile(name: "Ben", username: "ben"))
         .environmentObject(AppState())
-        .preferredColorScheme(.light)
 }

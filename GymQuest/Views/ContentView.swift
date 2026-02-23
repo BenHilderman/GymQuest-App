@@ -192,40 +192,18 @@ struct FloatingTabBar: View {
                     }
                 }
 
-                // Center add button - with animated gradient border
+                // Center add button
                 Button {
                     appState.showingQuickActions = true
                 } label: {
                     ZStack {
-                        // Subtle glow
                         Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [GQColors.vividPurple.opacity(0.3), Color.clear],
-                                    center: .center,
-                                    startRadius: 15,
-                                    endRadius: 30
-                                )
-                            )
-                            .frame(width: 54, height: 54)
-
-                        // Dark solid fill
-                        Circle()
-                            .fill(GQColors.surfaceBase)
+                            .fill(GQGradients.primary)
                             .frame(width: 46, height: 46)
 
-                        // Animated gradient border
-                        AnimatedGradientCircle(
-                            size: 46,
-                            lineWidth: 2,
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
-                            duration: 4.0
-                        )
-
-                        // Plus icon
                         Image(systemName: "plus")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundColor(GQColors.textPrimary)
+                            .foregroundColor(.white)
                     }
                 }
                 .buttonStyle(GQInteractiveStyle(scaleAmount: 0.90, hapticStyle: .medium))
@@ -244,12 +222,14 @@ struct FloatingTabBar: View {
         .background(
             ZStack(alignment: .top) {
                 TabBarNotchShape(notchRadius: 17)
+                    .fill(GQColors.surfaceBase.opacity(0.82))
+                TabBarNotchShape(notchRadius: 17)
                     .fill(.ultraThinMaterial)
                 TabBarNotchShape(notchRadius: 17)
                     .stroke(GQColors.borderSubtle.opacity(0.4), lineWidth: 0.5)
-                // Accent gradient top line
+                // Top divider
                 Rectangle()
-                    .fill(GQColors.borderAccent)
+                    .fill(GQColors.borderSubtle)
                     .frame(height: 0.5)
             }
             .ignoresSafeArea(.container, edges: .bottom)
@@ -306,13 +286,7 @@ struct ActiveWorkoutMiniBar: View {
                 GQColors.surfaceBase
                     .overlay(
                         Rectangle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [GQColors.vividPurple.opacity(0.3), Color.clear],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .fill(GQGradients.primary)
                             .frame(height: 2),
                         alignment: .top
                     )
@@ -610,5 +584,4 @@ struct SocialActivityBadge: View {
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
         .modelContainer(for: [Workout.self, UserProfile.self], inMemory: true)
-        .preferredColorScheme(.light)
 }

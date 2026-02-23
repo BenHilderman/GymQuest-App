@@ -26,6 +26,11 @@ enum FeedTab: String, CaseIterable {
     case communities = "Communities"
 }
 
+enum SocialSubTab: String, CaseIterable {
+    case friends = "Friends"
+    case following = "Following"
+}
+
 struct FeedView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var featureFlags: FeatureFlags
@@ -33,18 +38,53 @@ struct FeedView: View {
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
     @Query(sort: \PRMoment.createdAt, order: .reverse) private var prMoments: [PRMoment]
     @Query(sort: \LearningItem.createdAt, order: .reverse) private var learningItems: [LearningItem]
+    @Query(sort: \Workout.date, order: .reverse) private var allWorkouts: [Workout]
+    @Query private var allFriendRecords: [Friend]
+    @Query private var allUserProfiles: [UserProfile]
 
     let profile: UserProfile
 
+    private var workoutsThisWeek: Int {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return 0 }
+        return allWorkouts.filter { $0.date >= startOfWeek }.count
+    }
+
     @State private var selectedFeedTab: FeedTab = .social
+    @State private var socialSubTab: SocialSubTab = .friends
     @State private var showLearnPanel = false
     @State private var selectedExerciseForLearn: String?
     @State private var activeSquad: Squad?
     @State private var squadChallenge: SquadChallenge?
+    @State private var showWeeklyCalendar = false
 
-    // Friends posts (from people you follow)
-    var friendsPosts: [Post] {
-        posts.filter { $0.authorId != profile.id }
+    // MARK: - Cached Social Graph
+
+    @State private var cachedFollowingIds: Set<UUID> = []
+    @State private var cachedFollowerIds: Set<UUID> = []
+    @State private var cachedMutualIds: Set<UUID> = []
+    @State private var cachedFriendsPosts: [Post] = []
+
+    private func refreshSocialGraph() {
+        cachedFollowingIds = Set(allFriendRecords.filter { $0.userId == profile.id }.map(\.odId))
+        cachedFollowerIds = Set(allFriendRecords.filter { $0.odId == profile.id }.map(\.userId))
+        cachedMutualIds = cachedFollowingIds.intersection(cachedFollowerIds)
+    }
+
+    /// Check if a user's profile is public
+    private func isUserPublic(_ userId: UUID) -> Bool {
+        allUserProfiles.first { $0.id == userId }?.isProfilePublic ?? true
+    }
+
+    private func refreshFriendsPosts() {
+        switch socialSubTab {
+        case .friends:
+            cachedFriendsPosts = posts.filter { cachedMutualIds.contains($0.authorId) }
+        case .following:
+            let followOnlyIds = cachedFollowingIds.subtracting(cachedMutualIds)
+            cachedFriendsPosts = posts.filter { followOnlyIds.contains($0.authorId) && isUserPublic($0.authorId) }
+        }
     }
 
     var body: some View {
@@ -74,6 +114,18 @@ struct FeedView: View {
             .onAppear {
                 SocialSeeder.seedIfNeeded(modelContext: modelContext)
                 loadActiveSquad()
+                refreshSocialGraph()
+                refreshFriendsPosts()
+            }
+            .onChange(of: allFriendRecords.count) {
+                refreshSocialGraph()
+                refreshFriendsPosts()
+            }
+            .onChange(of: socialSubTab) {
+                refreshFriendsPosts()
+            }
+            .onChange(of: posts.count) {
+                refreshFriendsPosts()
             }
             .sheet(isPresented: $showLearnPanel) {
                 if let exerciseName = selectedExerciseForLearn {
@@ -91,6 +143,30 @@ struct FeedView: View {
                     .presentationDragIndicator(.visible)
                 }
             }
+            .sheet(isPresented: $showWeeklyCalendar) {
+                NavigationStack {
+                    ScrollView {
+                        WeeklyProgressCard(
+                            weeklyProgress: (completed: workoutsThisWeek, target: 5),
+                            readinessLevel: .good,
+                            workouts: allWorkouts
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                    }
+                    .scrollContentBackground(.hidden)
+                    .gqPageBackground()
+                    .navigationTitle("This Week")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showWeeklyCalendar = false }
+                        }
+                    }
+                }
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
         }
     }
 
@@ -99,8 +175,21 @@ struct FeedView: View {
     @ViewBuilder
     private var socialFeedContent: some View {
         ScrollView {
-            // Stories row — friends working out now
-            WorkingOutNowRow(recentFriendCount: friendsPosts.filter { $0.timestamp > Date().addingTimeInterval(-86400) }.count)
+            // Weekly hero metric
+            WeeklyHeroSection(completed: workoutsThisWeek, goal: 5, onTap: {
+                showWeeklyCalendar = true
+            })
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+            // Friends / Following sub-tab pills
+            socialSubTabPills
+
+            // Stories row — friends working out now (hidden when empty)
+            if !SocialActivityService.shared.activeFriends.isEmpty {
+                WorkingOutNowRow(recentFriendCount: cachedFriendsPosts.filter { $0.timestamp > Date().addingTimeInterval(-86400) }.count)
+            }
 
             // Squad challenge (if active)
             if featureFlags.squadsEnabled, let squad = activeSquad, let challenge = squadChallenge {
@@ -110,10 +199,10 @@ struct FeedView: View {
             }
 
             LazyVStack(spacing: 0) {
-                if friendsPosts.isEmpty {
-                    EmptyFeedView(onCreatePost: { appState.showingLogWorkout = true })
+                if cachedFriendsPosts.isEmpty {
+                    socialEmptyState
                 } else {
-                    ForEach(friendsPosts) { post in
+                    ForEach(cachedFriendsPosts) { post in
                         PostCardV2(
                             post: post,
                             currentUserId: profile.id,
@@ -128,6 +217,64 @@ struct FeedView: View {
                 }
             }
             .padding(.bottom, 100)
+        }
+    }
+
+    // MARK: - Social Sub-Tab Pills
+
+    private var socialSubTabPills: some View {
+        HStack(spacing: 8) {
+            ForEach(SocialSubTab.allCases, id: \.rawValue) { tab in
+                let isSelected = socialSubTab == tab
+                Button {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                        socialSubTab = tab
+                    }
+                } label: {
+                    Text(tab.rawValue)
+                        .font(.system(size: 13, weight: isSelected ? .bold : .medium))
+                        .foregroundColor(isSelected ? .white : .white.opacity(0.5))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 7)
+                        .background(
+                            isSelected
+                                ? AnyShapeStyle(GQColors.surfaceBase)
+                                : AnyShapeStyle(Color.clear)
+                        )
+                        .cornerRadius(14)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(isSelected ? GQColors.borderDefault : Color.clear, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+    }
+
+    // MARK: - Social Empty State
+
+    @ViewBuilder
+    private var socialEmptyState: some View {
+        switch socialSubTab {
+        case .friends:
+            EmptyFeedView(onCreatePost: { appState.showingLogWorkout = true })
+        case .following:
+            VStack(spacing: 12) {
+                Image(systemName: "person.2.slash")
+                    .font(.system(size: 40))
+                    .foregroundColor(GQColors.textTertiary)
+                Text("No posts from people you follow")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                Text("Check the Discover tab to find people to follow")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.top, 60)
         }
     }
 
@@ -183,7 +330,7 @@ struct FeedTabsView: View {
                 ForEach(FeedTab.allCases, id: \.self) { tab in
                     Text(tab.rawValue)
                         .font(.system(size: 16, weight: selectedTab == tab ? .semibold : .medium))
-                        .foregroundColor(selectedTab == tab ? .white : GQColors.textTertiary)
+                        .foregroundColor(selectedTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
                         .onTapGesture {
@@ -198,11 +345,8 @@ struct FeedTabsView: View {
             // Single sliding underline
             GeometryReader { geometry in
                 let tabWidth = geometry.size.width / CGFloat(FeedTab.allCases.count)
-                LinearGradient(
-                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
+                Rectangle()
+                    .fill(GQGradients.primary)
                 .frame(width: tabWidth, height: 2)
                 .clipShape(RoundedRectangle(cornerRadius: 1))
                 .offset(x: tabWidth * CGFloat(tabIndex))
@@ -211,9 +355,15 @@ struct FeedTabsView: View {
             .frame(height: 2)
         }
         .padding(.horizontal, 32)
-        .padding(.top, 8)
+        .padding(.top, 12)
         .padding(.bottom, 4)
-        .background(GQColors.surfaceBase.ignoresSafeArea(edges: .top))
+        .background(
+            ZStack {
+                GQColors.surfaceBase.opacity(0.82)
+                Rectangle().fill(.ultraThinMaterial)
+            }
+            .ignoresSafeArea(edges: .top)
+        )
     }
 }
 
@@ -227,7 +377,6 @@ struct PostCardV2: View {
 
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
-    @Query private var allComments: [Comment]
     @State private var isLiked = false
     @State private var showVideoPlayer = false
     @State private var showComments = false
@@ -239,6 +388,7 @@ struct PostCardV2: View {
     @State private var photoScale: CGFloat = 1.0
     @State private var showingCopySheet = false
     @State private var copySheetWorkout: SharedWorkoutData?
+    @State private var cachedTopComment: Comment?
 
     var detectedActivityType: DetectedActivity? {
         guard let activity = post.detectedActivity else { return nil }
@@ -255,10 +405,17 @@ struct PostCardV2: View {
     }
 
     private var topComment: Comment? {
-        allComments
-            .filter { $0.postId == post.id }
-            .sorted { $0.timestamp > $1.timestamp }
-            .first
+        cachedTopComment
+    }
+
+    private func fetchTopComment() {
+        let postId = post.id
+        var descriptor = FetchDescriptor<Comment>(
+            predicate: #Predicate { $0.postId == postId },
+            sortBy: [SortDescriptor(\Comment.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        cachedTopComment = try? modelContext.fetch(descriptor).first
     }
 
     var body: some View {
@@ -278,7 +435,7 @@ struct PostCardV2: View {
         .background(GQColors.surfaceBase)
         .overlay(
             Rectangle()
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 1)
         )
         .opacity(hasAppeared ? 1 : 0)
         .offset(y: hasAppeared ? 0 : 20)
@@ -301,6 +458,7 @@ struct PostCardV2: View {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 hasAppeared = true
             }
+            fetchTopComment()
         }
         .fullScreenCover(isPresented: $showVideoPlayer) {
             if let videoData = post.videoData {
@@ -375,7 +533,7 @@ struct PostCardV2: View {
                 HStack(spacing: 6) {
                     Text(post.authorName)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Text("@\(post.authorUsername)")
                         .font(.system(size: 12))
                         .foregroundColor(GQColors.textSecondary)
@@ -425,7 +583,7 @@ struct PostCardV2: View {
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.white.opacity(0.06))
+                    .background(GQColors.adaptiveOverlay(0.06))
                     .cornerRadius(8)
                 }
 
@@ -483,10 +641,10 @@ struct PostCardV2: View {
                 Text("Inspired by @\(inspiredBy)")
                     .font(.system(size: 12, weight: .medium))
             }
-            .foregroundColor(Color.white.opacity(0.6))
+            .foregroundColor(GQColors.adaptiveOverlay(0.6))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.08))
+            .background(GQColors.adaptiveOverlay(0.08))
             .cornerRadius(16)
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
@@ -510,6 +668,9 @@ struct PostCardV2: View {
                     if let workout = sharedWorkout {
                         saveWorkout(workout)
                     }
+                },
+                onTap: {
+                    showWorkoutDetail = true
                 }
             )
             .padding(.horizontal, 16)
@@ -758,7 +919,7 @@ struct PostCardV2: View {
 
                         Text(comment.authorName)
                             .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
 
                         Text(comment.content)
                             .font(.system(size: 13))
@@ -793,7 +954,7 @@ struct PostCardV2: View {
                 .font(.system(size: 14))
             Text(emotion.encouragement)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -849,6 +1010,7 @@ struct WorkoutHeroCard: View {
     var exerciseHighlight: String? = nil
     var locationName: String? = nil
     var onCopy: (() -> Void)? = nil
+    var onTap: (() -> Void)? = nil
 
     @State private var showCopied = false
     @State private var shimmerOffset: CGFloat = -1
@@ -974,10 +1136,16 @@ struct WorkoutHeroCard: View {
     }
 
     var body: some View {
-        if hasExercises {
-            exerciseHeroContent
-        } else {
-            statsOnlyContent
+        Group {
+            if hasExercises {
+                exerciseHeroContent
+            } else {
+                statsOnlyContent
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap?()
         }
     }
 
@@ -1066,6 +1234,9 @@ struct WorkoutHeroCard: View {
     private var statsOnlyContent: some View {
         let isCardioWithRoute = cardioSubType?.isOutdoor == true
         ZStack {
+            // Dark base ensures white text is always readable
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(hex: "1C1C1E"))
             RoundedRectangle(cornerRadius: 16)
                 .fill(
                     LinearGradient(
@@ -1754,7 +1925,7 @@ struct PostActionsRowCompact: View {
                     ZStack {
                         Image(systemName: isLiked ? "heart.fill" : "heart")
                             .font(.system(size: 20))
-                            .foregroundColor(isLiked ? .red : .white)
+                            .foregroundColor(isLiked ? .red : GQColors.textPrimary)
                             .scaleEffect(heartScale)
 
                         if showParticles {
@@ -1798,7 +1969,7 @@ struct PostActionsRowCompact: View {
             }
         }
         .buttonStyle(.plain)
-        .foregroundColor(.white)
+        .foregroundColor(GQColors.textPrimary)
     }
 
     @ViewBuilder
@@ -1832,7 +2003,7 @@ struct PostActionsRowCompact: View {
         } label: {
             Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
                 .font(.system(size: 18))
-                .foregroundColor(isSaved ? GQColors.cyanSpark : .white.opacity(0.6))
+                .foregroundColor(isSaved ? GQColors.cyanSpark : GQColors.textTertiary)
         }
         .buttonStyle(.plain)
     }
@@ -1846,7 +2017,7 @@ struct PostActionsRowCompact: View {
                 .font(.system(size: 18))
         }
         .buttonStyle(.plain)
-        .foregroundColor(.white)
+        .foregroundColor(GQColors.textPrimary)
     }
 
     // MARK: - Like Logic
@@ -1961,6 +2132,77 @@ struct FollowWorkoutButton: View {
     }
 }
 
+// MARK: - Weekly Hero Section
+
+struct WeeklyHeroSection: View {
+    let completed: Int
+    let goal: Int
+    var onTap: (() -> Void)? = nil
+
+    private var progress: Double {
+        guard goal > 0 else { return 0 }
+        return min(Double(completed) / Double(goal), 1.0)
+    }
+
+    var body: some View {
+        Button {
+            onTap?()
+        } label: {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("This Week")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(completed)")
+                        .font(GQTypography.heroNumber)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+
+                    Text("/ \(goal)")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                Text("workouts completed")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+
+            Spacer()
+
+            // Circular progress ring
+            ZStack {
+                Circle()
+                    .stroke(GQColors.borderDefault, lineWidth: 6)
+                    .frame(width: 64, height: 64)
+
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(GQColors.vividPurple, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .frame(width: 64, height: 64)
+                    .rotationEffect(.degrees(-90))
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
+
+                if completed >= goal {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(GQColors.vividPurple)
+                } else {
+                    Text("\(Int(progress * 100))%")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+            }
+        }
+        .padding(16)
+        .homeSocialCard()
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Working Out Now Row
 
 struct WorkingOutNowRow: View {
@@ -1983,7 +2225,7 @@ struct WorkingOutNowRow: View {
                             .foregroundColor(GQColors.terracotta)
                         Text("\(socialService.friendsActiveToday)")
                             .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                     Text("today")
                         .font(.system(size: 9))
@@ -2007,12 +2249,12 @@ struct WorkingOutNowRow: View {
                                     .frame(width: 38, height: 38)
 
                                 Circle()
-                                    .fill(Color.white.opacity(0.1))
+                                    .fill(GQColors.adaptiveOverlay(0.1))
                                     .frame(width: 32, height: 32)
                                     .overlay(
                                         Text(friend.avatarInitial)
                                             .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(GQColors.textPrimary)
                                     )
 
                                 // Location pin (top-left, only if sharing gym)
@@ -2022,7 +2264,7 @@ struct WorkingOutNowRow: View {
                                             Image(systemName: "mappin.circle.fill")
                                                 .font(.system(size: 10))
                                                 .foregroundColor(GQColors.cyanSpark)
-                                                .background(Circle().fill(Color.black).frame(width: 12, height: 12))
+                                                .background(Circle().fill(GQColors.surfaceBase).frame(width: 12, height: 12))
                                             Spacer()
                                         }
                                         Spacer()
@@ -2041,7 +2283,7 @@ struct WorkingOutNowRow: View {
                                             .frame(width: 14, height: 14)
                                             .background(friend.isLive ? GQColors.success : GQColors.cyanSpark)
                                             .clipShape(Circle())
-                                            .overlay(Circle().stroke(Color.black, lineWidth: 1.5))
+                                            .overlay(Circle().stroke(GQColors.surfaceBase, lineWidth: 1.5))
                                     }
                                 }
                                 .frame(width: 38, height: 38)
@@ -2049,10 +2291,10 @@ struct WorkingOutNowRow: View {
 
                             Text(friend.name)
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
                             Text("\(friend.minutesElapsed)m")
                                 .font(.system(size: 9))
-                                .foregroundColor(.gray)
+                                .foregroundColor(GQColors.textTertiary)
                         }
                     }
                     .buttonStyle(.plain)
@@ -2065,8 +2307,8 @@ struct WorkingOutNowRow: View {
         .background(
             LinearGradient(
                 colors: [
-                    Color(red: 0.12, green: 0.13, blue: 0.22).opacity(0.6),
-                    Color(red: 0.04, green: 0.04, blue: 0.04)
+                    GQColors.surfaceElevated,
+                    GQColors.surfaceBase
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -2131,6 +2373,7 @@ struct WorkoutStorySheet: View {
             joinConfirmationToast
         }
         .gqPageBackground()
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Header
@@ -2374,7 +2617,7 @@ struct PostHeaderEnhanced: View {
                 HStack(spacing: 4) {
                     Text(post.authorName)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text("@\(post.authorUsername)")
                         .font(.system(size: 13))
@@ -2484,10 +2727,10 @@ struct PostHeader: View {
             if let workoutType = post.workoutType {
                 Text(workoutType)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(GQColors.vividPurple)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(GQColors.vividPurple.opacity(0.3))
+                    .background(GQColors.vividPurple.opacity(0.12))
                     .cornerRadius(12)
             }
         }
@@ -2508,7 +2751,7 @@ struct PostMediaView: View {
                     Image(uiImage: uiImage)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(minHeight: 420, maxHeight: 550)
+                        .frame(minHeight: 480, maxHeight: 620)
                         .clipped()
                         .scaleEffect(imageScale)
                         .onTapGesture(count: 2) {
@@ -2533,7 +2776,7 @@ struct PostMediaView: View {
                     Image(nsImage: nsImage)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .frame(minHeight: 420, maxHeight: 550)
+                        .frame(minHeight: 480, maxHeight: 620)
                         .clipped()
                 }
                 #endif
@@ -2583,7 +2826,7 @@ struct PostActionsRow: View {
                 HStack(spacing: 6) {
                     Image(systemName: isLiked ? "heart.fill" : "heart")
                         .font(.system(size: 22))
-                        .foregroundColor(isLiked ? .red : .white)
+                        .foregroundColor(isLiked ? .red : GQColors.textPrimary)
                     if post.likeCount > 0 {
                         Text("\(post.likeCount)")
                             .font(.system(size: 14))
@@ -2608,7 +2851,7 @@ struct PostActionsRow: View {
                 }
             }
             .buttonStyle(.plain)
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
 
             // Learn This (if workout post)
             if let onLearn = onLearnThis {
@@ -2638,7 +2881,7 @@ struct PostActionsRow: View {
                     .font(.system(size: 20))
             }
             .buttonStyle(.plain)
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
         }
         .padding(.top, 4)
     }
@@ -2708,7 +2951,7 @@ struct PostActionsRowAnimated: View {
                         ZStack {
                             Image(systemName: isLiked ? "heart.fill" : "heart")
                                 .font(.system(size: 22))
-                                .foregroundColor(isLiked ? .red : .white)
+                                .foregroundColor(isLiked ? .red : GQColors.textPrimary)
                                 .scaleEffect(heartScale)
 
                             if showParticles {
@@ -2751,7 +2994,7 @@ struct PostActionsRowAnimated: View {
                 }
             }
             .buttonStyle(.plain)
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
 
             // Learn This (if workout post)
             if let onLearn = onLearnThis {
@@ -2781,7 +3024,7 @@ struct PostActionsRowAnimated: View {
                     .font(.system(size: 20))
             }
             .buttonStyle(.plain)
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
         }
         .padding(.top, 4)
         .onAppear {
@@ -3462,7 +3705,7 @@ struct CommentsSheet: View {
                 // Comment input
                 HStack(spacing: 12) {
                     TextField("Add a comment...", text: $newComment)
-                        .textFieldStyle(GymQuestTextFieldStyle())
+                        .textFieldStyle(LiftAITextFieldStyle())
 
                     Button {
                         addComment()
@@ -4233,7 +4476,7 @@ struct CommunityFeedView: View {
             .padding(.top, 12)
         }
         .scrollContentBackground(.hidden)
-        .background(Color(hex: "000000").ignoresSafeArea())
+        .background(GQColors.background.ignoresSafeArea())
         .onAppear {
             CommunitySeeder.seedIfNeeded(modelContext: modelContext, userId: profile.id)
         }
@@ -4293,7 +4536,7 @@ struct CommunityFeedView: View {
                 // Challenge title
                 Text(challenge.title)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .lineLimit(2)
                     .frame(maxWidth: .infinity, minHeight: 34, alignment: .topLeading)
 
@@ -4301,7 +4544,7 @@ struct CommunityFeedView: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Color.white.opacity(0.1))
+                            .fill(GQColors.adaptiveOverlay(0.1))
                             .frame(height: 6)
                         Capsule()
                             .fill(
@@ -4320,7 +4563,7 @@ struct CommunityFeedView: View {
                 HStack {
                     Text("\(challenge.currentProgress)/\(challenge.goalTarget)")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Spacer()
                     Text("\(challenge.daysRemaining)d left")
                         .font(.system(size: 11, weight: .bold))
@@ -4398,7 +4641,7 @@ struct CommunityFeedView: View {
         VStack(spacing: 12) {
             HStack(spacing: 12) {
                 Circle()
-                    .fill(Color.white.opacity(0.08))
+                    .fill(GQColors.adaptiveOverlay(0.08))
                     .frame(width: 44, height: 44)
                     .overlay(
                         Image(systemName: "building.2.fill")
@@ -4410,7 +4653,7 @@ struct CommunityFeedView: View {
                     HStack(spacing: 4) {
                         Text(community.name)
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .lineLimit(1)
 
                         if community.isVerified {
@@ -4505,7 +4748,7 @@ struct CommunityFeedView: View {
                     HStack(spacing: 4) {
                         Text(community.name)
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .lineLimit(1)
 
                         if community.isVerified {
@@ -4578,7 +4821,7 @@ struct CommunityFeedView: View {
 
     private var communityCircleIcon: some View {
         Circle()
-            .fill(Color.white.opacity(0.08))
+            .fill(GQColors.adaptiveOverlay(0.08))
             .frame(width: 50, height: 50)
             .overlay(
                 Image(systemName: "building.2.fill")
@@ -4597,13 +4840,13 @@ struct CommunityFeedView: View {
                 Text("Create a Community")
             }
             .font(.system(size: 15, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(Color.white.opacity(0.08))
+            .background(GQColors.adaptiveOverlay(0.08))
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    .stroke(GQColors.adaptiveOverlay(0.15), lineWidth: 1)
             )
             .cornerRadius(12)
         }
@@ -4633,7 +4876,7 @@ struct CommunityPreviewCard: View {
             HStack(spacing: 12) {
                 // Community icon
                 Circle()
-                    .fill(Color.white.opacity(0.08))
+                    .fill(GQColors.adaptiveOverlay(0.08))
                     .frame(width: 50, height: 50)
                     .overlay(
                         Image(systemName: "building.2.fill")
@@ -4645,7 +4888,7 @@ struct CommunityPreviewCard: View {
                     HStack(spacing: 4) {
                         Text(name)
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .lineLimit(1)
 
                         if isVerified {
@@ -4671,7 +4914,7 @@ struct CommunityPreviewCard: View {
                     .foregroundColor(GQColors.textTertiary)
             }
             .padding(14)
-            .background(Color.white.opacity(0.05))
+            .background(GQColors.adaptiveOverlay(0.05))
             .cornerRadius(12)
         }
         .buttonStyle(.plain)
@@ -4698,7 +4941,7 @@ struct CommunityCard: View {
                         .clipShape(Circle())
                 } else {
                     Circle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(GQColors.adaptiveOverlay(0.08))
                         .frame(width: 50, height: 50)
                         .overlay(
                             Image(systemName: "building.2.fill")
@@ -4711,7 +4954,7 @@ struct CommunityCard: View {
                     HStack(spacing: 4) {
                         Text(community.name)
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .lineLimit(1)
 
                         if community.isVerified {
@@ -4758,7 +5001,7 @@ struct CommunityCard: View {
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.05))
+        .background(GQColors.adaptiveOverlay(0.05))
         .cornerRadius(12)
         .padding(.horizontal, 16)
     }
@@ -4872,7 +5115,7 @@ struct SearchCommunitiesSheet: View {
                             .foregroundColor(GQColors.textTertiary)
                         Text("No communities found")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                         Text("Try a different search or create your own")
                             .font(.subheadline)
                             .foregroundColor(GQColors.textTertiary)
@@ -5020,6 +5263,7 @@ struct CommunityDetailView: View {
     @State private var showingLeaveAlert = false
     @State private var selectedSection: CommunitySection = .feed
     @State private var showPartnerOnly = false
+    @State private var selectedChannelId: UUID? = nil
 
     private var isMember: Bool {
         community.memberIds.contains(profile.id)
@@ -5027,7 +5271,10 @@ struct CommunityDetailView: View {
 
     private var posts: [CommunityPost] {
         communityPosts
-            .filter { $0.communityId == community.id }
+            .filter { post in
+                post.communityId == community.id &&
+                (selectedChannelId == nil || post.channelId == selectedChannelId)
+            }
             .sorted { $0.timestamp > $1.timestamp }
     }
 
@@ -5064,6 +5311,7 @@ struct CommunityDetailView: View {
                 }
             }
             .gqPageBackground()
+            .preferredColorScheme(.dark)
             .navigationTitle("Community")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -5295,26 +5543,62 @@ struct CommunityDetailView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(channels) { channel in
+                        // "All" pill to clear channel filter
+                        Button {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                selectedChannelId = nil
+                            }
+                        } label: {
                             VStack(spacing: 6) {
-                                Image(systemName: "number")
+                                Image(systemName: "rectangle.grid.2x2")
                                     .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(GQColors.cyanSpark)
-                                Text(channel.name)
+                                    .foregroundColor(selectedChannelId == nil ? .white : GQColors.cyanSpark)
+                                Text("All")
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(selectedChannelId == nil ? .white : .white.opacity(0.7))
                                     .lineLimit(1)
-                                Text("\(channel.memberCount) members")
+                                Text("\(posts.count) posts")
                                     .font(.system(size: 10))
                                     .foregroundColor(.gray)
                             }
                             .frame(width: 110, height: 80)
-                            .background(Color.white.opacity(0.06))
+                            .background(selectedChannelId == nil ? GQColors.vividPurple.opacity(0.3) : Color.white.opacity(0.06))
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(GQColors.cyanSpark.opacity(0.2), lineWidth: 1)
+                                    .stroke(selectedChannelId == nil ? GQColors.vividPurple.opacity(0.5) : GQColors.cyanSpark.opacity(0.2), lineWidth: 1)
                             )
+                        }
+                        .buttonStyle(.plain)
+
+                        ForEach(channels) { channel in
+                            let isSelected = selectedChannelId == channel.id
+                            Button {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                                    selectedChannelId = isSelected ? nil : channel.id
+                                }
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "number")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundColor(isSelected ? .white : GQColors.cyanSpark)
+                                    Text(channel.name)
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(isSelected ? .white : .white.opacity(0.7))
+                                        .lineLimit(1)
+                                    Text("\(channel.memberCount) members")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(.gray)
+                                }
+                                .frame(width: 110, height: 80)
+                                .background(isSelected ? GQColors.vividPurple.opacity(0.3) : Color.white.opacity(0.06))
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(isSelected ? GQColors.vividPurple.opacity(0.5) : GQColors.cyanSpark.opacity(0.2), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -5328,49 +5612,107 @@ struct CommunityDetailView: View {
     @ViewBuilder
     private var challengeCards: some View {
         ForEach(activeChallenges) { challenge in
-            Button {
-                // Navigate to challenge detail (no-op for now)
-            } label: {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: "trophy.fill")
-                            .foregroundColor(.yellow)
-                        Text("ACTIVE CHALLENGE")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(GQColors.textTertiary)
-                            .tracking(1)
-                        Spacer()
-                        Text("\(challenge.daysRemaining)d left")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(GQColors.sunsetOrange)
-                    }
-
-                    Text(challenge.title)
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-
-                    AnimatedProgressBar(
-                        progress: challenge.progress,
-                        height: 8,
-                        colors: [GQColors.vividPurple, GQColors.cyanSpark]
-                    )
-
-                    HStack {
-                        Text("\(challenge.currentProgress) / \(challenge.goalTarget) \(challenge.goalType.rawValue.lowercased())")
-                            .font(.system(size: 12))
-                            .foregroundColor(.gray)
-                        Spacer()
-                        Text("\(challenge.participantIds.count) participating")
-                            .font(.system(size: 12))
-                            .foregroundColor(.gray)
-                    }
-                }
-                .padding(14)
-                .homeSocialCard(cornerRadius: 14, subtle: true)
-                .padding(.horizontal, 16)
-            }
-            .gqInteractive(scale: 0.97, haptic: .light)
+            challengeCardView(challenge: challenge)
         }
+    }
+
+    @ViewBuilder
+    private func challengeCardView(challenge: CommunityChallenge) -> some View {
+        let isJoined = challenge.participantIds.contains(profile.id)
+
+        VStack(alignment: .leading, spacing: 12) {
+            challengeCardHeader(challenge: challenge)
+            challengeCardProgress(challenge: challenge)
+            challengeJoinButton(challenge: challenge, isJoined: isJoined)
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14, subtle: true)
+        .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private func challengeCardHeader(challenge: CommunityChallenge) -> some View {
+        HStack {
+            Image(systemName: "trophy.fill")
+                .foregroundColor(.yellow)
+            Text("ACTIVE CHALLENGE")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(1)
+            Spacer()
+            Text("\(challenge.daysRemaining)d left")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.sunsetOrange)
+        }
+
+        Text(challenge.title)
+            .font(.system(size: 16, weight: .bold))
+            .foregroundColor(.white)
+    }
+
+    @ViewBuilder
+    private func challengeCardProgress(challenge: CommunityChallenge) -> some View {
+        AnimatedProgressBar(
+            progress: challenge.progress,
+            height: 8,
+            colors: [GQColors.vividPurple, GQColors.cyanSpark]
+        )
+
+        HStack {
+            Text("\(challenge.currentProgress) / \(challenge.goalTarget) \(challenge.goalType.rawValue.lowercased())")
+                .font(.system(size: 12))
+                .foregroundColor(.gray)
+            Spacer()
+            Text("\(challenge.participantIds.count) participating")
+                .font(.system(size: 12))
+                .foregroundColor(.gray)
+        }
+    }
+
+    @ViewBuilder
+    private func challengeJoinButton(challenge: CommunityChallenge, isJoined: Bool) -> some View {
+        if isMember {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    if isJoined {
+                        challenge.participantIds.removeAll { $0 == profile.id }
+                    } else {
+                        challenge.participantIds.append(profile.id)
+                    }
+                    try? modelContext.save()
+                }
+                #if canImport(UIKit)
+                let impact = UIImpactFeedbackGenerator(style: .medium)
+                impact.impactOccurred()
+                #endif
+            } label: {
+                challengeJoinButtonLabel(isJoined: isJoined)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func challengeJoinButtonLabel(isJoined: Bool) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: isJoined ? "checkmark.circle.fill" : "flame.fill")
+                .font(.system(size: 13))
+            Text(isJoined ? "Joined" : "Join Challenge")
+                .font(.system(size: 13, weight: .bold))
+        }
+        .foregroundColor(.white)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(
+            isJoined
+                ? AnyShapeStyle(GQColors.elevatedSurface)
+                : AnyShapeStyle(LinearGradient(colors: [GQColors.vividPurple, GQColors.cyanSpark], startPoint: .leading, endPoint: .trailing))
+        )
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(isJoined ? GQColors.borderDefault : Color.clear, lineWidth: 1)
+        )
     }
 
     // MARK: - Action Buttons
@@ -6065,7 +6407,7 @@ struct ExerciseMediaCarousel: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .automatic))
-                .frame(minHeight: 420, maxHeight: 550)
+                .frame(minHeight: 480, maxHeight: 620)
 
                 // Exercise indicator pills
                 if mediaItems.count > 1 {
@@ -6084,7 +6426,7 @@ struct ExerciseMediaCarousel: View {
                                     .background(
                                         selectedIndex == index
                                             ? GQColors.vividPurple
-                                            : Color.white.opacity(0.1)
+                                            : GQColors.adaptiveOverlay(0.1)
                                     )
                                     .cornerRadius(12)
                             }

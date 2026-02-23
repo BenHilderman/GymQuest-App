@@ -1029,5 +1029,4 @@ struct RobotDemoSheet: View {
 
 #Preview {
     RobotDemoSheet(exerciseName: "Squat")
-        .preferredColorScheme(.light)
 }

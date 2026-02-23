@@ -2808,5 +2808,4 @@ struct CompactRestTimerBar: View {
 #Preview {
     ActiveWorkoutView(profile: UserProfile(), workoutType: .push)
         .environmentObject(AppState())
-        .preferredColorScheme(.light)
 }

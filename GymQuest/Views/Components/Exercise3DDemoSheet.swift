@@ -290,5 +290,4 @@ struct Exercise3DDemoSheet: View {
 
 #Preview {
     Exercise3DDemoSheet(exerciseName: "Squat")
-        .preferredColorScheme(.light)
 }

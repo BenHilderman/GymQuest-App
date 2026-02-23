@@ -156,5 +156,4 @@ struct WorkoutLaunchOverlay: View {
 
 #Preview {
     WorkoutLaunchOverlay(workoutType: .push, onComplete: {})
-        .preferredColorScheme(.light)
 }

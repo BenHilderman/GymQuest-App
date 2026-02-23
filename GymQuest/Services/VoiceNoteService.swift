@@ -60,11 +60,11 @@ final class VoiceNoteService: NSObject, ObservableObject {
     #endif
 
     private var tempRecordingURL: URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("gymquest_voice_note.m4a")
+        FileManager.default.temporaryDirectory.appendingPathComponent("liftai_voice_note.m4a")
     }
 
     private var tempPlaybackURL: URL {
-        FileManager.default.temporaryDirectory.appendingPathComponent("gymquest_playback.m4a")
+        FileManager.default.temporaryDirectory.appendingPathComponent("liftai_playback.m4a")
     }
 
     private override init() {

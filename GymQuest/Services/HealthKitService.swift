@@ -695,7 +695,7 @@ struct HealthKitSettingsView: View {
             } header: {
                 Text("Apple Health Integration")
             } footer: {
-                Text("Workouts recorded in Fitness+ or other Health-connected apps will automatically appear in your GymQuest feed, tagged as \"Imported\".")
+                Text("Workouts recorded in Fitness+ or other Health-connected apps will automatically appear in your Lift AI feed, tagged as \"Imported\".")
             }
 
             Section {
@@ -728,5 +728,4 @@ struct HealthKitSettingsView: View {
         HealthKitSettingsView(profile: UserProfile(name: "Ben", username: "ben"))
             .environmentObject(FeatureFlags.shared)
     }
-    .preferredColorScheme(.light)
 }

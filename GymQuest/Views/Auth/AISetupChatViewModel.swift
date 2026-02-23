@@ -121,7 +121,7 @@ final class AISetupChatViewModel {
     func startChat() {
         Task {
             await sendAIMessage(
-                "Welcome to GymQuest. Let's set up your profile.",
+                "Welcome to Lift AI. Let's set up your profile.",
                 options: nil
             )
             try? await Task.sleep(for: .milliseconds(600))
@@ -187,7 +187,16 @@ final class AISetupChatViewModel {
     func skipSetup() {
         collectedName = prefillName ?? "Athlete"
         collectedUsername = generateUsername(from: collectedName)
-        advanceToStep(.completion)
+        isProcessing = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(150))
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    advanceToStep(.completion)
+                    isProcessing = false
+                }
+            }
+        }
     }
 
     // MARK: - Apply to Profile

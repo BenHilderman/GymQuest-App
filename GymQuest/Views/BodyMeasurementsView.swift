@@ -385,5 +385,4 @@ struct AddMeasurementSheet: View {
     NavigationStack {
         BodyMeasurementsView(profile: UserProfile(name: "Ben", username: "ben"))
     }
-    .preferredColorScheme(.light)
 }

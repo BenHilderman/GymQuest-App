@@ -714,5 +714,4 @@ struct AddExerciseSheet: View {
 #Preview {
     LogWorkoutView(profile: UserProfile())
         .environmentObject(AppState())
-        .preferredColorScheme(.light)
 }

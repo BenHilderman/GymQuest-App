@@ -60,7 +60,7 @@ struct PaywallView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.blue)
 
-            Text("Unlock GymQuest Pro")
+            Text("Unlock Lift AI Pro")
                 .font(.title.bold())
                 .foregroundStyle(.primary)
 

@@ -15,13 +15,28 @@ import SwiftData
 import GoogleSignIn
 #endif
 
+enum AppAppearance: String, CaseIterable {
+    case light = "Light"
+    case dark = "Dark"
+    case system = "System"
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .light: return .light
+        case .dark: return .dark
+        case .system: return nil
+        }
+    }
+}
+
 @main
-struct GymQuestApp: App {
+struct LiftAIApp: App {
     let container: ModelContainer
     let databaseError: String?  // Non-nil if database failed to initialize
     @StateObject private var appState = AppState()
     @StateObject private var featureFlags = FeatureFlags.shared
     @StateObject private var subscriptionService = SubscriptionService.shared
+    @AppStorage("appAppearance") private var appearance: String = AppAppearance.light.rawValue
 
     init() {
         let schema = Schema([
@@ -43,6 +58,8 @@ struct GymQuestApp: App {
             Friend.self,
             Like.self,
             Comment.self,
+            PostEngagement.self,
+            UserInterestProfile.self,
             WorkoutCard.self,
             PRMoment.self,
             FistBump.self,
@@ -147,7 +164,7 @@ struct GymQuestApp: App {
                     .environmentObject(featureFlags)
                     .environmentObject(subscriptionService)
                     .modelContainer(container)
-                    .preferredColorScheme(.light)
+                    .preferredColorScheme(AppAppearance(rawValue: appearance)?.colorScheme ?? .light)
                     .onOpenURL { url in
                         #if canImport(GoogleSignIn)
                         GIDSignIn.sharedInstance.handle(url)

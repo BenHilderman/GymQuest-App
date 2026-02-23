@@ -758,5 +758,4 @@ struct MealDictationButton: View {
 
 #Preview {
     MealLogView(profile: UserProfile(name: "Ben", username: "ben"))
-        .preferredColorScheme(.light)
 }

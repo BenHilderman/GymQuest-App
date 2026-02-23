@@ -78,25 +78,7 @@ struct ProfileView: View {
                         profileWeeklyProgress
                         profileStatsSection
 
-                        NavigationLink {
-                            ProgressAnalyticsView(profile: profile)
-                        } label: {
-                            HStack {
-                                Image(systemName: "chart.line.uptrend.xyaxis")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(GQColors.vividPurple)
-                                Text("View Full Analytics")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(GQColors.vividPurple)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
-                            .padding(12)
-                        }
-                        .buttonStyle(.plain)
-                        .homeSocialCard()
+                        ProgressAnalyticsView(profile: profile, inline: true)
 
                         aiCoachCard
                     }
@@ -230,37 +212,16 @@ struct ProfileView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 10)
 
-            // Lifetime row
-            HStack(spacing: 0) {
-                ProfileLifetimeStatItem(
-                    icon: "dumbbell.fill",
-                    value: "\(nonRestWorkouts.count)",
-                    label: "Workouts",
-                    color: GQColors.textPrimary
-                )
-
-                Rectangle()
-                    .fill(Color.black.opacity(0.06))
-                    .frame(width: 1, height: 28)
-
-                ProfileLifetimeStatItem(
-                    icon: "scalemass.fill",
-                    value: homeTotalVolumeFormatted,
-                    label: "Volume",
-                    color: Color(hex: "30D158")
-                )
-
-                Rectangle()
-                    .fill(Color.black.opacity(0.06))
-                    .frame(width: 1, height: 28)
-
-                ProfileLifetimeStatItem(
-                    icon: "clock.fill",
-                    value: homeTotalDurationFormatted,
-                    label: "Time",
-                    color: Color(hex: "FF9500")
-                )
+            // Lifetime row — workout count only
+            VStack(spacing: 4) {
+                Text("\(nonRestWorkouts.count)")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+                Text("Workouts Tracked")
+                    .font(.caption)
+                    .foregroundColor(GQColors.textSecondary)
             }
+            .frame(maxWidth: .infinity)
             .padding(.bottom, 12)
 
             // Recent PRs (hidden when empty)
@@ -414,8 +375,8 @@ struct ProfileView: View {
 
                 HStack(spacing: 0) {
                     igStatColumn(value: "\(userPosts.count)", label: "Posts")
-                    igStatColumn(value: "\(totalWorkoutCount)", label: "Workouts")
-                    igStatColumn(value: "\(prEvents.count)", label: "PRs")
+                    igStatColumn(value: "\(profile.followerCount)", label: "Followers")
+                    igStatColumn(value: "\(profile.followingCount)", label: "Following")
                 }
             }
 
@@ -1452,6 +1413,7 @@ struct SettingsView: View {
     @State private var selectedEquipment: Set<EquipmentType> = []
 
     @StateObject private var authService = AuthService()
+    @AppStorage("appAppearance") private var appAppearance: String = AppAppearance.light.rawValue
 
     var body: some View {
         NavigationStack {
@@ -1469,6 +1431,47 @@ struct SettingsView: View {
                         sectionHeader("Profile")
                         settingsTextField(title: "Name", text: $name)
                         settingsTextField(title: "Username", text: $username)
+
+                        // Privacy toggle
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Public Profile")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(GQColors.textPrimary)
+                                Text(profile.isProfilePublic ? "Anyone can see your posts" : "Only mutual friends can see your posts")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { profile.isProfilePublic },
+                                set: { newValue in
+                                    profile.isProfilePublic = newValue
+                                    try? modelContext.save()
+                                }
+                            ))
+                            .labelsHidden()
+                            .tint(GQColors.vividPurple)
+                        }
+                    }
+                    .padding(16)
+                    .homeSocialCard(accent: profileNeutralAccent)
+                    .gqScreenHorizontalPadding()
+
+                    // MARK: Appearance
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionHeader("Appearance")
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Theme")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.textSecondary)
+                            Picker("Appearance", selection: $appAppearance) {
+                                ForEach(AppAppearance.allCases, id: \.rawValue) { mode in
+                                    Text(mode.rawValue).tag(mode.rawValue)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
                     }
                     .padding(16)
                     .homeSocialCard(accent: profileNeutralAccent)

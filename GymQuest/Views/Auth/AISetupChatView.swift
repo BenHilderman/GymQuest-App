@@ -68,13 +68,16 @@ struct AISetupChatView: View {
         VStack(spacing: 0) {
             setupTopBar
             chatScrollView
-            if viewModel.isEquipmentSelecting {
-                equipmentMultiSelectGrid
-            } else if viewModel.currentStep == .completion {
-                completionCard
-            } else if viewModel.isTextInputStep {
-                textInputBar
+            Group {
+                if viewModel.isEquipmentSelecting {
+                    equipmentMultiSelectGrid
+                } else if viewModel.currentStep == .completion {
+                    completionCard
+                } else if viewModel.isTextInputStep {
+                    textInputBar
+                }
             }
+            .animation(.easeInOut(duration: 0.25), value: viewModel.currentStep)
         }
         .background(
             ZStack {
@@ -142,7 +145,7 @@ struct AISetupChatView: View {
         HStack {
             Spacer()
 
-            Text("GymQuest")
+            Text("Lift AI")
                 .font(.headline)
                 .foregroundStyle(OBColors.textPrimary)
 

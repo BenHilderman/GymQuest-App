@@ -44,7 +44,10 @@ enum BookmarkStore {
 struct TikTokFeedView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
+    @Query private var allPosts: [Post]
+    @Query private var interestProfiles: [UserInterestProfile]
+    @Query private var allFriendRecords: [Friend]
+    @Query private var allUserProfiles: [UserProfile]
 
     let profile: UserProfile
 
@@ -55,26 +58,35 @@ struct TikTokFeedView: View {
     @State private var showTutorial = false
     @State private var hasSeeded = false
 
+    // Cached data for performance
+    @State private var cachedMutualFriendIds: Set<UUID> = []
+    @State private var cachedRankedPosts: [Post] = []
+
     private let categories = ["All", "Push", "Pull", "Legs", "Cardio", "PR Moments", "Form Tips", "Music"]
 
-    /// Only show posts with media (photo/video) on Discover
-    private var mediaPosts: [Post] {
-        posts.filter { $0.photoData != nil || $0.videoData != nil || $0.workoutType != nil }
+    private var userInterests: UserInterestProfile? {
+        interestProfiles.first { $0.userId == profile.id }
     }
 
-    var filteredPosts: [Post] {
-        let base = mediaPosts
-        guard let category = selectedCategory, category != "All" else { return base }
-        if category == "PR Moments" {
-            return base.filter { $0.caption.lowercased().contains("pr") || $0.caption.contains("🏆") }
+    var filteredPosts: [Post] { cachedRankedPosts }
+
+    private func refreshMutualFriendIds() {
+        let myFollowing = Set(allFriendRecords.filter { $0.userId == profile.id }.map(\.odId))
+        let myFollowers = Set(allFriendRecords.filter { $0.odId == profile.id }.map(\.userId))
+        cachedMutualFriendIds = myFollowing.intersection(myFollowers)
+    }
+
+    private func isUserPublicOrFriend(_ authorId: UUID) -> Bool {
+        if authorId == profile.id { return true }
+        if cachedMutualFriendIds.contains(authorId) { return true }
+        return allUserProfiles.first { $0.id == authorId }?.isProfilePublic ?? true
+    }
+
+    private func refreshRankedPosts() {
+        let media = allPosts.filter { post in
+            (post.photoData != nil || post.videoData != nil || post.workoutType != nil) && isUserPublicOrFriend(post.authorId)
         }
-        if category == "Music" {
-            return base.filter { $0.songTitle != nil }
-        }
-        if category == "Form Tips" {
-            return base.filter { $0.caption.lowercased().contains("form") || $0.caption.lowercased().contains("tip") }
-        }
-        return base.filter { $0.workoutType?.lowercased() == category.lowercased() }
+        cachedRankedPosts = FeedRankingService.shared.rankPosts(media, for: profile.id, interests: userInterests, category: selectedCategory ?? "All")
     }
 
     var body: some View {
@@ -111,9 +123,19 @@ struct TikTokFeedView: View {
                 DiscoverSeeder.seedIfNeeded(modelContext: modelContext)
                 hasSeeded = true
             }
-            if !hasSeenTutorial && !filteredPosts.isEmpty {
+            refreshMutualFriendIds()
+            refreshRankedPosts()
+            if !hasSeenTutorial && !cachedRankedPosts.isEmpty {
                 showTutorial = true
             }
+            EngagementTrackingService.shared.configure(modelContext: modelContext)
+            EngagementTrackingService.shared.refreshPostScores()
+        }
+        .onChange(of: allPosts.count) { refreshRankedPosts() }
+        .onChange(of: selectedCategory) { refreshRankedPosts() }
+        .onChange(of: allFriendRecords.count) {
+            refreshMutualFriendIds()
+            refreshRankedPosts()
         }
     }
 
@@ -132,6 +154,12 @@ struct TikTokFeedView: View {
                     )
                     .frame(height: geometry.size.height)
                     .id(index)
+                    .onAppear {
+                        EngagementTrackingService.shared.trackPostAppeared(postId: post.id, userId: profile.id)
+                    }
+                    .onDisappear {
+                        EngagementTrackingService.shared.trackPostDisappeared(postId: post.id, userId: profile.id)
+                    }
                     .scrollTransition(.animated(.easeInOut(duration: 0.25))) { content, phase in
                         content
                             .opacity(phase.isIdentity ? 1 : 0.4)
@@ -179,7 +207,20 @@ struct TikTokFeedView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 6)
+            .padding(.top, 4)
         }
+        .background(
+            LinearGradient(
+                stops: [
+                    .init(color: Color.black.opacity(0.5), location: 0),
+                    .init(color: Color.black.opacity(0.25), location: 0.7),
+                    .init(color: Color.clear, location: 1.0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .top)
+        )
     }
 
     // MARK: - Position Indicator
@@ -303,10 +344,15 @@ struct TikTokPostCard: View {
             // Invisible spacer to fill full card height
             Color.clear
 
-            // Right side buttons — positioned independently, higher up
+            // Right side buttons — vertically centered
             HStack {
                 Spacer()
-                rightSideButtons
+                VStack {
+                    Spacer()
+                    rightSideButtons
+                    Spacer()
+                        .frame(height: 60)
+                }
             }
 
             // Bottom info — full width, just above tab bar
@@ -322,9 +368,9 @@ struct TikTokPostCard: View {
             captionWithTags
             musicTicker
         }
-        .padding(.horizontal, 16)
-        .padding(.trailing, 60)
-        .padding(.bottom, 4)
+        .padding(.leading, 20)
+        .padding(.trailing, 68)
+        .padding(.bottom, 90)
     }
 
     @ViewBuilder
@@ -368,7 +414,7 @@ struct TikTokPostCard: View {
                 .padding(.vertical, 5)
                 .background(
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(isFollowing ? GQColors.elevatedSurface : GQColors.surfaceBase)
+                        .fill(isFollowing ? Color.white.opacity(0.1) : Color.white.opacity(0.15))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
@@ -394,7 +440,7 @@ struct TikTokPostCard: View {
                 .font(.system(size: 12))
                 .foregroundColor(.white.opacity(0.9))
                 .lineLimit(2)
-                .frame(maxWidth: 220, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -515,7 +561,7 @@ struct TikTokPostCard: View {
     // MARK: - Right Side Buttons
 
     private var rightSideButtons: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 22) {
             // Like button with long-press reaction picker
             ZStack(alignment: .leading) {
                 if showReactionPicker {
@@ -561,6 +607,7 @@ struct TikTokPostCard: View {
                 color: .white
             ) {
                 showComments = true
+                EngagementTrackingService.shared.trackComment(postId: post.id, userId: profile.id)
             }
 
             // Share button
@@ -570,6 +617,7 @@ struct TikTokPostCard: View {
                 color: .white
             ) {
                 showShare = true
+                EngagementTrackingService.shared.trackShare(postId: post.id, userId: profile.id)
             }
 
             // Bookmark
@@ -579,10 +627,11 @@ struct TikTokPostCard: View {
                 color: isBookmarked ? GQColors.cyanSpark : .white
             ) {
                 toggleBookmark()
+                EngagementTrackingService.shared.trackSave(postId: post.id, userId: profile.id)
             }
         }
-        .padding(.trailing, 8)
-        .padding(.bottom, 130)
+        .padding(.trailing, 14)
+        .padding(.bottom, 80)
     }
 
     // MARK: - Actions
@@ -600,7 +649,8 @@ struct TikTokPostCard: View {
 
         // Check if following
         let authorId = post.authorId
-        let friendDescriptor = FetchDescriptor<Friend>(predicate: #Predicate { $0.odId == authorId })
+        let myId = profile.id
+        let friendDescriptor = FetchDescriptor<Friend>(predicate: #Predicate { $0.userId == myId && $0.odId == authorId })
         isFollowing = ((try? modelContext.fetchCount(friendDescriptor)) ?? 0) > 0
     }
 
@@ -618,6 +668,7 @@ struct TikTokPostCard: View {
             modelContext.insert(like)
             post.likeCount = likeCount
             try? modelContext.save()
+            EngagementTrackingService.shared.trackLike(postId: post.id, userId: profile.id)
 
             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                 showHeartAnimation = true
@@ -662,20 +713,29 @@ struct TikTokPostCard: View {
 
     private func toggleFollow() {
         let authorId = post.authorId
+        let myId = profile.id
         if isFollowing {
-            let descriptor = FetchDescriptor<Friend>(predicate: #Predicate { $0.odId == authorId })
+            let descriptor = FetchDescriptor<Friend>(predicate: #Predicate { $0.userId == myId && $0.odId == authorId })
             if let friends = try? modelContext.fetch(descriptor) {
                 for friend in friends { modelContext.delete(friend) }
             }
             isFollowing = false
+            // Update counts
+            profile.followingCount = max(profile.followingCount - 1, 0)
+            updateAuthorFollowerCount(authorId: authorId, delta: -1)
         } else {
             let friend = Friend(
+                userId: profile.id,
                 odId: post.authorId,
                 odName: post.authorName,
                 odUsername: post.authorUsername
             )
             modelContext.insert(friend)
             isFollowing = true
+            EngagementTrackingService.shared.trackFollow(postId: post.id, userId: profile.id)
+            // Update counts
+            profile.followingCount += 1
+            updateAuthorFollowerCount(authorId: authorId, delta: 1)
         }
         try? modelContext.save()
 
@@ -685,9 +745,16 @@ struct TikTokPostCard: View {
         #endif
     }
 
+    private func updateAuthorFollowerCount(authorId: UUID, delta: Int) {
+        let descriptor = FetchDescriptor<UserProfile>(predicate: #Predicate { $0.id == authorId })
+        if let authorProfile = try? modelContext.fetch(descriptor).first {
+            authorProfile.followerCount = max(authorProfile.followerCount + delta, 0)
+        }
+    }
+
     private func sharePost() {
         #if canImport(UIKit)
-        let text = "\(post.authorName)'s \(post.workoutType ?? "workout") on GymQuest: \(post.caption)"
+        let text = "\(post.authorName)'s \(post.workoutType ?? "workout") on Lift AI: \(post.caption)"
         let av = UIActivityViewController(activityItems: [text], applicationActivities: nil)
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let root = windowScene.windows.first?.rootViewController {
@@ -698,7 +765,7 @@ struct TikTokPostCard: View {
 
     private func copyLink() {
         #if canImport(UIKit)
-        UIPasteboard.general.string = "gymquest://post/\(post.id.uuidString)"
+        UIPasteboard.general.string = "liftai://post/\(post.id.uuidString)"
         #endif
     }
 
@@ -1221,13 +1288,13 @@ struct TikTokActionButton: View {
         }) {
             VStack(spacing: 2) {
                 Image(systemName: icon)
-                    .font(.system(size: 24))
+                    .font(.system(size: 28))
                     .foregroundColor(color)
                     .scaleEffect(isPressed ? 1.2 : 1.0)
 
                 if let count = count, count > 0 {
                     Text(formatCount(count))
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white.opacity(0.8))
                 }
             }
@@ -1566,9 +1633,9 @@ struct EmptyTikTokFeed: View {
                 onCreatePost()
             }
             .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(.black)
+            .foregroundColor(GQColors.textPrimary)
             .frame(width: 160, height: 48)
-            .background(Color.white)
+            .background(GQColors.cardBackground)
             .cornerRadius(24)
 
             Spacer()
@@ -1638,10 +1705,10 @@ struct DiscoverTutorialOverlay: View {
                 } label: {
                     Text("Got it")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.black)
+                        .foregroundColor(GQColors.textPrimary)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 10)
-                        .background(Color.white)
+                        .background(GQColors.cardBackground)
                         .cornerRadius(20)
                 }
                 .padding(.top, 8)

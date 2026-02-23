@@ -14,7 +14,7 @@ import Security
 // MARK: - Keychain Helper for Secure Token Storage
 
 private enum KeychainHelper {
-    static let service = "com.gymquest.strava"
+    static let service = "com.liftai.strava"
 
     static func save(_ data: String, forKey key: String) {
         guard let data = data.data(using: .utf8) else { return }
@@ -91,7 +91,7 @@ class StravaService: ObservableObject {
     var isConfigured: Bool {
         !clientId.isEmpty && !clientSecret.isEmpty
     }
-    private let redirectUri = "gymquest://strava-callback"
+    private let redirectUri = "liftai://strava-callback"
     private let scope = "activity:read_all"
 
     @Published var isConnected = false
@@ -673,7 +673,7 @@ struct StravaAuthWebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
             if let url = navigationAction.request.url,
-               url.scheme == "gymquest" {
+               url.scheme == "liftai" {
                 parent.onCallback(url)
                 return .cancel
             }
@@ -688,5 +688,4 @@ struct StravaAuthWebView: UIViewRepresentable {
         StravaSettingsView(profile: UserProfile(name: "Ben", username: "ben"))
             .environmentObject(FeatureFlags.shared)
     }
-    .preferredColorScheme(.light)
 }

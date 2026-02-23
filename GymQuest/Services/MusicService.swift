@@ -108,8 +108,8 @@ class MusicService: ObservableObject {
     @Published var suggestedSongs: [Song] = []
     @Published var recentPlaylists: [MusicPlaylist] = []
 
-    private let recentSongsKey = "GymQuest.recentSongs"
-    private let recentPlaylistsKey = "GymQuest.recentPlaylists"
+    private let recentSongsKey = "LiftAI.recentSongs"
+    private let recentPlaylistsKey = "LiftAI.recentPlaylists"
 
     private init() {
         loadRecentSongs()

@@ -41,11 +41,11 @@ struct LoginView: View {
                 VStack(spacing: 16) {
                     AnimatedLogo()
 
-                    Text("GymQuest")
+                    Text("Lift AI")
                         .font(.system(size: 36, weight: .bold))
                         .foregroundColor(GQColors.textPrimary)
 
-                    Text("Track your gains. Level up.")
+                    Text("Train smarter. Lift stronger.")
                         .font(.subheadline)
                         .foregroundColor(GQColors.textTertiary)
                 }
@@ -258,7 +258,7 @@ struct EmailAuthSheet: View {
             VStack(spacing: 24) {
                 VStack(spacing: 16) {
                     TextField("Email", text: $email)
-                        .textFieldStyle(GymQuestTextFieldStyle())
+                        .textFieldStyle(LiftAITextFieldStyle())
                         .textContentType(.emailAddress)
                         #if os(iOS)
                         .keyboardType(.emailAddress)
@@ -267,13 +267,13 @@ struct EmailAuthSheet: View {
                         .focused($focusedField, equals: .email)
 
                     SecureField("Password", text: $password)
-                        .textFieldStyle(GymQuestTextFieldStyle())
+                        .textFieldStyle(LiftAITextFieldStyle())
                         .textContentType(isSignUp ? .newPassword : .password)
                         .focused($focusedField, equals: .password)
 
                     if isSignUp {
                         SecureField("Confirm Password", text: $confirmPassword)
-                            .textFieldStyle(GymQuestTextFieldStyle())
+                            .textFieldStyle(LiftAITextFieldStyle())
                             .textContentType(.newPassword)
                             .focused($focusedField, equals: .confirmPassword)
                     }

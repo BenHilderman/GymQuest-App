@@ -146,7 +146,7 @@ struct ExercisePreviewCard: View {
                             .frame(width: 30, height: 30)
                             .background(
                                 Circle()
-                                    .fill(showAddedCheck ? GQColors.success.opacity(0.2) : Color.black.opacity(0.06))
+                                    .fill(showAddedCheck ? GQColors.success.opacity(0.2) : GQColors.adaptiveOverlay(0.06))
                             )
                     }
                     .buttonStyle(.plain)
@@ -190,7 +190,7 @@ struct ExercisePreviewCard: View {
 
                     if !exercise.demoTips.isEmpty {
                         Divider()
-                            .background(Color.black.opacity(0.06))
+                            .background(GQColors.adaptiveOverlay(0.06))
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text("FORM TIPS")
@@ -398,7 +398,7 @@ struct WorkoutProgressHeader: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
                         .frame(width: 32, height: 32)
-                        .background(Color.black.opacity(0.05))
+                        .background(GQColors.adaptiveOverlay(0.05))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -454,7 +454,7 @@ struct RestTimerView: View {
 
             ZStack {
                 Circle()
-                    .stroke(Color.black.opacity(0.06), lineWidth: 12)
+                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 12)
                     .frame(width: 196, height: 196)
 
                 Circle()
@@ -633,7 +633,7 @@ struct ExerciseOverviewBar: View {
                 .fill(Color.white)
                 .overlay(
                     Rectangle()
-                        .fill(Color.black.opacity(0.06))
+                        .fill(GQColors.adaptiveOverlay(0.06))
                         .frame(height: 1),
                     alignment: .top
                 )
@@ -670,7 +670,7 @@ struct ExercisePill: View {
             HStack(spacing: 4) {
                 ForEach(0..<setsCount, id: \.self) { i in
                     Circle()
-                        .fill(i < completedCount ? GQColors.cyanSpark : (isCurrent ? GQColors.coral : Color.black.opacity(0.12)))
+                        .fill(i < completedCount ? GQColors.cyanSpark : (isCurrent ? GQColors.coral : GQColors.adaptiveOverlay(0.12)))
                         .frame(width: 8, height: 8)
                 }
             }
@@ -958,7 +958,7 @@ struct WorkoutCopySheet: View {
                     .foregroundColor(GQColors.textSecondary)
                 }
                 .padding(16)
-                .background(Color.black.opacity(0.03))
+                .background(GQColors.adaptiveOverlay(0.03))
 
                 // Exercises list
                 ScrollView {
@@ -1030,11 +1030,11 @@ struct WorkoutCopySheet: View {
                             .foregroundColor(showingSaved ? GQColors.success : GQColors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.black.opacity(0.05))
+                            .background(GQColors.adaptiveOverlay(0.05))
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)
@@ -1052,11 +1052,11 @@ struct WorkoutCopySheet: View {
                             .foregroundColor(GQColors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.black.opacity(0.05))
+                            .background(GQColors.adaptiveOverlay(0.05))
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)
@@ -1247,5 +1247,4 @@ struct ExercisePickerSheet: View {
     WorkoutDetailSheet(workoutData: sampleWorkout) {
         print("Follow tapped")
     }
-    .preferredColorScheme(.light)
 }

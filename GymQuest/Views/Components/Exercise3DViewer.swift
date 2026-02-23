@@ -635,5 +635,4 @@ struct AngleButton: View {
         .frame(height: 350)
         .padding()
         .gqPageBackground()
-        .preferredColorScheme(.light)
 }

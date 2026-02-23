@@ -17,8 +17,8 @@ final class SubscriptionService: ObservableObject {
     static let shared = SubscriptionService()
 
     // Product IDs
-    static let monthlyID = "com.gymquest.pro.monthly"
-    static let yearlyID = "com.gymquest.pro.yearly"
+    static let monthlyID = "com.liftai.pro.monthly"
+    static let yearlyID = "com.liftai.pro.yearly"
 
     @Published var products: [Product] = []
     @Published var isPremium: Bool = false

@@ -200,40 +200,23 @@ struct OnboardingButtonStyle: ButtonStyle {
 // MARK: - Animated Logo
 
 struct AnimatedLogo: View {
-    @State private var rotation: Double = 0
-    @State private var glowOpacity: Double = 0.3
+    @State private var appeared = false
 
     var body: some View {
         ZStack {
-            // Glow effect behind icon
             Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [GQColors.vividPurple.opacity(glowOpacity), .clear],
-                        center: .center,
-                        startRadius: 20,
-                        endRadius: 80
-                    )
-                )
-                .frame(width: 160, height: 160)
+                .fill(GQGradients.primary)
+                .frame(width: 88, height: 88)
 
-            // Rotating gradient through dumbbell
             Image(systemName: "dumbbell.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(
-                    AngularGradient(
-                        colors: GQGradients.energyColors,
-                        center: .center,
-                        angle: .degrees(rotation)
-                    )
-                )
+                .font(.system(size: 40, weight: .bold))
+                .foregroundColor(.white)
         }
+        .scaleEffect(appeared ? 1.0 : 0.8)
+        .opacity(appeared ? 1.0 : 0)
         .onAppear {
-            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
-                rotation = 360
-            }
-            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
-                glowOpacity = 0.6
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                appeared = true
             }
         }
     }
@@ -316,7 +299,7 @@ struct DangerButtonStyle: ButtonStyle {
     }
 }
 
-struct GymQuestTextFieldStyle: TextFieldStyle {
+struct LiftAITextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .padding(14)

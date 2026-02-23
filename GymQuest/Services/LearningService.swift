@@ -216,16 +216,16 @@ class LearningService: ObservableObject {
         // In production, these would be links to actual demo videos
         // For now, returning placeholder URLs
         let videoURLs: [String: String] = [
-            "bench press": "https://gymquest.app/demos/bench-press",
-            "squat": "https://gymquest.app/demos/squat",
-            "deadlift": "https://gymquest.app/demos/deadlift",
-            "overhead press": "https://gymquest.app/demos/ohp",
-            "barbell row": "https://gymquest.app/demos/barbell-row",
-            "pull-up": "https://gymquest.app/demos/pull-up",
-            "romanian deadlift": "https://gymquest.app/demos/rdl",
-            "lat pulldown": "https://gymquest.app/demos/lat-pulldown",
-            "dumbbell curl": "https://gymquest.app/demos/db-curl",
-            "tricep pushdown": "https://gymquest.app/demos/tricep-pushdown"
+            "bench press": "https://liftai.app/demos/bench-press",
+            "squat": "https://liftai.app/demos/squat",
+            "deadlift": "https://liftai.app/demos/deadlift",
+            "overhead press": "https://liftai.app/demos/ohp",
+            "barbell row": "https://liftai.app/demos/barbell-row",
+            "pull-up": "https://liftai.app/demos/pull-up",
+            "romanian deadlift": "https://liftai.app/demos/rdl",
+            "lat pulldown": "https://liftai.app/demos/lat-pulldown",
+            "dumbbell curl": "https://liftai.app/demos/db-curl",
+            "tricep pushdown": "https://liftai.app/demos/tricep-pushdown"
         ]
 
         return videoURLs[exercise]

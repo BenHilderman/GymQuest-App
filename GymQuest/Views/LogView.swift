@@ -399,5 +399,4 @@ struct LogView: View {
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
         .modelContainer(for: [BodyMeasurement.self, MealLog.self], inMemory: true)
-        .preferredColorScheme(.light)
 }

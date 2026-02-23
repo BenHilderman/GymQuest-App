@@ -15,7 +15,7 @@ import Security
 // MARK: - Keychain Helper for WHOOP Token Storage
 
 private enum WhoopKeychainHelper {
-    static let service = "com.gymquest.whoop"
+    static let service = "com.liftai.whoop"
 
     static func save(_ data: String, forKey key: String) {
         guard let data = data.data(using: .utf8) else { return }
@@ -86,7 +86,7 @@ class WhoopService: ObservableObject {
     var isConfigured: Bool {
         !clientId.isEmpty && !clientSecret.isEmpty
     }
-    private let redirectUri = "gymquest://whoop-callback"
+    private let redirectUri = "liftai://whoop-callback"
     private let scope = "read:recovery read:sleep read:workout read:profile read:body_measurement read:cycles"
     private let baseURL = "https://api.prod.whoop.com/developer/v1"
 

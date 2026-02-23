@@ -301,7 +301,7 @@ struct SocialView: View {
                             .foregroundColor(GQColors.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
-                            .background(Color.black.opacity(0.03))
+                            .background(GQColors.adaptiveOverlay(0.03))
                             .cornerRadius(12)
                     } else {
                         ForEach(posts) { post in
@@ -422,8 +422,8 @@ struct FeaturedWorkoutCard: View {
                     ]
                 )
             ],
-            authorName: "GymQuest",
-            authorUsername: "gymquest",
+            authorName: "Lift AI",
+            authorUsername: "liftai",
             notes: "Rest 90 seconds between sets. Focus on form over weight."
         )
     }
@@ -486,7 +486,7 @@ struct FeaturedWorkoutCard: View {
                 endPoint: .bottomTrailing
             )
         )
-        .background(Color.black.opacity(0.03))
+        .background(GQColors.adaptiveOverlay(0.03))
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -611,7 +611,7 @@ struct DiscoverPostCard: View {
             .foregroundColor(GQColors.textTertiary)
         }
         .padding(16)
-        .background(Color.black.opacity(0.03))
+        .background(GQColors.adaptiveOverlay(0.03))
         .cornerRadius(16)
     }
 }
@@ -656,7 +656,7 @@ struct CommunityGoalCard: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.black.opacity(0.06))
+                            .fill(GQColors.adaptiveOverlay(0.06))
 
                         RoundedRectangle(cornerRadius: 4)
                             .fill(
@@ -690,7 +690,7 @@ struct CommunityGoalCard: View {
         }
         .padding(16)
         .background(color.opacity(0.1))
-        .background(Color.black.opacity(0.02))
+        .background(GQColors.adaptiveOverlay(0.02))
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -713,7 +713,7 @@ struct CommunityGroupCard: View {
         HStack(spacing: 14) {
             // Group image - placeholder or custom
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.black.opacity(0.05))
+                .fill(GQColors.adaptiveOverlay(0.05))
                 .frame(width: 50, height: 50)
                 .overlay(
                     Image(systemName: icon)
@@ -749,7 +749,7 @@ struct CommunityGroupCard: View {
                 .foregroundColor(GQColors.textTertiary)
         }
         .padding(14)
-        .background(Color.black.opacity(0.03))
+        .background(GQColors.adaptiveOverlay(0.03))
         .cornerRadius(12)
     }
 }
@@ -768,7 +768,7 @@ struct DiscoverCommunityCard: View {
         HStack(spacing: 12) {
             // Group image - placeholder or custom
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color.black.opacity(0.05))
+                .fill(GQColors.adaptiveOverlay(0.05))
                 .frame(width: 44, height: 44)
                 .overlay(
                     Image(systemName: icon)
@@ -796,12 +796,12 @@ struct DiscoverCommunityCard: View {
                     .foregroundColor(GQColors.textPrimary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.06))
+                    .background(GQColors.adaptiveOverlay(0.06))
                     .cornerRadius(8)
             }
         }
         .padding(12)
-        .background(Color.black.opacity(0.02))
+        .background(GQColors.adaptiveOverlay(0.02))
         .cornerRadius(10)
     }
 }
@@ -844,7 +844,7 @@ struct UpcomingChallengeRow: View {
             }
         }
         .padding(14)
-        .background(Color.black.opacity(0.02))
+        .background(GQColors.adaptiveOverlay(0.02))
         .cornerRadius(10)
     }
 }
@@ -991,7 +991,7 @@ struct FriendPostCard: View {
             }
         }
         .padding(16)
-        .background(Color.black.opacity(0.03))
+        .background(GQColors.adaptiveOverlay(0.03))
         .cornerRadius(16)
         .onAppear {
             likeCount = Int.random(in: 5...50)
@@ -1035,5 +1035,4 @@ extension Date {
     SocialView(profile: UserProfile(name: "Ben", username: "ben"))
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
-        .preferredColorScheme(.light)
 }

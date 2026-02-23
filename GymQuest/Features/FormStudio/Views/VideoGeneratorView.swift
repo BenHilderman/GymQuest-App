@@ -375,5 +375,4 @@ struct VideoGeneratorView: View {
 
 #Preview {
     VideoGeneratorView()
-        .preferredColorScheme(.light)
 }

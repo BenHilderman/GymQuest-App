@@ -93,7 +93,7 @@ struct VoiceNotePlayerView: View {
             try session.setActive(true)
 
             let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("gymquest_feed_playback_\(UUID().uuidString).m4a")
+                .appendingPathComponent("liftai_feed_playback_\(UUID().uuidString).m4a")
             try audioData.write(to: tempURL)
 
             let audioPlayer = try AVAudioPlayer(contentsOf: tempURL)

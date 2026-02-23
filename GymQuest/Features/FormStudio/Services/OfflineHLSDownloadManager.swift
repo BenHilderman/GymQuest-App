@@ -18,7 +18,7 @@ final class OfflineHLSDownloadManager: NSObject, ObservableObject {
     var onDownloadComplete: ((UUID, URL) -> Void)?
 
     private lazy var session: AVAssetDownloadURLSession = {
-        let config = URLSessionConfiguration.background(withIdentifier: "gymquest.hls.downloads")
+        let config = URLSessionConfiguration.background(withIdentifier: "liftai.hls.downloads")
         return AVAssetDownloadURLSession(
             configuration: config,
             assetDownloadDelegate: self,

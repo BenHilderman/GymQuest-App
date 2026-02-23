@@ -717,5 +717,4 @@ enum PlanGoal: String, CaseIterable {
         aiService: AIService()
     )
     .environmentObject(AppState())
-    .preferredColorScheme(.light)
 }

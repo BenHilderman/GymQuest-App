@@ -676,6 +676,11 @@ final class UserProfile {
     var gymName: String = ""
     var subscriptionExpiryDate: Date?
 
+    // Privacy & social counts
+    var isProfilePublic: Bool = true
+    var followerCount: Int = 0
+    var followingCount: Int = 0
+
     // Computed wrappers for raw-stored enums
     var gender: Gender? {
         get { genderRaw.flatMap { Gender(rawValue: $0) } }
@@ -986,6 +991,13 @@ final class Post {
     var likeCount: Int
     var commentCount: Int
 
+    // engagement metrics (feed ranking)
+    var viewCount: Int
+    var shareCount: Int
+    var saveCount: Int
+    var avgWatchTimeSec: Double
+    var engagementScore: Double
+
     // Enhanced media (GymQuest 2.0 - exercise-aligned media)
     var mediaItemsData: Data?           // JSON-encoded [PostMedia]
 
@@ -1035,6 +1047,11 @@ final class Post {
         taggedUsernames: [String] = [],
         likeCount: Int = 0,
         commentCount: Int = 0,
+        viewCount: Int = 0,
+        shareCount: Int = 0,
+        saveCount: Int = 0,
+        avgWatchTimeSec: Double = 0,
+        engagementScore: Double = 0,
         mediaItemsData: Data? = nil,
         locationName: String? = nil,
         locationId: UUID? = nil,
@@ -1072,6 +1089,11 @@ final class Post {
         self.taggedUsernames = taggedUsernames
         self.likeCount = likeCount
         self.commentCount = commentCount
+        self.viewCount = viewCount
+        self.shareCount = shareCount
+        self.saveCount = saveCount
+        self.avgWatchTimeSec = avgWatchTimeSec
+        self.engagementScore = engagementScore
         self.mediaItemsData = mediaItemsData
         self.locationName = locationName
         self.locationId = locationId
@@ -1123,19 +1145,22 @@ final class Post {
 @Model
 final class Friend {
     var id: UUID
-    var odId: UUID         // the person i'm following
+    var userId: UUID       // the person doing the following
+    var odId: UUID         // the person being followed
     var odName: String
     var odUsername: String
     var followedAt: Date
 
     init(
         id: UUID = UUID(),
+        userId: UUID = UUID(),
         odId: UUID = UUID(),
         odName: String = "",
         odUsername: String = "",
         followedAt: Date = Date()
     ) {
         self.id = id
+        self.userId = userId
         self.odId = odId
         self.odName = odName
         self.odUsername = odUsername
@@ -3046,6 +3071,101 @@ enum MovementPattern: String, Codable, CaseIterable {
 
     var baseMotionId: String {
         rawValue.lowercased().replacingOccurrences(of: " ", with: "_")
+    }
+}
+
+// MARK: - Engagement Tracking (Feed Algorithm)
+
+/// Tracks per-user engagement with each post for personalization signals
+@Model
+final class PostEngagement {
+    var id: UUID
+    var postId: UUID
+    var userId: UUID
+    var watchTimeSec: Double
+    var liked: Bool
+    var commented: Bool
+    var shared: Bool
+    var saved: Bool
+    var followed: Bool
+    var timestamp: Date
+
+    init(
+        id: UUID = UUID(),
+        postId: UUID = UUID(),
+        userId: UUID = UUID(),
+        watchTimeSec: Double = 0,
+        liked: Bool = false,
+        commented: Bool = false,
+        shared: Bool = false,
+        saved: Bool = false,
+        followed: Bool = false,
+        timestamp: Date = Date()
+    ) {
+        self.id = id
+        self.postId = postId
+        self.userId = userId
+        self.watchTimeSec = watchTimeSec
+        self.liked = liked
+        self.commented = commented
+        self.shared = shared
+        self.saved = saved
+        self.followed = followed
+        self.timestamp = timestamp
+    }
+}
+
+/// Stores computed interest weights per user for feed personalization
+@Model
+final class UserInterestProfile {
+    var id: UUID
+    var userId: UUID
+    var workoutTypeWeightsJSON: String
+    var authorWeightsJSON: String
+    var contentFormatWeightsJSON: String
+    var avgSessionTimeSec: Double
+    var lastUpdated: Date
+
+    var workoutTypeWeights: [String: Double] {
+        get { Self.decodeWeights(workoutTypeWeightsJSON) }
+        set { workoutTypeWeightsJSON = Self.encodeWeights(newValue) }
+    }
+
+    var authorWeights: [String: Double] {
+        get { Self.decodeWeights(authorWeightsJSON) }
+        set { authorWeightsJSON = Self.encodeWeights(newValue) }
+    }
+
+    var contentFormatWeights: [String: Double] {
+        get { Self.decodeWeights(contentFormatWeightsJSON) }
+        set { contentFormatWeightsJSON = Self.encodeWeights(newValue) }
+    }
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID = UUID(),
+        workoutTypeWeights: [String: Double] = [:],
+        authorWeights: [String: Double] = [:],
+        contentFormatWeights: [String: Double] = [:],
+        avgSessionTimeSec: Double = 0,
+        lastUpdated: Date = Date()
+    ) {
+        self.id = id
+        self.userId = userId
+        self.workoutTypeWeightsJSON = Self.encodeWeights(workoutTypeWeights)
+        self.authorWeightsJSON = Self.encodeWeights(authorWeights)
+        self.contentFormatWeightsJSON = Self.encodeWeights(contentFormatWeights)
+        self.avgSessionTimeSec = avgSessionTimeSec
+        self.lastUpdated = lastUpdated
+    }
+
+    private static func encodeWeights(_ weights: [String: Double]) -> String {
+        (try? String(data: JSONEncoder().encode(weights), encoding: .utf8)) ?? "{}"
+    }
+
+    private static func decodeWeights(_ json: String) -> [String: Double] {
+        guard let data = json.data(using: .utf8) else { return [:] }
+        return (try? JSONDecoder().decode([String: Double].self, from: data)) ?? [:]
     }
 }
 

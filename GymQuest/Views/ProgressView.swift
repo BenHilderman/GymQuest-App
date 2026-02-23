@@ -15,6 +15,7 @@ struct ProgressAnalyticsView: View {
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
 
     let profile: UserProfile
+    var inline: Bool = false
 
     @State private var selectedExerciseName: String = ""
     @State private var showingExerciseTrend = false
@@ -77,33 +78,46 @@ struct ProgressAnalyticsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: GQLayout.sectionSpacing) {
-                // MARK: - Personal Records
-                prHistorySection
-
-                // MARK: - Weekly Volume Chart
-                weeklyVolumeSection
-
-                // MARK: - Workout Type Distribution
-                workoutSplitSection
-
-                // MARK: - Exercise Trends
-                exerciseTrendSection
-
-                // MARK: - Body Composition Mini
-                bodyCompositionMini
+        if inline {
+            analyticsContent
+                .sheet(isPresented: $showingPaywall) {
+                    PaywallView()
+                        .environmentObject(SubscriptionService.shared)
+                }
+        } else {
+            ScrollView {
+                analyticsContent
             }
-            .padding(.horizontal, GQLayout.screenHorizontal)
-            .padding(.top, GQLayout.pageTop)
-            .padding(.bottom, GQLayout.pageBottom)
+            .gqPageBackground()
+            .navigationTitle("Progress")
+            .sheet(isPresented: $showingPaywall) {
+                PaywallView()
+                    .environmentObject(SubscriptionService.shared)
+            }
         }
-        .gqPageBackground()
-        .navigationTitle("Progress")
-        .sheet(isPresented: $showingPaywall) {
-            PaywallView()
-                .environmentObject(SubscriptionService.shared)
+    }
+
+    @ViewBuilder
+    private var analyticsContent: some View {
+        VStack(spacing: GQLayout.sectionSpacing) {
+            // MARK: - Personal Records
+            prHistorySection
+
+            // MARK: - Weekly Volume Chart
+            weeklyVolumeSection
+
+            // MARK: - Workout Type Distribution
+            workoutSplitSection
+
+            // MARK: - Exercise Trends
+            exerciseTrendSection
+
+            // MARK: - Body Composition Mini
+            bodyCompositionMini
         }
+        .padding(.horizontal, GQLayout.screenHorizontal)
+        .padding(.top, GQLayout.pageTop)
+        .padding(.bottom, GQLayout.pageBottom)
     }
 
     // MARK: - PR History

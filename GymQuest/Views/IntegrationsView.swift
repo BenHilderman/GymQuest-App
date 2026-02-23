@@ -402,5 +402,4 @@ private struct GravlInfoCard: View {
         IntegrationsView(profile: UserProfile(name: "Ben", username: "ben"))
             .environmentObject(FeatureFlags.shared)
     }
-    .preferredColorScheme(.light)
 }

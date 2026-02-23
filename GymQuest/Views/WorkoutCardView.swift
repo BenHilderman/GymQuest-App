@@ -459,5 +459,4 @@ private struct WorkoutCardPreviewHelper {
         .padding(.vertical, 20)
     }
     .background(GQColors.surfaceBase)
-    .preferredColorScheme(.light)
 }

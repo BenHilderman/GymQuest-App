@@ -81,7 +81,7 @@ struct RootView: View {
     private func createOrFetchDevUser() {
         // Check if dev user already exists
         let descriptor = FetchDescriptor<UserProfile>(
-            predicate: #Predicate { $0.email == "dev@gymquest.app" }
+            predicate: #Predicate { $0.email == "dev@liftai.app" }
         )
 
         do {
@@ -101,7 +101,7 @@ struct RootView: View {
             username: "devuser",
             isAuthenticated: true,
             authMethod: "dev",
-            email: "dev@gymquest.app",
+            email: "dev@liftai.app",
             passwordHash: "",
             dateOfBirth: Date()
         )

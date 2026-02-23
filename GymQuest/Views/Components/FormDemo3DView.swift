@@ -330,5 +330,4 @@ extension KeyframePosition: CaseIterable {
             .padding()
         }
     }
-    .preferredColorScheme(.light)
 }

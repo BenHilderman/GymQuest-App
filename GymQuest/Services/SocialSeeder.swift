@@ -732,6 +732,20 @@ struct SocialSeeder {
         modelContext.insert(p26)
         postIds.append(p26.id)
 
+        // MARK: - Engagement Metrics (batch update all social posts)
+
+        let allSocialPosts = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10,
+                              p11, p12, p13, p14, p15, p16, p17, p18, p19, p20,
+                              p21, p22, p23, p24, p25, p26]
+        for post in allSocialPosts {
+            post.viewCount = post.likeCount * Int.random(in: 6...12)
+            post.shareCount = max(post.likeCount / Int.random(in: 6...12), 0)
+            post.saveCount = max(post.likeCount / Int.random(in: 4...8), 0)
+            post.avgWatchTimeSec = Double.random(in: 5...20)
+            let views = max(Double(post.viewCount), 1.0)
+            post.engagementScore = min((Double(post.likeCount) + Double(post.commentCount) * 3.0 + Double(post.shareCount) * 5.0 + Double(post.saveCount) * 4.0) / views, 1.0)
+        }
+
         // MARK: - Comments
 
         // Post 1 (Marcus's push day) — 4 comments
@@ -786,6 +800,70 @@ struct SocialSeeder {
         seedComment(ctx: modelContext, postId: postIds[23], user: fakeUsers[3], content: "Next stop: 275!", hoursAgo: 42)
         seedComment(ctx: modelContext, postId: postIds[23], user: fakeUsers[5], content: "Months of work for one rep. That's dedication", hoursAgo: 41)
         seedComment(ctx: modelContext, postId: postIds[23], user: fakeUsers[9], content: "Inspiring. I'm chasing 185 rn", hoursAgo: 40)
+
+        // MARK: - Friend Records (Social Graph)
+
+        // Get the current user's profile to set up relationships
+        let profileDescriptor = FetchDescriptor<UserProfile>()
+        let profiles = (try? modelContext.fetch(profileDescriptor)) ?? []
+        if let myProfile = profiles.first {
+            let myId = myProfile.id
+
+            // 5 mutual follows (friends) — users 0-4
+            for i in 0..<5 {
+                // I follow them
+                let follow = Friend(userId: myId, odId: fakeUsers[i].id, odName: fakeUsers[i].name, odUsername: fakeUsers[i].username)
+                modelContext.insert(follow)
+                // They follow me back
+                let followBack = Friend(userId: fakeUsers[i].id, odId: myId, odName: myProfile.name, odUsername: myProfile.username)
+                modelContext.insert(followBack)
+            }
+
+            // 3 one-way follows (following only) — users 5-7
+            for i in 5..<8 {
+                let follow = Friend(userId: myId, odId: fakeUsers[i].id, odName: fakeUsers[i].name, odUsername: fakeUsers[i].username)
+                modelContext.insert(follow)
+            }
+
+            // Update profile counts
+            myProfile.followingCount = 8
+            myProfile.followerCount = 5
+
+            // MARK: - UserInterestProfile (default for dev user)
+
+            let interests = UserInterestProfile(
+                userId: myId,
+                workoutTypeWeights: ["Push": 0.7, "Pull": 0.6, "Legs": 0.5, "Cardio": 0.3, "Upper Body": 0.6],
+                authorWeights: [
+                    fakeUsers[0].id.uuidString: 0.8,
+                    fakeUsers[1].id.uuidString: 0.6,
+                    fakeUsers[2].id.uuidString: 0.5
+                ],
+                contentFormatWeights: ["video": 0.7, "photo": 0.6, "text": 0.3],
+                avgSessionTimeSec: 15.0
+            )
+            modelContext.insert(interests)
+        }
+
+        // MARK: - Fake User Profiles (for privacy & follower counts)
+
+        for (i, user) in fakeUsers.enumerated() {
+            // Only create if not already existing
+            let uid = user.id
+            let existsDescriptor = FetchDescriptor<UserProfile>(predicate: #Predicate { $0.id == uid })
+            if (try? modelContext.fetchCount(existsDescriptor)) ?? 0 == 0 {
+                let fakeProfile = UserProfile(
+                    id: user.id,
+                    name: user.name,
+                    username: user.username
+                )
+                // Users 8-9 are private profiles
+                fakeProfile.isProfilePublic = (i < 8)
+                fakeProfile.followerCount = i < 5 ? Int.random(in: 50...200) : Int.random(in: 10...80)
+                fakeProfile.followingCount = Int.random(in: 20...100)
+                modelContext.insert(fakeProfile)
+            }
+        }
 
         try? modelContext.save()
     }

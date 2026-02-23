@@ -1276,5 +1276,4 @@ struct MediaPicker: View {
 
 #Preview {
     CreatePostView(profile: UserProfile())
-        .preferredColorScheme(.light)
 }

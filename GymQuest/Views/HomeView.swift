@@ -216,35 +216,13 @@ struct ActivityView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
 
-            HStack(spacing: 0) {
-                ProfileLifetimeStatItem(
-                    icon: "dumbbell.fill",
-                    value: "\(nonRestWorkouts.count)",
-                    label: "Workouts",
-                    color: GQColors.textPrimary
-                )
-
-                Rectangle()
-                    .fill(Color.black.opacity(0.06))
-                    .frame(width: 1, height: 28)
-
-                ProfileLifetimeStatItem(
-                    icon: "scalemass.fill",
-                    value: homeTotalVolumeFormatted,
-                    label: "Volume",
-                    color: Color(hex: "30D158")
-                )
-
-                Rectangle()
-                    .fill(Color.black.opacity(0.06))
-                    .frame(width: 1, height: 28)
-
-                ProfileLifetimeStatItem(
-                    icon: "clock.fill",
-                    value: homeTotalDurationFormatted,
-                    label: "Time",
-                    color: Color(hex: "FF9500")
-                )
+            VStack {
+                Text("\(nonRestWorkouts.count)")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                Text("Workouts Tracked")
+                    .font(.caption)
+                    .foregroundColor(GQColors.textSecondary)
             }
         }
         .padding(.vertical, 12)
@@ -554,7 +532,7 @@ struct HomeActionCard: View {
                             )
                     } else {
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                            .stroke(GQColors.adaptiveOverlay(0.05), lineWidth: 1)
                     }
                 }
             )
@@ -641,7 +619,7 @@ struct DayTileView: View {
                 } else if isPast {
                     Image(systemName: "minus")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color.black.opacity(0.09))
+                        .foregroundColor(GQColors.adaptiveOverlay(0.09))
                 } else if isToday {
                     Image(systemName: "plus")
                         .font(.system(size: 16, weight: .semibold))
@@ -654,7 +632,7 @@ struct DayTileView: View {
                         )
                 } else {
                     Circle()
-                        .fill(Color.black.opacity(0.06))
+                        .fill(GQColors.adaptiveOverlay(0.06))
                         .frame(width: 6, height: 6)
                 }
             }
@@ -680,7 +658,7 @@ struct DayTileView: View {
         } else if isToday {
             return AnyShapeStyle(Color.clear)
         } else {
-            return AnyShapeStyle(Color.black.opacity(isPast ? 0.02 : 0.04))
+            return AnyShapeStyle(GQColors.adaptiveOverlay(isPast ? 0.02 : 0.04))
         }
     }
 }
@@ -805,7 +783,7 @@ struct WeeklyProgressCard: View {
 
                 ZStack {
                     Circle()
-                        .stroke(Color.black.opacity(0.06), lineWidth: 4)
+                        .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 4)
                         .frame(width: 44, height: 44)
 
                     Circle()
@@ -1057,7 +1035,7 @@ struct ExerciseReviewRow: View {
                         .padding(.vertical, 4)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.black.opacity(0.05))
+                                .fill(GQColors.adaptiveOverlay(0.05))
                         )
                 }
             }
@@ -1065,7 +1043,7 @@ struct ExerciseReviewRow: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.black.opacity(0.03))
+                .fill(GQColors.adaptiveOverlay(0.03))
         )
     }
 
@@ -1402,7 +1380,7 @@ struct StartWorkoutSheet: View {
                     .foregroundColor(isSelected ? .white : GQColors.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
-                        (isSelected ? GQColors.vividPurple : Color.black.opacity(0.05))
+                        (isSelected ? GQColors.vividPurple : GQColors.adaptiveOverlay(0.05))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     )
 
@@ -1423,8 +1401,8 @@ struct StartWorkoutSheet: View {
                 }
             }
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(isSelected ? 0.05 : 0.02)))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? GQColors.vividPurple.opacity(0.6) : Color.black.opacity(0.04), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 12).fill(GQColors.adaptiveOverlay(isSelected ? 0.05 : 0.02)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? GQColors.vividPurple.opacity(0.6) : GQColors.adaptiveOverlay(0.04), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -1456,7 +1434,7 @@ struct StartWorkoutSheet: View {
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.black.opacity(0.02))
+                        .fill(GQColors.adaptiveOverlay(0.02))
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(GQColors.cyanSpark.opacity(0.3), lineWidth: 1))
                 )
             }
@@ -1683,12 +1661,12 @@ struct LaunchModeCard: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(isSelected ?
                         LinearGradient(colors: [GQColors.vividPurple.opacity(0.4), GQColors.cyanSpark.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                        LinearGradient(colors: [Color.black.opacity(0.04), Color.black.opacity(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        LinearGradient(colors: [GQColors.adaptiveOverlay(0.04), GQColors.adaptiveOverlay(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing)
                     )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.8) : Color.black.opacity(isAvailable ? 0.05 : 0.02), lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.8) : GQColors.adaptiveOverlay(isAvailable ? 0.05 : 0.02), lineWidth: isSelected ? 1.5 : 1)
             )
             .opacity(isAvailable ? 1 : 0.5)
         }
@@ -1718,12 +1696,12 @@ struct WorkoutTypeCard: View {
             .background(
                 isSelected ?
                     LinearGradient(colors: [GQColors.vividPurple, GQColors.cyanSpark], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                    LinearGradient(colors: [Color.black.opacity(0.05), Color.black.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    LinearGradient(colors: [GQColors.adaptiveOverlay(0.05), GQColors.adaptiveOverlay(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
             )
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Color.clear : Color.black.opacity(0.06), lineWidth: 1)
+                    .stroke(isSelected ? Color.clear : GQColors.adaptiveOverlay(0.06), lineWidth: 1)
             )
         }
         .buttonStyle(GQInteractiveStyle())
@@ -1767,7 +1745,7 @@ struct SquadChallengeCard: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.black.opacity(0.05))
+                        .fill(GQColors.adaptiveOverlay(0.05))
                         .frame(height: 6)
                     RoundedRectangle(cornerRadius: 4)
                         .fill(
@@ -1829,5 +1807,4 @@ struct NutritionPill: View {
     ActivityView(profile: UserProfile(name: "Ben", username: "ben"))
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
-        .preferredColorScheme(.light)
 }

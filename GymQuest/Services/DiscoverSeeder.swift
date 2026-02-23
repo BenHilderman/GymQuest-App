@@ -279,6 +279,13 @@ struct DiscoverSeeder {
                 return try? JSONEncoder().encode(workout)
             }()
 
+            // Compute realistic engagement metrics
+            let viewCount = def.likeCount * Int.random(in: 8...15)
+            let shareCount = max(def.likeCount / Int.random(in: 5...10), 1)
+            let saveCount = max(def.likeCount / Int.random(in: 3...8), 1)
+            let avgWatch = Double.random(in: 8...25)
+            let engScore = min(Double(def.likeCount + def.commentCount * 3 + shareCount * 5 + saveCount * 4) / max(Double(viewCount), 1.0), 1.0)
+
             let post = Post(
                 authorId: user.id,
                 authorName: user.name,
@@ -296,6 +303,11 @@ struct DiscoverSeeder {
                 sharedWorkoutData: workoutData,
                 likeCount: def.likeCount,
                 commentCount: def.commentCount,
+                viewCount: viewCount,
+                shareCount: shareCount,
+                saveCount: saveCount,
+                avgWatchTimeSec: avgWatch,
+                engagementScore: engScore,
                 spotifyPlaylistURL: def.spotifyURL,
                 appleMusicPlaylistURL: def.appleMusicURL,
                 workoutEmotion: def.emotion
