@@ -30,7 +30,7 @@ private struct FloatingEmojiView: View {
                 .font(.system(size: 28))
             Text(cheer.senderName)
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(GQColors.textPrimary.opacity(0.8))
         }
         .offset(x: cheer.xOffset, y: yOffset)
         .opacity(opacity)
@@ -58,7 +58,7 @@ struct HypeToastBanner: View {
 
             Text("\(message.senderName): \"\(message.text)\"")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -70,6 +70,6 @@ struct HypeToastBanner: View {
             Capsule()
                 .stroke(GQColors.success.opacity(0.3), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+        .shadow(color: .black.opacity(0.08), radius: 8, y: 4)
     }
 }

@@ -148,7 +148,7 @@ struct DayButton: View {
                 .frame(width: 36, height: 36)
                 .background(
                     Circle()
-                        .fill(isSelected ? GQColors.vividPurple : Color.white.opacity(0.1))
+                        .fill(isSelected ? GQColors.vividPurple : Color.black.opacity(0.06))
                 )
         }
         .buttonStyle(GQInteractiveStyle())
@@ -159,5 +159,5 @@ struct DayButton: View {
     NavigationStack {
         NotificationSettingsView()
     }
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

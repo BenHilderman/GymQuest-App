@@ -672,6 +672,9 @@ final class UserProfile {
     var availableEquipmentJSON: String = "[]"
     var fitnessProfileCompleted: Bool = false
     var isPremium: Bool = false
+    var preferredWorkoutDuration: Int = 60
+    var gymName: String = ""
+    var subscriptionExpiryDate: Date?
 
     // Computed wrappers for raw-stored enums
     var gender: Gender? {
@@ -1004,6 +1007,7 @@ final class Post {
     // Voice note (audio clip attached to post)
     var voiceNoteData: Data?
     var voiceNoteDuration: Double?
+    var isPremiumAuthor: Bool
 
     init(
         id: UUID = UUID(),
@@ -1040,7 +1044,8 @@ final class Post {
         appleMusicPlaylistURL: String? = nil,
         workoutEmotion: String? = nil,
         voiceNoteData: Data? = nil,
-        voiceNoteDuration: Double? = nil
+        voiceNoteDuration: Double? = nil,
+        isPremiumAuthor: Bool = false
     ) {
         self.id = id
         self.authorId = authorId
@@ -1077,6 +1082,7 @@ final class Post {
         self.workoutEmotion = workoutEmotion
         self.voiceNoteData = voiceNoteData
         self.voiceNoteDuration = voiceNoteDuration
+        self.isPremiumAuthor = isPremiumAuthor
     }
 
     /// Decode shared workout data for follow feature

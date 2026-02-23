@@ -38,8 +38,8 @@ struct WorkoutPartyBar: View {
                 .fill(.clear)
                 .overlay(alignment: .bottom) {
                     Rectangle()
-                        .fill(Color.white.opacity(0.06))
-                        .frame(height: 0.5)
+                        .fill(Color.black.opacity(0.04))
+                    .frame(height: 0.5)
                 }
         )
     }
@@ -76,7 +76,7 @@ struct WorkoutPartyBar: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
                     .frame(width: 28, height: 28)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.black.opacity(0.05))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -110,7 +110,7 @@ struct WorkoutPartyBar: View {
                         Text(emoji)
                             .font(.system(size: 22))
                             .frame(width: 38, height: 38)
-                            .background(Color.white.opacity(0.06))
+                            .background(Color.black.opacity(0.04))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -141,7 +141,7 @@ struct WorkoutPartyBar: View {
                                     )
                                 )
                                 .overlay(
-                                    Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.5)
+                                    Capsule().stroke(Color.black.opacity(0.08), lineWidth: 0.5)
                                 )
                         }
                         .buttonStyle(.plain)
@@ -207,7 +207,7 @@ private struct PartyMemberCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(member.name.components(separatedBy: " ").first ?? member.name)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
 
                 Text(member.currentExercise)
@@ -220,7 +220,7 @@ private struct PartyMemberCard: View {
             HStack(spacing: 3) {
                 ForEach(0..<member.totalSets, id: \.self) { i in
                     Circle()
-                        .fill(i < member.completedSets ? GQColors.success : Color.white.opacity(0.15))
+                        .fill(i < member.completedSets ? GQColors.success : Color.black.opacity(0.1))
                         .frame(width: 6, height: 6)
                 }
             }
@@ -233,7 +233,7 @@ private struct PartyMemberCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.white.opacity(0.06), lineWidth: 0.5)
+                .stroke(Color.black.opacity(0.04), lineWidth: 0.5)
         )
     }
 }

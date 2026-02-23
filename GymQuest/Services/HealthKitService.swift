@@ -728,5 +728,5 @@ struct HealthKitSettingsView: View {
         HealthKitSettingsView(profile: UserProfile(name: "Ben", username: "ben"))
             .environmentObject(FeatureFlags.shared)
     }
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

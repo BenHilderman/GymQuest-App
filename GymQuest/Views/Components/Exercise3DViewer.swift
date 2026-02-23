@@ -554,7 +554,7 @@ struct PlaybackControls: View {
                             .background(
                                 playbackSpeed == speed
                                     ? GQColors.vividPurple.opacity(0.3)
-                                    : Color.white.opacity(0.05)
+                                    : Color.black.opacity(0.03)
                             )
                             .cornerRadius(6)
                     }
@@ -614,7 +614,7 @@ struct AngleButton: View {
                 .background(
                     isSelected
                         ? GQColors.vividPurple.opacity(0.3)
-                        : Color.white.opacity(0.05)
+                        : Color.black.opacity(0.03)
                 )
                 .cornerRadius(8)
                 .overlay(
@@ -635,5 +635,5 @@ struct AngleButton: View {
         .frame(height: 350)
         .padding()
         .gqPageBackground()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

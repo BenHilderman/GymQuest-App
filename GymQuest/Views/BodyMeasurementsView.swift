@@ -142,7 +142,7 @@ struct QuickStatCard: View {
             if let m = measurement {
                 Text(String(format: "%.1f", m.value))
                     .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Text(type.unit)
                     .font(.system(size: 11))
@@ -175,7 +175,7 @@ struct MeasurementChartCard: View {
             HStack {
                 Text(type.rawValue)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Spacer()
 
@@ -225,7 +225,7 @@ struct MeasurementChartCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(
                     LinearGradient(
-                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
@@ -257,7 +257,7 @@ struct MeasurementTypeRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(type.rawValue)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 if let m = latest {
                     Text(m.date.formatted(date: .abbreviated, time: .omitted))
@@ -276,7 +276,7 @@ struct MeasurementTypeRow: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(String(format: "%.1f %@", m.value, type.unit))
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     if let t = trend {
                         HStack(spacing: 2) {
@@ -297,7 +297,7 @@ struct MeasurementTypeRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.05))
+        .background(Color.black.opacity(0.03))
     }
 }
 
@@ -385,5 +385,5 @@ struct AddMeasurementSheet: View {
     NavigationStack {
         BodyMeasurementsView(profile: UserProfile(name: "Ben", username: "ben"))
     }
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

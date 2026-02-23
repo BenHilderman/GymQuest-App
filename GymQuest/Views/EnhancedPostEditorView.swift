@@ -306,7 +306,7 @@ struct WorkoutSummaryHeader: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(workout.title ?? workout.type.rawValue)
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 HStack(spacing: 12) {
                     Label("\(duration) min", systemImage: "clock.fill")
@@ -321,7 +321,7 @@ struct WorkoutSummaryHeader: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.black.opacity(0.06))
         )
         .padding(.horizontal)
     }
@@ -342,10 +342,10 @@ struct CaptionEditor: View {
             TextEditor(text: $caption)
                 .frame(minHeight: 80)
                 .padding(12)
-                .background(Color.white.opacity(0.05))
+                .background(Color.black.opacity(0.06))
                 .cornerRadius(12)
                 .scrollContentBackground(.hidden)
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
         }
         .padding(.horizontal)
     }
@@ -411,7 +411,7 @@ struct MediaSlot: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .lineLimit(1)
 
             Text(subtitle)
@@ -420,7 +420,7 @@ struct MediaSlot: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.05))
+                    .fill(Color.black.opacity(0.06))
                     .frame(width: 100, height: 100)
 
                 if let firstMedia = media.first {
@@ -523,7 +523,7 @@ struct TaggingButton: View {
 
                 Text(title)
                     .font(.system(size: 15))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Spacer()
 
@@ -544,7 +544,7 @@ struct TaggingButton: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.05))
+                    .fill(Color.black.opacity(0.06))
             )
         }
         .buttonStyle(GQInteractiveStyle())
@@ -659,12 +659,12 @@ struct PlaylistLinkSection: View {
 
                 TextField("Spotify playlist URL", text: $spotifyURL)
                     .font(.system(size: 14))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             }
             .padding(12)
-            .background(Color.white.opacity(0.05))
+            .background(Color.black.opacity(0.06))
             .cornerRadius(10)
 
             // Apple Music
@@ -675,12 +675,12 @@ struct PlaylistLinkSection: View {
 
                 TextField("Apple Music playlist URL", text: $appleMusicURL)
                     .font(.system(size: 14))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             }
             .padding(12)
-            .background(Color.white.opacity(0.05))
+            .background(Color.black.opacity(0.06))
             .cornerRadius(10)
         }
         .padding(.horizontal)
@@ -712,7 +712,7 @@ struct MediaPickerSheet: View {
                         Text("Choose from Library")
                             .font(.system(size: 16, weight: .medium))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                 }
@@ -729,7 +729,7 @@ struct MediaPickerSheet: View {
                         Text("Take Photo/Video")
                             .font(.system(size: 16, weight: .medium))
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                 }
@@ -795,7 +795,7 @@ struct CameraCapture: View {
     var body: some View {
         VStack {
             Text("Camera capture")
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
             Button("Close") { dismiss() }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -846,10 +846,10 @@ struct UserTaggingView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(GQColors.textTertiary)
                     TextField("Search friends", text: $searchText)
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
                 .padding(12)
-                .background(Color.white.opacity(0.05))
+                .background(Color.black.opacity(0.06))
                 .cornerRadius(10)
                 .padding()
 
@@ -911,7 +911,7 @@ struct FriendTagRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(friend.odName)
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text("@\(friend.odUsername)")
                         .font(.system(size: 13))
@@ -963,10 +963,10 @@ struct LocationTaggingView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundColor(GQColors.textTertiary)
                     TextField("Search or enter location", text: $searchText)
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
                 .padding(12)
-                .background(Color.white.opacity(0.05))
+                .background(Color.black.opacity(0.06))
                 .cornerRadius(10)
                 .padding()
 
@@ -987,10 +987,10 @@ struct LocationTaggingView: View {
                                     Image(systemName: "mappin.circle.fill")
                                         .foregroundColor(GQColors.success)
                                     Text("Use \"\(searchText)\"")
-                                        .foregroundColor(.white)
+                                        .foregroundColor(GQColors.textPrimary)
                                 }
                             }
-                            .listRowBackground(Color.white.opacity(0.05))
+                            .listRowBackground(Color.black.opacity(0.06))
                         } header: {
                             Text("Custom Location")
                                 .foregroundColor(GQColors.textTertiary)
@@ -1077,7 +1077,7 @@ struct CommunityLocationRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(community.name)
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     if let location = community.location {
                         Text(location)
@@ -1124,7 +1124,7 @@ struct SquadTaggingView: View {
 
                         Text("No Squads Yet")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
 
                         Text("Join or create a squad to share workouts with your team!")
                             .font(.subheadline)
@@ -1193,7 +1193,7 @@ struct SquadTagRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(squad.name)
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text("\(squad.memberCount) members")
                         .font(.system(size: 13))
@@ -1235,5 +1235,4 @@ struct SquadTagRow: View {
         ],
         duration: 45
     )
-    .preferredColorScheme(.dark)
 }

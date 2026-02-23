@@ -22,7 +22,7 @@ struct FormCheckView: View {
 
                 Text("Form Check")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
             }
 
             Text("Complete all gates to unlock the next variation.")
@@ -30,13 +30,13 @@ struct FormCheckView: View {
                 .foregroundColor(GQColors.textSecondary)
 
             Divider()
-                .background(Color.white.opacity(0.1))
+                .background(Color.black.opacity(0.06))
 
             // Progress Gates
             progressGates
 
             Divider()
-                .background(Color.white.opacity(0.1))
+                .background(Color.black.opacity(0.06))
 
             // Confidence Rating
             confidenceRatingSection
@@ -87,7 +87,7 @@ struct FormCheckView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("How controlled did it feel?")
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             HStack(spacing: 4) {
                 ForEach(1...5, id: \.self) { value in
@@ -104,7 +104,7 @@ struct FormCheckView: View {
 
                 Text("\(Int(rating))/5")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(width: 44, alignment: .trailing)
             }
 
@@ -116,7 +116,7 @@ struct FormCheckView: View {
                     Text("Add Rating")
                 }
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(GQColors.primary)
@@ -165,7 +165,7 @@ struct FormCheckView: View {
             Spacer()
         }
         .padding(12)
-        .background(mastery.canUnlockNextVariation ? Color.green.opacity(0.15) : Color.white.opacity(0.05))
+        .background(mastery.canUnlockNextVariation ? Color.green.opacity(0.15) : Color.black.opacity(0.03))
         .cornerRadius(10)
     }
 }
@@ -218,7 +218,7 @@ struct RatingBadge: View {
     var body: some View {
         Text("\(Int(value))")
             .font(.system(size: 12, weight: .bold))
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(width: 24, height: 24)
             .background(color)
             .clipShape(Circle())

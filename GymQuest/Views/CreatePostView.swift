@@ -108,7 +108,7 @@ struct CreatePostView: View {
                         TextEditor(text: $caption)
                             .frame(minHeight: 80)
                             .padding(12)
-                            .background(Color.white.opacity(0.05))
+                            .background(Color.black.opacity(0.03))
                             .cornerRadius(12)
                             .scrollContentBackground(.hidden)
                     }
@@ -155,7 +155,7 @@ struct CreatePostView: View {
                                     }
                                 }
                                 .padding()
-                                .background(Color.white.opacity(0.03))
+                                .background(Color.black.opacity(0.02))
                                 .cornerRadius(12)
                             }
                         }
@@ -268,7 +268,7 @@ struct CreatePostView: View {
                             .foregroundColor(GQColors.success)
                         Text("Posted!")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(.ultraThinMaterial)
@@ -896,13 +896,13 @@ struct ContentTypeSelector: View {
                         Text(type.rawValue)
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(selectedType == type ? .black : .white)
+                    .foregroundColor(selectedType == type ? .white : GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background {
                         if selectedType == type {
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.white)
+                                .fill(GQColors.textPrimary)
                                 .matchedGeometryEffect(id: "contentTab", in: tabNamespace)
                         }
                     }
@@ -910,7 +910,7 @@ struct ContentTypeSelector: View {
                 .buttonStyle(GQInteractiveStyle())
             }
         }
-        .background(Color.white.opacity(0.1))
+        .background(Color.black.opacity(0.06))
         .cornerRadius(10)
     }
 }
@@ -990,7 +990,7 @@ struct MealPostOptions: View {
             }
         }
         .padding(16)
-        .background(Color.white.opacity(0.03))
+        .background(Color.black.opacity(0.02))
         .cornerRadius(12)
     }
 }
@@ -1008,10 +1008,10 @@ struct MealTypeButton: View {
                 Text(type.rawValue)
                     .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
             }
-            .foregroundColor(isSelected ? .black : .white)
+            .foregroundColor(isSelected ? .white : GQColors.textPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(isSelected ? Color.white : Color.white.opacity(0.1))
+            .background(isSelected ? GQColors.textPrimary : Color.black.opacity(0.06))
             .cornerRadius(16)
         }
         .buttonStyle(GQInteractiveStyle())
@@ -1033,7 +1033,7 @@ struct QuickTagButton: View {
                 .foregroundColor(isSelected ? .white : .gray)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(isSelected ? GQColors.cyanSpark.opacity(0.4) : Color.white.opacity(0.08))
+                .background(isSelected ? GQColors.cyanSpark.opacity(0.4) : Color.black.opacity(0.05))
                 .cornerRadius(14)
                 .scaleEffect(isSelected ? 1.05 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
@@ -1067,7 +1067,7 @@ struct MealFeelingButton: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .background(isSelected ? feeling.color.opacity(0.3) : Color.white.opacity(0.05))
+            .background(isSelected ? feeling.color.opacity(0.3) : Color.black.opacity(0.03))
             .cornerRadius(10)
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
@@ -1209,7 +1209,7 @@ struct MediaPicker: View {
                                 }
                                 Text("Camera")
                                     .font(.caption)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
                             }
                         }
                         .buttonStyle(GQInteractiveStyle())
@@ -1220,15 +1220,15 @@ struct MediaPicker: View {
                             VStack(spacing: 8) {
                                 ZStack {
                                     Circle()
-                                        .fill(Color.white.opacity(0.1))
+                                        .fill(Color.black.opacity(0.06))
                                         .frame(width: 60, height: 60)
                                     Image(systemName: "photo.on.rectangle")
                                         .font(.system(size: 24))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(GQColors.textPrimary)
                                 }
                                 Text("Library")
                                     .font(.caption)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
                             }
                         }
                     }
@@ -1239,11 +1239,11 @@ struct MediaPicker: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 180)
-                .background(Color.white.opacity(0.03))
+                .background(Color.black.opacity(0.02))
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [6]))
+                        .strokeBorder(Color.black.opacity(0.06), style: StrokeStyle(lineWidth: 1, dash: [6]))
                 )
             }
         }
@@ -1276,5 +1276,5 @@ struct MediaPicker: View {
 
 #Preview {
     CreatePostView(profile: UserProfile())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

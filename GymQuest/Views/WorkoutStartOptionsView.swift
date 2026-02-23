@@ -102,9 +102,9 @@ struct WorkoutStartOptionsView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(width: 34, height: 34)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.black.opacity(0.05))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -119,7 +119,7 @@ struct WorkoutStartOptionsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Start Workout")
                 .font(.system(size: 32, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text("Pick a flow that matches your day.")
                 .font(.system(size: 15))
@@ -151,7 +151,7 @@ struct WorkoutStartOptionsView: View {
                     HStack(spacing: 6) {
                         Text(title)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
 
                         if let badgeText {
                             Text(badgeText)
@@ -305,7 +305,7 @@ struct PreviousWorkoutsSheet: View {
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(workout.title ?? workout.type.rawValue)
                                                 .font(.system(size: 15, weight: .semibold))
-                                                .foregroundColor(.white)
+                                                .foregroundColor(GQColors.textPrimary)
                                             Text("\(workout.exercises.count) exercises · \(workout.date.formatted(.dateTime.month(.abbreviated).day()))")
                                                 .font(.system(size: 13))
                                                 .foregroundColor(GQColors.textSecondary)
@@ -402,7 +402,7 @@ struct SavedWorkoutsSheet: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(template.name)
                                             .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(GQColors.textPrimary)
                                         Text("\(template.estimatedDuration) min · Used \(template.useCount) times")
                                             .font(.system(size: 13))
                                             .foregroundColor(GQColors.textSecondary)

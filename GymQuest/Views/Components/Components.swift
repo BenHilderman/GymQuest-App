@@ -32,14 +32,14 @@ struct CardContainer<Content: View>: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(
                     LinearGradient(
-                        colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                        colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
                     lineWidth: 1
                 )
         )
-        .shadow(color: .black.opacity(0.20), radius: 6, y: 2)
+        .shadow(color: .black.opacity(0.06), radius: 6, y: 2)
     }
 }
 
@@ -91,7 +91,7 @@ struct AccentButtonStyle: ButtonStyle {
         configuration.label
             .font(.subheadline)
             .fontWeight(.semibold)
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .background(
@@ -102,14 +102,14 @@ struct AccentButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 24)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(configuration.isPressed ? 0.08 : 0.10), Color.white.opacity(configuration.isPressed ? 0.03 : 0.05)],
+                            colors: [Color.black.opacity(configuration.isPressed ? 0.05 : 0.06), Color.black.opacity(configuration.isPressed ? 0.02 : 0.03)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
                         lineWidth: 1
                     )
             )
-            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.14 : 0.22), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.04 : 0.07), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
             .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
             .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
@@ -126,7 +126,7 @@ struct AnimatedGradientButtonStyle: ButtonStyle {
         configuration.label
             .font(.subheadline)
             .fontWeight(.semibold)
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background(
@@ -136,7 +136,7 @@ struct AnimatedGradientButtonStyle: ButtonStyle {
             .overlay {
                 if configuration.isPressed {
                     RoundedRectangle(cornerRadius: 25)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.07), lineWidth: 1)
                 } else {
                     RoundedRectangle(cornerRadius: 25)
                         .animatedGradientBorder(
@@ -147,7 +147,7 @@ struct AnimatedGradientButtonStyle: ButtonStyle {
                         )
                 }
             }
-            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.16 : 0.26), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.05 : 0.08), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
             .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
             .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
@@ -167,7 +167,7 @@ struct OnboardingButtonStyle: ButtonStyle {
         configuration.label
             .font(.subheadline)
             .fontWeight(.semibold)
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background(
@@ -177,7 +177,7 @@ struct OnboardingButtonStyle: ButtonStyle {
             .overlay {
                 if configuration.isPressed {
                     RoundedRectangle(cornerRadius: 25)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.07), lineWidth: 1)
                 } else {
                     RoundedRectangle(cornerRadius: 25)
                         .animatedGradientBorder(
@@ -190,7 +190,7 @@ struct OnboardingButtonStyle: ButtonStyle {
                         )
                 }
             }
-            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.16 : 0.26), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.05 : 0.08), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
             .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
             .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
@@ -306,7 +306,7 @@ struct DangerButtonStyle: ButtonStyle {
                         lineWidth: 1
                     )
             )
-            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.14 : 0.22), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.04 : 0.07), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
             .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
             .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
@@ -328,7 +328,7 @@ struct GymQuestTextFieldStyle: TextFieldStyle {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
+                            colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
@@ -413,7 +413,7 @@ struct SessionDetailView: View {
                                     }
                                 }
                                 .padding()
-                                .background(Color.white.opacity(0.03))
+                                .background(Color.black.opacity(0.03))
                                 .cornerRadius(12)
                             }
                         }
@@ -797,7 +797,7 @@ struct PRCelebrationBanner: View {
 
                     Text("You hit \(prMoments.count) personal record\(prMoments.count > 1 ? "s" : "") today")
                         .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(GQColors.textSecondary)
                 }
 
                 Spacer()
@@ -813,11 +813,11 @@ struct PRCelebrationBanner: View {
                             if let exercise = pr.exerciseName {
                                 Text(exercise)
                                     .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
                             }
                             Text(pr.value)
                                 .font(.system(size: 13))
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(GQColors.textSecondary)
                         }
 
                         Spacer()
@@ -831,7 +831,7 @@ struct PRCelebrationBanner: View {
                             .cornerRadius(8)
                     }
                     .padding(10)
-                    .background(Color.white.opacity(0.05))
+                    .background(Color.black.opacity(0.03))
                     .cornerRadius(10)
                 }
                 .buttonStyle(GQInteractiveStyle())
@@ -861,12 +861,12 @@ struct QuickStatsSummary: View {
     var body: some View {
         HStack(spacing: 0) {
             QuickStat(value: "\(summary.totalSets)", label: "sets")
-            Divider().frame(height: 30).background(Color.white.opacity(0.1))
+            Divider().frame(height: 30).background(Color.black.opacity(0.06))
             QuickStat(value: summary.formattedVolume, label: "volume")
-            Divider().frame(height: 30).background(Color.white.opacity(0.1))
+            Divider().frame(height: 30).background(Color.black.opacity(0.06))
             QuickStat(value: "\(summary.duration)", label: "min")
             if summary.streak >= 3 {
-                Divider().frame(height: 30).background(Color.white.opacity(0.1))
+                Divider().frame(height: 30).background(Color.black.opacity(0.06))
                 HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 12))
@@ -879,7 +879,7 @@ struct QuickStatsSummary: View {
             }
         }
         .padding(.vertical, 12)
-        .background(Color.white.opacity(0.03))
+        .background(Color.black.opacity(0.03))
         .cornerRadius(12)
     }
 }
@@ -892,7 +892,7 @@ struct QuickStat: View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
             Text(label)
                 .font(.system(size: 10))
                 .foregroundColor(GQColors.textTertiary)
@@ -997,7 +997,7 @@ struct LevelUpBanner: View {
 
                 Text("Level \(newLevel) - \(UserProfile.levelTitle(for: newLevel))")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
             }
 
             Spacer()
@@ -1021,7 +1021,7 @@ struct LevelUpBanner: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(GQColors.cyanSpark.opacity(0.4), lineWidth: 1)
         )
-        .shadow(color: GQColors.cyanSpark.opacity(0.2), radius: 12, y: 4)
+        .shadow(color: GQColors.cyanSpark.opacity(0.06), radius: 12, y: 4)
     }
 }
 
@@ -1045,7 +1045,7 @@ struct CardLoadingPlaceholder: View {
                 .fill(.ultraThinMaterial)
                 .background(
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.black.opacity(0.4))
+                        .fill(Color.black.opacity(0.03))
                 )
         )
         .overlay(
@@ -1075,7 +1075,7 @@ struct ShareOptionButton: View {
                 Text(title)
                     .font(.system(size: 12, weight: .medium))
             }
-            .foregroundColor(isSelected ? .white : GQColors.textTertiary)
+            .foregroundColor(isSelected ? GQColors.textPrimary : GQColors.textTertiary)
             .frame(maxWidth: .infinity)
             .frame(height: 70)
             .background(
@@ -1089,11 +1089,11 @@ struct ShareOptionButton: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
                     .stroke(
-                        isSelected ? GQColors.vividPurple.opacity(0.5) : Color.white.opacity(0.1),
+                        isSelected ? GQColors.vividPurple.opacity(0.5) : Color.black.opacity(0.06),
                         lineWidth: 1
                     )
             )
-            .shadow(color: isSelected ? GQColors.vividPurple.opacity(0.2) : .clear, radius: 8, y: 2)
+            .shadow(color: isSelected ? GQColors.vividPurple.opacity(0.06) : .clear, radius: 8, y: 2)
         }
         .buttonStyle(GQInteractiveStyle())
     }
@@ -1131,6 +1131,5 @@ struct StatBlock: View {
     CardContainer {
         Text("Preview")
     }
-    .preferredColorScheme(.dark)
     .padding()
 }

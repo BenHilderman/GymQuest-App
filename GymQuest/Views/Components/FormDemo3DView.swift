@@ -266,12 +266,12 @@ struct CurrentPhaseCues: View {
                         .padding(.top, 1)
                     Text(cue)
                         .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(GQColors.textPrimary.opacity(0.9))
                 }
             }
         }
         .padding(12)
-        .background(Color(white: 0.06))
+        .background(Color(white: 0.96))
         .cornerRadius(12)
     }
 }
@@ -330,5 +330,5 @@ extension KeyframePosition: CaseIterable {
             .padding()
         }
     }
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

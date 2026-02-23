@@ -127,7 +127,7 @@ struct Exercise3DDemoSheet: View {
                             .background(
                                 playbackSpeed == Float(speed)
                                     ? GQColors.vividPurple.opacity(0.3)
-                                    : Color.white.opacity(0.05)
+                                    : Color.black.opacity(0.03)
                             )
                             .cornerRadius(6)
                     }
@@ -177,7 +177,7 @@ struct Exercise3DDemoSheet: View {
                         .font(.system(size: 14))
                     Text(cue)
                         .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(GQColors.textPrimary.opacity(0.9))
                 }
             }
         }
@@ -204,7 +204,7 @@ struct Exercise3DDemoSheet: View {
                             .frame(width: 12, height: 12)
                         Text(joint.rawValue.capitalized)
                             .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(GQColors.textPrimary.opacity(0.8))
                     }
                 }
             }
@@ -256,7 +256,7 @@ struct Exercise3DDemoSheet: View {
 
             Text("This interactive 3D model shows the proper form for \(exerciseName). Rotate the model freely by dragging, or use the quick angle buttons to see the movement from different perspectives. The animation plays continuously to help you understand the full range of motion.")
                 .font(.system(size: 13))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(GQColors.textPrimary.opacity(0.8))
                 .lineSpacing(4)
 
             HStack(spacing: 16) {
@@ -290,5 +290,5 @@ struct Exercise3DDemoSheet: View {
 
 #Preview {
     Exercise3DDemoSheet(exerciseName: "Squat")
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

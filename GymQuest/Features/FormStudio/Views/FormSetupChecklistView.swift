@@ -21,7 +21,7 @@ struct FormSetupChecklistView: View {
 
                 Text("Setup Checklist")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
             }
 
             Text("Complete the setup checklist to unlock progression.")
@@ -29,14 +29,14 @@ struct FormSetupChecklistView: View {
                 .foregroundColor(GQColors.textSecondary)
 
             Divider()
-                .background(Color.white.opacity(0.1))
+                .background(Color.black.opacity(0.06))
 
             // Main toggle
             Toggle(isOn: $mastery.setupChecklistCompleted) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("I can set up the equipment correctly")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text("Seat height, grip width, safety pins, etc.")
                         .font(.caption)
@@ -72,7 +72,7 @@ struct FormSetupChecklistView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Setup Tips for \(exercise.equipment.capitalized)")
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             ForEach(setupTips(for: exercise.equipment), id: \.self) { tip in
                 HStack(alignment: .top, spacing: 8) {
@@ -87,7 +87,7 @@ struct FormSetupChecklistView: View {
             }
         }
         .padding(12)
-        .background(Color.white.opacity(0.05))
+        .background(Color.black.opacity(0.03))
         .cornerRadius(10)
     }
 

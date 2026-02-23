@@ -86,7 +86,7 @@ struct EmotionChip: View {
             .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? emotion.color.opacity(0.25) : Color.white.opacity(0.04))
+                    .fill(isSelected ? emotion.color.opacity(0.25) : Color.black.opacity(0.03))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12)

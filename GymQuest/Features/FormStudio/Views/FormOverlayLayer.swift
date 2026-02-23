@@ -67,10 +67,10 @@ struct OverlayCallout: View {
                 .fill(.ultraThinMaterial)
                 .overlay {
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.12), lineWidth: 1)
                 }
         }
-        .shadow(color: .black.opacity(0.3), radius: 10, y: 4)
+        .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
     }
 }
 

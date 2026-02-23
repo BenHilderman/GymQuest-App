@@ -26,7 +26,7 @@ struct WorkoutDetailSheet: View {
                         Text(workoutData.title)
                             .font(.title2)
                             .fontWeight(.bold)
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
 
                         HStack(spacing: 16) {
                             Label(workoutData.workoutType, systemImage: "dumbbell.fill")
@@ -109,13 +109,13 @@ struct ExercisePreviewCard: View {
                                 .frame(width: 36, height: 36)
                             Text("\(index)")
                                 .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(exercise.name)
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
 
                             Text("\(exercise.sets.count) sets • \(exercise.muscleGroup)")
                                 .font(.caption)
@@ -142,11 +142,11 @@ struct ExercisePreviewCard: View {
                     } label: {
                         Image(systemName: showAddedCheck ? "checkmark" : "plus")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(showAddedCheck ? GQColors.success : .white)
+                            .foregroundColor(showAddedCheck ? GQColors.success : GQColors.textPrimary)
                             .frame(width: 30, height: 30)
                             .background(
                                 Circle()
-                                    .fill(showAddedCheck ? GQColors.success.opacity(0.2) : Color.white.opacity(0.1))
+                                    .fill(showAddedCheck ? GQColors.success.opacity(0.2) : Color.black.opacity(0.06))
                             )
                     }
                     .buttonStyle(.plain)
@@ -166,7 +166,7 @@ struct ExercisePreviewCard: View {
 
                                 Text("\(set.reps) reps")
                                     .font(.system(size: 14))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
 
                                 if set.weight > 0 {
                                     Text("@ \(Int(set.weight)) lbs")
@@ -190,7 +190,7 @@ struct ExercisePreviewCard: View {
 
                     if !exercise.demoTips.isEmpty {
                         Divider()
-                            .background(Color.white.opacity(0.1))
+                            .background(Color.black.opacity(0.06))
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text("FORM TIPS")
@@ -396,16 +396,16 @@ struct WorkoutProgressHeader: View {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                         .frame(width: 32, height: 32)
-                        .background(Color.white.opacity(0.08))
+                        .background(Color.black.opacity(0.05))
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
 
                 Text(workoutTitle)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
 
                 Spacer()
@@ -454,7 +454,7 @@ struct RestTimerView: View {
 
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.12), lineWidth: 12)
+                    .stroke(Color.black.opacity(0.06), lineWidth: 12)
                     .frame(width: 196, height: 196)
 
                 Circle()
@@ -473,7 +473,7 @@ struct RestTimerView: View {
                 VStack(spacing: 4) {
                     Text("\(timeRemaining)")
                         .font(.system(size: 66, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Text("seconds")
                         .font(.subheadline)
                         .foregroundColor(GQColors.textSecondary)
@@ -489,7 +489,7 @@ struct RestTimerView: View {
                 Text(nextExercise)
                     .font(.title3)
                     .fontWeight(.semibold)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .multilineTextAlignment(.center)
             }
             .padding(14)
@@ -501,7 +501,7 @@ struct RestTimerView: View {
             } label: {
                 Text("Skip Rest")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
             }
             .buttonStyle(HomeSocialSecondaryButtonStyle())
             .padding(.horizontal, 60)
@@ -527,7 +527,7 @@ struct ActiveSetView: View {
 
             Text(exercise.name)
                 .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, GQLayout.screenHorizontal)
 
@@ -544,7 +544,7 @@ struct ActiveSetView: View {
                             .foregroundColor(GQColors.textTertiary)
                         Text("\(targetReps)")
                             .font(.system(size: 48, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                         Text("reps")
                             .font(.caption)
                             .foregroundColor(GQColors.textSecondary)
@@ -630,10 +630,10 @@ struct ExerciseOverviewBar: View {
         }
         .background(
             Rectangle()
-                .fill(Color.black.opacity(0.20))
+                .fill(Color.white)
                 .overlay(
                     Rectangle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.black.opacity(0.06))
                         .frame(height: 1),
                     alignment: .top
                 )
@@ -663,14 +663,14 @@ struct ExercisePill: View {
         VStack(spacing: 4) {
             Text(name)
                 .font(.system(size: 12, weight: isCurrent ? .bold : .medium))
-                .foregroundColor(isCurrent ? .white : (isPast ? GQColors.cyanSpark : GQColors.textSecondary))
+                .foregroundColor(isCurrent ? GQColors.textPrimary : (isPast ? GQColors.cyanSpark : GQColors.textSecondary))
                 .lineLimit(1)
 
             // Set indicators
             HStack(spacing: 4) {
                 ForEach(0..<setsCount, id: \.self) { i in
                     Circle()
-                        .fill(i < completedCount ? GQColors.cyanSpark : (isCurrent ? GQColors.coral : Color.white.opacity(0.3)))
+                        .fill(i < completedCount ? GQColors.cyanSpark : (isCurrent ? GQColors.coral : Color.black.opacity(0.12)))
                         .frame(width: 8, height: 8)
                 }
             }
@@ -703,7 +703,7 @@ struct WorkoutCompleteView: View {
             Text("Workout Complete")
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text("Nice work. Ready to review and share it?")
                 .font(.system(size: 15))
@@ -900,7 +900,7 @@ struct WorkoutStatBlock: View {
             Text(value)
                 .font(.title)
                 .fontWeight(.bold)
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
             Text(label)
                 .font(.caption)
                 .foregroundColor(GQColors.textSecondary)
@@ -932,7 +932,7 @@ struct WorkoutCopySheet: View {
                             .foregroundColor(GQColors.cyanSpark)
                         Text(workoutData.title)
                             .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                         Spacer()
                     }
 
@@ -958,7 +958,7 @@ struct WorkoutCopySheet: View {
                     .foregroundColor(GQColors.textSecondary)
                 }
                 .padding(16)
-                .background(Color.white.opacity(0.05))
+                .background(Color.black.opacity(0.03))
 
                 // Exercises list
                 ScrollView {
@@ -977,7 +977,7 @@ struct WorkoutCopySheet: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(exercise.name)
                                         .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(GQColors.textPrimary)
                                     Text("\(exercise.sets.count) sets • \(exercise.muscleGroup)")
                                         .font(.system(size: 12))
                                         .foregroundColor(GQColors.textTertiary)
@@ -1027,14 +1027,14 @@ struct WorkoutCopySheet: View {
                                 Text(showingSaved ? "Saved!" : "Save for Later")
                             }
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(showingSaved ? GQColors.success : .white)
+                            .foregroundColor(showingSaved ? GQColors.success : GQColors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.08))
+                            .background(Color.black.opacity(0.05))
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)
@@ -1049,23 +1049,23 @@ struct WorkoutCopySheet: View {
                                 Text("Pick Exercise")
                             }
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.white.opacity(0.08))
+                            .background(Color.black.opacity(0.05))
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(16)
-                .background(Color(white: 0.05))
+                .background(Color(hex: "F8F8FA"))
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(Color(hex: "F2F2F7").ignoresSafeArea())
             .navigationTitle("Copy Workout")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -1119,7 +1119,7 @@ struct ExercisePickerSheet: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(exercise.name)
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
                             Text("\(exercise.sets.count) sets • \(exercise.muscleGroup)")
                                 .font(.system(size: 12))
                                 .foregroundColor(GQColors.textTertiary)
@@ -1152,12 +1152,12 @@ struct ExercisePickerSheet: View {
                             }
                         }
                     }
-                    .listRowBackground(Color.white.opacity(0.05))
+                    .listRowBackground(Color.white)
                 }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .background(Color.black.ignoresSafeArea())
+            .background(Color(hex: "F2F2F7").ignoresSafeArea())
             .navigationTitle("Pick Exercises")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -1247,5 +1247,5 @@ struct ExercisePickerSheet: View {
     WorkoutDetailSheet(workoutData: sampleWorkout) {
         print("Follow tapped")
     }
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

@@ -688,5 +688,5 @@ struct StravaAuthWebView: UIViewRepresentable {
         StravaSettingsView(profile: UserProfile(name: "Ben", username: "ben"))
             .environmentObject(FeatureFlags.shared)
     }
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

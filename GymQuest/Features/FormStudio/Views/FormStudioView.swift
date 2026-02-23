@@ -58,7 +58,7 @@ struct FormStudioView: View {
             }
             .padding(.vertical, 12)
         }
-        .background(Color.black)
+        .background(GQColors.background)
         .navigationTitle(exercise.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -84,7 +84,7 @@ struct FormStudioView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
             }
         }
@@ -241,7 +241,7 @@ struct FormStudioView: View {
                             .foregroundColor(selectedTab == tab ? .white : GQColors.textSecondary)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(selectedTab == tab ? GQColors.primary.opacity(0.3) : Color.white.opacity(0.08))
+                            .background(selectedTab == tab ? GQColors.primary.opacity(0.3) : Color.black.opacity(0.05))
                             .cornerRadius(14)
                     }
                     .buttonStyle(.plain)
@@ -288,7 +288,7 @@ struct FormStudioView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Key Cues")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 ForEach(exercise.cues.sorted(by: { $0.priority < $1.priority }).prefix(3)) { cue in
                     HStack(spacing: 8) {
@@ -298,7 +298,7 @@ struct FormStudioView: View {
 
                         Text(cue.text)
                             .font(.subheadline)
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                 }
             }
@@ -316,7 +316,7 @@ struct FormStudioView: View {
             HStack {
                 Text("Progression")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Spacer()
 
@@ -368,7 +368,7 @@ struct FormStudioView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Camera Angles")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text("Switch angles to verify bar path and joint tracking from different perspectives.")
                 .font(.subheadline)
@@ -391,7 +391,7 @@ struct FormStudioView: View {
                         .foregroundColor(isAvailable ? (selectedAngle == angle ? .white : GQColors.textSecondary) : GQColors.textTertiary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
-                        .background(selectedAngle == angle ? GQColors.primary.opacity(0.3) : Color.white.opacity(0.08))
+                        .background(selectedAngle == angle ? GQColors.primary.opacity(0.3) : Color.black.opacity(0.05))
                         .cornerRadius(12)
                         .opacity(isAvailable ? 1 : 0.5)
                     }
@@ -424,7 +424,7 @@ struct FormStudioView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Next Steps")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     ForEach(recs.prefix(2)) { rec in
                         RecommendationRow(recommendation: rec)
@@ -501,7 +501,7 @@ struct StatCard: View {
 
             Text(value)
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text(title)
                 .font(.caption)
@@ -529,7 +529,7 @@ struct RecommendationRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(recommendation.title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Text(recommendation.reason)
                     .font(.caption)
@@ -543,7 +543,7 @@ struct RecommendationRow: View {
                 .foregroundColor(GQColors.textTertiary)
         }
         .padding(12)
-        .background(Color.white.opacity(0.05))
+        .background(Color.black.opacity(0.03))
         .cornerRadius(10)
     }
 

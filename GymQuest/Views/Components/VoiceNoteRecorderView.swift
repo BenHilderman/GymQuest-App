@@ -43,15 +43,15 @@ struct VoiceNoteRecorderView: View {
 
                 Text("Add voice note")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(GQColors.textSecondary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .background(Color.white.opacity(0.08))
+            .background(Color.black.opacity(0.05))
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.08), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -139,7 +139,7 @@ struct VoiceNoteRecorderView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.12))
+                        .fill(Color.black.opacity(0.08))
                         .frame(height: 4)
 
                     Capsule()
@@ -153,7 +153,7 @@ struct VoiceNoteRecorderView: View {
             // Duration
             Text(formatDuration(voiceNoteDuration))
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(GQColors.textSecondary)
 
             // Delete button
             Button {
@@ -163,13 +163,13 @@ struct VoiceNoteRecorderView: View {
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 18))
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(GQColors.textTertiary)
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.08))
+        .background(Color.black.opacity(0.05))
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)

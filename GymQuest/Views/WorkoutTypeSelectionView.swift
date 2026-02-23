@@ -59,7 +59,7 @@ struct WorkoutTypeSelectionView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Let's Workout")
                                 .font(.system(size: 32, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
 
                             Text("Tap to start.")
                                 .font(.system(size: 15))
@@ -95,12 +95,12 @@ struct WorkoutTypeSelectionView: View {
                             VStack(spacing: 8) {
                                 TextField("Enter workout name...", text: $customName)
                                     .font(.system(size: 15))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 12)
                                     .background(
                                         RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color.white.opacity(0.06))
+                                            .fill(Color.black.opacity(0.04))
                                     )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
@@ -133,9 +133,9 @@ struct WorkoutTypeSelectionView: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(width: 34, height: 34)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.black.opacity(0.05))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -179,7 +179,7 @@ private struct CompactWorkoutTypeCard: View {
 
                 Text(option.type.rawValue)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
@@ -195,5 +195,5 @@ private struct CompactWorkoutTypeCard: View {
 #Preview {
     WorkoutTypeSelectionView(profile: UserProfile(name: "Ben", username: "ben"))
         .environmentObject(AppState())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

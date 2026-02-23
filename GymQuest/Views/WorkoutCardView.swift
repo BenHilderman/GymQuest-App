@@ -96,7 +96,7 @@ struct CardHeader: View {
 
                     Text(workout.type.rawValue)
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(GQColors.textPrimary.opacity(0.9))
                 }
 
                 Text("\(workout.date.formatted(date: .abbreviated, time: .omitted)) · \(workout.duration) min")
@@ -184,7 +184,7 @@ struct PRCallout: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
                 )
             }
         }
@@ -243,13 +243,13 @@ struct CardExerciseRow: View {
         HStack {
             Text(exercise.name)
                 .font(.system(size: 14))
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(GQColors.textPrimary.opacity(0.9))
 
             Spacer()
 
             Text(setsDisplay)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(GQColors.textSecondary)
         }
     }
 }
@@ -271,7 +271,7 @@ struct CoachTakeawaySection: View {
 
                 Text(takeaway)
                     .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundColor(GQColors.textPrimary.opacity(0.85))
                     .lineSpacing(2)
             }
 
@@ -284,7 +284,7 @@ struct CoachTakeawaySection: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(Color.black.opacity(0.05), lineWidth: 1)
         )
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
@@ -318,7 +318,7 @@ struct CardFooter: View {
             }
 
             Divider()
-                .background(Color.white.opacity(0.1))
+                .background(Color.black.opacity(0.06))
 
             // actions row
             HStack(spacing: 24) {
@@ -336,7 +336,7 @@ struct CardFooter: View {
                         if fistBumpCount > 0 || isLiked {
                             Text("\(fistBumpCount + (isLiked ? 1 : 0))")
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(GQColors.textSecondary)
                         }
                     }
                 }
@@ -363,7 +363,7 @@ struct ShareableWorkoutCard: View {
             HStack {
                 Text("GYMQUEST")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(GQColors.textTertiary)
                     .tracking(2)
                 Spacer()
             }
@@ -459,5 +459,5 @@ private struct WorkoutCardPreviewHelper {
         .padding(.vertical, 20)
     }
     .background(GQColors.surfaceBase)
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

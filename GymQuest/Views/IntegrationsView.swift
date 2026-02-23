@@ -224,7 +224,7 @@ private struct IntegrationStatusHeader: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(activeCount > 0 ? GQColors.success.opacity(0.18) : Color.white.opacity(0.08))
+                    .fill(activeCount > 0 ? GQColors.success.opacity(0.18) : Color.black.opacity(0.05))
                     .frame(width: 44, height: 44)
                 Image(systemName: activeCount > 0 ? "checkmark.circle.fill" : "link.badge.plus")
                     .font(.system(size: 20))
@@ -234,7 +234,7 @@ private struct IntegrationStatusHeader: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(activeCount > 0 ? "\(activeCount) Source\(activeCount > 1 ? "s" : "") Connected" : "No Sources Connected")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text(activeCount > 0 ? "Your data is syncing" : "Connect a device to get started")
                     .font(.system(size: 13))
                     .foregroundColor(GQColors.textSecondary)
@@ -284,7 +284,7 @@ private struct IntegrationCard<Action: View>: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(name)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                         Text(isConnected ? "Connected" : description)
                             .font(.system(size: 12))
                             .foregroundColor(isConnected ? GQColors.success : GQColors.textTertiary)
@@ -297,7 +297,7 @@ private struct IntegrationCard<Action: View>: View {
                             .scaleEffect(0.8)
                     } else {
                         Circle()
-                            .fill(isConnected ? GQColors.success : Color.white.opacity(0.2))
+                            .fill(isConnected ? GQColors.success : Color.black.opacity(0.12))
                             .frame(width: 8, height: 8)
                     }
 
@@ -314,7 +314,7 @@ private struct IntegrationCard<Action: View>: View {
             if isExpanded {
                 VStack(spacing: 12) {
                     Divider()
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.black.opacity(0.06))
 
                     if !dataPoints.isEmpty {
                         HStack(spacing: 8) {
@@ -375,7 +375,7 @@ private struct GravlInfoCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Gravl")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text("Sync via Apple Health")
                     .font(.system(size: 12))
                     .foregroundColor(GQColors.textTertiary)
@@ -402,5 +402,5 @@ private struct GravlInfoCard: View {
         IntegrationsView(profile: UserProfile(name: "Ben", username: "ben"))
             .environmentObject(FeatureFlags.shared)
     }
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

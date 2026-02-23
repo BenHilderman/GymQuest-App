@@ -54,7 +54,7 @@ struct FormPeekSheet: View {
             Spacer(minLength: 8)
         }
         .padding(16)
-        .background(Color.black)
+        .background(GQColors.background)
         .onAppear {
             loadClip()
         }
@@ -74,7 +74,7 @@ struct FormPeekSheet: View {
 
                 Text(exercise.name)
                     .font(.title3.weight(.bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
             }
 
             Spacer()
@@ -130,7 +130,7 @@ struct FormPeekSheet: View {
 
             Text(cue.text)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .multilineTextAlignment(.leading)
 
             Spacer()
@@ -155,12 +155,12 @@ struct FormPeekSheet: View {
 
                     Text(cue.text)
                         .font(.subheadline)
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
             }
         }
         .padding(12)
-        .background(Color.white.opacity(0.05))
+        .background(Color.black.opacity(0.03))
         .cornerRadius(12)
     }
 

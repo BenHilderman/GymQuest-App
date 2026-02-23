@@ -14,8 +14,8 @@ struct EmotionInsightsCard: View {
             motivationalMessage
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(white: 0.08)))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.06), lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(white: 0.97)))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.black.opacity(0.04), lineWidth: 1))
     }
 
     @ViewBuilder
@@ -43,7 +43,7 @@ struct EmotionInsightsCard: View {
                 .foregroundColor(GQColors.sunsetOrange)
             Text("\(insights.resilienceStreak) workouts showing up when it's hard — that takes real grit")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

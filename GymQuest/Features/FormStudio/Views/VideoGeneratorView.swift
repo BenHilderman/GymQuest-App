@@ -53,13 +53,13 @@ struct VideoGeneratorView: View {
                 }
                 .padding(20)
             }
-            .background(Color.black)
+            .background(GQColors.background)
             .navigationTitle("Video Generator")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Close") { dismiss() }
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
             }
         }
@@ -80,7 +80,7 @@ struct VideoGeneratorView: View {
 
             Text("AI Video Generator")
                 .font(.title2.weight(.bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text("Generate exercise demonstration videos using Replicate AI models")
                 .font(.subheadline)
@@ -97,7 +97,7 @@ struct VideoGeneratorView: View {
             HStack {
                 Text("Replicate API Key")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Spacer()
 
@@ -113,9 +113,9 @@ struct VideoGeneratorView: View {
                     SecureField("Enter your Replicate API key", text: $apiKey)
                         .textFieldStyle(.plain)
                         .padding(12)
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.black.opacity(0.06))
                         .cornerRadius(10)
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text("Get your API key at replicate.com/account/api-tokens")
                         .font(.caption)
@@ -146,7 +146,7 @@ struct VideoGeneratorView: View {
                             .foregroundColor(GQColors.primary)
                     }
                     .padding(12)
-                    .background(Color.white.opacity(0.05))
+                    .background(Color.black.opacity(0.03))
                     .cornerRadius(10)
                 }
             }
@@ -162,7 +162,7 @@ struct VideoGeneratorView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Generate Videos")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             // Exercise Picker
             VStack(alignment: .leading, spacing: 8) {
@@ -177,9 +177,9 @@ struct VideoGeneratorView: View {
                 }
                 .pickerStyle(.menu)
                 .padding(12)
-                .background(Color.white.opacity(0.1))
+                .background(Color.black.opacity(0.06))
                 .cornerRadius(10)
-                .tint(.white)
+                .tint(GQColors.textPrimary)
             }
 
             // Info
@@ -240,7 +240,7 @@ struct VideoGeneratorView: View {
 
             Text(generator.currentProgress)
                 .font(.subheadline)
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .multilineTextAlignment(.center)
 
             Text("This may take several minutes...")
@@ -260,7 +260,7 @@ struct VideoGeneratorView: View {
             HStack {
                 Text("Generated Videos")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Spacer()
 
@@ -274,7 +274,7 @@ struct VideoGeneratorView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(video.exerciseName)
                             .font(.subheadline.weight(.semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
 
                         Text("\(video.angle)° • \(video.clipType)")
                             .font(.caption)
@@ -287,7 +287,7 @@ struct VideoGeneratorView: View {
                         .foregroundColor(.green)
                 }
                 .padding(12)
-                .background(Color.white.opacity(0.05))
+                .background(Color.black.opacity(0.03))
                 .cornerRadius(10)
             }
 
@@ -322,7 +322,7 @@ struct VideoGeneratorView: View {
 
             Text(error)
                 .font(.subheadline)
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Spacer()
         }
@@ -375,5 +375,5 @@ struct VideoGeneratorView: View {
 
 #Preview {
     VideoGeneratorView()
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

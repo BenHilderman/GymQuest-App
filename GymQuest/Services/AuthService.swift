@@ -95,16 +95,18 @@ class AuthService: ObservableObject {
 
         do {
             let profiles = try modelContext.fetch(descriptor)
-            if let profile = profiles.first {
-                profile.isAuthenticated = true
-                try modelContext.save()
-                return profile
-            }
+            return profiles.first
         } catch {
             print("Error checking google id: \(error)")
         }
 
         return nil
+    }
+
+    func markAuthenticated(_ profile: UserProfile) {
+        guard let modelContext else { return }
+        profile.isAuthenticated = true
+        try? modelContext.save()
     }
 
     // makes a new account after they finish onboarding

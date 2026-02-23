@@ -25,7 +25,7 @@ struct FormCuesMistakesView: View {
             cuesSection
 
             Divider()
-                .background(Color.white.opacity(0.1))
+                .background(Color.black.opacity(0.06))
 
             // Mistakes Section
             mistakesSection
@@ -45,7 +45,7 @@ struct FormCuesMistakesView: View {
 
                 Text("Key Cues")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Spacer()
 
@@ -77,7 +77,7 @@ struct FormCuesMistakesView: View {
 
                 Text("Common Mistakes")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Spacer()
 
@@ -111,14 +111,14 @@ struct CueRow: View {
             // Number badge
             Text("\(number)")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .frame(width: 22, height: 22)
                 .background(GQColors.primary)
                 .clipShape(Circle())
 
             Text(text)
                 .font(.system(size: 15))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 4)
@@ -140,7 +140,7 @@ struct FaultRow: View {
 
                 Text(fault.mistake)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(GQColors.textPrimary.opacity(0.9))
             }
 
             // Fix
@@ -156,7 +156,7 @@ struct FaultRow: View {
             .padding(.leading, 4)
         }
         .padding(12)
-        .background(Color.white.opacity(0.05))
+        .background(Color.black.opacity(0.03))
         .cornerRadius(10)
     }
 }
@@ -186,7 +186,7 @@ struct CompactCuesCard: View {
 
                     Text(cue.text)
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                         .lineLimit(2)
                 }
             }

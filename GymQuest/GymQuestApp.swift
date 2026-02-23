@@ -140,14 +140,14 @@ struct GymQuestApp: App {
             if let errorMessage = databaseError {
                 // Show error state when database couldn't initialize
                 DatabaseErrorView(message: errorMessage)
-                    .preferredColorScheme(.dark)
+                    .preferredColorScheme(.light)
             } else {
                 RootView()
                     .environmentObject(appState)
                     .environmentObject(featureFlags)
                     .environmentObject(subscriptionService)
                     .modelContainer(container)
-                    .preferredColorScheme(.dark)
+                    .preferredColorScheme(.light)
                     .onOpenURL { url in
                         #if canImport(GoogleSignIn)
                         GIDSignIn.sharedInstance.handle(url)
@@ -166,7 +166,7 @@ struct GymQuestApp: App {
 // basically the brain of the app
 @MainActor
 class AppState: ObservableObject {
-    @Published var selectedTab: Tab = .home
+    @Published var selectedTab: Tab = .feed
     @Published var showingLogWorkout = false
     @Published var showingAddExercise = false
     @Published var showingStats = false
@@ -180,6 +180,8 @@ class AppState: ObservableObject {
     @Published var activeWorkout: ActiveWorkoutState?
     @Published var isWorkoutPaused = false
     @Published var showingWorkoutStartOptions = false
+    @Published var showingQuickActions = false
+    @Published var showingLogEntry = false
     @Published var liveWorkoutStatus: LiveWorkoutStatus?
 
     var isWorkoutActive: Bool { activeWorkout != nil }
@@ -202,28 +204,32 @@ class AppState: ObservableObject {
         isWorkoutPaused = false
     }
 
+    // Onboarding data passed to training plan offer
+    @Published var onboardingData: OnboardingData?
+
     // where we are in the auth flow
     enum AuthState {
         case notAuthenticated
         case onboarding(authMethod: String, email: String?, googleId: String?, tempPassword: String?)
+        case trainingPlanOffer
         case authenticated
     }
 
-    // 4-tab layout: Feed, Home, Log, You + center button
-    enum Tab: String, CaseIterable {
-        case feed = "Feed"
-        case home = "Home"
-        case log = "Log"
+    // 2-tab layout: Home + You with center action hub
+    enum Tab: String {
+        case feed = "Home"
+        case home = "Activity"   // hidden — only used during active workouts
         case profile = "You"
 
         var icon: String {
             switch self {
             case .feed: return "person.2.fill"
             case .home: return "house.fill"
-            case .log: return "square.and.pencil"
             case .profile: return "person.fill"
             }
         }
+
+        static let visibleTabs: [Tab] = [.feed, .profile]
     }
 }
 
@@ -237,6 +243,17 @@ struct ActiveWorkoutState {
     var customTitle: String?
 }
 
+// MARK: - Onboarding Data
+
+struct OnboardingData {
+    let name: String
+    let goal: FitnessGoal
+    let experience: ExperienceLevel
+    let environment: WorkoutEnvironment
+    let equipment: Set<EquipmentType>
+    let daysPerWeek: Int
+}
+
 // MARK: - Database Error View
 
 /// Shown when the app's database cannot initialize
@@ -245,7 +262,7 @@ struct DatabaseErrorView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color(hex: "F2F2F7").ignoresSafeArea()
 
             VStack(spacing: 24) {
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -255,11 +272,11 @@ struct DatabaseErrorView: View {
                 Text("Something Went Wrong")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(Color(hex: "1C1C1E"))
 
                 Text(message)
                     .font(.body)
-                    .foregroundColor(.gray)
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
 

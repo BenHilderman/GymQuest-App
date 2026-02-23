@@ -98,7 +98,7 @@ struct ActivityView: View {
                             accentColor: GQColors.success,
                             isPrimary: false
                         ) {
-                            appState.selectedTab = .log
+                            appState.showingLogEntry = true
                         }
                         .bounceAppear(delay: 0.3)
                     }
@@ -150,7 +150,7 @@ struct ActivityView: View {
         VStack(spacing: 4) {
             Text("Hi, \(profile.name.components(separatedBy: " ").first ?? profile.name)!")
                 .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text(Date().formatted(.dateTime.weekday(.wide).month(.wide).day()))
                 .font(.system(size: 14, weight: .medium))
@@ -168,7 +168,7 @@ struct ActivityView: View {
             // Section header
             Text("STATS & PROGRESS")
                 .font(GQTypography.sectionHeader)
-                .foregroundColor(GQColors.textTertiary)
+                .foregroundColor(GQColors.sectionLabel)
                 .tracking(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -211,7 +211,7 @@ struct ActivityView: View {
         VStack(spacing: 10) {
             Text("LIFETIME")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(GQColors.textTertiary)
+                .foregroundColor(GQColors.sectionLabel)
                 .tracking(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
@@ -221,11 +221,11 @@ struct ActivityView: View {
                     icon: "dumbbell.fill",
                     value: "\(nonRestWorkouts.count)",
                     label: "Workouts",
-                    color: .white
+                    color: GQColors.textPrimary
                 )
 
                 Rectangle()
-                    .fill(Color.white.opacity(0.1))
+                    .fill(Color.black.opacity(0.06))
                     .frame(width: 1, height: 28)
 
                 ProfileLifetimeStatItem(
@@ -236,7 +236,7 @@ struct ActivityView: View {
                 )
 
                 Rectangle()
-                    .fill(Color.white.opacity(0.1))
+                    .fill(Color.black.opacity(0.06))
                     .frame(width: 1, height: 28)
 
                 ProfileLifetimeStatItem(
@@ -256,7 +256,7 @@ struct ActivityView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("RECENT PRs")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(GQColors.textTertiary)
+                .foregroundColor(GQColors.sectionLabel)
                 .tracking(1)
                 .padding(.horizontal, 16)
 
@@ -285,7 +285,7 @@ struct ActivityView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(pr.exerciseName)
                                     .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
                                     .lineLimit(1)
                                 Text(pr.prType.rawValue)
                                     .font(.system(size: 11))
@@ -297,7 +297,7 @@ struct ActivityView: View {
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(prValueFormatted(pr))
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
 
                                 if let delta = pr.delta, delta > 0 {
                                     Text("+\(Int(delta)) lbs")
@@ -324,7 +324,7 @@ struct ActivityView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("RECENT WORKOUTS")
                     .font(GQTypography.sectionHeader)
-                    .foregroundColor(GQColors.textTertiary)
+                    .foregroundColor(GQColors.sectionLabel)
                     .tracking(1)
                     .padding(.horizontal, 16)
 
@@ -349,7 +349,7 @@ struct ActivityView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(workout.title ?? workout.type.rawValue)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Text(workout.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
                         .font(.system(size: 12))
                         .foregroundColor(GQColors.textTertiary)
@@ -360,7 +360,7 @@ struct ActivityView: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(workout.duration) min")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Text("\(workout.totalSets) sets")
                         .font(.system(size: 11))
                         .foregroundColor(GQColors.textTertiary)
@@ -523,7 +523,7 @@ struct HomeActionCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text(subtitle)
                         .font(.system(size: 13))
@@ -539,7 +539,7 @@ struct HomeActionCard: View {
             .padding(16)
             .background(
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Color.white)
             )
             .overlay(
                 Group {
@@ -554,7 +554,7 @@ struct HomeActionCard: View {
                             )
                     } else {
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(Color.black.opacity(0.05), lineWidth: 1)
                     }
                 }
             )
@@ -588,7 +588,7 @@ struct DayTileView: View {
                     .fill(tileBackground)
                     .frame(height: 44)
                     .shadow(
-                        color: isCompletedWorkout ? Color.black.opacity(0.3) : Color.clear,
+                        color: isCompletedWorkout ? Color.black.opacity(0.09) : Color.clear,
                         radius: 4,
                         y: 2
                     )
@@ -641,7 +641,7 @@ struct DayTileView: View {
                 } else if isPast {
                     Image(systemName: "minus")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(Color.white.opacity(0.15))
+                        .foregroundColor(Color.black.opacity(0.09))
                 } else if isToday {
                     Image(systemName: "plus")
                         .font(.system(size: 16, weight: .semibold))
@@ -654,7 +654,7 @@ struct DayTileView: View {
                         )
                 } else {
                     Circle()
-                        .fill(Color.white.opacity(0.1))
+                        .fill(Color.black.opacity(0.06))
                         .frame(width: 6, height: 6)
                 }
             }
@@ -666,7 +666,7 @@ struct DayTileView: View {
 
             Text("\(dayNumber)")
                 .font(.system(size: 11, weight: isToday ? .bold : .medium))
-                .foregroundColor(isToday ? .white : isCompletedWorkout ? .white : GQColors.textTertiary)
+                .foregroundColor(isToday ? GQColors.textPrimary : isCompletedWorkout ? .white : GQColors.textTertiary)
         }
     }
 
@@ -680,7 +680,7 @@ struct DayTileView: View {
         } else if isToday {
             return AnyShapeStyle(Color.clear)
         } else {
-            return AnyShapeStyle(Color.white.opacity(isPast ? 0.03 : 0.06))
+            return AnyShapeStyle(Color.black.opacity(isPast ? 0.02 : 0.04))
         }
     }
 }
@@ -768,7 +768,7 @@ struct WeeklyProgressCard: View {
                 .foregroundColor(GQColors.vividPurple)
             Text("Next up: ")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(GQColors.textPrimary.opacity(0.7))
             + Text(suggestedNextWorkout.rawValue)
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(GQColors.vividPurple)
@@ -782,7 +782,7 @@ struct WeeklyProgressCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("THIS WEEK")
                         .font(GQTypography.sectionHeader)
-                        .foregroundColor(GQColors.textTertiary)
+                        .foregroundColor(GQColors.sectionLabel)
                         .tracking(1)
 
                     Button {
@@ -791,7 +791,7 @@ struct WeeklyProgressCard: View {
                         HStack(spacing: 4) {
                             Text("\(completedWorkouts) of \(targetDays) days")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
 
                             Image(systemName: "pencil.circle.fill")
                                 .font(.system(size: 12))
@@ -805,7 +805,7 @@ struct WeeklyProgressCard: View {
 
                 ZStack {
                     Circle()
-                        .stroke(Color.white.opacity(0.1), lineWidth: 4)
+                        .stroke(Color.black.opacity(0.06), lineWidth: 4)
                         .frame(width: 44, height: 44)
 
                     Circle()
@@ -823,7 +823,7 @@ struct WeeklyProgressCard: View {
 
                     Text("\(Int(progressPercentage * 100))%")
                         .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
             }
 
@@ -923,7 +923,7 @@ struct WorkoutReviewSheet: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(workout.title ?? workout.type.rawValue)
                                 .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
 
                             Text(workout.date.formatted(.dateTime.weekday(.wide).month().day()))
                                 .font(.system(size: 14))
@@ -946,7 +946,7 @@ struct WorkoutReviewSheet: View {
                         VStack(alignment: .leading, spacing: 12) {
                             Text("EXERCISES")
                                 .font(GQTypography.sectionHeader)
-                                .foregroundColor(GQColors.textTertiary)
+                                .foregroundColor(GQColors.sectionLabel)
                                 .tracking(1)
                                 .padding(.horizontal)
 
@@ -963,7 +963,7 @@ struct WorkoutReviewSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("NOTES")
                                 .font(GQTypography.sectionHeader)
-                                .foregroundColor(GQColors.textTertiary)
+                                .foregroundColor(GQColors.sectionLabel)
                                 .tracking(1)
 
                             Text(workout.notes)
@@ -1014,7 +1014,7 @@ struct WorkoutStatBadge: View {
 
             Text(value)
                 .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text(label)
                 .font(.system(size: 10))
@@ -1039,7 +1039,7 @@ struct ExerciseReviewRow: View {
             HStack {
                 Text(exercise.name)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Spacer()
 
@@ -1057,7 +1057,7 @@ struct ExerciseReviewRow: View {
                         .padding(.vertical, 4)
                         .background(
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.white.opacity(0.08))
+                                .fill(Color.black.opacity(0.05))
                         )
                 }
             }
@@ -1065,7 +1065,7 @@ struct ExerciseReviewRow: View {
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.black.opacity(0.03))
         )
     }
 
@@ -1093,12 +1093,12 @@ struct ActiveQuestCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("ACTIVE QUEST")
                         .font(GQTypography.sectionHeader)
-                        .foregroundColor(GQColors.textTertiary)
+                        .foregroundColor(GQColors.sectionLabel)
                         .tracking(1)
 
                     Text(quest.title)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
 
                 Spacer()
@@ -1171,11 +1171,11 @@ struct ProfileAvatarButton: View {
                         if let firstChar = profile.name.first {
                             Text(String(firstChar).uppercased())
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
                         } else {
                             Image(systemName: "person.fill")
                                 .font(.system(size: 14))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
                         }
                     }
                 )
@@ -1402,14 +1402,14 @@ struct StartWorkoutSheet: View {
                     .foregroundColor(isSelected ? .white : GQColors.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
-                        (isSelected ? GQColors.vividPurple : Color.white.opacity(0.08))
+                        (isSelected ? GQColors.vividPurple : Color.black.opacity(0.05))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(tmpl.name.isEmpty ? "Untitled Template" : tmpl.name)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Text("\(tmpl.exercises.count) exercises")
                         .font(.system(size: 12))
                         .foregroundColor(GQColors.textSecondary)
@@ -1423,8 +1423,8 @@ struct StartWorkoutSheet: View {
                 }
             }
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(isSelected ? 0.08 : 0.04)))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? GQColors.vividPurple.opacity(0.6) : Color.white.opacity(0.06), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(isSelected ? 0.05 : 0.02)))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? GQColors.vividPurple.opacity(0.6) : Color.black.opacity(0.04), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -1443,7 +1443,7 @@ struct StartWorkoutSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(last.exercises.count) exercises")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                         Text(last.date.formatted(date: .abbreviated, time: .omitted))
                             .font(.system(size: 12))
                             .foregroundColor(GQColors.textTertiary)
@@ -1456,7 +1456,7 @@ struct StartWorkoutSheet: View {
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white.opacity(0.04))
+                        .fill(Color.black.opacity(0.02))
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(GQColors.cyanSpark.opacity(0.3), lineWidth: 1))
                 )
             }
@@ -1495,7 +1495,7 @@ struct StartWorkoutSheet: View {
         .disabled(!startButtonEnabled || isGenerating)
         .padding(.horizontal)
         .padding(.bottom, 8)
-        .background(Color(white: 0.05))
+        .background(Color.white)
     }
 
     // MARK: - Helpers
@@ -1683,12 +1683,12 @@ struct LaunchModeCard: View {
                 RoundedRectangle(cornerRadius: 14)
                     .fill(isSelected ?
                         LinearGradient(colors: [GQColors.vividPurple.opacity(0.4), GQColors.cyanSpark.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                        LinearGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        LinearGradient(colors: [Color.black.opacity(0.04), Color.black.opacity(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing)
                     )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.8) : Color.white.opacity(isAvailable ? 0.08 : 0.04), lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.8) : Color.black.opacity(isAvailable ? 0.05 : 0.02), lineWidth: isSelected ? 1.5 : 1)
             )
             .opacity(isAvailable ? 1 : 0.5)
         }
@@ -1718,12 +1718,12 @@ struct WorkoutTypeCard: View {
             .background(
                 isSelected ?
                     LinearGradient(colors: [GQColors.vividPurple, GQColors.cyanSpark], startPoint: .topLeading, endPoint: .bottomTrailing) :
-                    LinearGradient(colors: [Color.white.opacity(0.08), Color.white.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    LinearGradient(colors: [Color.black.opacity(0.05), Color.black.opacity(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
             )
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(isSelected ? Color.clear : Color.white.opacity(0.1), lineWidth: 1)
+                    .stroke(isSelected ? Color.clear : Color.black.opacity(0.06), lineWidth: 1)
             )
         }
         .buttonStyle(GQInteractiveStyle())
@@ -1753,7 +1753,7 @@ struct SquadChallengeCard: View {
                     .foregroundColor(GQColors.cyanSpark)
                 Text(squad.name)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(GQColors.textPrimary.opacity(0.7))
                 Spacer()
                 Text("\(daysRemaining)d left")
                     .font(.system(size: 11, weight: .medium))
@@ -1762,12 +1762,12 @@ struct SquadChallengeCard: View {
 
             Text(challenge.title)
                 .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.black.opacity(0.05))
                         .frame(height: 6)
                     RoundedRectangle(cornerRadius: 4)
                         .fill(
@@ -1785,7 +1785,7 @@ struct SquadChallengeCard: View {
             HStack {
                 Text("\(challenge.currentValue)/\(challenge.targetValue)")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(GQColors.textPrimary.opacity(0.6))
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
@@ -1817,7 +1817,7 @@ struct NutritionPill: View {
                 .foregroundColor(color)
             Text(value)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
             Text(label)
                 .font(.system(size: 11))
                 .foregroundColor(GQColors.textTertiary)
@@ -1829,5 +1829,5 @@ struct NutritionPill: View {
     ActivityView(profile: UserProfile(name: "Ben", username: "ben"))
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

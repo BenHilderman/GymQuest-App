@@ -55,7 +55,7 @@ struct SocialView: View {
                     } label: {
                         Image(systemName: "square.and.pencil")
                             .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                 }
             }
@@ -78,7 +78,7 @@ struct SocialView: View {
                     VStack(spacing: 8) {
                         Text(section.rawValue)
                             .font(.system(size: 14, weight: selectedSection == section ? .semibold : .medium))
-                            .foregroundColor(selectedSection == section ? .white : GQColors.textTertiary)
+                            .foregroundColor(selectedSection == section ? GQColors.textPrimary : GQColors.textTertiary)
 
                         Rectangle()
                             .fill(selectedSection == section ? GQColors.vividPurple : Color.clear)
@@ -89,8 +89,8 @@ struct SocialView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .background(GQColors.surfaceOverlay.opacity(0.72))
+        .padding(.top, 4)
+        .background(.ultraThinMaterial)
     }
 
     // MARK: - Discover Content
@@ -301,7 +301,7 @@ struct SocialView: View {
                             .foregroundColor(GQColors.textSecondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding()
-                            .background(Color.white.opacity(0.05))
+                            .background(Color.black.opacity(0.03))
                             .cornerRadius(12)
                     } else {
                         ForEach(posts) { post in
@@ -322,7 +322,7 @@ struct SocialView: View {
 
             Text("Connect with friends")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text("Add friends to see their workouts and cheer them on!")
                 .font(.system(size: 14))
@@ -445,7 +445,7 @@ struct FeaturedWorkoutCard: View {
 
             Text("Full Body Strength Builder")
                 .font(.system(size: 20, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text("A complete workout targeting all major muscle groups. Perfect for building a solid foundation.")
                 .font(.system(size: 14))
@@ -486,7 +486,7 @@ struct FeaturedWorkoutCard: View {
                 endPoint: .bottomTrailing
             )
         )
-        .background(Color.white.opacity(0.05))
+        .background(Color.black.opacity(0.03))
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -523,7 +523,7 @@ struct TrendingWorkoutCard: View {
 
             Text(title)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .lineLimit(1)
 
             HStack(spacing: 4) {
@@ -575,7 +575,7 @@ struct DiscoverPostCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(sampleUsers[index % 5])
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text("\(Int.random(in: 1...12))h ago")
                         .font(.system(size: 12))
@@ -600,7 +600,7 @@ struct DiscoverPostCard: View {
             // Content
             Text("Just \(sampleWorkouts[index % 5])! Feeling great 💪")
                 .font(.system(size: 15))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             // Stats row
             HStack(spacing: 20) {
@@ -611,7 +611,7 @@ struct DiscoverPostCard: View {
             .foregroundColor(GQColors.textTertiary)
         }
         .padding(16)
-        .background(Color.white.opacity(0.05))
+        .background(Color.black.opacity(0.03))
         .cornerRadius(16)
     }
 }
@@ -632,7 +632,7 @@ struct CommunityGoalCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text(description)
                         .font(.system(size: 13))
@@ -656,7 +656,7 @@ struct CommunityGoalCard: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white.opacity(0.1))
+                            .fill(Color.black.opacity(0.06))
 
                         RoundedRectangle(cornerRadius: 4)
                             .fill(
@@ -690,7 +690,7 @@ struct CommunityGoalCard: View {
         }
         .padding(16)
         .background(color.opacity(0.1))
-        .background(Color.white.opacity(0.03))
+        .background(Color.black.opacity(0.02))
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -713,18 +713,18 @@ struct CommunityGroupCard: View {
         HStack(spacing: 14) {
             // Group image - placeholder or custom
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.white.opacity(0.08))
+                .fill(Color.black.opacity(0.05))
                 .frame(width: 50, height: 50)
                 .overlay(
                     Image(systemName: icon)
                         .font(.system(size: 20))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(GQColors.textTertiary)
                 )
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(name)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 HStack(spacing: 8) {
                     Text("\(members) members")
@@ -749,7 +749,7 @@ struct CommunityGroupCard: View {
                 .foregroundColor(GQColors.textTertiary)
         }
         .padding(14)
-        .background(Color.white.opacity(0.05))
+        .background(Color.black.opacity(0.03))
         .cornerRadius(12)
     }
 }
@@ -768,18 +768,18 @@ struct DiscoverCommunityCard: View {
         HStack(spacing: 12) {
             // Group image - placeholder or custom
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.08))
+                .fill(Color.black.opacity(0.05))
                 .frame(width: 44, height: 44)
                 .overlay(
                     Image(systemName: icon)
                         .font(.system(size: 18))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(GQColors.textTertiary)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Text("\(members) members")
                     .font(.system(size: 12))
@@ -793,15 +793,15 @@ struct DiscoverCommunityCard: View {
             } label: {
                 Text("Join")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.1))
+                    .background(Color.black.opacity(0.06))
                     .cornerRadius(8)
             }
         }
         .padding(12)
-        .background(Color.white.opacity(0.03))
+        .background(Color.black.opacity(0.02))
         .cornerRadius(10)
     }
 }
@@ -823,7 +823,7 @@ struct UpcomingChallengeRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Text("Starts in \(startsIn)")
                     .font(.system(size: 12))
@@ -844,7 +844,7 @@ struct UpcomingChallengeRow: View {
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.03))
+        .background(Color.black.opacity(0.02))
         .cornerRadius(10)
     }
 }
@@ -880,7 +880,7 @@ struct FriendPostCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(post.authorName)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text("@\(post.authorUsername) · \(post.timestamp.timeAgoShort())")
                         .font(.system(size: 12))
@@ -901,7 +901,7 @@ struct FriendPostCard: View {
             if !post.caption.isEmpty {
                 Text(post.caption)
                     .font(.system(size: 15))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .lineLimit(4)
             }
 
@@ -912,7 +912,7 @@ struct FriendPostCard: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 200)
+                    .frame(height: 280)
                     .clipped()
                     .cornerRadius(12)
             }
@@ -991,7 +991,7 @@ struct FriendPostCard: View {
             }
         }
         .padding(16)
-        .background(Color.white.opacity(0.05))
+        .background(Color.black.opacity(0.03))
         .cornerRadius(16)
         .onAppear {
             likeCount = Int.random(in: 5...50)
@@ -1035,5 +1035,5 @@ extension Date {
     SocialView(profile: UserProfile(name: "Ben", username: "ben"))
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

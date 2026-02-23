@@ -774,7 +774,7 @@ struct RobotDemoView: View {
                 ZStack {
                     // Background
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(white: 0.08))
+                        .fill(Color(white: 0.97))
 
                     // Stick figure
                     StickFigureView(
@@ -800,9 +800,9 @@ struct RobotDemoView: View {
                                 isAnimating.toggle()
                             } label: {
                                 Image(systemName: isAnimating ? "pause.fill" : "play.fill")
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
                                     .padding(8)
-                                    .background(Color.white.opacity(0.1))
+                                    .background(Color.black.opacity(0.06))
                                     .clipShape(Circle())
                             }
                         }
@@ -829,12 +829,12 @@ struct RobotDemoView: View {
                             .padding(.top, 5)
                         Text(cue)
                             .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.9))
+                            .foregroundColor(GQColors.textPrimary.opacity(0.9))
                     }
                 }
             }
             .padding(12)
-            .background(Color(white: 0.06))
+            .background(Color(white: 0.96))
             .cornerRadius(12)
 
             // Key joints legend
@@ -993,15 +993,15 @@ struct RobotDemoSheet: View {
 
                         Text("This animated demo shows the proper form for \(exerciseName). Key joints are highlighted to show correct positioning throughout the movement.")
                             .font(.system(size: 13))
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(GQColors.textPrimary.opacity(0.8))
                     }
                     .padding(16)
-                    .background(Color(white: 0.06))
+                    .background(Color(white: 0.96))
                     .cornerRadius(12)
                 }
                 .padding(16)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Robot Demo")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -1029,5 +1029,5 @@ struct RobotDemoSheet: View {
 
 #Preview {
     RobotDemoSheet(exerciseName: "Squat")
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

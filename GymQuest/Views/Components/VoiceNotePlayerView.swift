@@ -41,7 +41,7 @@ struct VoiceNotePlayerView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.1))
+                        .fill(Color.black.opacity(0.06))
                         .frame(height: 4)
 
                     Capsule()
@@ -61,7 +61,7 @@ struct VoiceNotePlayerView: View {
             // Duration label
             Text(formatDuration(isPlaying ? currentTime : duration))
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(GQColors.textTertiary)
                 .frame(width: 32, alignment: .trailing)
         }
         .padding(.horizontal, 12)

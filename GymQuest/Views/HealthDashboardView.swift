@@ -80,7 +80,7 @@ private struct RecoveryRingCard: View {
             // Ring
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.06), lineWidth: 6)
+                    .stroke(Color.black.opacity(0.06), lineWidth: 6)
                     .frame(width: 64, height: 64)
 
                 Circle()
@@ -92,7 +92,7 @@ private struct RecoveryRingCard: View {
                 VStack(spacing: 0) {
                     Text("\(Int(score))")
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Text("%")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
@@ -102,7 +102,7 @@ private struct RecoveryRingCard: View {
             VStack(spacing: 2) {
                 Text("Recovery")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text(level.rawValue)
                     .font(.system(size: 11))
                     .foregroundColor(level.color)
@@ -122,7 +122,7 @@ private struct RecoveryRingCard: View {
                 .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.06), lineWidth: 1)
                 )
         )
     }
@@ -156,7 +156,7 @@ private struct StrainGaugeCard: View {
             ZStack {
                 // Background arc
                 StrainArc(progress: 1.0)
-                    .stroke(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .stroke(Color.black.opacity(0.06), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                     .frame(width: 64, height: 64)
 
                 // Filled arc
@@ -167,7 +167,7 @@ private struct StrainGaugeCard: View {
                 VStack(spacing: 0) {
                     Text(String(format: "%.1f", strain))
                         .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Text("/21")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
@@ -177,7 +177,7 @@ private struct StrainGaugeCard: View {
             VStack(spacing: 2) {
                 Text("Strain")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text(strainLabel)
                     .font(.system(size: 11))
                     .foregroundColor(strainColor)
@@ -197,7 +197,7 @@ private struct StrainGaugeCard: View {
                 .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.06), lineWidth: 1)
                 )
         )
     }
@@ -246,11 +246,11 @@ private struct SleepBreakdownCard: View {
                         .foregroundColor(GQColors.textSecondary)
                     Text("Sleep")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Spacer()
                     Text(totalHours > 0 ? String(format: "%.1fh", totalHours) : "--")
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
@@ -327,7 +327,7 @@ private struct SleepBreakdownCard: View {
                 .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.06), lineWidth: 1)
                 )
         )
     }
@@ -350,7 +350,7 @@ private struct SleepStageRow: View {
             Spacer()
             Text(String(format: "%.1fh", hours))
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
             if pct > 0 {
                 Text("(\(Int(pct))%)")
                     .font(.system(size: 11))
@@ -399,7 +399,7 @@ private struct VitalsGridCard: View {
                         .foregroundColor(GQColors.coralRed)
                     Text("Health Monitor")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .medium))
@@ -425,7 +425,7 @@ private struct VitalsGridCard: View {
             // Expanded vitals
             if isExpanded {
                 VStack(spacing: 8) {
-                    Divider().background(Color.white.opacity(0.06))
+                    Divider().background(Color.black.opacity(0.06))
 
                     HStack(spacing: 0) {
                         if respRate > 0 {
@@ -449,7 +449,7 @@ private struct VitalsGridCard: View {
                 .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.06), lineWidth: 1)
                 )
         )
     }
@@ -470,7 +470,7 @@ private struct VitalItem: View {
             HStack(spacing: 2) {
                 Text(value)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text(unit)
                     .font(.system(size: 10))
                     .foregroundColor(GQColors.textTertiary)
@@ -509,7 +509,7 @@ private struct StrengthScoreCard: View {
             // Score ring
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.06), lineWidth: 5)
+                    .stroke(Color.black.opacity(0.06), lineWidth: 5)
                     .frame(width: 52, height: 52)
                 Circle()
                     .trim(from: 0, to: score / 100)
@@ -518,13 +518,13 @@ private struct StrengthScoreCard: View {
                     .rotationEffect(.degrees(-90))
                 Text("\(Int(score))")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Strength Score")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text(scoreLabel)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(scoreColor)
@@ -545,7 +545,7 @@ private struct StrengthScoreCard: View {
                 .fill(GQColors.surfaceBase)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.06), lineWidth: 1)
                 )
         )
     }
@@ -567,7 +567,7 @@ struct ActivitySummaryCard: View {
                     .foregroundColor(integration.readinessLevel.color)
                 Text(integration.readinessLevel.message)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Spacer()
                 if integration.recoveryScore > 0 {
                     Text("\(Int(integration.recoveryScore))%")
@@ -611,7 +611,7 @@ struct ActivitySummaryCard: View {
                 .foregroundColor(GQColors.vividPurple)
             Text("Next up: ")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(GQColors.textPrimary.opacity(0.7))
             + Text(suggestion.rawValue)
                 .font(.system(size: 13, weight: .bold))
                 .foregroundColor(GQColors.vividPurple)
@@ -662,7 +662,7 @@ private struct MiniStat: View {
                 .foregroundColor(GQColors.textTertiary)
             Text(value)
                 .font(.system(size: 13, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
             Text(label)
                 .font(.system(size: 9, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
@@ -680,5 +680,4 @@ private struct MiniStat: View {
         .padding(.horizontal, 16)
     }
     .gqPageBackground()
-    .preferredColorScheme(.dark)
 }

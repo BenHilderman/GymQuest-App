@@ -98,7 +98,7 @@ struct LogWorkoutView: View {
         TextField("What's on your mind?", text: $caption, axis: .vertical)
             .lineLimit(3...6)
             .padding(14)
-            .background(Color.white.opacity(0.08))
+            .background(Color.black.opacity(0.05))
             .cornerRadius(12)
     }
 
@@ -149,7 +149,7 @@ struct LogWorkoutView: View {
                     .foregroundColor(includeWorkout ? GQColors.cyanSpark : .gray.opacity(0.5))
             }
             .padding(16)
-            .background(Color.white.opacity(includeWorkout ? 0.1 : 0.05))
+            .background(Color.black.opacity(includeWorkout ? 0.06 : 0.03))
             .cornerRadius(12)
         }
         .buttonStyle(GQInteractiveStyle())
@@ -162,7 +162,7 @@ struct LogWorkoutView: View {
             exercisesSection
         }
         .padding(16)
-        .background(Color.white.opacity(0.03))
+        .background(Color.black.opacity(0.02))
         .cornerRadius(12)
         .padding(.top, 8)
     }
@@ -394,7 +394,7 @@ struct MediaSection: View {
                                         Color.black
                                         Image(systemName: "play.circle.fill")
                                             .font(.system(size: 40))
-                                            .foregroundColor(.white.opacity(0.8))
+                                            .foregroundColor(GQColors.textPrimary.opacity(0.8))
                                     }
                                     .frame(width: 160, height: 200)
                                     .cornerRadius(12)
@@ -405,8 +405,8 @@ struct MediaSection: View {
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.system(size: 22))
-                                        .foregroundColor(.white)
-                                        .shadow(radius: 2)
+                                        .foregroundColor(GQColors.textPrimary)
+                        .shadow(radius: 2)
                                 }
                                 .padding(6)
                             }
@@ -427,7 +427,7 @@ struct MediaSection: View {
                                 }
                                 .foregroundColor(GQColors.textTertiary)
                                 .frame(width: 80, height: 200)
-                                .background(Color.white.opacity(0.05))
+                                .background(Color.black.opacity(0.03))
                                 .cornerRadius(12)
                             }
                         }
@@ -460,11 +460,11 @@ struct MediaSection: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 160)
-                    .background(Color.white.opacity(0.03))
+                    .background(Color.black.opacity(0.02))
                     .cornerRadius(16)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .strokeBorder(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [6]))
+                            .strokeBorder(Color.black.opacity(0.06), style: StrokeStyle(lineWidth: 1, dash: [6]))
                     )
                 }
             }
@@ -494,10 +494,10 @@ struct WorkoutTypeChip: View {
                 Text(type.rawValue)
                     .font(.system(size: 13, weight: .medium))
             }
-            .foregroundColor(isSelected ? .black : .white)
+            .foregroundColor(isSelected ? .white : GQColors.textPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(isSelected ? Color.white : Color.white.opacity(0.1))
+            .background(isSelected ? GQColors.textPrimary : Color.black.opacity(0.06))
             .cornerRadius(16)
             .scaleEffect(isSelected ? 1.05 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
@@ -518,10 +518,10 @@ struct DurationChip: View {
         } label: {
             Text("\(minutes)m")
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(isSelected ? .black : .white)
+                .foregroundColor(isSelected ? .white : GQColors.textPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(isSelected ? Color.white : Color.white.opacity(0.1))
+                .background(isSelected ? GQColors.textPrimary : Color.black.opacity(0.06))
                 .cornerRadius(16)
                 .scaleEffect(isSelected ? 1.05 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
@@ -573,7 +573,7 @@ struct ExerciseRow: View {
                             .multilineTextAlignment(.center)
                             .frame(width: 44)
                             .padding(6)
-                            .background(Color.white.opacity(0.05))
+                            .background(Color.black.opacity(0.03))
                             .cornerRadius(6)
                             #if os(iOS)
                             .keyboardType(.numberPad)
@@ -588,7 +588,7 @@ struct ExerciseRow: View {
                             .multilineTextAlignment(.center)
                             .frame(width: 54)
                             .padding(6)
-                            .background(Color.white.opacity(0.05))
+                            .background(Color.black.opacity(0.03))
                             .cornerRadius(6)
                             #if os(iOS)
                             .keyboardType(.decimalPad)
@@ -629,7 +629,7 @@ struct ExerciseRow: View {
             }
         }
         .padding(12)
-        .background(Color.white.opacity(0.03))
+        .background(Color.black.opacity(0.02))
         .cornerRadius(10)
     }
 }
@@ -657,7 +657,7 @@ struct AddExerciseSheet: View {
                     .pickerStyle(.menu)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.black.opacity(0.05))
                     .cornerRadius(12)
                     .onChange(of: selectedExercise) {
                         if let muscle = ExerciseDatabase.exercises[selectedExercise] {
@@ -679,7 +679,7 @@ struct AddExerciseSheet: View {
                     .pickerStyle(.menu)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.black.opacity(0.05))
                     .cornerRadius(12)
                 }
 
@@ -714,5 +714,5 @@ struct AddExerciseSheet: View {
 #Preview {
     LogWorkoutView(profile: UserProfile())
         .environmentObject(AppState())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

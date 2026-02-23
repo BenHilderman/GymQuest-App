@@ -57,7 +57,7 @@ struct CoachView: View {
                     } label: {
                         Image(systemName: "ellipsis.circle")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                 }
             }
@@ -170,7 +170,7 @@ struct FormStudioLauncher: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Technique Library")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
 
                             Text("Start with guided demos and form checkpoints.")
                                 .font(.system(size: 13))
@@ -239,6 +239,7 @@ struct ChatSection: View {
     @State private var inputText: String = ""
     @State private var keyboardHeight: CGFloat = 0 // manual keyboard tracking for tab bar
     @State private var keyboardShowObserver: NSObjectProtocol?
+    @State private var showingPaywall = false
     @State private var keyboardHideObserver: NSObjectProtocol?
 
     // preset prompts for common questions
@@ -262,7 +263,7 @@ struct ChatSection: View {
 
                                 Text("Ask your AI coach anything")
                                     .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
 
                                 Text("Programming, form checks, recovery, and session decisions.")
                                     .font(.system(size: 14))
@@ -332,7 +333,7 @@ struct ChatSection: View {
                             } label: {
                                 Text(prompt)
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(GQColors.textPrimary)
                                     .padding(.horizontal, 16)
                                     .padding(.vertical, 10)
                                     .background(
@@ -352,10 +353,10 @@ struct ChatSection: View {
                 .padding(.vertical, 10)
                 .background(
                     Rectangle()
-                        .fill(Color.black.opacity(0.17))
+                        .fill(Color.black.opacity(0.03))
                         .overlay(
                             Rectangle()
-                                .fill(Color.white.opacity(0.08))
+                                .fill(Color.black.opacity(0.06))
                                 .frame(height: 1),
                             alignment: .top
                         )
@@ -365,16 +366,16 @@ struct ChatSection: View {
             HStack(spacing: 10) {
                 TextField("Ask your coach...", text: $inputText)
                     .font(.system(size: 16))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.white.opacity(0.07))
+                            .fill(Color.black.opacity(0.04))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            .stroke(Color.black.opacity(0.08), lineWidth: 1)
                     )
                     .submitLabel(.send)
                     .onSubmit(sendMessage)
@@ -386,11 +387,11 @@ struct ChatSection: View {
                         .frame(width: 40, height: 40)
                         .background(
                             Circle()
-                                .fill(inputText.isEmpty ? Color.white.opacity(0.07) : GQColors.vividPurple)
+                                .fill(inputText.isEmpty ? Color.black.opacity(0.04) : GQColors.vividPurple)
                         )
                         .overlay(
                             Circle()
-                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
                         )
                 }
                 .disabled(inputText.isEmpty || aiService.isLoading)
@@ -417,6 +418,10 @@ struct ChatSection: View {
         }
         .onDisappear {
             removeKeyboardObservers()
+        }
+        .sheet(isPresented: $showingPaywall) {
+            PaywallView()
+                .environmentObject(SubscriptionService.shared)
         }
     }
 
@@ -459,9 +464,23 @@ struct ChatSection: View {
         #endif
     }
 
+    private var todayMessageCount: Int {
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        return chatMessages.filter { $0.role == .user && $0.timestamp >= startOfDay }.count
+    }
+
+    private var isAtFreeLimit: Bool {
+        !profile.isPremium && todayMessageCount >= 5
+    }
+
     // sends user message -> calls AI -> saves response
     private func sendMessage() {
         guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        if isAtFreeLimit {
+            showingPaywall = true
+            return
+        }
 
         let userMessage = ChatMessage(content: inputText, role: .user)
         modelContext.insert(userMessage)
@@ -511,7 +530,7 @@ struct MessageBubble: View {
 
             Text(message.content)
                 .font(.system(size: 15))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .workoutFlowCard(
@@ -612,7 +631,7 @@ struct PlanSection: View {
                                 .foregroundColor(GQColors.success)
                             Text("Your Plan")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
                             Spacer()
                             Button {
                                 #if canImport(UIKit)
@@ -629,11 +648,11 @@ struct PlanSection: View {
                         }
 
                         Divider()
-                            .background(Color.white.opacity(0.12))
+                            .background(Color.black.opacity(0.08))
 
                         Text(plan)
                             .font(.system(size: 14))
-                            .foregroundColor(.white.opacity(0.92))
+                            .foregroundColor(GQColors.textPrimary.opacity(0.92))
                             .lineSpacing(4)
                     }
                     .padding(16)
@@ -698,5 +717,5 @@ enum PlanGoal: String, CaseIterable {
         aiService: AIService()
     )
     .environmentObject(AppState())
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

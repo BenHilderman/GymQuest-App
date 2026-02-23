@@ -140,7 +140,7 @@ final class FeatureFlags: ObservableObject {
         self.workoutPartyEnabled = defaults.object(forKey: prefix + "workoutPartyEnabled") as? Bool ?? true
         self.voiceNotesEnabled = defaults.object(forKey: prefix + "voiceNotesEnabled") as? Bool ?? true
         self.gymLocationSharing = defaults.object(forKey: prefix + "gymLocationSharing") as? Bool ?? true
-        self.devSkipAuth = defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? true
+        self.devSkipAuth = defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? false
         self.premiumEnabled = defaults.object(forKey: prefix + "premiumEnabled") as? Bool ?? true
     }
 

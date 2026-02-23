@@ -323,17 +323,17 @@ struct GQColors {
     static let mint = Color(hex: "1ED760")
     static let butter = electricGold
 
-    // Backgrounds - pure dark
-    static let deepBlack = Color(hex: "000000")
-    static let background = Color(hex: "000000")
-    static let darkSurface = Color(hex: "0A0A0A")
-    static let cardBackground = Color(hex: "141414")
-    static let elevatedSurface = Color(hex: "1C1C1C")
+    // Backgrounds - light theme
+    static let deepBlack = Color(hex: "F2F2F7")
+    static let background = Color(hex: "F2F2F7")
+    static let darkSurface = Color(hex: "F8F8FA")
+    static let cardBackground = Color.white
+    static let elevatedSurface = Color(hex: "F8F8FA")
 
     // Text
-    static let textPrimary = Color.white
-    static let textSecondary = Color.white.opacity(0.72)
-    static let textTertiary = Color.white.opacity(0.50)
+    static let textPrimary = Color(hex: "1C1C1E")
+    static let textSecondary = Color(hex: "1C1C1E").opacity(0.60)
+    static let textTertiary = Color(hex: "1C1C1E").opacity(0.40)
 
     // Semantic colors - bright and vibrant
     static let success = Color(hex: "1ED760")
@@ -346,12 +346,22 @@ struct GQColors {
     static let accentLight = cyanSpark
 
     // Surface tokens - standardized surface colors
-    static let surfaceBase = Color(hex: "161616")
-    static let surfaceElevated = Color(hex: "202020")
-    static let surfaceOverlay = Color(hex: "2F2F2F")
-    static let borderSubtle = Color.white.opacity(0.06)
-    static let borderDefault = Color.white.opacity(0.11)
-    static let borderProminent = Color.white.opacity(0.16)
+    static let surfaceBase = Color.white
+    static let surfaceElevated = Color(hex: "F8F8FA")
+    static let surfaceOverlay = Color(hex: "EBEBF0")
+    static let borderSubtle = Color.black.opacity(0.04)
+    static let borderDefault = Color.black.opacity(0.08)
+    static let borderProminent = Color.black.opacity(0.12)
+
+    // Accent border — subtle purple→cyan gradient for card borders
+    static let borderAccent = LinearGradient(
+        colors: [GQColors.vividPurple.opacity(0.25), GQColors.cyanSpark.opacity(0.18)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
+    // Section label color — vibrant uppercase headers
+    static let sectionLabel = GQColors.cyanSpark.opacity(0.8)
 }
 
 // MARK: - Spacing & Layout Constants
@@ -461,14 +471,14 @@ struct GQGradients {
 
     // Hero card border - glass edge with subtle depth
     static let heroBorder = LinearGradient(
-        colors: [Color.white.opacity(0.18), Color.white.opacity(0.05), Color.black.opacity(0.20)],
+        colors: [Color.black.opacity(0.10), Color.black.opacity(0.04), Color.black.opacity(0.08)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     // Glass card border
     static let glassBorder = LinearGradient(
-        colors: [Color.white.opacity(0.14), Color.white.opacity(0.04), Color.black.opacity(0.16)],
+        colors: [Color.black.opacity(0.08), Color.black.opacity(0.03), Color.black.opacity(0.06)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -478,14 +488,14 @@ struct GQGradients {
 
     // Card glow - very subtle
     static let cardGlow = LinearGradient(
-        colors: [Color.white.opacity(0.02), Color.clear],
+        colors: [Color.black.opacity(0.02), Color.clear],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
     // Card border
     static let cardBorder = LinearGradient(
-        colors: [Color.white.opacity(0.10), Color.white.opacity(0.03), Color.black.opacity(0.12)],
+        colors: [Color.black.opacity(0.06), Color.black.opacity(0.02), Color.black.opacity(0.05)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -518,7 +528,7 @@ struct GQGradients {
         case .lower: return GQColors.deepBlue
         case .fullBody: return GQColors.cyanSpark
         case .cardio: return GQColors.success
-        case .rest: return Color.white.opacity(0.12)
+        case .rest: return Color.black.opacity(0.06)
         case .glutes: return GQColors.vividPurple
         case .abs: return GQColors.deepBlue
         case .custom: return GQColors.cyanSpark
@@ -535,7 +545,7 @@ struct GQGradients {
         case .lower: return [GQColors.deepBlue, GQColors.vividPurple]
         case .fullBody: return [GQColors.cyanSpark, GQColors.deepBlue]
         case .cardio: return [GQColors.success, GQColors.cyanSpark]
-        case .rest: return [Color.white.opacity(0.15), Color.white.opacity(0.08)]
+        case .rest: return [Color.black.opacity(0.08), Color.black.opacity(0.04)]
         case .glutes: return [GQColors.vividPurple, GQColors.cyanSpark]
         case .abs: return [GQColors.deepBlue, GQColors.vividPurple]
         case .custom: return [GQColors.cyanSpark, GQColors.deepBlue]
@@ -685,7 +695,7 @@ struct HomeEnergyBackground: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Color(hex: "020208"), Color(hex: "04050C"), Color(hex: "070810")],
+                colors: [Color(hex: "F8F9FE"), Color(hex: "F5F5FA"), Color(hex: "F2F2F7")],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -743,32 +753,26 @@ struct HomeEnergyBackground: View {
 
             // Starfield
             StarfieldOverlay()
-                .opacity(0.85)
-                .blendMode(.screen)
+                .opacity(0.55)
+                .blendMode(.plusDarker)
                 .ignoresSafeArea()
 
             AuroraFlowBackground()
-                .opacity(0.92)
-                .blendMode(.screen)
+                .opacity(0.70)
+                .blendMode(.plusDarker)
                 .ignoresSafeArea()
 
             ShimmerSweepOverlay()
                 .ignoresSafeArea()
 
+            // Soft white edge fade (replaces dark vignette)
             RadialGradient(
-                colors: [Color.clear, Color.black.opacity(0.20), Color.black.opacity(0.36)],
+                colors: [Color.clear, Color.white.opacity(0.15), Color.white.opacity(0.30)],
                 center: .center,
                 startRadius: 100,
                 endRadius: 760
             )
-            .blendMode(.multiply)
-            .ignoresSafeArea()
-
-            LinearGradient(
-                colors: [Color.clear, Color.black.opacity(0.11), Color.black.opacity(0.30)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            .blendMode(.plusLighter)
             .ignoresSafeArea()
 
         }
@@ -968,7 +972,7 @@ struct StarfieldOverlay: View {
         sparkles = built
     }
 
-    private static let paleBlue = Color(hex: "D4E4FF")
+    private static let paleBlue = Color(hex: "6A8DCC")
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 15.0, paused: false)) { timeline in
@@ -990,7 +994,7 @@ struct StarfieldOverlay: View {
                     context.opacity = opacity
                     context.fill(
                         Path(ellipseIn: rect),
-                        with: .color(sparkle.isBlue ? Self.paleBlue : .white)
+                        with: .color(sparkle.isBlue ? Self.paleBlue : Color(hex: "C0C0C8"))
                     )
                 }
             }
@@ -1015,9 +1019,9 @@ struct ShimmerSweepOverlay: View {
                     LinearGradient(
                         colors: [
                             .clear,
-                            Color.white.opacity(0.04),
-                            Color.white.opacity(0.07),
-                            Color.white.opacity(0.04),
+                            Color.white.opacity(0.08),
+                            Color.white.opacity(0.14),
+                            Color.white.opacity(0.08),
                             .clear
                         ],
                         startPoint: .leading,
@@ -1027,7 +1031,7 @@ struct ShimmerSweepOverlay: View {
                 .frame(width: bandWidth, height: geo.size.height * 1.5)
                 .rotationEffect(.degrees(25))
                 .offset(x: sweeping ? endX : startX)
-                .blendMode(.screen)
+                .blendMode(.plusLighter)
                 .onAppear { startCycle() }
         }
         .allowsHitTesting(false)
@@ -1074,16 +1078,9 @@ struct GlassCard<Content: View>: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
+                    .stroke(GQColors.borderAccent, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.22), radius: 8, y: 3)
+            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
     }
 }
 
@@ -1100,14 +1097,7 @@ struct HeroCard<Content: View>: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
+                    .stroke(GQColors.borderAccent, lineWidth: 1)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 18)
@@ -1119,7 +1109,19 @@ struct HeroCard<Content: View>: View {
                         duration: 4.0
                     )
             )
-            .shadow(color: .black.opacity(0.24), radius: 10, y: 4)
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+    }
+}
+
+// MARK: - Premium Badge
+
+struct PremiumBadge: View {
+    var size: CGFloat = 14
+
+    var body: some View {
+        Image(systemName: "checkmark.seal.fill")
+            .font(.system(size: size))
+            .foregroundStyle(GQGradients.primary)
     }
 }
 
@@ -1149,7 +1151,7 @@ struct StatPill: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text(label)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(GQColors.textTertiary)
@@ -1162,7 +1164,6 @@ struct StatPill: View {
                 // Glass base - frosted effect
                 Capsule()
                     .fill(.ultraThinMaterial)
-                    .environment(\.colorScheme, .dark)
 
                 // Subtle color tint from the icon color
                 Capsule()
@@ -1172,7 +1173,7 @@ struct StatPill: View {
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.15), Color.white.opacity(0.02), Color.clear],
+                            colors: [Color.black.opacity(0.03), Color.black.opacity(0.01), Color.clear],
                             startPoint: .top,
                             endPoint: .center
                         )
@@ -1184,7 +1185,7 @@ struct StatPill: View {
             Capsule()
                 .stroke(GQGradients.glassBorder, lineWidth: 0.85)
         )
-        .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 4)
     }
 }
 
@@ -1208,7 +1209,7 @@ struct AnimatedProgressBar: View {
             ZStack(alignment: .leading) {
                 // Background track
                 Capsule()
-                    .fill(Color.white.opacity(0.08))
+                    .fill(Color.black.opacity(0.06))
 
                 // Filled portion - solid color
                 Capsule()
@@ -1282,8 +1283,15 @@ struct NavBarLogo: View {
 
                 // Icon
                 Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: .black.opacity(0.15), radius: 1, x: 0, y: 0.5)
             }
         }
     }
@@ -1295,7 +1303,7 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
@@ -1305,7 +1313,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .overlay {
                 if configuration.isPressed {
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
                 } else {
                     RoundedRectangle(cornerRadius: 16)
                         .fill(.clear)
@@ -1317,7 +1325,7 @@ struct PrimaryButtonStyle: ButtonStyle {
                         )
                 }
             }
-            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.16 : 0.26), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.04 : 0.07), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
             .scaleEffect(configuration.isPressed ? 0.972 : 1.0)
             .offset(y: configuration.isPressed ? 1.5 : 0)
             .animation(GQMotion.press, value: configuration.isPressed)
@@ -1333,7 +1341,7 @@ struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
@@ -1344,14 +1352,14 @@ struct SecondaryButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(configuration.isPressed ? 0.08 : 0.10), Color.white.opacity(configuration.isPressed ? 0.03 : 0.05)],
+                            colors: [Color.black.opacity(configuration.isPressed ? 0.06 : 0.08), Color.black.opacity(configuration.isPressed ? 0.02 : 0.04)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
                         lineWidth: 1
                     )
             )
-            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.14 : 0.22), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.04 : 0.06), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
             .scaleEffect(configuration.isPressed ? 0.972 : 1.0)
             .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(GQMotion.micro, value: configuration.isPressed)
@@ -1379,7 +1387,7 @@ struct WorkoutFlowPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
@@ -1389,7 +1397,7 @@ struct WorkoutFlowPrimaryButtonStyle: ButtonStyle {
             .overlay {
                 if configuration.isPressed {
                     RoundedRectangle(cornerRadius: cornerRadius)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .fill(.clear)
@@ -1401,7 +1409,7 @@ struct WorkoutFlowPrimaryButtonStyle: ButtonStyle {
                         )
                 }
             }
-            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.16 : 0.26), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.04 : 0.07), radius: configuration.isPressed ? 4 : 8, y: configuration.isPressed ? 2 : 4)
             .scaleEffect(configuration.isPressed ? 0.972 : 1.0)
             .offset(y: configuration.isPressed ? 1.5 : 0)
             .animation(GQMotion.press, value: configuration.isPressed)
@@ -1417,7 +1425,7 @@ struct WorkoutFlowSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 15, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background(
@@ -1428,14 +1436,14 @@ struct WorkoutFlowSecondaryButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(configuration.isPressed ? 0.08 : 0.10), Color.white.opacity(configuration.isPressed ? 0.03 : 0.05)],
+                            colors: [Color.black.opacity(configuration.isPressed ? 0.06 : 0.08), Color.black.opacity(configuration.isPressed ? 0.02 : 0.04)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
                         lineWidth: 1
                     )
             )
-            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.14 : 0.22), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
+            .shadow(color: Color.black.opacity(configuration.isPressed ? 0.04 : 0.06), radius: configuration.isPressed ? 3 : 7, y: configuration.isPressed ? 1 : 3)
             .scaleEffect(configuration.isPressed ? 0.975 : 1.0)
             .offset(y: configuration.isPressed ? 1.0 : 0)
             .animation(GQMotion.micro, value: configuration.isPressed)
@@ -1458,14 +1466,7 @@ struct WorkoutFlowCardModifier: ViewModifier {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.10), Color.white.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
+                    .stroke(GQColors.borderAccent, lineWidth: 1)
             )
             .overlay {
                 if emphasized {
@@ -1479,7 +1480,7 @@ struct WorkoutFlowCardModifier: ViewModifier {
                         )
                 }
             }
-            .shadow(color: Color.black.opacity(emphasized ? 0.22 : 0.18), radius: emphasized ? 8 : 6, y: emphasized ? 3 : 2)
+            .shadow(color: Color.black.opacity(emphasized ? 0.06 : 0.05), radius: emphasized ? 8 : 6, y: emphasized ? 3 : 2)
     }
 }
 
@@ -1584,7 +1585,7 @@ struct AmbientLightSweep: View {
                 }
             }
         }
-        .blendMode(.screen)
+        .blendMode(.plusLighter)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .allowsHitTesting(false)
     }
@@ -1615,8 +1616,8 @@ private struct DriftingGlow: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color.white.opacity(subtle ? 0.025 : 0.055),
-                            Color.white.opacity(subtle ? 0.008 : 0.018),
+                            Color.black.opacity(subtle ? 0.015 : 0.03),
+                            Color.black.opacity(subtle ? 0.005 : 0.01),
                             Color.clear
                         ],
                         center: .center,
@@ -1629,7 +1630,7 @@ private struct DriftingGlow: View {
                     x: drift ? geo.size.width * 0.2 : -geo.size.width * 0.3,
                     y: drift ? geo.size.height * 0.15 : -geo.size.height * 0.25
                 )
-                .blendMode(.screen)
+                .blendMode(.normal)
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .allowsHitTesting(false)
@@ -1650,12 +1651,12 @@ struct HomeSocialCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            // 1. Gradient background (lit-from-above 3D feel)
+            // 1. Gradient background (light, clean)
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: "1F1F1F"), Color(hex: "1A1A1A"), Color(hex: "141414")],
+                            colors: [Color.white, Color(hex: "FAFAFA"), Color(hex: "F8F8FA")],
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -1665,8 +1666,8 @@ struct HomeSocialCardModifier: ViewModifier {
             .overlay(
                 RadialGradient(
                     colors: [
-                        Color.white.opacity(subtle ? 0.02 : 0.04),
-                        Color.white.opacity(subtle ? 0.008 : 0.015),
+                        Color.black.opacity(subtle ? 0.01 : 0.02),
+                        Color.black.opacity(subtle ? 0.004 : 0.008),
                         Color.clear
                     ],
                     center: .topLeading,
@@ -1679,8 +1680,8 @@ struct HomeSocialCardModifier: ViewModifier {
             .overlay(
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(subtle ? 0.015 : 0.035),
-                        Color.white.opacity(subtle ? 0.005 : 0.01),
+                        Color.black.opacity(subtle ? 0.008 : 0.015),
+                        Color.black.opacity(subtle ? 0.002 : 0.005),
                         Color.clear
                     ],
                     startPoint: .top,
@@ -1693,12 +1694,12 @@ struct HomeSocialCardModifier: ViewModifier {
                 DriftingGlow(cornerRadius: cornerRadius, subtle: subtle)
             )
             // 5. (grain removed)
-            // 6. Inner shadow at bottom (vignette)
+            // 6. Inner shadow at bottom (vignette) — very subtle on light
             .overlay(
                 VStack {
                     Spacer()
                     LinearGradient(
-                        colors: [Color.clear, Color.black.opacity(subtle ? 0.05 : 0.12)],
+                        colors: [Color.clear, Color.black.opacity(subtle ? 0.02 : 0.04)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -1712,8 +1713,8 @@ struct HomeSocialCardModifier: ViewModifier {
                     .strokeBorder(
                         LinearGradient(
                             colors: [
-                                Color.black.opacity(subtle ? 0.05 : 0.10),
-                                Color.black.opacity(subtle ? 0.02 : 0.05)
+                                Color.black.opacity(subtle ? 0.03 : 0.06),
+                                Color.black.opacity(subtle ? 0.01 : 0.03)
                             ],
                             startPoint: .bottom,
                             endPoint: .top
@@ -1721,29 +1722,10 @@ struct HomeSocialCardModifier: ViewModifier {
                         lineWidth: 0.5
                     )
             )
-            // 8. Rim-light stroke border
+            // 8. Accent-tinted stroke border
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(
-                        LinearGradient(
-                            stops: subtle
-                                ? [
-                                    .init(color: Color.white.opacity(0.05), location: 0.0),
-                                    .init(color: Color.white.opacity(0.015), location: 0.35),
-                                    .init(color: Color.white.opacity(0.008), location: 0.7),
-                                    .init(color: Color.white.opacity(0.025), location: 1.0)
-                                ]
-                                : [
-                                    .init(color: Color.white.opacity(0.12), location: 0.0),
-                                    .init(color: Color.white.opacity(0.04), location: 0.35),
-                                    .init(color: Color.white.opacity(0.02), location: 0.7),
-                                    .init(color: Color.white.opacity(0.05), location: 1.0)
-                                ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 1
-                    )
+                    .stroke(GQColors.borderAccent, lineWidth: 1)
             )
             // 9. Ambient light sweep
             .overlay(
@@ -1764,13 +1746,13 @@ struct HomeSocialCardModifier: ViewModifier {
             }
             // 11. Contact shadow
             .shadow(
-                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.16 : 0.14)),
+                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.05 : 0.04)),
                 radius: subtle ? 0 : (emphasized ? 2 : 1.5),
                 y: subtle ? 0 : 1
             )
             // 12. Ambient shadow
             .shadow(
-                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.30 : 0.26)),
+                color: Color.black.opacity(subtle ? 0 : (emphasized ? 0.08 : 0.07)),
                 radius: subtle ? 0 : (emphasized ? 16 : 12),
                 y: subtle ? 0 : (emphasized ? 5 : 4)
             )
@@ -1784,7 +1766,7 @@ struct HomeSocialPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
@@ -1794,7 +1776,7 @@ struct HomeSocialPrimaryButtonStyle: ButtonStyle {
             .overlay {
                 if configuration.isPressed {
                     RoundedRectangle(cornerRadius: cornerRadius)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .fill(.clear)
@@ -1821,7 +1803,7 @@ struct HomeSocialSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 15, weight: .semibold))
-            .foregroundColor(.white)
+            .foregroundColor(GQColors.textPrimary)
             .frame(maxWidth: .infinity)
             .frame(height: 50)
             .background(
@@ -1832,7 +1814,7 @@ struct HomeSocialSecondaryButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(configuration.isPressed ? 0.08 : 0.10), Color.white.opacity(configuration.isPressed ? 0.03 : 0.05)],
+                            colors: [Color.black.opacity(configuration.isPressed ? 0.06 : 0.08), Color.black.opacity(configuration.isPressed ? 0.02 : 0.04)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
@@ -1897,7 +1879,7 @@ struct WorkoutFlowMetricChip: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text(label)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(GQColors.textTertiary)
@@ -1925,7 +1907,7 @@ struct GQScreenTitleBlock: View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title)
                 .font(.system(size: 30, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             if let subtitle {
                 Text(subtitle)
@@ -1945,7 +1927,7 @@ struct GQScreenTitleBlock: View {
 struct TextButtonStyle: ButtonStyle {
     let color: Color
 
-    init(color: Color = .white) {
+    init(color: Color = GQColors.textPrimary) {
         self.color = color
     }
 
@@ -1991,7 +1973,7 @@ struct GQPageChromeModifier: ViewModifier {
         content
             .scrollContentBackground(.hidden)
             .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
             .tint(tint)
     }
 }
@@ -2005,7 +1987,7 @@ extension View {
         self
             .background {
                 ZStack {
-                    Color(hex: "000000")
+                    Color(hex: "F2F2F7")
                     HomeEnergyBackground()
                         .opacity(0.25)
                 }
@@ -2018,7 +2000,7 @@ extension View {
         self
             .background {
                 ZStack {
-                    Color(hex: "000000")
+                    Color(hex: "F2F2F7")
                     HomeEnergyBackground()
                         .opacity(0.25)
                 }
@@ -2553,7 +2535,7 @@ struct MusicBadge: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(songTitle)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                         .lineLimit(1)
 
                     Text(artistName)
@@ -2830,5 +2812,5 @@ struct HeartBurstOverlay: View {
             .padding()
         }
     }
-    .preferredColorScheme(.dark)
+    .preferredColorScheme(.light)
 }

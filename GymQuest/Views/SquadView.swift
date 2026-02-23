@@ -52,7 +52,7 @@ struct SquadView: View {
                                 } label: {
                                     Label("Create", systemImage: "plus.circle.fill")
                                         .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(GQColors.textPrimary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
                                         .background(GQColors.deepBlue.opacity(0.3))
@@ -64,7 +64,7 @@ struct SquadView: View {
                                 } label: {
                                     Label("Join", systemImage: "person.badge.plus")
                                         .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(GQColors.textPrimary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
                                         .background(GQColors.cyanSpark.opacity(0.3))
@@ -115,7 +115,7 @@ struct EmptySquadView: View {
                 Text("No Squads Yet")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Text("Create or join a squad to train with friends and compete in weekly challenges")
                     .font(.subheadline)
@@ -144,7 +144,7 @@ struct EmptySquadView: View {
                         Text("Join with Code")
                     }
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(GQColors.deepBlue.opacity(0.3))
@@ -175,7 +175,7 @@ struct SquadCardView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(squad.name)
                         .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     HStack(spacing: 8) {
                         Label("\(squad.memberCount)/6", systemImage: "person.2.fill")
@@ -207,7 +207,7 @@ struct SquadCardView: View {
                     HStack {
                         Text(challenge.title)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
 
                         Spacer()
 
@@ -220,7 +220,7 @@ struct SquadCardView: View {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             Capsule()
-                                .fill(Color.white.opacity(0.1))
+                                .fill(Color.black.opacity(0.06))
                                 .frame(height: 6)
 
                             Capsule()
@@ -268,18 +268,18 @@ struct SquadCardView: View {
                                     .clipShape(Circle())
                             } else {
                                 Circle()
-                                    .fill(Color.white.opacity(0.1))
+                                    .fill(Color.black.opacity(0.06))
                                     .frame(width: 28, height: 28)
                                     .overlay(
                                         Text(String(stats.username.prefix(1)))
                                             .font(.system(size: 12, weight: .semibold))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(GQColors.textPrimary)
                                     )
                             }
 
                             Text(stats.username)
                                 .font(.system(size: 13))
-                                .foregroundColor(stats.userId == profile.id ? .blue : .white)
+                                .foregroundColor(stats.userId == profile.id ? .blue : GQColors.textPrimary)
 
                             Spacer()
 
@@ -298,7 +298,7 @@ struct SquadCardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(
                     LinearGradient(
-                        colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                        colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
@@ -401,7 +401,7 @@ struct JoinSquadSheet: View {
                 VStack(spacing: 8) {
                     Text("Enter Invite Code")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text("Ask your friend for their squad's 6-character code")
                         .font(.subheadline)
@@ -437,7 +437,7 @@ struct JoinSquadSheet: View {
 
                         Text("Joined \(squad.name)!")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                     .padding(.top, 20)
                 }
@@ -520,7 +520,7 @@ struct SquadDetailView: View {
                         Text(squad.name)
                             .font(.title)
                             .fontWeight(.bold)
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
 
                         HStack(spacing: 16) {
                             StatBadge(value: "\(squad.memberCount)/6", label: "Members")
@@ -539,7 +539,7 @@ struct SquadDetailView: View {
 
                         Text(squad.inviteCode)
                             .font(.system(size: 32, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
 
                         Button {
                             UIPasteboard.general.string = squad.inviteCode
@@ -557,7 +557,7 @@ struct SquadDetailView: View {
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                    colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 ),
@@ -577,7 +577,7 @@ struct SquadDetailView: View {
                                 Text("Start Weekly Challenge")
                             }
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(GQColors.vividPurple.opacity(0.3))
@@ -608,7 +608,7 @@ struct SquadDetailView: View {
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                                    colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 ),
@@ -702,7 +702,7 @@ struct StatBadge: View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
             Text(label)
                 .font(.system(size: 10))
                 .foregroundColor(GQColors.textTertiary)
@@ -721,7 +721,7 @@ struct LeaderboardRow: View {
         case 1: return .yellow
         case 2: return .gray
         case 3: return .orange
-        default: return .white.opacity(0.5)
+        default: return GQColors.textPrimary.opacity(0.5)
         }
     }
 
@@ -743,19 +743,19 @@ struct LeaderboardRow: View {
                     .clipShape(Circle())
             } else {
                 Circle()
-                    .fill(Color.white.opacity(0.1))
+                    .fill(Color.black.opacity(0.06))
                     .frame(width: 36, height: 36)
                     .overlay(
                         Text(String(stats.username.prefix(1)))
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     )
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(stats.username)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(isCurrentUser ? .blue : .white)
+                    .foregroundColor(isCurrentUser ? .blue : GQColors.textPrimary)
 
                 Text("Lv. \(stats.level)")
                     .font(.system(size: 11))
@@ -767,7 +767,7 @@ struct LeaderboardRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(stats.sessionsThisWeek)")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Text("sessions")
                     .font(.system(size: 10))
@@ -797,7 +797,7 @@ struct ActiveChallengeCard: View {
 
                     Text(challenge.title)
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
 
                 Spacer()
@@ -821,7 +821,7 @@ struct ActiveChallengeCard: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Color.white.opacity(0.1))
+                            .fill(Color.black.opacity(0.06))
                             .frame(height: 10)
 
                         Capsule()
@@ -840,7 +840,7 @@ struct ActiveChallengeCard: View {
                 HStack {
                     Text("\(challenge.currentValue)/\(challenge.targetValue)")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Spacer()
 
@@ -939,5 +939,4 @@ struct CreateChallengeSheet: View {
 #Preview {
     SquadView(profile: UserProfile(name: "Ben", username: "ben"))
         .environmentObject(FeatureFlags.shared)
-        .preferredColorScheme(.dark)
 }

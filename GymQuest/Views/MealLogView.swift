@@ -71,7 +71,7 @@ struct MealLogView: View {
                                 .lineLimit(3...6)
                                 .textFieldStyle(.plain)
                                 .padding()
-                                .background(Color.white.opacity(0.08))
+                                .background(Color.black.opacity(0.05))
                                 .cornerRadius(12)
 
                             if FeatureFlags.shared.voiceNotesEnabled {
@@ -104,11 +104,11 @@ struct MealLogView: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 10)
-                                .background(Color.white.opacity(0.08))
+                                .background(Color.black.opacity(0.05))
                                 .cornerRadius(10)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
                                 )
 
                                 if let serving = FoodNutritionEstimator.defaultServing(for: foodText) {
@@ -173,7 +173,7 @@ struct MealLogView: View {
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .font(.system(size: 22))
-                                            .foregroundColor(.white)
+                                            .foregroundColor(GQColors.textPrimary)
                                             .shadow(radius: 2)
                                     }
                                     .padding(8)
@@ -188,14 +188,14 @@ struct MealLogView: View {
                                 Text("Add Photo")
                                     .font(.system(size: 14, weight: .medium))
                             }
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(GQColors.textSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(Color.white.opacity(0.06))
+                            .background(Color.black.opacity(0.04))
                             .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)
@@ -244,7 +244,7 @@ struct MealLogView: View {
                 }
                 .padding(.bottom, 120)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(GQColors.background.ignoresSafeArea())
             .navigationTitle("Log Food")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -277,7 +277,7 @@ struct MealLogView: View {
                             .foregroundColor(GQColors.success)
                         Text("Logged!")
                             .font(.headline)
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(GQColors.surfaceOverlay.opacity(0.72))
@@ -330,16 +330,16 @@ struct MealTypeChip: View {
                 Text(type.rawValue)
             }
             .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-            .foregroundColor(.white)
+            .foregroundColor(isSelected ? .white : GQColors.textPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? accent.opacity(0.85) : Color.white.opacity(0.08))
+                    .fill(isSelected ? accent.opacity(0.85) : Color.black.opacity(0.05))
             )
             .overlay(
                 Capsule()
-                    .stroke(isSelected ? accent.opacity(0.55) : Color.white.opacity(0.12), lineWidth: 1)
+                    .stroke(isSelected ? accent.opacity(0.55) : Color.black.opacity(0.08), lineWidth: 1)
             )
         }
         .buttonStyle(GQInteractiveStyle())
@@ -361,11 +361,11 @@ struct TagChip: View {
                 .foregroundColor(isSelected ? .white : GQColors.textSecondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(isSelected ? GQColors.cyanSpark.opacity(0.34) : Color.white.opacity(0.08))
+                .background(isSelected ? GQColors.cyanSpark.opacity(0.34) : Color.black.opacity(0.05))
                 .cornerRadius(16)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(isSelected ? GQColors.cyanSpark.opacity(0.6) : Color.white.opacity(0.12), lineWidth: 1)
+                        .strokeBorder(isSelected ? GQColors.cyanSpark.opacity(0.6) : Color.black.opacity(0.08), lineWidth: 1)
                 )
         }
         .buttonStyle(GQInteractiveStyle())
@@ -393,11 +393,11 @@ struct FeelingButton: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
-            .background(isSelected ? feeling.color.opacity(0.25) : Color.white.opacity(0.06))
+            .background(isSelected ? feeling.color.opacity(0.25) : Color.black.opacity(0.04))
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(isSelected ? feeling.color.opacity(0.7) : Color.white.opacity(0.1), lineWidth: 1)
+                    .strokeBorder(isSelected ? feeling.color.opacity(0.7) : Color.black.opacity(0.06), lineWidth: 1)
             )
         }
         .buttonStyle(GQInteractiveStyle())
@@ -420,12 +420,12 @@ extension MealLogView {
                         #endif
                         .multilineTextAlignment(.center)
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                         .frame(width: 50)
                 } else {
                     Text("\(value)")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
                 Text(label)
                     .font(.system(size: 10, weight: .medium))
@@ -597,7 +597,7 @@ struct MealLogCard: View {
 
                     Text("Track your nutrition")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
 
                 Spacer()
@@ -687,7 +687,7 @@ struct MealSummaryRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(meal.mealDescription)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
 
                 if let cal = meal.estimatedCalories, cal > 0 {
@@ -712,7 +712,7 @@ struct MealSummaryRow: View {
     private var mealIconFallback: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.white.opacity(0.1))
+                .fill(Color.black.opacity(0.06))
                 .frame(width: 44, height: 44)
 
             Image(systemName: meal.mealType.icon)
@@ -758,5 +758,5 @@ struct MealDictationButton: View {
 
 #Preview {
     MealLogView(profile: UserProfile(name: "Ben", username: "ben"))
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

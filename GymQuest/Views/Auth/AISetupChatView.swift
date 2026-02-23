@@ -4,12 +4,43 @@
 //
 //  Created by Benjamin Hilderman
 //
-//  iMessage-style conversational setup that replaces the old 3-step onboarding.
+//  Premium dark-themed conversational setup that replaces the old 3-step onboarding.
 //  Collects identity + fitness profile in a single chat flow.
 //
 
 import SwiftUI
 import SwiftData
+
+// MARK: - Onboarding Dark Theme
+
+private enum OBColors {
+    static let bg = Color(hex: "0D0D12")
+    static let cardSurface = Color(hex: "1A1A24")
+    static let textPrimary = Color.white.opacity(0.92)
+    static let textSecondary = Color.white.opacity(0.55)
+    static let borderGradient = LinearGradient(
+        colors: [GQColors.vividPurple.opacity(0.6), GQColors.cyanSpark.opacity(0.6)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    static let userBubbleGradient = LinearGradient(
+        colors: [GQColors.deepBlue, GQColors.vividPurple],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+    static let sendGradient = LinearGradient(
+        colors: [GQColors.deepBlue, GQColors.vividPurple],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+    static let ctaGradient = LinearGradient(
+        colors: [GQColors.deepBlue, GQColors.vividPurple],
+        startPoint: .leading,
+        endPoint: .trailing
+    )
+}
+
+// MARK: - AISetupChatView
 
 struct AISetupChatView: View {
     let authMethod: String
@@ -26,6 +57,7 @@ struct AISetupChatView: View {
     @State private var keyboardShowObserver: NSObjectProtocol?
     @State private var keyboardHideObserver: NSObjectProtocol?
     @State private var animateDots = false
+    @State private var shimmerPhase: CGFloat = 0
 
     private var storedPassword: String { tempPassword ?? "" }
     private var googleName: String? {
@@ -44,16 +76,63 @@ struct AISetupChatView: View {
                 textInputBar
             }
         }
-        .background(Color(.systemBackground).ignoresSafeArea())
+        .background(
+            ZStack {
+                OBColors.bg.ignoresSafeArea()
+                shimmerBackground
+            }
+        )
         .onAppear {
             authService.setModelContext(modelContext)
             viewModel.prefillName = googleName
             viewModel.startChat()
             setupKeyboardObservers()
+            withAnimation(.linear(duration: 8).repeatForever(autoreverses: true)) {
+                shimmerPhase = 1
+            }
         }
         .onDisappear {
             removeKeyboardObservers()
         }
+    }
+
+    // MARK: - Shimmer Background
+
+    @ViewBuilder
+    private var shimmerBackground: some View {
+        Canvas { context, size in
+            // Just provides the frame — actual animation via overlaid circles
+        }
+        .overlay {
+            Circle()
+                .fill(GQColors.vividPurple.opacity(0.05))
+                .frame(width: 300, height: 300)
+                .blur(radius: 80)
+                .offset(
+                    x: -60 + shimmerPhase * 120,
+                    y: -100 + shimmerPhase * 50
+                )
+
+            Circle()
+                .fill(GQColors.cyanSpark.opacity(0.04))
+                .frame(width: 250, height: 250)
+                .blur(radius: 70)
+                .offset(
+                    x: 80 - shimmerPhase * 100,
+                    y: 150 - shimmerPhase * 80
+                )
+
+            Circle()
+                .fill(GQColors.deepBlue.opacity(0.03))
+                .frame(width: 200, height: 200)
+                .blur(radius: 60)
+                .offset(
+                    x: -40 + shimmerPhase * 60,
+                    y: 300 - shimmerPhase * 120
+                )
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 
     // MARK: - Top Bar
@@ -65,7 +144,7 @@ struct AISetupChatView: View {
 
             Text("GymQuest")
                 .font(.headline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(OBColors.textPrimary)
 
             Spacer()
         }
@@ -75,7 +154,7 @@ struct AISetupChatView: View {
             } label: {
                 Text("Skip")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(OBColors.textSecondary)
             }
             .buttonStyle(.plain)
         }
@@ -90,14 +169,13 @@ struct AISetupChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 14) {
-                    ForEach(viewModel.messages) { message in
+                    ForEach(Array(viewModel.messages.enumerated()), id: \.element.id) { index, message in
                         if message.isTyping {
                             typingIndicator
                                 .id(message.id)
                         } else {
-                            setupMessageBubble(message)
+                            setupMessageBubble(message, index: index)
                                 .id(message.id)
-                                .transition(.opacity)
                         }
                     }
 
@@ -129,19 +207,41 @@ struct AISetupChatView: View {
     // MARK: - Message Bubble
 
     @ViewBuilder
-    private func setupMessageBubble(_ message: SetupMessage) -> some View {
+    private func setupMessageBubble(_ message: SetupMessage, index: Int) -> some View {
         HStack {
             if message.isUser { Spacer(minLength: 60) }
 
             Text(message.content)
                 .font(.system(size: 15))
-                .foregroundColor(message.isUser ? .white : .primary)
+                .foregroundColor(message.isUser ? .white : OBColors.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
                 .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(message.isUser ? Color.blue : Color(.systemGray5))
+                    Group {
+                        if message.isUser {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(OBColors.userBubbleGradient)
+                        } else {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(OBColors.cardSurface)
+                        }
+                    }
                 )
+                .overlay(
+                    Group {
+                        if !message.isUser {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(OBColors.borderGradient, lineWidth: 1)
+                        }
+                    }
+                )
+                .shadow(
+                    color: message.isUser
+                        ? GQColors.deepBlue.opacity(0.2)
+                        : GQColors.vividPurple.opacity(0.08),
+                    radius: message.isUser ? 8 : 12
+                )
+                .modifier(BubbleAppearModifier(isUser: message.isUser))
 
             if !message.isUser { Spacer(minLength: 60) }
         }
@@ -158,22 +258,27 @@ struct AISetupChatView: View {
         ]
 
         LazyVGrid(columns: columns, spacing: 10) {
-            ForEach(options) { option in
+            ForEach(Array(options.enumerated()), id: \.element.id) { index, option in
                 Button {
                     viewModel.selectOption(option)
                 } label: {
                     Text(option.label)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(OBColors.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color(.systemGray5))
+                                .fill(OBColors.cardSurface)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(OBColors.borderGradient.opacity(0.5), lineWidth: 1)
                         )
                 }
                 .buttonStyle(OptionPressStyle())
                 .disabled(viewModel.isProcessing)
+                .modifier(StaggeredAppearModifier(delay: Double(index) * 0.05))
             }
         }
         .padding(.horizontal, 20)
@@ -203,21 +308,24 @@ struct AISetupChatView: View {
                                 if isSelected {
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 10, weight: .bold))
-                                        .foregroundStyle(.blue)
+                                        .foregroundStyle(GQColors.cyanSpark)
                                 }
                                 Text(type.rawValue)
                                     .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(isSelected ? .blue : .secondary)
+                                    .foregroundStyle(isSelected ? GQColors.cyanSpark : OBColors.textSecondary)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(isSelected ? Color.blue.opacity(0.15) : Color(.systemGray5))
+                                    .fill(isSelected ? GQColors.vividPurple.opacity(0.15) : OBColors.cardSurface)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 1.5)
+                                    .stroke(
+                                        isSelected ? OBColors.borderGradient : LinearGradient(colors: [Color.clear], startPoint: .top, endPoint: .bottom),
+                                        lineWidth: 1.5
+                                    )
                             )
                         }
                         .buttonStyle(.plain)
@@ -235,14 +343,14 @@ struct AISetupChatView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(Capsule().fill(.blue))
+                    .background(Capsule().fill(OBColors.ctaGradient))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 20)
             .disabled(viewModel.isProcessing)
         }
         .padding(.vertical, 12)
-        .background(Color(.systemBackground))
+        .background(OBColors.bg)
     }
 
     // MARK: - Text Input Bar
@@ -252,11 +360,12 @@ struct AISetupChatView: View {
         HStack(spacing: 10) {
             TextField(viewModel.textFieldPlaceholder, text: $viewModel.inputText)
                 .font(.system(size: 16))
+                .foregroundColor(OBColors.textPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color(.systemGray6))
+                        .fill(OBColors.cardSurface)
                 )
                 .submitLabel(.send)
                 .onSubmit { viewModel.submitTextInput() }
@@ -267,7 +376,7 @@ struct AISetupChatView: View {
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(
                         .white,
-                        viewModel.inputText.isEmpty ? Color(.systemGray4) : .blue
+                        viewModel.inputText.isEmpty ? Color.white.opacity(0.2) : GQColors.vividPurple
                     )
             }
             .disabled(viewModel.inputText.isEmpty || viewModel.isProcessing)
@@ -276,7 +385,7 @@ struct AISetupChatView: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .padding(.bottom, keyboardHeight > 0 ? 8 : 34)
-        .background(Color(.systemBackground))
+        .background(OBColors.bg)
     }
 
     // MARK: - Typing Indicator
@@ -287,8 +396,15 @@ struct AISetupChatView: View {
             HStack(spacing: 5) {
                 ForEach(0..<3, id: \.self) { index in
                     Circle()
-                        .fill(Color(.systemGray3))
+                        .fill(
+                            LinearGradient(
+                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                         .frame(width: 8, height: 8)
+                        .scaleEffect(animateDots ? 1.2 : 0.7)
                         .opacity(animateDots ? 1.0 : 0.3)
                         .animation(
                             .easeInOut(duration: 0.5)
@@ -302,7 +418,11 @@ struct AISetupChatView: View {
             .padding(.vertical, 16)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(.systemGray5))
+                    .fill(OBColors.cardSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(OBColors.borderGradient, lineWidth: 1)
             )
             .onAppear { animateDots = true }
 
@@ -324,13 +444,13 @@ struct AISetupChatView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Capsule().fill(.blue))
+                    .background(Capsule().fill(OBColors.ctaGradient))
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 20)
-        .background(Color(.systemBackground))
+        .background(OBColors.bg)
     }
 
     // MARK: - Profile Creation
@@ -361,8 +481,18 @@ struct AISetupChatView: View {
             viewModel.applyToProfile(profile)
             try? modelContext.save()
 
+            // Store onboarding data for training plan offer
+            appState.onboardingData = OnboardingData(
+                name: viewModel.collectedName.isEmpty ? "Athlete" : viewModel.collectedName,
+                goal: viewModel.collectedGoal,
+                experience: viewModel.collectedExperience ?? .beginner,
+                environment: viewModel.collectedEnvironment ?? .gym,
+                equipment: viewModel.collectedEquipment,
+                daysPerWeek: viewModel.collectedDaysPerWeek
+            )
+
             withAnimation {
-                appState.authState = .authenticated
+                appState.authState = .trainingPlanOffer
             }
         }
     }
@@ -422,6 +552,47 @@ struct AISetupChatView: View {
             keyboardHideObserver = nil
         }
         #endif
+    }
+}
+
+// MARK: - Bubble Appear Modifier
+
+private struct BubbleAppearModifier: ViewModifier {
+    let isUser: Bool
+    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(appeared ? 1 : 0)
+            .offset(x: isUser ? 0 : (appeared ? 0 : -30))
+            .scaleEffect(isUser ? (appeared ? 1 : 0.85) : 1)
+            .onAppear {
+                withAnimation(
+                    isUser
+                        ? .spring(response: 0.4, dampingFraction: 0.7)
+                        : .spring(response: 0.5, dampingFraction: 0.75)
+                ) {
+                    appeared = true
+                }
+            }
+    }
+}
+
+// MARK: - Staggered Appear Modifier
+
+private struct StaggeredAppearModifier: ViewModifier {
+    let delay: Double
+    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 10)
+            .onAppear {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.75).delay(delay)) {
+                    appeared = true
+                }
+            }
     }
 }
 

@@ -12,13 +12,16 @@ import SwiftUI
 import SwiftData
 import AVKit
 
-private let profileNeutralAccent = Color.white.opacity(0.20)
-private let profilePrimaryAccent = Color.white.opacity(0.70)
+private let profileNeutralAccent = Color.black.opacity(0.12)
+private let profilePrimaryAccent = Color.black.opacity(0.42)
 private let profileFireAccent = Color(hex: "FF9500")
 
 struct ProfileView: View {
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
+    @Query(sort: \PREvent.date, order: .reverse) private var prEvents: [PREvent]
+
+    @Environment(\.modelContext) private var modelContext
 
     let profile: UserProfile
 
@@ -26,8 +29,13 @@ struct ProfileView: View {
     @State private var selectedWorkout: Workout?
     @State private var selectedPost: Post?
     @State private var selectedTab: ProfileContentTab = .posts
+    @State private var selectedTopTab: ProfileTopTab = .profile
     @State private var emotionInsightsExpanded = false
     @State private var showingCoach = false
+
+    // Activity stats state
+    @State private var weeklyProgress: (completed: Int, target: Int) = (0, 0)
+    @State private var readinessLevel: ReadinessLevel = .good
 
     private var profileAccent: Color {
         profileNeutralAccent
@@ -51,21 +59,47 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 12) {
-                    // Edge-to-edge: no card wrapper
+                VStack(spacing: 8) {
                     profileHeader
+                    achievementBadgesSection
+                    profileTopTabPicker
 
-                    // AI Coach entry
-                    aiCoachCard
+                    switch selectedTopTab {
+                    case .profile:
+                        VStack(spacing: 0) {
+                            profileTabBar
+                            profileTabContent
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                        }
+                        .homeSocialCard(cornerRadius: 14)
 
-                    // Tab bar + content merged into one card
-                    VStack(spacing: 0) {
-                        profileTabBar
-                        profileTabContent
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 12)
+                    case .progress:
+                        profileWeeklyProgress
+                        profileStatsSection
+
+                        NavigationLink {
+                            ProgressAnalyticsView(profile: profile)
+                        } label: {
+                            HStack {
+                                Image(systemName: "chart.line.uptrend.xyaxis")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(GQColors.vividPurple)
+                                Text("View Full Analytics")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(GQColors.vividPurple)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+                            .padding(12)
+                        }
+                        .buttonStyle(.plain)
+                        .homeSocialCard()
+
+                        aiCoachCard
                     }
-                    .homeSocialCard(cornerRadius: 14)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, GQLayout.pageTop)
@@ -75,9 +109,14 @@ struct ProfileView: View {
             .gqPageBackground()
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Text("@\(profile.username)")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.white)
+                    HStack(spacing: 4) {
+                        Text("@\(profile.username)")
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(GQColors.textPrimary)
+                        if profile.isPremium {
+                            PremiumBadge(size: 16)
+                        }
+                    }
                 }
                 #if os(iOS)
                 ToolbarItem(placement: .topBarTrailing) {
@@ -86,9 +125,9 @@ struct ProfileView: View {
                     } label: {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .frame(width: 34, height: 34)
-                            .background(Color.white.opacity(0.08))
+                            .background(Color.black.opacity(0.05))
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -117,6 +156,9 @@ struct ProfileView: View {
             .sheet(isPresented: $showingCoach) {
                 CoachView(profile: profile, workouts: Array(workouts), aiService: AIService())
             }
+            .onAppear {
+                loadProfileActivityData()
+            }
         }
     }
 
@@ -139,7 +181,7 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("AI Coach")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                     Text("Chat, plans & form analysis")
                         .font(.system(size: 13))
                         .foregroundColor(GQColors.textSecondary)
@@ -151,11 +193,218 @@ struct ProfileView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
             }
-            .padding(14)
+            .padding(12)
             .homeSocialCard(cornerRadius: 14)
         }
         .buttonStyle(GQInteractiveStyle())
     }
+
+    // MARK: - Activity Stats (merged from ActivityView)
+
+    @ViewBuilder
+    private var profileWeeklyProgress: some View {
+        WeeklyProgressCard(
+            weeklyProgress: weeklyProgress,
+            readinessLevel: readinessLevel,
+            workouts: workouts,
+            targetDays: profile.daysPerWeek,
+            onTodayTap: nil,
+            onRestTap: {
+                logRestDay()
+            },
+            onTargetChanged: { newTarget in
+                profile.daysPerWeek = newTarget
+                try? modelContext.save()
+                loadProfileActivityData()
+            }
+        )
+    }
+
+    @ViewBuilder
+    private var profileStatsSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Stats")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 10)
+
+            // Lifetime row
+            HStack(spacing: 0) {
+                ProfileLifetimeStatItem(
+                    icon: "dumbbell.fill",
+                    value: "\(nonRestWorkouts.count)",
+                    label: "Workouts",
+                    color: GQColors.textPrimary
+                )
+
+                Rectangle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(width: 1, height: 28)
+
+                ProfileLifetimeStatItem(
+                    icon: "scalemass.fill",
+                    value: homeTotalVolumeFormatted,
+                    label: "Volume",
+                    color: Color(hex: "30D158")
+                )
+
+                Rectangle()
+                    .fill(Color.black.opacity(0.06))
+                    .frame(width: 1, height: 28)
+
+                ProfileLifetimeStatItem(
+                    icon: "clock.fill",
+                    value: homeTotalDurationFormatted,
+                    label: "Time",
+                    color: Color(hex: "FF9500")
+                )
+            }
+            .padding(.bottom, 12)
+
+            // Recent PRs (hidden when empty)
+            if !recentPRs.isEmpty {
+                Rectangle()
+                    .fill(Color.black.opacity(0.05))
+                    .frame(height: 1)
+                    .padding(.horizontal, 16)
+
+                VStack(spacing: 8) {
+                    ForEach(recentPRs, id: \.id) { pr in
+                        HStack(spacing: 12) {
+                            Image(systemName: "trophy.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(GQColors.electricGold)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(pr.exerciseName)
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(GQColors.textPrimary)
+                                    .lineLimit(1)
+                                Text(pr.prType.rawValue)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+
+                            Spacer()
+
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(prValueFormatted(pr))
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(GQColors.textPrimary)
+
+                                if let delta = pr.delta, delta > 0 {
+                                    Text("+\(Int(delta)) lbs")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(GQColors.success)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+                .padding(.top, 10)
+                .padding(.bottom, 12)
+            }
+        }
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    // MARK: - Activity Computed Properties
+
+    private var nonRestWorkouts: [Workout] {
+        workouts.filter { $0.type != .rest }
+    }
+
+    private var homeTotalVolumeFormatted: String {
+        let volume = workouts.reduce(0.0) { $0 + $1.totalVolume }
+        if volume >= 1_000_000 {
+            return String(format: "%.1fM", volume / 1_000_000)
+        } else if volume >= 1_000 {
+            return String(format: "%.1fk", volume / 1_000)
+        }
+        return "\(Int(volume))"
+    }
+
+    private var homeTotalDurationFormatted: String {
+        let totalMinutes = workouts.reduce(0) { $0 + $1.duration }
+        let hours = totalMinutes / 60
+        if hours >= 1000 {
+            return String(format: "%.1fk", Double(hours) / 1000)
+        }
+        return "\(hours)h"
+    }
+
+    private var recentPRs: [PREvent] {
+        Array(prEvents.prefix(3))
+    }
+
+    private func prValueFormatted(_ pr: PREvent) -> String {
+        switch pr.prType {
+        case .weightPR:
+            return "\(Int(pr.newValue)) lbs"
+        case .repPR:
+            return "\(Int(pr.newValue)) reps"
+        case .volumePR:
+            if pr.newValue >= 1000 {
+                return String(format: "%.1fk", pr.newValue / 1000)
+            }
+            return "\(Int(pr.newValue))"
+        case .estimated1RMPR:
+            return "\(Int(pr.newValue)) lbs"
+        }
+    }
+
+    // MARK: - Activity Data Loading
+
+    private func loadProfileActivityData() {
+        let calendar = Calendar.current
+        let weekStart = calendar.startOfWeek(for: Date())
+        let weeklyWorkouts = workouts.filter { $0.date >= weekStart }
+        weeklyProgress = (weeklyWorkouts.count, profile.daysPerWeek)
+
+        readinessLevel = determineReadiness()
+    }
+
+    private func determineReadiness() -> ReadinessLevel {
+        let integration = IntegrationManager.shared
+        if integration.hasAnyConnection && integration.recoveryScore > 0 {
+            return integration.readinessLevel
+        }
+
+        let calendar = Calendar.current
+        let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: Date()) ?? Date()
+        let recentWorkouts = workouts.filter { $0.date >= threeDaysAgo }
+
+        if recentWorkouts.count >= 3 {
+            let avgRPE = Double(recentWorkouts.reduce(0) { $0 + $1.rpe }) / Double(recentWorkouts.count)
+            if avgRPE >= 8 { return .low }
+        }
+
+        if recentWorkouts.isEmpty { return .optimal }
+
+        return .good
+    }
+
+    private func logRestDay() {
+        let restWorkout = Workout(
+            date: Date(),
+            type: .rest,
+            duration: 0,
+            rpe: 1,
+            notes: "Rest day",
+            exercises: [],
+            title: "Rest Day",
+            source: .manual,
+            privacy: .privateOnly
+        )
+        modelContext.insert(restWorkout)
+        try? modelContext.save()
+        loadProfileActivityData()
+    }
+
+    // MARK: - Profile Header
 
     private var profileHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -166,18 +415,40 @@ struct ProfileView: View {
                 HStack(spacing: 0) {
                     igStatColumn(value: "\(userPosts.count)", label: "Posts")
                     igStatColumn(value: "\(totalWorkoutCount)", label: "Workouts")
-                    igStatColumn(value: "\(profile.xp)", label: "XP")
+                    igStatColumn(value: "\(prEvents.count)", label: "PRs")
                 }
             }
 
-            // Name + level
+            // Name + level + member since
             VStack(alignment: .leading, spacing: 2) {
-                Text(profile.name)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
+                HStack(spacing: 4) {
+                    Text(profile.name)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+                    if profile.isPremium {
+                        PremiumBadge(size: 14)
+                    }
+                }
                 Text("\(UserProfile.levelTitle(for: profile.level)) · Lv.\(profile.level)")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(GQColors.textTertiary)
+            }
+
+            // Equipment badges
+            if !profile.availableEquipment.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(profile.availableEquipment, id: \.self) { eq in
+                            Text(eq.rawValue)
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(GQColors.vividPurple)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(GQColors.vividPurple.opacity(0.1))
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
             }
 
             // Edit Profile button
@@ -186,7 +457,7 @@ struct ProfileView: View {
             } label: {
                 Text("Edit Profile")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                     .background(
@@ -195,19 +466,98 @@ struct ProfileView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                            .stroke(Color.black.opacity(0.09), lineWidth: 1)
                     )
             }
             .buttonStyle(GQInteractiveStyle())
         }
-        .padding(14)
+        .padding(12)
+    }
+
+    // MARK: - Achievement Badges
+
+    private var achievementBadgesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("ACHIEVEMENTS")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(GQColors.sectionLabel)
+                .tracking(0.6)
+                .padding(.horizontal, 4)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    achievementBadge(icon: "figure.walk", title: "First Workout", unlocked: totalWorkoutCount >= 1)
+                    achievementBadge(icon: "flame.fill", title: "7-Day Streak", unlocked: profile.xp >= 500)
+                    achievementBadge(icon: "flame.circle.fill", title: "30-Day Streak", unlocked: profile.xp >= 3000)
+                    achievementBadge(icon: "trophy.fill", title: "100 Workouts", unlocked: totalWorkoutCount >= 100)
+                    achievementBadge(icon: "star.fill", title: "PR Machine", unlocked: prEvents.count >= 10)
+                    achievementBadge(icon: "bubble.left.and.bubble.right.fill", title: "Social Butterfly", unlocked: userPosts.count >= 10)
+                }
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+
+    @ViewBuilder
+    private func achievementBadge(icon: String, title: String, unlocked: Bool) -> some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(unlocked ? GQColors.vividPurple.opacity(0.15) : Color.black.opacity(0.04))
+                    .frame(width: 48, height: 48)
+                Image(systemName: icon)
+                    .font(.system(size: 20))
+                    .foregroundColor(unlocked ? GQColors.vividPurple : GQColors.textTertiary.opacity(0.5))
+            }
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(unlocked ? GQColors.textPrimary : GQColors.textTertiary)
+                .lineLimit(1)
+        }
+        .frame(width: 72)
+        .opacity(unlocked ? 1 : 0.5)
+    }
+
+    // MARK: - Profile Top Tab Picker
+
+    private var profileTopTabPicker: some View {
+        HStack(spacing: 4) {
+            ForEach(ProfileTopTab.allCases, id: \.self) { tab in
+                Button {
+                    withAnimation(GQMotion.micro) {
+                        selectedTopTab = tab
+                    }
+                    HapticManager.shared.select()
+                } label: {
+                    Text(tab.rawValue)
+                        .font(.system(size: 14, weight: selectedTopTab == tab ? .semibold : .medium))
+                        .foregroundColor(selectedTopTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(selectedTopTab == tab ? Color.black.opacity(0.06) : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(
+            Capsule()
+                .fill(GQColors.surfaceBase)
+                .overlay(
+                    Capsule()
+                        .stroke(GQColors.borderSubtle, lineWidth: 1)
+                )
+        )
     }
 
     private func igStatColumn(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.system(size: 17, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
             Text(label)
                 .font(.system(size: 12))
                 .foregroundColor(GQColors.textSecondary)
@@ -253,10 +603,10 @@ struct ProfileView: View {
     private var avatarInitial: some View {
         ZStack {
             Circle()
-                .fill(Color.white.opacity(0.10))
+                .fill(Color.black.opacity(0.06))
             Text(String(profile.name.prefix(1)).uppercased())
                 .font(.system(size: 30, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
         }
     }
 
@@ -306,11 +656,11 @@ struct ProfileView: View {
                                 .foregroundColor(Color(hex: "FF9500"))
                             Text("\(insights.resilienceStreak) workouts showing up when it's hard")
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.06)))
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.04)))
                     }
 
                     let columns = [GridItem(.adaptive(minimum: 80), spacing: 8)]
@@ -348,10 +698,10 @@ struct ProfileView: View {
                     VStack(spacing: 10) {
                         Image(systemName: tab.icon)
                             .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(selectedTab == tab ? .white : GQColors.textTertiary)
+                            .foregroundColor(selectedTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
 
                         Rectangle()
-                            .fill(selectedTab == tab ? Color.white : Color.clear)
+                            .fill(selectedTab == tab ? GQColors.textPrimary : Color.clear)
                             .frame(height: 2)
                     }
                     .frame(maxWidth: .infinity)
@@ -415,6 +765,11 @@ struct ProfileView: View {
     }
 }
 
+private enum ProfileTopTab: String, CaseIterable {
+    case profile = "Profile"
+    case progress = "Progress"
+}
+
 private enum ProfileContentTab: CaseIterable {
     case posts
     case workouts
@@ -440,7 +795,7 @@ private struct ProfileEmptyState: View {
                 .foregroundColor(GQColors.textTertiary)
             Text(title)
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
             Text(subtitle)
                 .font(.system(size: 13))
                 .foregroundColor(GQColors.textSecondary)
@@ -467,7 +822,7 @@ struct ProfileLifetimeStatItem: View {
 
             Text(value)
                 .font(.system(size: 15, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             Text(label)
                 .font(.system(size: 10, weight: .medium))
@@ -495,7 +850,7 @@ struct WorkoutHistoryRowV2: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(workout.title ?? workout.type.rawValue)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
 
                 HStack(spacing: 12) {
@@ -503,7 +858,7 @@ struct WorkoutHistoryRowV2: View {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
                                 .font(.system(size: 11))
-                                .foregroundColor(Color.white.opacity(0.5))
+                                .foregroundColor(Color.black.opacity(0.30))
                             Text("\(workout.duration) min")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -544,7 +899,7 @@ struct WorkoutHistoryRow: View {
             VStack(spacing: 2) {
                 Text(post.timestamp.formatted(.dateTime.day()))
                     .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text(post.timestamp.formatted(.dateTime.weekday(.abbreviated)))
                     .font(.system(size: 11))
                     .foregroundColor(GQColors.textTertiary)
@@ -555,7 +910,7 @@ struct WorkoutHistoryRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(post.workoutType ?? "Workout")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                     .lineLimit(1)
 
                 HStack(spacing: 12) {
@@ -563,7 +918,7 @@ struct WorkoutHistoryRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
                                 .font(.system(size: 11))
-                                .foregroundColor(Color.white.opacity(0.5))
+                                .foregroundColor(Color.black.opacity(0.30))
                             Text("\(duration) min")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -608,7 +963,7 @@ struct WorkoutHistoryRow: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(
                 LinearGradient(
-                    colors: [Color.white.opacity(0.1), Color.white.opacity(0.05)],
+                    colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
                     startPoint: .top,
                     endPoint: .bottom
                 ),
@@ -696,7 +1051,7 @@ struct ProfilePostThumbnail: View {
         .overlay(alignment: .bottomLeading) {
             if let type = post.workoutType {
                 WorkoutTypeBadgeFromString(typeName: type, size: 24)
-                    .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
+                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
                     .padding(4)
             }
         }
@@ -788,7 +1143,7 @@ struct ProfilePostCard: View {
                             .foregroundColor(GQColors.cyanSpark)
                         Text("\(duration)m")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                 }
 
@@ -799,7 +1154,7 @@ struct ProfilePostCard: View {
                             .foregroundColor(profileFireAccent)
                         Text("\(sets)")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                 }
 
@@ -817,7 +1172,7 @@ struct ProfilePostCard: View {
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                .stroke(Color.black.opacity(0.04), lineWidth: 1)
         )
     }
 }
@@ -836,7 +1191,7 @@ struct WorkoutStatsCard: View {
             if let type = post.workoutType {
                 Text(type)
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
             }
 
             HStack(spacing: 32) {
@@ -894,7 +1249,7 @@ struct PostDetailView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(post.authorName)
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
                             Text(post.timestamp.formatted(date: .abbreviated, time: .shortened))
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textTertiary)
@@ -905,7 +1260,7 @@ struct PostDetailView: View {
                         if let workoutType = post.workoutType {
                             Text(workoutType)
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white)
+                                .foregroundColor(GQColors.textPrimary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
                                 .background(
@@ -913,7 +1268,7 @@ struct PostDetailView: View {
                                         .fill(.ultraThinMaterial)
                                         .overlay(
                                             Capsule()
-                                                .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                                                .stroke(Color.black.opacity(0.13), lineWidth: 1)
                                         )
                                 )
                         }
@@ -954,7 +1309,7 @@ struct PostDetailView: View {
                     if !post.caption.isEmpty {
                         Text(post.caption)
                             .font(.system(size: 16))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .lineSpacing(4)
                             .padding(.horizontal)
                     }
@@ -1091,6 +1446,10 @@ struct SettingsView: View {
     @State private var connectionStatus: String?
     @State private var showingConnectionAlert = false
     @State private var showingSaveError = false
+    @State private var gymName: String = ""
+    @State private var preferredDuration: Int = 60
+    @State private var experienceLevel: ExperienceLevel = .intermediate
+    @State private var selectedEquipment: Set<EquipmentType> = []
 
     @StateObject private var authService = AuthService()
 
@@ -1110,6 +1469,75 @@ struct SettingsView: View {
                         sectionHeader("Profile")
                         settingsTextField(title: "Name", text: $name)
                         settingsTextField(title: "Username", text: $username)
+                    }
+                    .padding(16)
+                    .homeSocialCard(accent: profileNeutralAccent)
+                    .gqScreenHorizontalPadding()
+
+                    // MARK: Gym Setup
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionHeader("Gym Setup")
+
+                        settingsTextField(title: "Gym Name", text: $gymName)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Experience Level")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.textSecondary)
+                            Picker("Experience", selection: $experienceLevel) {
+                                ForEach(ExperienceLevel.allCases, id: \.self) { level in
+                                    Text(level.rawValue).tag(level)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Workout Duration")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.textSecondary)
+                            Picker("Duration", selection: $preferredDuration) {
+                                Text("30 min").tag(30)
+                                Text("45 min").tag(45)
+                                Text("60 min").tag(60)
+                                Text("90 min").tag(90)
+                            }
+                            .pickerStyle(.segmented)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Equipment")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.textSecondary)
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8)], spacing: 8) {
+                                ForEach(EquipmentType.allCases, id: \.self) { equipment in
+                                    let isSelected = selectedEquipment.contains(equipment)
+                                    Button {
+                                        if isSelected {
+                                            selectedEquipment.remove(equipment)
+                                        } else {
+                                            selectedEquipment.insert(equipment)
+                                        }
+                                    } label: {
+                                        Text(equipment.rawValue)
+                                            .font(.system(size: 12, weight: .medium))
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 8)
+                                            .frame(maxWidth: .infinity)
+                                            .background(isSelected ? GQColors.vividPurple.opacity(0.15) : Color.black.opacity(0.03))
+                                            .foregroundColor(isSelected ? GQColors.vividPurple : GQColors.textPrimary)
+                                            .cornerRadius(8)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.5) : Color.clear, lineWidth: 1)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
                     }
                     .padding(16)
                     .homeSocialCard(accent: profileNeutralAccent)
@@ -1183,16 +1611,16 @@ struct SettingsView: View {
                                 }
                             }
                             .pickerStyle(.menu)
-                            .tint(.white)
+                            .tint(GQColors.textPrimary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.white.opacity(0.07))
+                                    .fill(Color.black.opacity(0.04))
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                    .stroke(Color.black.opacity(0.07), lineWidth: 1)
                             )
                         }
                         .onChange(of: aiProvider) { _, newValue in
@@ -1280,6 +1708,10 @@ struct SettingsView: View {
                         profile.apiKey = apiKey
                         profile.ollamaModel = ollamaModel
                         profile.ollamaHost = ollamaHost
+                        profile.gymName = gymName
+                        profile.preferredWorkoutDuration = preferredDuration
+                        profile.experienceLevel = experienceLevel
+                        profile.availableEquipment = Array(selectedEquipment)
                         do {
                             try modelContext.save()
                             dismiss()
@@ -1318,6 +1750,10 @@ struct SettingsView: View {
                 apiKey = profile.apiKey
                 ollamaModel = profile.ollamaModel
                 ollamaHost = profile.ollamaHost
+                gymName = profile.gymName
+                preferredDuration = profile.preferredWorkoutDuration
+                experienceLevel = profile.experienceLevel ?? .intermediate
+                selectedEquipment = Set(profile.availableEquipment)
             }
         }
     }
@@ -1326,7 +1762,7 @@ struct SettingsView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title.uppercased())
             .font(.system(size: 11, weight: .bold))
-            .foregroundColor(GQColors.textTertiary)
+            .foregroundColor(GQColors.sectionLabel)
             .tracking(0.6)
     }
 
@@ -1352,11 +1788,11 @@ struct SettingsView: View {
                 .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white.opacity(0.07))
+                        .fill(Color.black.opacity(0.04))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.07), lineWidth: 1)
                 )
         }
     }
@@ -1373,11 +1809,11 @@ struct SettingsView: View {
                 .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.white.opacity(0.07))
+                        .fill(Color.black.opacity(0.04))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        .stroke(Color.black.opacity(0.07), lineWidth: 1)
                 )
         }
     }
@@ -1402,7 +1838,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
                 Text(subtitle)
                     .font(.system(size: 12))
                     .foregroundColor(GQColors.textSecondary)
@@ -1492,5 +1928,4 @@ struct SettingsView: View {
 #Preview {
     ProfileView(profile: UserProfile())
         .environmentObject(AppState())
-        .preferredColorScheme(.dark)
 }

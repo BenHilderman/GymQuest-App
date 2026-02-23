@@ -26,6 +26,9 @@ struct OnboardingView: View {
     @State private var name = ""
     @State private var username = ""
     @State private var dateOfBirth = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
+    @State private var selectedGoal: FitnessGoal = .hypertrophy
+    @State private var selectedExperience: ExperienceLevel = .intermediate
+    @State private var selectedEquipment: Set<EquipmentType> = []
 
     // Password is now passed in directly, not stored in UserDefaults
     private var storedPassword: String {
@@ -46,7 +49,7 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<totalSteps, id: \.self) { step in
                         Capsule()
-                            .fill(step <= currentStep ? Color.white : Color.white.opacity(0.2))
+                            .fill(step <= currentStep ? GQColors.textPrimary : GQColors.textPrimary.opacity(0.2))
                             .frame(height: 4)
                     }
                 }
@@ -63,6 +66,12 @@ struct OnboardingView: View {
                     UsernameStepView(username: $username)
                 case 2:
                     BirthdayStepView(dateOfBirth: $dateOfBirth)
+                case 3:
+                    GoalStepView(selectedGoal: $selectedGoal)
+                case 4:
+                    ExperienceStepView(selectedExperience: $selectedExperience)
+                case 5:
+                    EquipmentStepView(selectedEquipment: $selectedEquipment)
                 default:
                     EmptyView()
                 }
@@ -110,11 +119,11 @@ struct OnboardingView: View {
     }
 
     private var totalSteps: Int {
-        3  // Always 3 steps: name, username, birthday
+        6  // name, username, birthday, goal, experience, equipment
     }
 
     private var isLastStep: Bool {
-        currentStep == 2
+        currentStep == 5
     }
 
     private var canContinue: Bool {
@@ -122,6 +131,9 @@ struct OnboardingView: View {
         case 0: return !name.trimmingCharacters(in: .whitespaces).isEmpty
         case 1: return !username.trimmingCharacters(in: .whitespaces).isEmpty
         case 2: return true
+        case 3: return true
+        case 4: return true
+        case 5: return !selectedEquipment.isEmpty
         default: return true
         }
     }
@@ -164,7 +176,11 @@ struct OnboardingView: View {
             // Password is now passed in-memory through AuthState, no cleanup needed
         }
 
-        if profile != nil {
+        if let profile {
+            profile.goal = selectedGoal
+            profile.experienceLevel = selectedExperience
+            profile.availableEquipment = Array(selectedEquipment)
+            try? modelContext.save()
             withAnimation {
                 appState.authState = .authenticated
             }
@@ -225,7 +241,7 @@ struct UsernameStepView: View {
                     .focused($isFocused)
             }
             .padding(14)
-            .background(Color.white.opacity(0.08))
+            .background(Color.black.opacity(0.05))
             .cornerRadius(12)
             .padding(.horizontal, 32)
             .padding(.top, 16)
@@ -264,10 +280,186 @@ struct BirthdayStepView: View {
             .datePickerStyle(.wheel)
             .labelsHidden()
             #if os(iOS)
-            .colorScheme(.dark)
+            .colorScheme(.light)
             #endif
             .padding(.horizontal, 32)
             .padding(.top, 16)
+        }
+    }
+}
+
+struct GoalStepView: View {
+    @Binding var selectedGoal: FitnessGoal
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "target")
+                .font(.system(size: 48))
+                .foregroundStyle(GQGradients.primary)
+
+            Text("What's your goal?")
+                .font(.title)
+                .fontWeight(.bold)
+
+            Text("We'll tailor your experience")
+                .font(.subheadline)
+                .foregroundColor(GQColors.textTertiary)
+
+            VStack(spacing: 12) {
+                ForEach(FitnessGoal.allCases, id: \.self) { goal in
+                    Button {
+                        selectedGoal = goal
+                    } label: {
+                        HStack {
+                            Image(systemName: goalIcon(goal))
+                                .font(.title3)
+                                .frame(width: 28)
+                            Text(goal.rawValue)
+                                .font(.body.weight(.medium))
+                            Spacer()
+                            if selectedGoal == goal {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(GQGradients.primary)
+                            }
+                        }
+                        .padding(14)
+                        .background(selectedGoal == goal ? GQColors.vividPurple.opacity(0.1) : Color.black.opacity(0.03))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(selectedGoal == goal ? GQColors.vividPurple.opacity(0.4) : Color.clear, lineWidth: 1.5)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(GQColors.textPrimary)
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.top, 8)
+        }
+    }
+
+    private func goalIcon(_ goal: FitnessGoal) -> String {
+        switch goal {
+        case .hypertrophy: return "figure.strengthtraining.traditional"
+        case .strength: return "dumbbell.fill"
+        case .performance: return "bolt.fill"
+        case .general: return "heart.fill"
+        }
+    }
+}
+
+struct ExperienceStepView: View {
+    @Binding var selectedExperience: ExperienceLevel
+
+    private var descriptions: [ExperienceLevel: String] {
+        [
+            .beginner: "New to lifting or less than 6 months",
+            .intermediate: "1-3 years of consistent training",
+            .advanced: "3+ years, comfortable with programming"
+        ]
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "chart.bar.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(GQGradients.primary)
+
+            Text("Experience level?")
+                .font(.title)
+                .fontWeight(.bold)
+
+            Text("This helps us set the right intensity")
+                .font(.subheadline)
+                .foregroundColor(GQColors.textTertiary)
+
+            VStack(spacing: 12) {
+                ForEach(ExperienceLevel.allCases, id: \.self) { level in
+                    Button {
+                        selectedExperience = level
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(level.rawValue)
+                                    .font(.body.weight(.semibold))
+                                Spacer()
+                                if selectedExperience == level {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(GQGradients.primary)
+                                }
+                            }
+                            Text(descriptions[level] ?? "")
+                                .font(.caption)
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+                        .padding(14)
+                        .background(selectedExperience == level ? GQColors.vividPurple.opacity(0.1) : Color.black.opacity(0.03))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(selectedExperience == level ? GQColors.vividPurple.opacity(0.4) : Color.clear, lineWidth: 1.5)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundColor(GQColors.textPrimary)
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.top, 8)
+        }
+    }
+}
+
+struct EquipmentStepView: View {
+    @Binding var selectedEquipment: Set<EquipmentType>
+
+    private let columns = [GridItem(.adaptive(minimum: 100), spacing: 10)]
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "dumbbell.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(GQGradients.primary)
+
+            Text("What's at your gym?")
+                .font(.title)
+                .fontWeight(.bold)
+
+            Text("Select all that apply")
+                .font(.subheadline)
+                .foregroundColor(GQColors.textTertiary)
+
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(EquipmentType.allCases, id: \.self) { equipment in
+                    let isSelected = selectedEquipment.contains(equipment)
+                    Button {
+                        if isSelected {
+                            selectedEquipment.remove(equipment)
+                        } else {
+                            selectedEquipment.insert(equipment)
+                        }
+                    } label: {
+                        Text(equipment.rawValue)
+                            .font(.system(size: 13, weight: .medium))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(isSelected ? GQColors.vividPurple.opacity(0.15) : Color.black.opacity(0.03))
+                            .foregroundColor(isSelected ? GQColors.vividPurple : GQColors.textPrimary)
+                            .cornerRadius(10)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.5) : Color.clear, lineWidth: 1.5)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 32)
+            .padding(.top, 8)
         }
     }
 }

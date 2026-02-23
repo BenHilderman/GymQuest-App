@@ -29,9 +29,9 @@ struct RootView: View {
                 } else {
                     // quick loading spinner while we check if they're logged in
                     ZStack {
-                        Color.black.ignoresSafeArea()
+                        GQColors.background.ignoresSafeArea()
                         ProgressView()
-                            .tint(.white)
+                            .tint(GQColors.textPrimary)
                     }
                 }
 
@@ -43,6 +43,9 @@ struct RootView: View {
                     tempPassword: tempPassword
                 )
 
+            case .trainingPlanOffer:
+                TrainingPlanOfferView()
+
             case .authenticated:
                 ContentView()
             }
@@ -53,6 +56,9 @@ struct RootView: View {
     }
 
     private func checkAuth() {
+        // Skip if auth state was already set by LoginView
+        if case .notAuthenticated = appState.authState {} else { return }
+
         authService.setModelContext(modelContext)
 
         // Dev mode: skip auth and create/use test user
@@ -63,7 +69,7 @@ struct RootView: View {
             return
         }
 
-        if let profile = authService.checkExistingAuth() {
+        if let _ = authService.checkExistingAuth() {
             appState.authState = .authenticated
         } else {
             appState.authState = .notAuthenticated

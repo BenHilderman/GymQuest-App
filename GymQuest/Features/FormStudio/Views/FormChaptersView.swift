@@ -30,7 +30,7 @@ struct FormChaptersView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Chapters")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
 
             ForEach(sortedChapters) { chapter in
                 ChapterRow(
@@ -56,13 +56,13 @@ struct ChapterRow: View {
                 // Time badge
                 Text(formatTime(chapter.timeSeconds))
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
-                    .foregroundColor(isActive ? .white : GQColors.textSecondary)
+                    .foregroundColor(isActive ? GQColors.textPrimary : GQColors.textSecondary)
                     .frame(width: 44, alignment: .leading)
 
                 // Title
                 Text(chapter.title)
                     .font(.system(size: 15, weight: isActive ? .semibold : .regular))
-                    .foregroundColor(isActive ? .white : GQColors.textSecondary)
+                    .foregroundColor(isActive ? GQColors.textPrimary : GQColors.textSecondary)
 
                 Spacer()
 
@@ -105,7 +105,7 @@ struct ChapterStrip: View {
             ZStack(alignment: .leading) {
                 // Track
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.white.opacity(0.2))
+                    .fill(Color.black.opacity(0.12))
                     .frame(height: 4)
 
                 // Progress

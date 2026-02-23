@@ -33,7 +33,7 @@ struct ContentView: View {
                     EnergyBackground()
                     VStack(spacing: 16) {
                         ProgressView()
-                            .tint(.white)
+                            .tint(GQColors.textPrimary)
                             .scaleEffect(1.2)
                         Text("Loading...")
                             .font(.system(size: 14, weight: .medium))
@@ -44,7 +44,7 @@ struct ContentView: View {
         }
     }
 
-    private var allTabs: [AppState.Tab] { AppState.Tab.allCases }
+    private var allTabs: [AppState.Tab] { AppState.Tab.visibleTabs }
 
     @ViewBuilder
     private func mainContent(profile: UserProfile) -> some View {
@@ -56,14 +56,6 @@ struct ContentView: View {
                     .opacity(appState.selectedTab == .feed ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .feed)
 
-                ActivityView(profile: profile)
-                    .opacity(appState.selectedTab == .home ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .home)
-
-                LogView(profile: profile)
-                    .opacity(appState.selectedTab == .log ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .log)
-
                 ProfileView(profile: profile)
                     .opacity(appState.selectedTab == .profile ? 1 : 0)
                     .allowsHitTesting(appState.selectedTab == .profile)
@@ -74,8 +66,11 @@ struct ContentView: View {
             }
             .ignoresSafeArea(.keyboard)
 
-            // Active workout mini-bar + tab bar
+            // Now playing + active workout mini-bar + tab bar
             VStack(spacing: 0) {
+                NowPlayingBar()
+                    .padding(.bottom, 4)
+
                 // Mini-bar when workout is active and not on home tab
                 if appState.isWorkoutActive && appState.selectedTab != .home {
                     ActiveWorkoutMiniBar()
@@ -121,6 +116,14 @@ struct ContentView: View {
         }
         .sheet(item: $appState.selectedSession) { session in
             SessionDetailView(session: session)
+        }
+        .sheet(isPresented: $appState.showingQuickActions) {
+            QuickActionSheet()
+                .presentationDetents([.height(340)])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $appState.showingLogEntry) {
+            LogView(profile: profile)
         }
         .onAppear {
             AnalyticsService.shared.configure(modelContext: modelContext)
@@ -181,7 +184,7 @@ struct FloatingTabBar: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ZStack(alignment: .topTrailing) {
-                    FloatingTabButton(tab: .feed, icon: "person.2", selectedIcon: "person.2.fill", label: "Feed")
+                    FloatingTabButton(tab: .feed, icon: "house", selectedIcon: "house.fill", label: "Home")
 
                     if SocialActivityService.shared.hasLiveFriends {
                         SocialActivityBadge()
@@ -189,11 +192,9 @@ struct FloatingTabBar: View {
                     }
                 }
 
-                FloatingTabButton(tab: .home, icon: "house", selectedIcon: "house.fill", label: "Home")
-
                 // Center add button - with animated gradient border
                 Button {
-                    appState.showingWorkoutStartOptions = true
+                    appState.showingQuickActions = true
                 } label: {
                     ZStack {
                         // Subtle glow
@@ -224,16 +225,14 @@ struct FloatingTabBar: View {
                         // Plus icon
                         Image(systemName: "plus")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                     }
                 }
                 .buttonStyle(GQInteractiveStyle(scaleAmount: 0.90, hapticStyle: .medium))
                 .frame(maxWidth: .infinity)
                 .offset(y: -6)
-                .accessibilityLabel("Log workout")
-                .accessibilityHint("Double tap to start logging a new workout")
-
-                FloatingTabButton(tab: .log, icon: "square.and.pencil", selectedIcon: "square.and.pencil", label: "Log")
+                .accessibilityLabel("Quick actions")
+                .accessibilityHint("Double tap to start a workout, log entry, or create a post")
 
                 FloatingTabButton(tab: .profile, icon: "person", selectedIcon: "person.fill", label: "You")
             }
@@ -241,12 +240,17 @@ struct FloatingTabBar: View {
             .padding(.top, 4)
             .padding(.bottom, 2)
         }
+        .padding(.bottom, 4)
         .background(
             ZStack(alignment: .top) {
                 TabBarNotchShape(notchRadius: 17)
-                    .fill(GQColors.deepBlack)
+                    .fill(.ultraThinMaterial)
                 TabBarNotchShape(notchRadius: 17)
                     .stroke(GQColors.borderSubtle.opacity(0.4), lineWidth: 0.5)
+                // Accent gradient top line
+                Rectangle()
+                    .fill(GQColors.borderAccent)
+                    .frame(height: 0.5)
             }
             .ignoresSafeArea(.container, edges: .bottom)
         )
@@ -275,11 +279,11 @@ struct ActiveWorkoutMiniBar: View {
                 if let workout = appState.activeWorkout {
                     Image(systemName: workout.workoutType.icon)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text(workout.workoutType.rawValue)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
 
                 Spacer()
@@ -350,7 +354,7 @@ struct FloatingTabButton: View {
     var isSelected: Bool { appState.selectedTab == tab }
 
     var tabColor: Color {
-        return .white
+        return GQColors.textPrimary
     }
 
     var displayIcon: String {
@@ -416,7 +420,7 @@ struct MiniWorkoutBar: View {
 
                 Text("\(workoutType.rawValue) Workout")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(GQColors.textPrimary)
 
                 Spacer()
 
@@ -432,7 +436,7 @@ struct MiniWorkoutBar: View {
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(white: 0.1))
+                    .fill(Color.white)
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
                             .stroke(
@@ -470,6 +474,121 @@ struct TabButton: View {
     }
 }
 
+// MARK: - Quick Action Sheet
+
+struct QuickActionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Quick Actions")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 20)
+            .padding(.bottom, 14)
+
+            VStack(spacing: 10) {
+                quickActionCard(
+                    icon: "figure.strengthtraining.traditional",
+                    title: "Start Workout",
+                    subtitle: "Begin a live session",
+                    accent: GQColors.vividPurple,
+                    emphasized: true
+                ) {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        appState.showingWorkoutStartOptions = true
+                    }
+                }
+
+                quickActionCard(
+                    icon: "square.and.pencil",
+                    title: "Log Entry",
+                    subtitle: "Record a past workout",
+                    accent: GQColors.cyanSpark
+                ) {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        appState.showingLogEntry = true
+                    }
+                }
+
+                quickActionCard(
+                    icon: "camera.fill",
+                    title: "New Post",
+                    subtitle: "Share with friends",
+                    accent: GQColors.sunsetOrange
+                ) {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        appState.showingCreatePost = true
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+
+            Spacer()
+        }
+        .gqPageBackground()
+    }
+
+    @ViewBuilder
+    private func quickActionCard(
+        icon: String,
+        title: String,
+        subtitle: String,
+        accent: Color,
+        emphasized: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(accent.opacity(0.18))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundColor(accent)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .homeSocialCard(accent: accent, emphasized: emphasized)
+        }
+        .buttonStyle(GQInteractiveStyle())
+    }
+}
+
 // MARK: - Social Activity Badge
 
 struct SocialActivityBadge: View {
@@ -491,5 +610,5 @@ struct SocialActivityBadge: View {
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
         .modelContainer(for: [Workout.self, UserProfile.self], inMemory: true)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

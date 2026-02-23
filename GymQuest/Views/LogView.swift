@@ -67,7 +67,7 @@ struct LogView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Text("Log")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
                 }
             }
             .onAppear { loadTodayMeals() }
@@ -316,7 +316,7 @@ struct LogView: View {
     private func progressPhotoTile(_ measurement: BodyMeasurement) -> some View {
         VStack(spacing: 4) {
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.1))
+                .fill(Color.black.opacity(0.06))
                 .frame(width: 80, height: 100)
                 .overlay(
                     Image(systemName: "photo")
@@ -399,5 +399,5 @@ struct LogView: View {
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
         .modelContainer(for: [BodyMeasurement.self, MealLog.self], inMemory: true)
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

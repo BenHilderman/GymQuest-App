@@ -43,7 +43,7 @@ struct LoginView: View {
 
                     Text("GymQuest")
                         .font(.system(size: 36, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(GQColors.textPrimary)
 
                     Text("Track your gains. Level up.")
                         .font(.subheadline)
@@ -96,13 +96,13 @@ struct LoginView: View {
                         Text("Already have an account? ")
                             .foregroundColor(GQColors.textTertiary) +
                         Text("Sign in")
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .fontWeight(.semibold)
                     } else {
                         Text("Don't have an account? ")
                             .foregroundColor(GQColors.textTertiary) +
                         Text("Sign up")
-                            .foregroundColor(.white)
+                            .foregroundColor(GQColors.textPrimary)
                             .fontWeight(.semibold)
                     }
                 }
@@ -167,7 +167,8 @@ struct LoginView: View {
             let googleName = user.profile?.name
 
             // Check if user exists
-            if let _ = authService.googleIdExists(googleId) {
+            if let existingProfile = authService.googleIdExists(googleId) {
+                authService.markAuthenticated(existingProfile)
                 withAnimation {
                     appState.authState = .authenticated
                 }
