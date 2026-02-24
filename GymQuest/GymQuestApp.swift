@@ -207,6 +207,8 @@ class AppState: ObservableObject {
     func startWorkout(type: WorkoutType, exercises: [ActiveExercise] = [], customTitle: String? = nil) {
         activeWorkout = ActiveWorkoutState(workoutType: type, exercises: exercises, startTime: Date(), customTitle: customTitle)
         isWorkoutPaused = false
+        selectedTab = .home
+        showingWorkoutStartOptions = false
     }
 
     func endWorkout() {

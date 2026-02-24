@@ -717,6 +717,8 @@ struct WeeklyProgressCard: View {
         case .rest: return "Rest"
         case .glutes: return "Glutes"
         case .abs: return "Abs"
+        case .hiit: return "HIIT"
+        case .yoga: return "Yoga"
         case .custom: return "Other"
         }
     }
@@ -734,7 +736,7 @@ struct WeeklyProgressCard: View {
         case .legs: return .push
         case .upper: return .lower
         case .lower: return .upper
-        case .fullBody, .cardio, .rest, .glutes, .abs, .custom: return .push
+        case .fullBody, .cardio, .rest, .glutes, .abs, .hiit, .yoga, .custom: return .push
         }
     }
 
@@ -1616,6 +1618,8 @@ struct StartWorkoutSheet: View {
         case .rest: muscleGroups = [.core]
         case .glutes: muscleGroups = [.glutes, .hamstrings]
         case .abs: muscleGroups = [.core]
+        case .hiit: muscleGroups = [.cardio, .chest, .quads]
+        case .yoga: muscleGroups = [.core, .flexibility]
         case .custom: muscleGroups = [.chest, .back, .shoulders]
         }
 

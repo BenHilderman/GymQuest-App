@@ -442,21 +442,25 @@ enum WorkoutType: String, Codable, CaseIterable {
     case rest = "Active Recovery"
     case glutes = "Glutes"
     case abs = "Abs"
+    case hiit = "HIIT"
+    case yoga = "Yoga"
     case custom = "Custom"
 
     var icon: String {
         switch self {
-        case .push: return "arrow.up.circle.fill"
-        case .pull: return "arrow.down.circle.fill"
+        case .push: return "figure.martial.arts"
+        case .pull: return "figure.rower"
         case .legs: return "figure.walk"
-        case .upper: return "figure.arms.open"
-        case .lower: return "figure.stand"
+        case .upper: return "figure.boxing"
+        case .lower: return "figure.cross.training"
         case .fullBody: return "figure.strengthtraining.traditional"
         case .cardio: return "figure.run"
-        case .rest: return "leaf.fill"
-        case .glutes: return "figure.walk"
+        case .rest: return "figure.cooldown"
+        case .glutes: return "figure.flexibility"
         case .abs: return "figure.core.training"
-        case .custom: return "slider.horizontal.3"
+        case .hiit: return "figure.highintensity.intervaltraining"
+        case .yoga: return "figure.yoga"
+        case .custom: return "plus.circle.fill"
         }
     }
 

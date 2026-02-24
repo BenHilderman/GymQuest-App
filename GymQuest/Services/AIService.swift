@@ -583,6 +583,12 @@ class AIService: ObservableObject {
         case .abs:
             return "Core session complete. Prioritize bracing patterns for transfer to compound lifts."
 
+        case .hiit:
+            return "HIIT done. Keep rest intervals strict and push intensity each round."
+
+        case .yoga:
+            return "Yoga session logged. Consistent mobility work prevents injuries and improves range of motion."
+
         case .custom:
             return "Custom session logged. Track your progress and adjust volume next time."
         }

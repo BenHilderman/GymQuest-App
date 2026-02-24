@@ -29,17 +29,23 @@ struct WorkoutTypeSelectionView: View {
     @State private var selectedType: WorkoutType?
     @State private var customName: String = ""
 
-    private let workoutTypes: [WorkoutTypeOption] = [
+    private let splitTypes: [WorkoutTypeOption] = [
         .init(type: .push, description: "Chest, shoulders, triceps"),
         .init(type: .pull, description: "Back, biceps, rear delts"),
         .init(type: .legs, description: "Quads, hamstrings, glutes"),
         .init(type: .upper, description: "Full upper body focus"),
         .init(type: .lower, description: "Full lower body focus"),
         .init(type: .fullBody, description: "Complete full-body session"),
-        .init(type: .cardio, description: "Running, cycling, intervals"),
-        .init(type: .rest, description: "Active recovery and mobility"),
+    ]
+
+    private let activityTypes: [WorkoutTypeOption] = [
         .init(type: .glutes, description: "Glutes, hip thrusts, kickbacks"),
-        .init(type: .abs, description: "Core, abs, obliques")
+        .init(type: .abs, description: "Core, abs, obliques"),
+        .init(type: .hiit, description: "High-intensity intervals"),
+        .init(type: .yoga, description: "Yoga and stretching"),
+        .init(type: .cardio, description: "Running, cycling, intervals"),
+        .init(type: .rest, description: "Recovery and mobility"),
+        .init(type: .custom, description: "Name your own workout"),
     ]
 
     private var selectedAccent: Color {
@@ -68,27 +74,35 @@ struct WorkoutTypeSelectionView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 8)
 
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                            ForEach(workoutTypes) { option in
-                                CompactWorkoutTypeCard(
-                                    option: option,
-                                    isTapped: tapScale == option.type
-                                ) {
-                                    HapticManager.shared.select()
-                                    if option.type == .custom {
-                                        selectedType = .custom
-                                    } else {
-                                        tapScale = option.type
-                                        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {}
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                            selectedType = option.type
-                                            startWorkout()
-                                        }
-                                    }
+                        // MARK: - Training Split
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Training Split")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(GQColors.textSecondary)
+                                .padding(.horizontal, 20)
+
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                                ForEach(splitTypes) { option in
+                                    workoutCard(for: option)
                                 }
                             }
+                            .padding(.horizontal, 20)
                         }
-                        .padding(.horizontal, 20)
+
+                        // MARK: - Activity
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Activity")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(GQColors.textSecondary)
+                                .padding(.horizontal, 20)
+
+                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                                ForEach(activityTypes) { option in
+                                    workoutCard(for: option)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
 
                         // "Other" card with inline text field
                         if selectedType == .custom {
@@ -146,6 +160,26 @@ struct WorkoutTypeSelectionView: View {
         .padding(.top, 16)
     }
 
+    @ViewBuilder
+    private func workoutCard(for option: WorkoutTypeOption) -> some View {
+        CompactWorkoutTypeCard(
+            option: option,
+            isTapped: tapScale == option.type
+        ) {
+            HapticManager.shared.select()
+            if option.type == .custom {
+                selectedType = .custom
+            } else {
+                tapScale = option.type
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {}
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    selectedType = option.type
+                    startWorkout()
+                }
+            }
+        }
+    }
+
     private func startWorkout() {
         guard let selectedType else { return }
         HapticManager.shared.impact(.medium)
@@ -166,25 +200,34 @@ private struct CompactWorkoutTypeCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(option.accent.opacity(0.16))
-                        .frame(width: 36, height: 36)
-
-                    Image(systemName: option.type.icon)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(option.accent)
-                }
+            VStack(spacing: 10) {
+                Image(systemName: option.type.icon)
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundColor(.white)
 
                 Text(option.type.rawValue)
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
+                    .foregroundColor(.white)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .homeSocialCard(accent: option.accent)
+            .padding(.vertical, 18)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(GQGradients.workoutCardGradient(for: option.type))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [GQColors.deepBlue.opacity(0.15), GQColors.vividPurple.opacity(0.15)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.04), radius: 4, y: 2)
             .scaleEffect(isTapped ? 0.92 : 1.0)
             .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isTapped)
         }

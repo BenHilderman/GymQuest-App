@@ -596,6 +596,15 @@ struct GQGradients {
 
     // MARK: - Workout Type Gradients
 
+    /// Theme card gradient — card background fading into blue-purple.
+    static func workoutCardGradient(for type: WorkoutType) -> LinearGradient {
+        LinearGradient(
+            colors: [GQColors.deepBlue.opacity(0.18), GQColors.vividPurple.opacity(0.28)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     /// Returns a solid-style fill for workout tiles while preserving existing call sites.
     static func workoutGradient(for type: WorkoutType) -> LinearGradient {
         let color = workoutColor(for: type)
@@ -607,36 +616,12 @@ struct GQGradients {
     }
 
     static func workoutColor(for type: WorkoutType) -> Color {
-        switch type {
-        case .push: return GQColors.deepBlue
-        case .pull: return GQColors.vividPurple
-        case .legs: return GQColors.cyanSpark
-        case .upper: return GQColors.vividPurple
-        case .lower: return GQColors.deepBlue
-        case .fullBody: return GQColors.cyanSpark
-        case .cardio: return GQColors.success
-        case .rest: return Color.black.opacity(0.06)
-        case .glutes: return GQColors.vividPurple
-        case .abs: return GQColors.deepBlue
-        case .custom: return GQColors.cyanSpark
-        }
+        GQColors.deepBlue
     }
 
     /// Returns raw color array for a workout type — useful for theming rings, progress bars, checkmarks, etc.
     static func workoutGradientColors(for type: WorkoutType) -> [Color] {
-        switch type {
-        case .push: return [GQColors.deepBlue, GQColors.cyanSpark]
-        case .pull: return [GQColors.vividPurple, GQColors.deepBlue]
-        case .legs: return [GQColors.cyanSpark, GQColors.vividPurple]
-        case .upper: return [GQColors.vividPurple, GQColors.cyanSpark]
-        case .lower: return [GQColors.deepBlue, GQColors.vividPurple]
-        case .fullBody: return [GQColors.cyanSpark, GQColors.deepBlue]
-        case .cardio: return [GQColors.success, GQColors.cyanSpark]
-        case .rest: return [Color.black.opacity(0.08), Color.black.opacity(0.04)]
-        case .glutes: return [GQColors.vividPurple, GQColors.cyanSpark]
-        case .abs: return [GQColors.deepBlue, GQColors.vividPurple]
-        case .custom: return [GQColors.cyanSpark, GQColors.deepBlue]
-        }
+        [GQColors.deepBlue, GQColors.vividPurple]
     }
 }
 
@@ -1270,32 +1255,44 @@ struct WorkoutFlowMetricChip: View {
     let value: String
     let label: String
     let color: Color
+    var compact: Bool = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(color)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(value)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                Text(label)
-                    .font(.system(size: 10, weight: .medium))
+        if compact {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
+                Text(value)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textSecondary)
             }
+        } else {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(color)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(value)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text(label)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(GQColors.surfaceBase)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(
-            Capsule()
-                .fill(GQColors.surfaceBase)
-        )
-        .overlay(
-            Capsule()
-                .stroke(GQColors.borderDefault, lineWidth: 1)
-        )
     }
 }
 
