@@ -706,6 +706,10 @@ struct ActiveExerciseCard: View {
     var body: some View {
         VStack(spacing: 12) {
             HStack(alignment: .center) {
+                if FeatureFlags.shared.exerciseGifsEnabled {
+                    ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: false)
+                }
+
                 VStack(alignment: .leading, spacing: 3) {
                     Text(exercise.name)
                         .font(.system(size: 17, weight: .semibold))
@@ -1292,10 +1296,16 @@ struct AddExerciseToSessionSheet: View {
                                         addExercise(exercise)
                                     } label: {
                                         HStack(spacing: 10) {
-                                            Image(systemName: exercise.equipment.icon)
-                                                .font(.system(size: 14))
-                                                .foregroundColor(GQColors.cyanSpark)
-                                                .frame(width: 24)
+                                            if FeatureFlags.shared.exerciseGifsEnabled {
+                                                ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: true)
+                                                    .scaleEffect(0.6)
+                                                    .frame(width: 24, height: 24)
+                                            } else {
+                                                Image(systemName: exercise.equipment.icon)
+                                                    .font(.system(size: 14))
+                                                    .foregroundColor(GQColors.cyanSpark)
+                                                    .frame(width: 24)
+                                            }
                                             VStack(alignment: .leading, spacing: 1) {
                                                 Text(exercise.name)
                                                     .font(.system(size: 14, weight: .semibold))
@@ -1466,14 +1476,18 @@ struct ExercisePickerCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 // Top row: icon, name, heart, chevron
                 HStack(spacing: 10) {
-                    // Equipment icon in colored circle
-                    ZStack {
-                        Circle()
-                            .fill(muscleColor.opacity(0.15))
-                            .frame(width: 38, height: 38)
-                        Image(systemName: exercise.equipment.icon)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(muscleColor)
+                    // Exercise GIF or equipment icon
+                    if FeatureFlags.shared.exerciseGifsEnabled {
+                        ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: true)
+                    } else {
+                        ZStack {
+                            Circle()
+                                .fill(muscleColor.opacity(0.15))
+                                .frame(width: 38, height: 38)
+                            Image(systemName: exercise.equipment.icon)
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(muscleColor)
+                        }
                     }
 
                     Text(exercise.name)
@@ -1631,37 +1645,10 @@ struct ExerciseFormDemoSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    // Robot demo placeholder
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(
-                                LinearGradient(
-                                    colors: [GQColors.surfaceElevated, GQColors.surfaceBase],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(GQGradients.glassBorder, lineWidth: 1)
-                            )
-                            .frame(height: 250)
-
-                        VStack(spacing: 16) {
-                            Image(systemName: "figure.strengthtraining.traditional")
-                                .font(.system(size: 60))
-                                .foregroundColor(GQColors.textPrimary.opacity(0.8))
-
-                            Text("AI Form Demo")
-                                .font(.headline)
-                                .foregroundColor(GQColors.textPrimary)
-
-                            Text("Coming soon - animated form guide")
-                                .font(.caption)
-                                .foregroundColor(GQColors.textTertiary)
-                        }
-                    }
-                    .gqScreenHorizontalPadding()
+                    // Exercise GIF demo
+                    ExerciseGifView(exerciseName: exerciseName, size: .large, showFallback: true)
+                        .featureGated(FeatureFlags.shared.exerciseGifsEnabled)
+                        .gqScreenHorizontalPadding()
 
                     // Form cues
                     if let metadata = exerciseMetadata {

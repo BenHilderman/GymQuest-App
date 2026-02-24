@@ -154,6 +154,12 @@ struct ProgressAnalyticsView: View {
                             .font(.system(size: 14))
                             .foregroundColor(GQColors.prGold)
 
+                        if FeatureFlags.shared.exerciseGifsEnabled {
+                            ExerciseGifView(exerciseName: pr.exerciseName, size: .thumbnail, showFallback: false)
+                                .scaleEffect(0.8)
+                                .frame(width: 32, height: 32)
+                        }
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(pr.exerciseName)
                                 .font(.system(size: 14, weight: .semibold))

@@ -102,6 +102,11 @@ final class FeatureFlags: ObservableObject {
         didSet { save("premiumEnabled", value: premiumEnabled) }
     }
 
+    /// Animated exercise GIF demos from ExerciseDB
+    @Published var exerciseGifsEnabled: Bool {
+        didSet { save("exerciseGifsEnabled", value: exerciseGifsEnabled) }
+    }
+
     /// Dev mode: skip authentication (for testing)
     @Published var devSkipAuth: Bool {
         didSet { save("devSkipAuth", value: devSkipAuth) }
@@ -140,6 +145,7 @@ final class FeatureFlags: ObservableObject {
         self.workoutPartyEnabled = defaults.object(forKey: prefix + "workoutPartyEnabled") as? Bool ?? true
         self.voiceNotesEnabled = defaults.object(forKey: prefix + "voiceNotesEnabled") as? Bool ?? true
         self.gymLocationSharing = defaults.object(forKey: prefix + "gymLocationSharing") as? Bool ?? true
+        self.exerciseGifsEnabled = defaults.object(forKey: prefix + "exerciseGifsEnabled") as? Bool ?? true
         self.devSkipAuth = defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? false
         self.premiumEnabled = defaults.object(forKey: prefix + "premiumEnabled") as? Bool ?? true
     }
@@ -168,6 +174,7 @@ final class FeatureFlags: ObservableObject {
         workoutPartyEnabled = true
         voiceNotesEnabled = true
         gymLocationSharing = true
+        exerciseGifsEnabled = true
     }
 
     /// Reset to default feature state
@@ -189,6 +196,7 @@ final class FeatureFlags: ObservableObject {
         workoutPartyEnabled = true
         voiceNotesEnabled = true
         gymLocationSharing = true
+        exerciseGifsEnabled = true
     }
 
     /// Check if app is in demo mode (no external dependencies needed)

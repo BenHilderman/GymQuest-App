@@ -112,6 +112,10 @@ struct ExercisePreviewCard: View {
                                 .foregroundColor(GQColors.textPrimary)
                         }
 
+                        if FeatureFlags.shared.exerciseGifsEnabled {
+                            ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: false)
+                        }
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(exercise.name)
                                 .font(.system(size: 16, weight: .semibold))
@@ -524,6 +528,10 @@ struct ActiveSetView: View {
     var body: some View {
         VStack(spacing: 22) {
             Spacer()
+
+            if FeatureFlags.shared.exerciseGifsEnabled {
+                ExerciseGifView(exerciseName: exercise.name, size: .medium, showFallback: false)
+            }
 
             Text(exercise.name)
                 .font(.system(size: 28, weight: .bold))
@@ -965,14 +973,18 @@ struct WorkoutCopySheet: View {
                     VStack(spacing: 8) {
                         ForEach(workoutData.exercises) { exercise in
                             HStack(spacing: 10) {
-                                Circle()
-                                    .fill(GQColors.cyanSpark.opacity(0.15))
-                                    .frame(width: 36, height: 36)
-                                    .overlay(
-                                        Image(systemName: "figure.strengthtraining.traditional")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(GQColors.cyanSpark)
-                                    )
+                                if FeatureFlags.shared.exerciseGifsEnabled {
+                                    ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: true)
+                                } else {
+                                    Circle()
+                                        .fill(GQColors.cyanSpark.opacity(0.15))
+                                        .frame(width: 36, height: 36)
+                                        .overlay(
+                                            Image(systemName: "figure.strengthtraining.traditional")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(GQColors.cyanSpark)
+                                        )
+                                }
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(exercise.name)
@@ -1116,6 +1128,10 @@ struct ExercisePickerSheet: View {
             List {
                 ForEach(exercises) { exercise in
                     HStack(spacing: 12) {
+                        if FeatureFlags.shared.exerciseGifsEnabled {
+                            ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: false)
+                        }
+
                         VStack(alignment: .leading, spacing: 4) {
                             Text(exercise.name)
                                 .font(.system(size: 15, weight: .semibold))

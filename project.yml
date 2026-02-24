@@ -16,6 +16,9 @@ packages:
   SnapshotTesting:
     url: https://github.com/pointfreeco/swift-snapshot-testing
     from: "1.15.0"
+  SDWebImageSwiftUI:
+    url: https://github.com/SDWebImage/SDWebImageSwiftUI
+    from: "3.0.0"
 
 settings:
   base:
@@ -36,6 +39,7 @@ targets:
           - "Services/HapticManager.swift"
     dependencies:
       - package: GoogleSignIn
+      - package: SDWebImageSwiftUI
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.app
@@ -112,7 +116,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.uitests
-        TEST_TARGET_NAME: GymQuest
+        TEST_TARGET_NAME: GymQuest_iOS
         DEVELOPMENT_TEAM: 356D828QY6
         CODE_SIGN_STYLE: Automatic
 
@@ -130,3 +134,22 @@ targets:
         BUNDLE_LOADER: "$(TEST_HOST)"
         DEVELOPMENT_TEAM: 356D828QY6
         CODE_SIGN_STYLE: Automatic
+
+schemes:
+  GymQuest_iOS:
+    build:
+      targets:
+        GymQuest_iOS: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - GymQuestTests
+        - GymQuestUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

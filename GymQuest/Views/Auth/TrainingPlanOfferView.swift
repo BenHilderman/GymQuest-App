@@ -70,6 +70,7 @@ struct TrainingPlanOfferView: View {
                 generatingView
             case .summary:
                 summaryView
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .onAppear {
@@ -86,13 +87,13 @@ struct TrainingPlanOfferView: View {
     private var shimmerBg: some View {
         ZStack {
             Circle()
-                .fill(GQColors.vividPurple.opacity(0.06))
+                .fill(Color(hex: "E8D0F0").opacity(0.2))
                 .frame(width: 300, height: 300)
                 .blur(radius: 80)
                 .offset(x: -60 + shimmerPhase * 120, y: -100 + shimmerPhase * 50)
 
             Circle()
-                .fill(GQColors.cyanSpark.opacity(0.04))
+                .fill(Color(hex: "F0D8E8").opacity(0.15))
                 .frame(width: 250, height: 250)
                 .blur(radius: 70)
                 .offset(x: 80 - shimmerPhase * 100, y: 150 - shimmerPhase * 80)
@@ -113,7 +114,12 @@ struct TrainingPlanOfferView: View {
                 Circle()
                     .stroke(
                         AngularGradient(
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.deepBlue, GQColors.vividPurple],
+                            colors: [
+                                GQColors.vividPurple.opacity(0.7),
+                                GQColors.cyanSpark.opacity(0.5),
+                                GQColors.deepBlue.opacity(0.6),
+                                GQColors.vividPurple.opacity(0.7)
+                            ],
                             center: .center
                         ),
                         lineWidth: 3
@@ -125,7 +131,7 @@ struct TrainingPlanOfferView: View {
                     .font(.system(size: 40))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            colors: [GQColors.vividPurple.opacity(0.85), GQColors.cyanSpark.opacity(0.85)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -136,7 +142,7 @@ struct TrainingPlanOfferView: View {
             // Progress ring
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.1), lineWidth: 4)
+                    .stroke(Color.black.opacity(0.06), lineWidth: 4)
                     .frame(width: 60, height: 60)
 
                 Circle()
@@ -205,25 +211,36 @@ struct TrainingPlanOfferView: View {
 
     @ViewBuilder
     private var planHeader: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             Text("\(data.name)'s")
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(OBTheme.textSecondary)
 
             Text(plan.title)
-                .font(.system(size: 28, weight: .bold))
+                .font(.system(size: 32, weight: .bold))
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                        colors: [GQColors.deepBlue, GQColors.vividPurple],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
                 )
                 .multilineTextAlignment(.center)
 
-            Text("\(plan.weekCount) Week Program")
-                .font(.system(size: 14, weight: .medium))
+            Text("Built for your body")
+                .font(.system(size: 15, weight: .medium))
                 .foregroundStyle(OBTheme.textSecondary)
+                .italic()
+
+            Text("\(plan.weekCount) Week Program")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(GQColors.vividPurple.opacity(0.7))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(GQColors.vividPurple.opacity(0.08))
+                )
         }
         .padding(.horizontal, 20)
     }
@@ -245,7 +262,7 @@ struct TrainingPlanOfferView: View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 12))
-                .foregroundStyle(GQColors.cyanSpark)
+                .foregroundStyle(GQColors.vividPurple.opacity(0.7))
             Text(label)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(OBTheme.textPrimary)
@@ -258,8 +275,9 @@ struct TrainingPlanOfferView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                .stroke(OBTheme.cardBorder, lineWidth: 1)
         )
+        .shadow(color: OBTheme.cardShadow, radius: 8, y: 2)
     }
 
     // MARK: - Week Overview
@@ -269,16 +287,21 @@ struct TrainingPlanOfferView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("WEEKLY SPLIT")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(GQColors.cyanSpark.opacity(0.8))
+                .foregroundStyle(GQColors.vividPurple.opacity(0.6))
                 .tracking(1.2)
 
             VStack(spacing: 8) {
                 ForEach(Array(plan.days.enumerated()), id: \.offset) { index, day in
-                    HStack {
+                    HStack(spacing: 12) {
+                        Image(systemName: splitDayIcon(day.name))
+                            .font(.system(size: 14))
+                            .foregroundStyle(GQColors.vividPurple.opacity(0.7))
+                            .frame(width: 28)
+
                         Text("Day \(index + 1)")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(OBTheme.textSecondary)
-                            .frame(width: 50, alignment: .leading)
+                            .frame(width: 44, alignment: .leading)
 
                         Text(day.name)
                             .font(.system(size: 15, weight: .medium))
@@ -293,13 +316,28 @@ struct TrainingPlanOfferView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(OBTheme.card)
                     )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(OBTheme.cardBorder, lineWidth: 1)
+                    )
+                    .shadow(color: OBTheme.cardShadow, radius: 8, y: 2)
                 }
             }
         }
         .padding(.horizontal, 20)
+    }
+
+    private func splitDayIcon(_ name: String) -> String {
+        let lower = name.lowercased()
+        if lower.contains("push") { return "arrow.up.circle" }
+        if lower.contains("pull") { return "arrow.down.circle" }
+        if lower.contains("legs") || lower.contains("lower") { return "figure.walk" }
+        if lower.contains("upper") { return "figure.arms.open" }
+        if lower.contains("full body") { return "figure.strengthtraining.traditional" }
+        return "dumbbell"
     }
 
     // MARK: - Sample Day
@@ -310,27 +348,37 @@ struct TrainingPlanOfferView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("DAY 1 PREVIEW")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(GQColors.cyanSpark.opacity(0.8))
+                    .foregroundStyle(GQColors.vividPurple.opacity(0.6))
                     .tracking(1.2)
 
-                VStack(spacing: 6) {
-                    ForEach(firstDay.exercises.prefix(5), id: \.self) { name in
-                        HStack {
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                VStack(spacing: 8) {
+                    ForEach(Array(firstDay.exercises.prefix(5).enumerated()), id: \.offset) { index, name in
+                        HStack(spacing: 10) {
+                            if FeatureFlags.shared.exerciseGifsEnabled, ExerciseGifService.shared.hasGif(for: name) {
+                                ExerciseGifView(exerciseName: name, size: .thumbnail, showFallback: false)
+                                    .scaleEffect(0.7)
+                                    .frame(width: 28, height: 28)
+                            } else {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [GQColors.deepBlue.opacity(0.8), GQColors.vividPurple.opacity(0.8)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
-                                )
-                                .frame(width: 6, height: 6)
+                                    .frame(width: 8, height: 8)
+                            }
 
                             Text(name)
-                                .font(.system(size: 14))
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(OBTheme.textPrimary)
 
                             Spacer()
+
+                            Text(sampleSetsReps(for: index))
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(OBTheme.textSecondary)
                         }
                         .padding(.vertical, 4)
                     }
@@ -350,16 +398,25 @@ struct TrainingPlanOfferView: View {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .stroke(
                             LinearGradient(
-                                colors: [GQColors.vividPurple.opacity(0.25), GQColors.cyanSpark.opacity(0.18)],
+                                colors: [GQColors.vividPurple.opacity(0.15), GQColors.deepBlue.opacity(0.1)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
                             lineWidth: 1
                         )
                 )
+                .shadow(color: OBTheme.cardShadow, radius: 8, y: 2)
             }
             .padding(.horizontal, 20)
         }
+    }
+
+    private func sampleSetsReps(for index: Int) -> String {
+        let sets = [4, 3, 4, 3, 3]
+        let reps = [8, 10, 8, 12, 10]
+        let s = sets[index % sets.count]
+        let r = reps[index % reps.count]
+        return "\(s)×\(r)"
     }
 
     // MARK: - Pricing Section
@@ -376,7 +433,13 @@ struct TrainingPlanOfferView: View {
                 )
                 comparisonCard(
                     title: "Pro",
-                    features: ["AI-adjusted weekly", "Full exercise library", "Smart progression", "Form cues"],
+                    features: [
+                        "AI adapts your plan every week",
+                        "500+ exercises with guides",
+                        "Auto-progressive overload",
+                        "Real-time form coaching",
+                        "Detailed analytics & insights"
+                    ],
                     isPro: true
                 )
             }
@@ -389,7 +452,11 @@ struct TrainingPlanOfferView: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(OBTheme.card)
+                    .fill(Color(hex: "F0F0F0"))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(OBTheme.cardBorder, lineWidth: 1)
             )
             .padding(.horizontal, 20)
         }
@@ -401,7 +468,7 @@ struct TrainingPlanOfferView: View {
             HStack {
                 Text(title)
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(isPro ? GQColors.vividPurple : OBTheme.textPrimary)
+                    .foregroundStyle(isPro ? GQColors.vividPurple : OBTheme.textSecondary)
 
                 if isPro {
                     Image(systemName: "star.fill")
@@ -412,12 +479,12 @@ struct TrainingPlanOfferView: View {
 
             ForEach(features, id: \.self) { feature in
                 HStack(spacing: 6) {
-                    Image(systemName: isPro ? "checkmark.circle.fill" : "circle")
+                    Image(systemName: isPro ? "checkmark.circle.fill" : "xmark.circle")
                         .font(.system(size: 11))
-                        .foregroundStyle(isPro ? GQColors.cyanSpark : OBTheme.textSecondary)
+                        .foregroundStyle(isPro ? GQColors.vividPurple.opacity(0.7) : Color(hex: "C0C0C0"))
                     Text(feature)
                         .font(.system(size: 12))
-                        .foregroundStyle(OBTheme.textSecondary)
+                        .foregroundStyle(isPro ? OBTheme.textPrimary : OBTheme.textSecondary)
                 }
             }
         }
@@ -425,17 +492,30 @@ struct TrainingPlanOfferView: View {
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(OBTheme.card)
+                .fill(
+                    isPro
+                        ? LinearGradient(
+                            colors: [GQColors.vividPurple.opacity(0.04), GQColors.deepBlue.opacity(0.02)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                          )
+                        : LinearGradient(
+                            colors: [Color(hex: "F5F5F5"), Color(hex: "F0F0F0")],
+                            startPoint: .top,
+                            endPoint: .bottom
+                          )
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(
                     isPro
-                        ? LinearGradient(colors: [GQColors.vividPurple.opacity(0.5), GQColors.cyanSpark.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : LinearGradient(colors: [Color.white.opacity(0.06)], startPoint: .top, endPoint: .bottom),
+                        ? LinearGradient(colors: [GQColors.vividPurple.opacity(0.3), GQColors.deepBlue.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        : LinearGradient(colors: [OBTheme.cardBorder], startPoint: .top, endPoint: .bottom),
                     lineWidth: 1
                 )
         )
+        .shadow(color: isPro ? GQColors.vividPurple.opacity(0.06) : .clear, radius: 8, y: 2)
     }
 
     @ViewBuilder
@@ -450,10 +530,10 @@ struct TrainingPlanOfferView: View {
             VStack(spacing: 2) {
                 Text(label)
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(isSelected ? .white : OBTheme.textSecondary)
+                    .foregroundStyle(isSelected ? .white : OBTheme.textPrimary)
                 Text(sublabel)
                     .font(.system(size: 11))
-                    .foregroundStyle(isSelected ? .white.opacity(0.7) : OBTheme.textSecondary)
+                    .foregroundStyle(isSelected ? .white.opacity(0.8) : OBTheme.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
@@ -513,6 +593,11 @@ struct TrainingPlanOfferView: View {
             .buttonStyle(.plain)
             .disabled(isPurchasing)
 
+            // 7-day free trial note
+            Text("7-day free trial included")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(OBTheme.textSecondary)
+
             // Start Free
             Button {
                 skipToApp()
@@ -524,11 +609,11 @@ struct TrainingPlanOfferView: View {
                     .frame(height: 48)
                     .background(
                         Capsule()
-                            .fill(OBTheme.card)
+                            .fill(Color(hex: "F0F0F0"))
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                            .stroke(OBTheme.cardBorder, lineWidth: 1)
                     )
             }
             .buttonStyle(.plain)
@@ -611,10 +696,12 @@ struct TrainingPlanOfferView: View {
 // MARK: - Theme Namespace (local to this file)
 
 private enum OBTheme {
-    static let bg = Color(hex: "0D0D12")
-    static let card = Color(hex: "1A1A24")
-    static let textPrimary = Color.white.opacity(0.92)
-    static let textSecondary = Color.white.opacity(0.55)
+    static let bg = Color(hex: "F8F8FC")
+    static let card = Color.white
+    static let textPrimary = Color(hex: "1C1C1E")
+    static let textSecondary = Color(hex: "3C3C43").opacity(0.55)
+    static let cardBorder = Color.black.opacity(0.06)
+    static let cardShadow = Color.black.opacity(0.04)
 }
 
 // MARK: - Training Plan Generator

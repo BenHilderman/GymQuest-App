@@ -32,6 +32,7 @@ struct ProfileView: View {
     @State private var selectedTopTab: ProfileTopTab = .profile
     @State private var emotionInsightsExpanded = false
     @State private var showingCoach = false
+    @State private var showingCalendarHistory = false
 
     // Activity stats state
     @State private var weeklyProgress: (completed: Int, target: Int) = (0, 0)
@@ -200,6 +201,14 @@ struct ProfileView: View {
                 loadProfileActivityData()
             }
         )
+        .onTapGesture {
+            showingCalendarHistory = true
+        }
+        .sheet(isPresented: $showingCalendarHistory) {
+            CalendarHistoryView(workouts: workouts)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     @ViewBuilder

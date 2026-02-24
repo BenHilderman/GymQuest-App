@@ -740,17 +740,29 @@ struct WeeklyProgressCard: View {
 
     @ViewBuilder
     private var nextUpRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "dumbbell.fill")
-                .font(.system(size: 12))
-                .foregroundColor(GQColors.vividPurple)
-            Text("Next up: ")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(GQColors.textPrimary.opacity(0.7))
-            + Text(suggestedNextWorkout.rawValue)
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(GQColors.vividPurple)
-            Spacer()
+        if workouts.isEmpty {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.vividPurple)
+                Text("Start your first workout!")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.vividPurple)
+                Spacer()
+            }
+        } else {
+            HStack(spacing: 8) {
+                Image(systemName: "dumbbell.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.vividPurple)
+                Text("Next up: ")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textPrimary.opacity(0.7))
+                + Text(suggestedNextWorkout.rawValue)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(GQColors.vividPurple)
+                Spacer()
+            }
         }
     }
 
@@ -766,14 +778,14 @@ struct WeeklyProgressCard: View {
                     Button {
                         showingTargetPicker = true
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Text("\(completedWorkouts) of \(targetDays) days")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(GQColors.textPrimary)
 
                             Image(systemName: "pencil.circle.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(GQColors.textTertiary)
+                                .font(.system(size: 14))
+                                .foregroundColor(GQColors.vividPurple.opacity(0.6))
                         }
                     }
                     .buttonStyle(.plain)
@@ -1014,7 +1026,11 @@ struct ExerciseReviewRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(spacing: 10) {
+                if FeatureFlags.shared.exerciseGifsEnabled {
+                    ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: false)
+                }
+
                 Text(exercise.name)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)

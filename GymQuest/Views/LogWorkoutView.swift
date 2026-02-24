@@ -549,7 +549,11 @@ struct ExerciseRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            HStack(spacing: 10) {
+                if FeatureFlags.shared.exerciseGifsEnabled {
+                    ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: false)
+                }
+
                 Text(exercise.name)
                     .font(.subheadline)
                     .fontWeight(.medium)

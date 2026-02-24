@@ -150,6 +150,7 @@ struct LiftAIApp: App {
                 databaseError = "Unable to access your workout data. Please restart the app or contact support if this persists."
             }
         }
+
     }
 
     var body: some Scene {

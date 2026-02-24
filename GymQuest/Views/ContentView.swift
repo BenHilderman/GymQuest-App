@@ -491,8 +491,8 @@ struct QuickActionSheet: View {
 
                 quickActionCard(
                     icon: "square.and.pencil",
-                    title: "Log Entry",
-                    subtitle: "Record a past workout",
+                    title: "Log Workout",
+                    subtitle: "Log a past session manually",
                     accent: GQColors.cyanSpark
                 ) {
                     dismiss()

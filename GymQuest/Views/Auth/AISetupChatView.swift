@@ -11,20 +11,21 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Onboarding Dark Theme
+// MARK: - Onboarding Light Theme
 
 private enum OBColors {
-    static let bg = Color(hex: "0D0D12")
-    static let cardSurface = Color(hex: "1A1A24")
-    static let textPrimary = Color.white.opacity(0.92)
-    static let textSecondary = Color.white.opacity(0.55)
+    static let bg = Color(hex: "F8F8FC")
+    static let cardSurface = Color.white
+    static let optionSurface = Color(hex: "FDFAFF")
+    static let textPrimary = Color(hex: "1C1C1E")
+    static let textSecondary = Color(hex: "3C3C43").opacity(0.55)
     static let borderGradient = LinearGradient(
-        colors: [GQColors.vividPurple.opacity(0.6), GQColors.cyanSpark.opacity(0.6)],
+        colors: [Color(hex: "C9B8E8").opacity(0.4), Color(hex: "E8D0F0").opacity(0.3)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     static let userBubbleGradient = LinearGradient(
-        colors: [GQColors.deepBlue, GQColors.vividPurple],
+        colors: [GQColors.deepBlue.opacity(0.9), GQColors.vividPurple.opacity(0.9)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -34,7 +35,7 @@ private enum OBColors {
         endPoint: .bottom
     )
     static let ctaGradient = LinearGradient(
-        colors: [GQColors.deepBlue, GQColors.vividPurple],
+        colors: [GQColors.deepBlue.opacity(0.9), GQColors.vividPurple.opacity(0.9)],
         startPoint: .leading,
         endPoint: .trailing
     )
@@ -73,6 +74,8 @@ struct AISetupChatView: View {
                     equipmentMultiSelectGrid
                 } else if viewModel.currentStep == .completion {
                     completionCard
+                } else if viewModel.isPickerStep {
+                    wheelPickerBar
                 } else if viewModel.isTextInputStep {
                     textInputBar
                 }
@@ -108,7 +111,7 @@ struct AISetupChatView: View {
         }
         .overlay {
             Circle()
-                .fill(GQColors.vividPurple.opacity(0.05))
+                .fill(Color(hex: "E8D0F0").opacity(0.25))
                 .frame(width: 300, height: 300)
                 .blur(radius: 80)
                 .offset(
@@ -117,7 +120,7 @@ struct AISetupChatView: View {
                 )
 
             Circle()
-                .fill(GQColors.cyanSpark.opacity(0.04))
+                .fill(Color(hex: "F0D8E8").opacity(0.2))
                 .frame(width: 250, height: 250)
                 .blur(radius: 70)
                 .offset(
@@ -126,7 +129,7 @@ struct AISetupChatView: View {
                 )
 
             Circle()
-                .fill(GQColors.deepBlue.opacity(0.03))
+                .fill(Color(hex: "D8D0F0").opacity(0.18))
                 .frame(width: 200, height: 200)
                 .blur(radius: 60)
                 .offset(
@@ -240,9 +243,10 @@ struct AISetupChatView: View {
                 )
                 .shadow(
                     color: message.isUser
-                        ? GQColors.deepBlue.opacity(0.2)
-                        : GQColors.vividPurple.opacity(0.08),
-                    radius: message.isUser ? 8 : 12
+                        ? GQColors.deepBlue.opacity(0.12)
+                        : Color(hex: "C9B8E8").opacity(0.15),
+                    radius: message.isUser ? 8 : 10,
+                    y: 2
                 )
                 .modifier(BubbleAppearModifier(isUser: message.isUser))
 
@@ -272,12 +276,13 @@ struct AISetupChatView: View {
                         .padding(.vertical, 14)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(OBColors.cardSurface)
+                                .fill(OBColors.optionSurface)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(OBColors.borderGradient.opacity(0.5), lineWidth: 1)
+                                .stroke(OBColors.borderGradient, lineWidth: 1)
                         )
+                        .shadow(color: Color.black.opacity(0.04), radius: 6, y: 2)
                 }
                 .buttonStyle(OptionPressStyle())
                 .disabled(viewModel.isProcessing)
@@ -356,6 +361,92 @@ struct AISetupChatView: View {
         .background(OBColors.bg)
     }
 
+    // MARK: - Wheel Picker Bar
+
+    @ViewBuilder
+    private var wheelPickerBar: some View {
+        VStack(spacing: 12) {
+            if viewModel.currentStep == .height {
+                heightPicker
+            } else {
+                weightPicker
+            }
+
+            Button {
+                viewModel.confirmPicker()
+            } label: {
+                Text("Confirm")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Capsule().fill(OBColors.ctaGradient))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 20)
+            .disabled(viewModel.isProcessing)
+        }
+        .padding(.vertical, 12)
+        .background(OBColors.bg)
+    }
+
+    @ViewBuilder
+    private var heightPicker: some View {
+        if viewModel.collectedHeightUnit == .ftIn {
+            HStack(spacing: 0) {
+                Picker("Feet", selection: $viewModel.pickerHeightFeet) {
+                    ForEach(4...7, id: \.self) { ft in
+                        Text("\(ft) ft").tag(ft)
+                    }
+                }
+                .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+
+                Picker("Inches", selection: $viewModel.pickerHeightInches) {
+                    ForEach(0...11, id: \.self) { inches in
+                        Text("\(inches) in").tag(inches)
+                    }
+                }
+                .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+            }
+            .frame(height: 150)
+            .padding(.horizontal, 20)
+        } else {
+            Picker("Height (cm)", selection: $viewModel.pickerHeightCm) {
+                ForEach(140...210, id: \.self) { cm in
+                    Text("\(cm) cm").tag(cm)
+                }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 150)
+            .padding(.horizontal, 20)
+        }
+    }
+
+    @ViewBuilder
+    private var weightPicker: some View {
+        if viewModel.collectedWeightUnit == .lbs {
+            Picker("Weight (lbs)", selection: $viewModel.pickerWeightLbs) {
+                ForEach(80...350, id: \.self) { lbs in
+                    Text("\(lbs) lbs").tag(lbs)
+                }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 150)
+            .padding(.horizontal, 20)
+        } else {
+            Picker("Weight (kg)", selection: $viewModel.pickerWeightKg) {
+                ForEach(35...160, id: \.self) { kg in
+                    Text("\(kg) kg").tag(kg)
+                }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 150)
+            .padding(.horizontal, 20)
+        }
+    }
+
     // MARK: - Text Input Bar
 
     @ViewBuilder
@@ -401,7 +492,7 @@ struct AISetupChatView: View {
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                colors: [Color(hex: "C9B8E8"), Color(hex: "E8D0F0")],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )

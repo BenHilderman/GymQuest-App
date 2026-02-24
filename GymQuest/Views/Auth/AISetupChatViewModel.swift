@@ -96,10 +96,25 @@ final class AISetupChatViewModel {
     // Pre-filled from Google sign-in
     var prefillName: String?
 
+    // Picker state for height/weight
+    var pickerHeightFeet: Int = 5
+    var pickerHeightInches: Int = 9
+    var pickerHeightCm: Int = 175
+    var pickerWeightLbs: Int = 160
+    var pickerWeightKg: Int = 73
+
     // Whether current step expects text input
     var isTextInputStep: Bool {
         switch currentStep {
-        case .name, .username, .height, .weight: return true
+        case .name, .username: return true
+        default: return false
+        }
+    }
+
+    // Whether current step uses a wheel picker
+    var isPickerStep: Bool {
+        switch currentStep {
+        case .height, .weight: return true
         default: return false
         }
     }
@@ -108,10 +123,6 @@ final class AISetupChatViewModel {
         switch currentStep {
         case .name: return "Your name"
         case .username: return "@username"
-        case .height:
-            return collectedHeightUnit == .ftIn ? "e.g. 5'10" : "e.g. 175"
-        case .weight:
-            return collectedWeightUnit == .lbs ? "e.g. 175" : "e.g. 80"
         default: return ""
         }
     }
@@ -164,6 +175,36 @@ final class AISetupChatViewModel {
             collectedEquipment.remove(type)
         } else {
             collectedEquipment.insert(type)
+        }
+    }
+
+    func confirmPicker() {
+        guard !isProcessing else { return }
+        isProcessing = true
+
+        if currentStep == .height {
+            if collectedHeightUnit == .ftIn {
+                let display = "\(pickerHeightFeet)'\(pickerHeightInches)\""
+                addUserMessage(display)
+                collectedHeightCm = UserProfile.ftInToCm(feet: pickerHeightFeet, inches: pickerHeightInches)
+            } else {
+                addUserMessage("\(pickerHeightCm) cm")
+                collectedHeightCm = Double(pickerHeightCm)
+            }
+        } else if currentStep == .weight {
+            if collectedWeightUnit == .lbs {
+                addUserMessage("\(pickerWeightLbs) lbs")
+                collectedWeightKg = UserProfile.lbsToKg(Double(pickerWeightLbs))
+            } else {
+                addUserMessage("\(pickerWeightKg) kg")
+                collectedWeightKg = Double(pickerWeightKg)
+            }
+        }
+
+        Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            advanceToNextStep()
+            isProcessing = false
         }
     }
 
@@ -224,6 +265,13 @@ final class AISetupChatViewModel {
 
     private func advanceToStep(_ step: SetupStep) {
         currentStep = step
+
+        // Clear previous messages so each step feels fresh
+        if step != .greeting {
+            withAnimation(.easeOut(duration: 0.2)) {
+                messages.removeAll()
+            }
+        }
 
         switch step {
         case .greeting:
@@ -338,47 +386,9 @@ final class AISetupChatViewModel {
         case .username:
             let clean = text.hasPrefix("@") ? String(text.dropFirst()) : text
             collectedUsername = clean.lowercased().replacingOccurrences(of: " ", with: "")
-        case .height:
-            collectedHeightCm = parseHeight(text)
-        case .weight:
-            collectedWeightKg = parseWeight(text)
         default:
             break
         }
-    }
-
-    private func parseHeight(_ text: String) -> Double? {
-        if collectedHeightUnit == .ftIn {
-            // Parse formats like "5'10", "5 10", "5'10\"", "510"
-            let cleaned = text.replacingOccurrences(of: "\"", with: "")
-                .replacingOccurrences(of: "'", with: " ")
-                .replacingOccurrences(of: "'", with: " ")
-                .replacingOccurrences(of: "'", with: " ")
-            let parts = cleaned.split(separator: " ").compactMap { Int($0) }
-            if parts.count >= 2 {
-                return UserProfile.ftInToCm(feet: parts[0], inches: parts[1])
-            } else if parts.count == 1 {
-                let val = parts[0]
-                if val > 12 {
-                    // Entered as total inches or "510" format
-                    let feet = val / 100 > 0 ? val / 100 : val / 12
-                    let inches = val / 100 > 0 ? val % 100 : val % 12
-                    return UserProfile.ftInToCm(feet: feet, inches: inches)
-                }
-                return UserProfile.ftInToCm(feet: val, inches: 0)
-            }
-            return nil
-        } else {
-            return Double(text)
-        }
-    }
-
-    private func parseWeight(_ text: String) -> Double? {
-        guard let value = Double(text) else { return nil }
-        if collectedWeightUnit == .lbs {
-            return UserProfile.lbsToKg(value)
-        }
-        return value
     }
 
     private func generateUsername(from name: String) -> String {

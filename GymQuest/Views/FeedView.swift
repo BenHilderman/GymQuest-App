@@ -1530,10 +1530,16 @@ struct WorkoutHeroCard: View {
         let uniform = setsAreUniform(ex.sets)
 
         HStack(spacing: 6) {
-            Image(systemName: equipmentIcon(for: ex.name))
-                .font(.system(size: 12))
-                .foregroundColor(.white.opacity(0.5))
-                .frame(width: 16)
+            if FeatureFlags.shared.exerciseGifsEnabled, ExerciseGifService.shared.hasGif(for: ex.name) {
+                ExerciseGifView(exerciseName: ex.name, size: .thumbnail, showFallback: false)
+                    .scaleEffect(0.6)
+                    .frame(width: 24, height: 24)
+            } else {
+                Image(systemName: equipmentIcon(for: ex.name))
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.5))
+                    .frame(width: 16)
+            }
 
             Text(ex.name)
                 .font(.system(size: 14, weight: .semibold))
@@ -3450,6 +3456,10 @@ struct LearnThisPanel: View {
     @ViewBuilder
     private var exerciseHeader: some View {
         VStack(spacing: 8) {
+            if FeatureFlags.shared.exerciseGifsEnabled {
+                ExerciseGifView(exerciseName: exerciseName, size: .large, showFallback: false)
+            }
+
             Text(exerciseName)
                 .font(.title2)
                 .fontWeight(.bold)
