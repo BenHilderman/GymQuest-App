@@ -314,6 +314,7 @@ struct DiscoverSeeder {
             )
 
             modelContext.insert(post)
+            post.videoAspectRatio = 0.5625  // 9:16 vertical
             postIds.append(post.id)
         }
 

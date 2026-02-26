@@ -680,6 +680,13 @@ final class UserProfile {
     var gymName: String = ""
     var subscriptionExpiryDate: Date?
 
+    // Nutrition & body goals
+    var dailyCalorieGoal: Int = 2000
+    var proteinGoalGrams: Int = 150
+    var carbsGoalGrams: Int = 250
+    var fatGoalGrams: Int = 65
+    var goalWeight: Double?
+
     // Privacy & social counts
     var isProfilePublic: Bool = true
     var followerCount: Int = 0
@@ -1025,6 +1032,9 @@ final class Post {
     var voiceNoteDuration: Double?
     var isPremiumAuthor: Bool
 
+    // Video metadata
+    var videoAspectRatio: Double?
+
     init(
         id: UUID = UUID(),
         authorId: UUID = UUID(),
@@ -1066,7 +1076,8 @@ final class Post {
         workoutEmotion: String? = nil,
         voiceNoteData: Data? = nil,
         voiceNoteDuration: Double? = nil,
-        isPremiumAuthor: Bool = false
+        isPremiumAuthor: Bool = false,
+        videoAspectRatio: Double? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -1109,6 +1120,7 @@ final class Post {
         self.voiceNoteData = voiceNoteData
         self.voiceNoteDuration = voiceNoteDuration
         self.isPremiumAuthor = isPremiumAuthor
+        self.videoAspectRatio = videoAspectRatio
     }
 
     /// Decode shared workout data for follow feature

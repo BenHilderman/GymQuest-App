@@ -84,7 +84,9 @@ struct TikTokFeedView: View {
 
     private func refreshRankedPosts() {
         let media = allPosts.filter { post in
-            (post.photoData != nil || post.videoData != nil || post.workoutType != nil) && isUserPublicOrFriend(post.authorId)
+            (post.photoData != nil || post.videoData != nil || post.workoutType != nil)
+            && isUserPublicOrFriend(post.authorId)
+            && !(post.videoAspectRatio.map { $0 > 1.0 } ?? false)
         }
         cachedRankedPosts = FeedRankingService.shared.rankPosts(media, for: profile.id, interests: userInterests, category: selectedCategory ?? "All")
     }
@@ -366,11 +368,48 @@ struct TikTokPostCard: View {
         VStack(alignment: .leading, spacing: 5) {
             authorRow
             captionWithTags
+            tiktokWorkoutOverlay
             musicTicker
         }
         .padding(.leading, 20)
         .padding(.trailing, 68)
         .padding(.bottom, 90)
+    }
+
+    @ViewBuilder
+    private var tiktokWorkoutOverlay: some View {
+        if let workout = sharedWorkout {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(workout.exercises.prefix(3).enumerated()), id: \.offset) { _, exercise in
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.white.opacity(0.2))
+                            .frame(width: 4, height: 4)
+                        let setCount = exercise.sets.count
+                        let topWeight = exercise.sets.map(\.weight).max() ?? 0
+                        let topReps = exercise.sets.first?.reps ?? 0
+                        if topWeight > 0 {
+                            Text("\(exercise.name) — \(setCount)×\(topReps) @ \(Int(topWeight)) lbs")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white.opacity(0.85))
+                        } else {
+                            Text("\(exercise.name) — \(setCount)×\(topReps)")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white.opacity(0.85))
+                        }
+                    }
+                }
+                if workout.exercises.count > 3 {
+                    Text("+\(workout.exercises.count - 3) more exercises")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .background(Color.black.opacity(0.3))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
     }
 
     @ViewBuilder
@@ -791,6 +830,7 @@ struct PostBackground: View {
 
     @State private var player: AVPlayer?
     @State private var isPlaying = true
+    @State private var userPaused = false
     @State private var videoAspectRatio: CGFloat?
 
     var body: some View {
@@ -829,7 +869,7 @@ struct PostBackground: View {
                 .contentShape(Rectangle())
                 .onTapGesture { togglePlayback() }
 
-            if !isPlaying {
+            if userPaused {
                 Image(systemName: "play.fill")
                     .font(.system(size: 50))
                     .foregroundColor(.white.opacity(0.7))
@@ -839,12 +879,14 @@ struct PostBackground: View {
         .onAppear { setupPlayer(with: videoData) }
         .onDisappear { teardownPlayer() }
         .onChange(of: isVisible) { _, visible in
-            if visible {
+            if visible && !userPaused {
                 player?.play()
                 isPlaying = true
             } else {
                 player?.pause()
-                player?.seek(to: .zero)
+                if !visible {
+                    player?.seek(to: .zero)
+                }
                 isPlaying = false
             }
         }
@@ -945,8 +987,10 @@ struct PostBackground: View {
         guard let player = player else { return }
         if isPlaying {
             player.pause()
+            userPaused = true
         } else {
             player.play()
+            userPaused = false
         }
         withAnimation(.easeInOut(duration: 0.2)) {
             isPlaying.toggle()

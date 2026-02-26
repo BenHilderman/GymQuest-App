@@ -25,6 +25,7 @@ struct ProfileView: View {
 
     let profile: UserProfile
 
+    @StateObject private var healthKit = HealthKitService.shared
     @State private var showingSettings = false
     @State private var selectedWorkout: Workout?
     @State private var selectedPost: Post?
@@ -33,6 +34,8 @@ struct ProfileView: View {
     @State private var emotionInsightsExpanded = false
     @State private var showingCoach = false
     @State private var showingCalendarHistory = false
+    @State private var showingHealthDashboard = false
+    @State private var showingIntegrations = false
 
     // Activity stats state
     @State private var weeklyProgress: (completed: Int, target: Int) = (0, 0)
@@ -62,6 +65,7 @@ struct ProfileView: View {
             ScrollView {
                 VStack(spacing: 8) {
                     profileHeader
+                    todayHealthStatsCard
                     achievementBadgesSection
                     profileTopTabPicker
 
@@ -376,6 +380,99 @@ struct ProfileView: View {
 
     // MARK: - Profile Header
 
+    // MARK: - Today Health Stats Card
+
+    @ViewBuilder
+    private var todayHealthStatsCard: some View {
+        if healthKit.isAuthorized {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("TODAY")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(GQColors.sectionLabel)
+                        .tracking(0.6)
+
+                    Spacer()
+
+                    Button {
+                        showingHealthDashboard = true
+                    } label: {
+                        Text("See All")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.cyanSpark)
+                    }
+                }
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    healthStatPill(icon: "figure.walk", value: "\(healthKit.steps)", label: "Steps", color: .green)
+                    healthStatPill(icon: "flame.fill", value: "\(healthKit.activeCalories)", label: "Active Cal", color: .orange)
+                    healthStatPill(icon: "bed.double.fill", value: String(format: "%.1fh", healthKit.sleepHours), label: "Sleep", color: .indigo)
+                    healthStatPill(icon: "figure.run", value: "\(healthKit.exerciseMinutes)m", label: "Exercise", color: GQColors.cyanSpark)
+                }
+            }
+            .padding(12)
+            .homeSocialCard(cornerRadius: 14)
+            .sheet(isPresented: $showingHealthDashboard) {
+                NavigationStack {
+                    HealthDashboardView(profile: profile, workouts: Array(workouts))
+                }
+            }
+        } else {
+            Button {
+                showingIntegrations = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(.red)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Connect Apple Health")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                        Text("Track steps, sleep, calories & more")
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .padding(12)
+                .homeSocialCard(cornerRadius: 14)
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showingIntegrations) {
+                NavigationStack {
+                    IntegrationsView(profile: profile)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func healthStatPill(icon: String, value: String, label: String, color: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundColor(color)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(label)
+                    .font(.system(size: 10))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            Spacer()
+        }
+        .padding(8)
+        .background(GQColors.adaptiveOverlay(0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
     private var profileHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Avatar + stat columns row
@@ -399,9 +496,26 @@ struct ProfileView: View {
                         PremiumBadge(size: 14)
                     }
                 }
-                Text("\(UserProfile.levelTitle(for: profile.level)) · Lv.\(profile.level)")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(GQColors.textTertiary)
+                HStack(spacing: 6) {
+                    Text("\(UserProfile.levelTitle(for: profile.level)) · Lv.\(profile.level)")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+
+                    if healthKit.isAuthorized {
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(readinessLevel.color)
+                                .frame(width: 6, height: 6)
+                            Text(readinessLevel.rawValue)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(readinessLevel.color)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(readinessLevel.color.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                }
             }
 
             // Equipment badges

@@ -26,11 +26,6 @@ enum FeedTab: String, CaseIterable {
     case communities = "Communities"
 }
 
-enum SocialSubTab: String, CaseIterable {
-    case friends = "Friends"
-    case following = "Following"
-}
-
 struct FeedView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var featureFlags: FeatureFlags
@@ -52,12 +47,10 @@ struct FeedView: View {
     }
 
     @State private var selectedFeedTab: FeedTab = .social
-    @State private var socialSubTab: SocialSubTab = .friends
     @State private var showLearnPanel = false
     @State private var selectedExerciseForLearn: String?
     @State private var activeSquad: Squad?
     @State private var squadChallenge: SquadChallenge?
-    @State private var showWeeklyCalendar = false
 
     // MARK: - Cached Social Graph
 
@@ -78,12 +71,11 @@ struct FeedView: View {
     }
 
     private func refreshFriendsPosts() {
-        switch socialSubTab {
-        case .friends:
-            cachedFriendsPosts = posts.filter { cachedMutualIds.contains($0.authorId) }
-        case .following:
-            let followOnlyIds = cachedFollowingIds.subtracting(cachedMutualIds)
-            cachedFriendsPosts = posts.filter { followOnlyIds.contains($0.authorId) && isUserPublic($0.authorId) }
+        cachedFriendsPosts = posts.filter { post in
+            let authorId = post.authorId
+            if cachedMutualIds.contains(authorId) { return true }
+            if cachedFollowingIds.contains(authorId) && isUserPublic(authorId) { return true }
+            return false
         }
     }
 
@@ -121,9 +113,6 @@ struct FeedView: View {
                 refreshSocialGraph()
                 refreshFriendsPosts()
             }
-            .onChange(of: socialSubTab) {
-                refreshFriendsPosts()
-            }
             .onChange(of: posts.count) {
                 refreshFriendsPosts()
             }
@@ -143,30 +132,8 @@ struct FeedView: View {
                     .presentationDragIndicator(.visible)
                 }
             }
-            .sheet(isPresented: $showWeeklyCalendar) {
-                NavigationStack {
-                    ScrollView {
-                        WeeklyProgressCard(
-                            weeklyProgress: (completed: workoutsThisWeek, target: 5),
-                            readinessLevel: .good,
-                            workouts: allWorkouts
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                    }
-                    .scrollContentBackground(.hidden)
-                    .gqPageBackground()
-                    .navigationTitle("This Week")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { showWeeklyCalendar = false }
-                        }
-                    }
-                }
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-            }
+
+
         }
     }
 
@@ -176,15 +143,16 @@ struct FeedView: View {
     private var socialFeedContent: some View {
         ScrollView {
             // Weekly hero metric
-            WeeklyHeroSection(completed: workoutsThisWeek, goal: 5, onTap: {
-                showWeeklyCalendar = true
-            })
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
-
-            // Friends / Following sub-tab pills
-            socialSubTabPills
+            WeeklyHeroSection(
+                completed: workoutsThisWeek,
+                goal: profile.daysPerWeek,
+                profile: profile,
+                workouts: allWorkouts
+            )
+            .environment(\.modelContext, modelContext)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
 
             // Stories row — friends working out now (hidden when empty)
             if !SocialActivityService.shared.activeFriends.isEmpty {
@@ -220,62 +188,10 @@ struct FeedView: View {
         }
     }
 
-    // MARK: - Social Sub-Tab Pills
-
-    private var socialSubTabPills: some View {
-        HStack(spacing: 8) {
-            ForEach(SocialSubTab.allCases, id: \.rawValue) { tab in
-                let isSelected = socialSubTab == tab
-                Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                        socialSubTab = tab
-                    }
-                } label: {
-                    Text(tab.rawValue)
-                        .font(.system(size: 13, weight: isSelected ? .bold : .medium))
-                        .foregroundColor(isSelected ? .white : .white.opacity(0.5))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 7)
-                        .background(
-                            isSelected
-                                ? AnyShapeStyle(GQColors.surfaceBase)
-                                : AnyShapeStyle(Color.clear)
-                        )
-                        .cornerRadius(14)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(isSelected ? GQColors.borderDefault : Color.clear, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 4)
-    }
-
     // MARK: - Social Empty State
 
-    @ViewBuilder
     private var socialEmptyState: some View {
-        switch socialSubTab {
-        case .friends:
-            EmptyFeedView(onCreatePost: { appState.showingLogWorkout = true })
-        case .following:
-            VStack(spacing: 12) {
-                Image(systemName: "person.2.slash")
-                    .font(.system(size: 40))
-                    .foregroundColor(GQColors.textTertiary)
-                Text("No posts from people you follow")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(GQColors.textSecondary)
-                Text("Check the Discover tab to find people to follow")
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textTertiary)
-            }
-            .padding(.top, 60)
-        }
+        EmptyFeedView(onCreatePost: { appState.showingLogWorkout = true })
     }
 
     // MARK: - Load Active Squad
@@ -428,6 +344,7 @@ struct PostCardV2: View {
                 inspiredByBadge
                 heroSection
                 captionSection
+                inlineWorkoutSummary
                 compactBottomBar
                 inlineCommentPreview
             }
@@ -838,6 +755,75 @@ struct PostCardV2: View {
             .padding(.horizontal, 16)
             .padding(.top, 10)
             .padding(.bottom, 4)
+        }
+    }
+
+    @ViewBuilder
+    private var inlineWorkoutSummary: some View {
+        if let workout = sharedWorkout {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(workout.exercises.prefix(3).enumerated()), id: \.offset) { _, exercise in
+                    HStack(spacing: 8) {
+                        Image(systemName: "dumbbell.fill")
+                            .font(.system(size: 9))
+                            .foregroundColor(GQColors.cyanSpark)
+                            .frame(width: 16)
+                        let setCount = exercise.sets.count
+                        let topWeight = exercise.sets.map(\.weight).max() ?? 0
+                        let topReps = exercise.sets.first?.reps ?? 0
+                        if topWeight > 0 {
+                            Text("\(exercise.name) — \(setCount)×\(topReps) @ \(Int(topWeight)) lbs")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(GQColors.textPrimary)
+                        } else {
+                            Text("\(exercise.name) — \(setCount)×\(topReps)")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(GQColors.textPrimary)
+                        }
+                        Spacer()
+                    }
+                }
+                HStack(spacing: 12) {
+                    if workout.exercises.count > 3 {
+                        Button {
+                            showWorkoutDetail = true
+                        } label: {
+                            Text("View all \(workout.exercises.count) exercises")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.cyanSpark)
+                        }
+                    }
+                    Spacer()
+                    Button {
+                        if let p = profile {
+                            launchFollowWorkout(workout)
+                        } else {
+                            showWorkoutDetail = true
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 9))
+                            Text("Follow Workout")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(GQGradients.primary)
+                        .clipShape(Capsule())
+                    }
+                }
+            }
+            .padding(12)
+            .background(GQColors.adaptiveOverlay(0.03))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
     }
 
@@ -2147,69 +2133,172 @@ struct FollowWorkoutButton: View {
 struct WeeklyHeroSection: View {
     let completed: Int
     let goal: Int
-    var onTap: (() -> Void)? = nil
+    var profile: UserProfile
+    var workouts: [Workout] = []
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var isEditingGoal = false
 
     private var progress: Double {
         guard goal > 0 else { return 0 }
         return min(Double(completed) / Double(goal), 1.0)
     }
 
+    /// Workout count per weekday (1=Sun..7=Sat) this week
+    private var workoutCountsByWeekday: [Int: Int] {
+        let cal = Calendar.current
+        guard let startOfWeek = cal.dateInterval(of: .weekOfYear, for: Date())?.start else { return [:] }
+        let thisWeek = workouts.filter { $0.date >= startOfWeek }
+        var counts: [Int: Int] = [:]
+        for w in thisWeek {
+            let wd = cal.component(.weekday, from: w.date)
+            counts[wd, default: 0] += 1
+        }
+        return counts
+    }
+
     var body: some View {
-        Button {
-            onTap?()
-        } label: {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("This Week")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(GQColors.textSecondary)
-
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(completed)")
-                        .font(GQTypography.heroNumber)
-                        .foregroundColor(GQColors.textPrimary)
-                        .contentTransition(.numericText())
-
-                    Text("/ \(goal)")
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-
-                Text("workouts completed")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(GQColors.textSecondary)
-            }
-
-            Spacer()
-
-            // Circular progress ring
-            ZStack {
-                Circle()
-                    .stroke(GQColors.borderDefault, lineWidth: 6)
-                    .frame(width: 64, height: 64)
-
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(GQColors.vividPurple, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    .frame(width: 64, height: 64)
-                    .rotationEffect(.degrees(-90))
-                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
-
-                if completed >= goal {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(GQColors.vividPurple)
-                } else {
-                    Text("\(Int(progress * 100))%")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+        VStack(spacing: 8) {
+            HStack(alignment: .center) {
+                // Left: label + number
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("This Week")
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(GQColors.textSecondary)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text("\(completed)")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(GQColors.textPrimary)
+                            .contentTransition(.numericText())
+
+                        if isEditingGoal {
+                            HStack(spacing: 2) {
+                                Text("/")
+                                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                    .foregroundColor(GQColors.textTertiary)
+
+                                Button {
+                                    if profile.daysPerWeek > 1 {
+                                        profile.daysPerWeek -= 1
+                                        try? modelContext.save()
+                                    }
+                                } label: {
+                                    Image(systemName: "minus.circle.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+                                .buttonStyle(.plain)
+
+                                Text("\(profile.daysPerWeek)")
+                                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                    .foregroundColor(GQColors.textPrimary)
+                                    .contentTransition(.numericText())
+
+                                Button {
+                                    profile.daysPerWeek += 1
+                                    try? modelContext.save()
+                                } label: {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } else {
+                            Text("/ \(goal)")
+                                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                .foregroundColor(GQColors.textTertiary)
+
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    isEditingGoal = true
+                                }
+                            } label: {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                // Compact progress ring
+                ZStack {
+                    Circle()
+                        .stroke(GQColors.borderDefault, lineWidth: 5)
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(GQColors.vividPurple, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
+
+                    if completed >= goal {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(GQColors.vividPurple)
+                    } else {
+                        Text("\(Int(progress * 100))%")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .foregroundColor(GQColors.textSecondary)
+                    }
+                }
+                .frame(width: 48, height: 48)
+            }
+
+            weekDayDots
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .homeSocialCard()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isEditingGoal {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isEditingGoal = false
                 }
             }
         }
-        .padding(16)
-        .homeSocialCard()
+    }
+
+    @ViewBuilder
+    private var weekDayDots: some View {
+        let cal = Calendar.current
+        let symbols = cal.veryShortWeekdaySymbols
+        // Mon=2 through Sun=1
+        let mondayFirst = [2, 3, 4, 5, 6, 7, 1]
+        let labelsReordered = [symbols[1], symbols[2], symbols[3],
+                               symbols[4], symbols[5], symbols[6],
+                               symbols[0]]
+
+        HStack(spacing: 0) {
+            ForEach(Array(zip(mondayFirst, labelsReordered).enumerated()), id: \.offset) { _, pair in
+                let (weekday, label) = pair
+                let count = workoutCountsByWeekday[weekday] ?? 0
+                VStack(spacing: 2) {
+                    Text(label)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                    HStack(spacing: 1.5) {
+                        if count == 0 {
+                            Circle()
+                                .fill(GQColors.adaptiveOverlay(0.08))
+                                .frame(width: 6, height: 6)
+                        } else {
+                            ForEach(0..<min(count, 3), id: \.self) { _ in
+                                Circle()
+                                    .fill(GQColors.vividPurple)
+                                    .frame(width: 6, height: 6)
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
         }
-        .buttonStyle(.plain)
     }
 }
 
