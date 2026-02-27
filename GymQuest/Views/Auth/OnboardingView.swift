@@ -59,22 +59,29 @@ struct OnboardingView: View {
                 Spacer()
 
                 // step content
-                switch currentStep {
-                case 0:
-                    NameStepView(name: $name)
-                case 1:
-                    UsernameStepView(username: $username)
-                case 2:
-                    BirthdayStepView(dateOfBirth: $dateOfBirth)
-                case 3:
-                    GoalStepView(selectedGoal: $selectedGoal)
-                case 4:
-                    ExperienceStepView(selectedExperience: $selectedExperience)
-                case 5:
-                    EquipmentStepView(selectedEquipment: $selectedEquipment)
-                default:
-                    EmptyView()
+                Group {
+                    switch currentStep {
+                    case 0:
+                        NameStepView(name: $name)
+                    case 1:
+                        UsernameStepView(username: $username)
+                    case 2:
+                        BirthdayStepView(dateOfBirth: $dateOfBirth)
+                    case 3:
+                        GoalStepView(selectedGoal: $selectedGoal)
+                    case 4:
+                        ExperienceStepView(selectedExperience: $selectedExperience)
+                    case 5:
+                        EquipmentStepView(selectedEquipment: $selectedEquipment)
+                    default:
+                        EmptyView()
+                    }
                 }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
+                .id(currentStep)
 
                 Spacer()
 

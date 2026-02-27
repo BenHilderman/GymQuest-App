@@ -35,7 +35,19 @@ final class ExerciseGifService {
     // MARK: - Private
 
     private func exerciseDbId(for name: String) -> String? {
-        mappings[name] ?? lowercaseMappings[name.lowercased()]
+        if let id = mappings[name] { return id }
+        let lower = name.lowercased()
+        if let id = lowercaseMappings[lower] { return id }
+        // Normalized match — strip hyphens + spaces
+        let norm = lower.filter { $0.isLetter || $0.isNumber }
+        for (key, id) in lowercaseMappings {
+            if key.filter({ $0.isLetter || $0.isNumber }) == norm { return id }
+        }
+        // Substring containment
+        for (key, id) in lowercaseMappings {
+            if key.contains(lower) || lower.contains(key) { return id }
+        }
+        return nil
     }
 
     private func loadMappings() {

@@ -80,8 +80,8 @@ struct ProfileView: View {
                         .homeSocialCard(cornerRadius: 14)
 
                     case .progress:
+                        progressSummaryRow
                         profileWeeklyProgress
-                        profileStatsSection
 
                         ProgressAnalyticsView(profile: profile, inline: true)
 
@@ -216,73 +216,61 @@ struct ProfileView: View {
     }
 
     @ViewBuilder
-    private var profileStatsSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Stats")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(GQColors.textSecondary)
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 10)
+    private var progressSummaryRow: some View {
+        HStack(spacing: 0) {
+            summaryStatItem(value: "\(nonRestWorkouts.count)", label: "Workouts")
 
-            // Lifetime row — workout count only
-            VStack(spacing: 4) {
-                Text("\(nonRestWorkouts.count)")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(GQColors.textPrimary)
-                Text("Workouts Tracked")
-                    .font(.caption)
-                    .foregroundColor(GQColors.textSecondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.bottom, 12)
+            Rectangle()
+                .fill(GQColors.borderSubtle)
+                .frame(width: 1, height: 32)
 
-            // Recent PRs (hidden when empty)
-            if !recentPRs.isEmpty {
-                Rectangle()
-                    .fill(Color.black.opacity(0.05))
-                    .frame(height: 1)
-                    .padding(.horizontal, 16)
+            summaryStatItem(value: "\(currentStreak)", label: "Day Streak")
 
-                VStack(spacing: 8) {
-                    ForEach(recentPRs, id: \.id) { pr in
-                        HStack(spacing: 12) {
-                            Image(systemName: "trophy.fill")
-                                .font(.system(size: 16))
-                                .foregroundColor(GQColors.electricGold)
+            Rectangle()
+                .fill(GQColors.borderSubtle)
+                .frame(width: 1, height: 32)
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(pr.exerciseName)
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(GQColors.textPrimary)
-                                    .lineLimit(1)
-                                Text(pr.prType.rawValue)
-                                    .font(.system(size: 11))
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
+            summaryStatItem(value: homeTotalVolumeFormatted, label: "Volume")
+        }
+        .padding(.vertical, 14)
+        .homeSocialCard(cornerRadius: 14)
+    }
 
-                            Spacer()
+    private func summaryStatItem(value: String, label: String) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
 
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text(prValueFormatted(pr))
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(GQColors.textPrimary)
+    private var currentStreak: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let sortedDates = nonRestWorkouts
+            .map { calendar.startOfDay(for: $0.date) }
+            .sorted(by: >)
 
-                                if let delta = pr.delta, delta > 0 {
-                                    Text("+\(Int(delta)) lbs")
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(GQColors.success)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                }
-                .padding(.top, 10)
-                .padding(.bottom, 12)
+        let uniqueDates = Array(Set(sortedDates)).sorted(by: >)
+        guard let first = uniqueDates.first else { return 0 }
+
+        let daysSinceFirst = calendar.dateComponents([.day], from: first, to: today).day ?? 0
+        guard daysSinceFirst <= 1 else { return 0 }
+
+        var streak = 1
+        for i in 1..<uniqueDates.count {
+            let diff = calendar.dateComponents([.day], from: uniqueDates[i], to: uniqueDates[i - 1]).day ?? 0
+            if diff == 1 {
+                streak += 1
+            } else {
+                break
             }
         }
-        .homeSocialCard(cornerRadius: 14)
+        return streak
     }
 
     // MARK: - Activity Computed Properties
@@ -474,7 +462,7 @@ struct ProfileView: View {
     }
 
     private var profileHeader: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             // Avatar + stat columns row
             HStack(spacing: 20) {
                 profileAvatar
@@ -550,7 +538,7 @@ struct ProfileView: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.black.opacity(0.09), lineWidth: 1)
+                            .stroke(GQColors.borderDefault, lineWidth: 1)
                     )
             }
             .buttonStyle(GQInteractiveStyle())

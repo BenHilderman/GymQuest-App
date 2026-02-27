@@ -20,9 +20,10 @@ struct ProgressAnalyticsView: View {
     @State private var selectedExerciseName: String = ""
     @State private var showingExerciseTrend = false
     @State private var showingPaywall = false
+    @State private var showAllPRs = false
 
     private var recentPRs: [PREvent] {
-        Array(prEvents.prefix(10))
+        Array(prEvents.prefix(showAllPRs ? 20 : 5))
     }
 
     private var validWorkouts: [Workout] {
@@ -181,17 +182,27 @@ struct ProgressAnalyticsView: View {
                                     .foregroundColor(GQColors.success)
                             }
                         }
-
-                        Text(pr.date.formatted(.dateTime.month(.abbreviated).day()))
-                            .font(.system(size: 11))
-                            .foregroundColor(GQColors.textTertiary)
-                            .frame(width: 50, alignment: .trailing)
                     }
                     .padding(.vertical, 6)
 
                     if pr.id != recentPRs.last?.id {
                         Divider()
                     }
+                }
+
+                if !showAllPRs && prEvents.count > 5 {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showAllPRs = true
+                        }
+                    } label: {
+                        Text("See All")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(GQColors.vividPurple)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 8)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -246,7 +257,7 @@ struct ProgressAnalyticsView: View {
                         }
                     }
                 }
-                .frame(height: 180)
+                .frame(height: 220)
             }
         }
         .padding(GQLayout.cardHorizontal)
@@ -322,20 +333,29 @@ struct ProgressAnalyticsView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(allExerciseNames.prefix(8), id: \.self) { name in
+                            let isSelected = selectedExerciseName == name
                             Button {
-                                selectedExerciseName = name
-                                showingExerciseTrend = true
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedExerciseName = name
+                                    showingExerciseTrend = true
+                                }
                             } label: {
                                 Text(name)
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(GQColors.vividPurple)
+                                    .foregroundColor(isSelected ? .white : GQColors.vividPurple)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
-                                    .background(GQColors.vividPurple.opacity(0.1))
+                                    .background(isSelected ? GQColors.vividPurple : GQColors.vividPurple.opacity(0.1))
                                     .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
                         }
+                    }
+                }
+                .onAppear {
+                    if selectedExerciseName.isEmpty, let first = allExerciseNames.first {
+                        selectedExerciseName = first
+                        showingExerciseTrend = true
                     }
                 }
 
@@ -440,7 +460,7 @@ struct ExerciseTrendChart: View {
                         }
                     }
                 }
-                .frame(height: 150)
+                .frame(height: 200)
             }
         }
         .padding(.top, 8)

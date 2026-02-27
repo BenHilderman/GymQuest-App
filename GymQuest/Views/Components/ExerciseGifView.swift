@@ -116,3 +116,143 @@ struct ExerciseGifView: View {
         }
     }
 }
+
+// MARK: - Exercise GIF Strip (horizontal scrolling for feed posts)
+
+struct ExerciseGifStripItem: View {
+    let exercise: SharedWorkoutData.SharedExercise
+
+    private var setSummary: String {
+        let count = exercise.sets.count
+        let topReps = exercise.sets.first?.reps ?? 0
+        let topWeight = exercise.sets.map(\.weight).max() ?? 0
+        if topWeight > 0 {
+            return "\(count)×\(topReps) @ \(Int(topWeight))"
+        }
+        return "\(count)×\(topReps)"
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ExerciseGifView(exerciseName: exercise.name, size: .medium)
+
+            Text(exercise.name)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+                .frame(maxWidth: 80)
+
+            Text(setSummary)
+                .font(.system(size: 10))
+                .foregroundColor(GQColors.textTertiary)
+                .lineLimit(1)
+        }
+    }
+}
+
+struct ExerciseGifStrip: View {
+    let exercises: [SharedWorkoutData.SharedExercise]
+    let totalCount: Int
+    var onTapMore: (() -> Void)? = nil
+
+    private var visibleExercises: [SharedWorkoutData.SharedExercise] {
+        Array(exercises.prefix(6))
+    }
+
+    private var overflowCount: Int {
+        max(0, totalCount - 6)
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(visibleExercises) { exercise in
+                    ExerciseGifStripItem(exercise: exercise)
+                }
+
+                if overflowCount > 0 {
+                    Button {
+                        onTapMore?()
+                    } label: {
+                        VStack(spacing: 4) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(GQColors.surfaceElevated)
+                                    .frame(width: 80, height: 80)
+                                Text("+\(overflowCount)")
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                            Text("more")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(GQColors.textTertiary)
+                            Spacer().frame(height: 12) // align with set summary row
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+}
+
+// MARK: - Overlay Exercise GIF Strip (compact variant for media overlays)
+
+struct OverlayExerciseGifStrip: View {
+    let exercises: [SharedWorkoutData.SharedExercise]
+    let totalCount: Int
+    var onTapMore: (() -> Void)? = nil
+
+    private var visible: [SharedWorkoutData.SharedExercise] {
+        Array(exercises.prefix(4))
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(visible) { exercise in
+                    OverlayExerciseGifItem(exercise: exercise)
+                }
+                if totalCount > 4 {
+                    Button { onTapMore?() } label: {
+                        Text("+\(totalCount - 4)")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(.white.opacity(0.2))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+        }
+    }
+}
+
+struct OverlayExerciseGifItem: View {
+    let exercise: SharedWorkoutData.SharedExercise
+
+    private var setSummary: String {
+        let count = exercise.sets.count
+        let topWeight = exercise.sets.map(\.weight).max() ?? 0
+        if topWeight > 0 { return "\(count)s · \(Int(topWeight))lb" }
+        return "\(count) sets"
+    }
+
+    var body: some View {
+        VStack(spacing: 2) {
+            ExerciseGifView(exerciseName: exercise.name, size: .thumbnail)
+            Text(exercise.name)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .frame(maxWidth: 48)
+            Text(setSummary)
+                .font(.system(size: 8))
+                .foregroundColor(.white.opacity(0.7))
+                .lineLimit(1)
+        }
+    }
+}

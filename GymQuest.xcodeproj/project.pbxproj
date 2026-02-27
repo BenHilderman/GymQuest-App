@@ -36,6 +36,7 @@
 		0E233FA78CEAE5D340101808 /* 0307.gif in Resources */ = {isa = PBXBuildFile; fileRef = C64EC68CA76EE3BB822DE9F5 /* 0307.gif */; };
 		0E71DE3D49EE6C8C0438F6CB /* 0581.gif in Resources */ = {isa = PBXBuildFile; fileRef = A9B7768240EC4E6C85E805C1 /* 0581.gif */; };
 		0F1C62567A9FDCC40E308413 /* form_content_sample.json in Resources */ = {isa = PBXBuildFile; fileRef = C0621641A70CB1A3CE0970E9 /* form_content_sample.json */; };
+		0F48AA0405C07EE065C25834 /* StatsFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27331576C3EA75AC0B8C5373 /* StatsFeedView.swift */; };
 		0F9ED08CEBCFD919BED16CC3 /* 0120.gif in Resources */ = {isa = PBXBuildFile; fileRef = EA841549F3546DD065E3BA06 /* 0120.gif */; };
 		0FDB9826BBF58768622F5816 /* ActiveWorkoutViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6990C23D8D49C35631ACEC4 /* ActiveWorkoutViewModelTests.swift */; };
 		10436ACF0EB0966F7DE36D6E /* OfflineHLSDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBEAF9417EEA3274D8D9C205 /* OfflineHLSDownloadManager.swift */; };
@@ -61,7 +62,6 @@
 		1E9944ACD6603519F4A1BC28 /* 0279.gif in Resources */ = {isa = PBXBuildFile; fileRef = 99E8DA2A87A45AA4FE7F6D5C /* 0279.gif */; };
 		1EABE38223F9C2233C281B18 /* 0037.gif in Resources */ = {isa = PBXBuildFile; fileRef = 3005C9C9005F7AD90904C3E7 /* 0037.gif */; };
 		1ED3C42F5075944FA2D13B75 /* WorkoutLaunchOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5CAFA0FCE4A4297041738B8 /* WorkoutLaunchOverlay.swift */; };
-		1F0CAE94EBAC7BF692782600 /* TikTokFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0AAD70139C9C65E51421CB /* TikTokFeedView.swift */; };
 		1F0E7051A52F12FC69522CBB /* NutritionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46230D876FAC3A46CCA856E7 /* NutritionService.swift */; };
 		1FFDCEC2756B40C0E9114892 /* demo_deadlift.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 49C59E65635572095808A79C /* demo_deadlift.mp4 */; };
 		2038149E6CD1CD801DF44368 /* 0085.gif in Resources */ = {isa = PBXBuildFile; fileRef = D0DF1F6CBBAC063A6395D228 /* 0085.gif */; };
@@ -274,6 +274,7 @@
 		88506550ED4553E1FD16EC64 /* 3636.gif in Resources */ = {isa = PBXBuildFile; fileRef = 0D51C21B3BF7F5FA9AAC0B5B /* 3636.gif */; };
 		887AA7601B44802FBE2A68FA /* Exercise3DViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D446B0079BCC456643DFA17 /* Exercise3DViewer.swift */; };
 		8A9586C5D7BFA88BE0019849 /* FormRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC44A1F5D8805900A9B109A /* FormRepository.swift */; };
+		8B46B2D6DD7895E205DDB2BB /* TodayDashboardSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE268A4C31CF9536994156F3 /* TodayDashboardSection.swift */; };
 		8BAD40E85D92E527D2559E60 /* 3361.gif in Resources */ = {isa = PBXBuildFile; fileRef = 9D101B935B0EB0A3F8BB02F0 /* 3361.gif */; };
 		8BCC0FEE1781BFB7E9760599 /* 0613.gif in Resources */ = {isa = PBXBuildFile; fileRef = 16BCC21656A0FB5E5F42BBBF /* 0613.gif */; };
 		8D095F2BEF57B003C2D45C14 /* 1456.gif in Resources */ = {isa = PBXBuildFile; fileRef = A28AF93B9108724681430E28 /* 1456.gif */; };
@@ -362,6 +363,7 @@
 		BA793EFA66412B89F3D34F33 /* 0316.gif in Resources */ = {isa = PBXBuildFile; fileRef = 533AFE7A704374EFB375A9D1 /* 0316.gif */; };
 		BA88CF14E2EDD2F430CF393F /* 0861.gif in Resources */ = {isa = PBXBuildFile; fileRef = 9F0EB5E8A6862967E1B4FBEC /* 0861.gif */; };
 		BADE4C7FD30B6D91B0758869 /* ReplicateVideoGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1B227E45EF3A87C257CC91 /* ReplicateVideoGenerator.swift */; };
+		BB005813D1EB9216B49D7A0E /* TodayDashboardSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE268A4C31CF9536994156F3 /* TodayDashboardSection.swift */; };
 		BCA2CF24B832E8D07D029291 /* PRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6D642307B4359A8EA9BC50 /* PRService.swift */; };
 		BCF9C388212538DB14211F9F /* AuthServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C89CF6E2000D9A64BC3220 /* AuthServiceTests.swift */; };
 		BD0E5B069CA8CD2907B7C150 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E4D54DD994DF4457DE77972B /* LaunchScreen.storyboard */; };
@@ -371,6 +373,7 @@
 		BEE871393D03BAA7E7BE180A /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82B7C2882F01C30E0C02E799 /* OnboardingView.swift */; };
 		BF46579303818A4BD8D40382 /* 3637.gif in Resources */ = {isa = PBXBuildFile; fileRef = 999DBCFD72596017C876933E /* 3637.gif */; };
 		BF827FD3A1E71FE03AC59B84 /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4978182100C2755CFC9AA0D3 /* AnalyticsService.swift */; };
+		C02DD0D88EA37C01204E9400 /* DiscoverFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2134ABCF55C2DDA358F47C72 /* DiscoverFeedView.swift */; };
 		C038EFB34EEF26728BDD3A5E /* ProgressView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C62759DBE72B3698573FE5 /* ProgressView.swift */; };
 		C1E3EAEB35949B5A564AD148 /* 0116.gif in Resources */ = {isa = PBXBuildFile; fileRef = F99FC8BCCB9E24D730FFAC6F /* 0116.gif */; };
 		C27B1EA2F95AA5D932D91E62 /* FormCheckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CE3EA466F254D9511B6574 /* FormCheckView.swift */; };
@@ -393,7 +396,6 @@
 		CC1DFA14AB49ED6B3F957168 /* demo_yoga.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = FAC3413840338B3EC385BF71 /* demo_yoga.mp4 */; };
 		CC9C7301F26698D0F6EA9A28 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFDE64DCB367EF2E7B97879B /* NotificationSettingsView.swift */; };
 		CCAACF971FAD96B24434C7D9 /* 0658.gif in Resources */ = {isa = PBXBuildFile; fileRef = A9454FF1974F15CE5F31A227 /* 0658.gif */; };
-		CD2224DB5AEA0DBF82D24A84 /* TikTokFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C0AAD70139C9C65E51421CB /* TikTokFeedView.swift */; };
 		CD845B7FFE557C711D267453 /* 0405.gif in Resources */ = {isa = PBXBuildFile; fileRef = D24756064867AB33603A04D0 /* 0405.gif */; };
 		CE5A3B0A2B24DA6EEC50D463 /* SocialActivityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6B5776F9DF46ECE67CA301E /* SocialActivityService.swift */; };
 		CF7FCFF8386A5FCB715DBE2A /* FeedRankingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9FEEB95635E6E5AFF559D17 /* FeedRankingService.swift */; };
@@ -445,6 +447,7 @@
 		E3CDEBB89193632E57E57976 /* CreatePostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0169C691FD8D328BB91CB7C7 /* CreatePostView.swift */; };
 		E3F679C3BD7718D11D237C60 /* 0550.gif in Resources */ = {isa = PBXBuildFile; fileRef = 58AA0DCD3B0471B9F4FC5CD2 /* 0550.gif */; };
 		E47B0528F48C156334A09F6D /* demo_pull_ups.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = CFA40FC4EAAFEA49B05AE286 /* demo_pull_ups.mp4 */; };
+		E5EF9F446927EEFB2DE5DEBC /* DiscoverFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2134ABCF55C2DDA358F47C72 /* DiscoverFeedView.swift */; };
 		E636D585EFB35F33C37A3AE1 /* XCUIApplicationExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A3169E99DDEEE7A8FBDDA5C /* XCUIApplicationExtensions.swift */; };
 		E69B7AC3F47873B943AD9CF2 /* GymQuestApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B762E0673450837B309948FF /* GymQuestApp.swift */; };
 		E744F84E2F76AE9B252588EC /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3FFBAA88CE548E04967664 /* HomeView.swift */; };
@@ -461,6 +464,7 @@
 		ED023A54CC026E87AA9B4AF3 /* 3303.gif in Resources */ = {isa = PBXBuildFile; fileRef = C78356F756D9DCDAD700872D /* 3303.gif */; };
 		ED1C81D6B1E4FE059581E544 /* demo_kettlebell.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 8BC611247407EBDB141D3002 /* demo_kettlebell.mp4 */; };
 		ED258C1A8BA2565390ED6A01 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB667EE34B89059704D8B10B /* NotificationService.swift */; };
+		ED6D3957426E4F040F5FF437 /* StatsFeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27331576C3EA75AC0B8C5373 /* StatsFeedView.swift */; };
 		EED17FED36A221884D7F47D2 /* 0058.gif in Resources */ = {isa = PBXBuildFile; fileRef = 88CBCD2C034D0CCC2EB096BE /* 0058.gif */; };
 		EED8F34D365EFA7AB828C493 /* 0036.gif in Resources */ = {isa = PBXBuildFile; fileRef = E0D37D5B7E78DCB87495C4E8 /* 0036.gif */; };
 		EF1A28CDC4784B52D8751130 /* PRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6D642307B4359A8EA9BC50 /* PRService.swift */; };
@@ -555,10 +559,12 @@
 		2066AB169A13A6B6FAC57B1D /* RobotDemoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RobotDemoService.swift; sourceTree = "<group>"; };
 		207B7149C2216F60A83EFC13 /* FormStudioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormStudioView.swift; sourceTree = "<group>"; };
 		20E9876AF41845D3AA3A835D /* demo_leg_press.mp4 */ = {isa = PBXFileReference; path = demo_leg_press.mp4; sourceTree = "<group>"; };
+		2134ABCF55C2DDA358F47C72 /* DiscoverFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverFeedView.swift; sourceTree = "<group>"; };
 		22AA3754785DA065CF867296 /* 0571.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0571.gif; sourceTree = "<group>"; };
 		230A72B18294B419E939D25D /* MemoryLeakTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryLeakTests.swift; sourceTree = "<group>"; };
 		23E4A6F01A722FCF8F9E2F7D /* VideoGeneratorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoGeneratorView.swift; sourceTree = "<group>"; };
 		24B85CB6DCD7FE7E3F763BEA /* ExerciseSetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSetTests.swift; sourceTree = "<group>"; };
+		27331576C3EA75AC0B8C5373 /* StatsFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsFeedView.swift; sourceTree = "<group>"; };
 		27908D9264CF6267D32B6A65 /* FollowWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowWorkoutView.swift; sourceTree = "<group>"; };
 		28A90ADE94B9D3762EDD131B /* 3360.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3360.gif; sourceTree = "<group>"; };
 		29BD654EDE51231F41CC9248 /* CoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachView.swift; sourceTree = "<group>"; };
@@ -644,7 +650,6 @@
 		79CE3EA466F254D9511B6574 /* FormCheckView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormCheckView.swift; sourceTree = "<group>"; };
 		79D14E9B92E168868BF60469 /* 0042.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0042.gif; sourceTree = "<group>"; };
 		7B6D642307B4359A8EA9BC50 /* PRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PRService.swift; sourceTree = "<group>"; };
-		7C0AAD70139C9C65E51421CB /* TikTokFeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TikTokFeedView.swift; sourceTree = "<group>"; };
 		7C92EA1A37F22EFA18E04102 /* ExerciseGifService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseGifService.swift; sourceTree = "<group>"; };
 		7D840E5583B7F15984ABF558 /* 0353.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0353.gif; sourceTree = "<group>"; };
 		7F6FA057DB346A62631F880B /* FormVideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormVideoPlayerView.swift; sourceTree = "<group>"; };
@@ -784,6 +789,7 @@
 		FB9F8CDB00E2A76E569A29B4 /* 0148.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0148.gif; sourceTree = "<group>"; };
 		FBEAF9417EEA3274D8D9C205 /* OfflineHLSDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OfflineHLSDownloadManager.swift; sourceTree = "<group>"; };
 		FD2213884BB7E42F730F0F5F /* DesignSystemSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystemSnapshotTests.swift; sourceTree = "<group>"; };
+		FE268A4C31CF9536994156F3 /* TodayDashboardSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayDashboardSection.swift; sourceTree = "<group>"; };
 		FF9DCE2F92D36971BA5E7DB1 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -1041,6 +1047,7 @@
 				767FB11FC93903610CB3B7E6 /* ContentView.swift */,
 				0169C691FD8D328BB91CB7C7 /* CreatePostView.swift */,
 				D6A35BC69EB838B5BFCC24B4 /* DesignSystem.swift */,
+				2134ABCF55C2DDA358F47C72 /* DiscoverFeedView.swift */,
 				8131A8F6BF08AF684495664C /* EnhancedPostEditorView.swift */,
 				D9F81EDB09D0192122A69909 /* FeedView.swift */,
 				27908D9264CF6267D32B6A65 /* FollowWorkoutView.swift */,
@@ -1057,7 +1064,8 @@
 				F7C62759DBE72B3698573FE5 /* ProgressView.swift */,
 				606C1B98C19FA14B7F74DE3D /* SocialView.swift */,
 				5AF6A30A749E05646DB9D707 /* SquadView.swift */,
-				7C0AAD70139C9C65E51421CB /* TikTokFeedView.swift */,
+				27331576C3EA75AC0B8C5373 /* StatsFeedView.swift */,
+				FE268A4C31CF9536994156F3 /* TodayDashboardSection.swift */,
 				E3A559F771F37E93C9C6C6D9 /* WorkoutCardView.swift */,
 				B6D6A1627F7D2F5E21C9D1B5 /* WorkoutStartOptionsView.swift */,
 				64188F116B5ADF609FD1EF82 /* WorkoutTypeSelectionView.swift */,
@@ -1834,6 +1842,7 @@
 				6563DD7A0D2CECDEBF98CE5D /* ContentView.swift in Sources */,
 				E0E09D7E1E1BF56869F5E9AC /* CreatePostView.swift in Sources */,
 				91DCB07EB81718287A3313A2 /* DesignSystem.swift in Sources */,
+				C02DD0D88EA37C01204E9400 /* DiscoverFeedView.swift in Sources */,
 				8221747985E136FFF37ED2E2 /* DiscoverSeeder.swift in Sources */,
 				D24A71FB776191666009E6F6 /* EmotionInsightsService.swift in Sources */,
 				C4C2E602308905F3F3CE5526 /* EmotionInsightsView.swift in Sources */,
@@ -1901,9 +1910,10 @@
 				2595B2ED40E5ED0AE3769F51 /* SocialView.swift in Sources */,
 				B0DD9E1E6C66040B717EC6AC /* SquadService.swift in Sources */,
 				765274688AE84A2B2258E4D6 /* SquadView.swift in Sources */,
+				ED6D3957426E4F040F5FF437 /* StatsFeedView.swift in Sources */,
 				06B269F4A6A5F205837636AD /* StravaService.swift in Sources */,
 				D5B73E2FBAA2684BD5D24362 /* SubscriptionService.swift in Sources */,
-				CD2224DB5AEA0DBF82D24A84 /* TikTokFeedView.swift in Sources */,
+				BB005813D1EB9216B49D7A0E /* TodayDashboardSection.swift in Sources */,
 				959D79C83121F8C70EBA9F50 /* TrainingPlanOfferView.swift in Sources */,
 				7F0455CD5E00B44B59AACCBB /* VideoGeneratorView.swift in Sources */,
 				061A06BE58F5EA8F834E72D6 /* VoiceNotePlayerView.swift in Sources */,
@@ -1951,6 +1961,7 @@
 				68521BB1A0ED7ABDE4439494 /* ContentView.swift in Sources */,
 				E3CDEBB89193632E57E57976 /* CreatePostView.swift in Sources */,
 				420BAE032D7AA52F43704135 /* DesignSystem.swift in Sources */,
+				E5EF9F446927EEFB2DE5DEBC /* DiscoverFeedView.swift in Sources */,
 				B278F0B1237565E364D381B4 /* DiscoverSeeder.swift in Sources */,
 				11646C23EFD4C7B92F7A812F /* EmotionInsightsService.swift in Sources */,
 				63D49E8531D71C1B4FE22DAF /* EmotionInsightsView.swift in Sources */,
@@ -2018,9 +2029,10 @@
 				70A8A9FB33C2536472CC6A2C /* SocialView.swift in Sources */,
 				732773D099C9E9D8C466513C /* SquadService.swift in Sources */,
 				6B59816E7898A0CC5F4BD3FB /* SquadView.swift in Sources */,
+				0F48AA0405C07EE065C25834 /* StatsFeedView.swift in Sources */,
 				9D5252C236D73244147AF8A4 /* StravaService.swift in Sources */,
 				85B43FB8928426911D579E78 /* SubscriptionService.swift in Sources */,
-				1F0CAE94EBAC7BF692782600 /* TikTokFeedView.swift in Sources */,
+				8B46B2D6DD7895E205DDB2BB /* TodayDashboardSection.swift in Sources */,
 				E2E6E3B57E888BFDC7AB811B /* TrainingPlanOfferView.swift in Sources */,
 				2873B58C726DFC42A082E6EA /* VideoGeneratorView.swift in Sources */,
 				BEBF0458B419DC84750115AD /* VoiceNotePlayerView.swift in Sources */,

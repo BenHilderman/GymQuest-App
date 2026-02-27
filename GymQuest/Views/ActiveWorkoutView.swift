@@ -809,7 +809,7 @@ struct ActiveExerciseCard: View {
                         .foregroundColor(GQColors.textPrimary)
 
                     Text(exercise.muscleGroup.rawValue)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
                 }
 
@@ -820,7 +820,7 @@ struct ActiveExerciseCard: View {
                         Image(systemName: "play.circle.fill").foregroundColor(workoutAccent)
                         Text("Form").foregroundColor(GQColors.textSecondary)
                     }
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 13, weight: .semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(GQColors.surfaceOverlay))

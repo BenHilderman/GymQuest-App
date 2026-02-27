@@ -119,11 +119,17 @@ struct ContentView: View {
         }
         .sheet(isPresented: $appState.showingQuickActions) {
             QuickActionSheet()
-                .presentationDetents([.height(340)])
+                .presentationDetents([.height(500)])
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $appState.showingLogEntry) {
             LogView(profile: profile)
+        }
+        .sheet(isPresented: $appState.showingMealLog) {
+            MealLogView(profile: profile)
+        }
+        .sheet(isPresented: $appState.showingAddMeasurement) {
+            AddMeasurementSheet(profile: profile)
         }
         .onAppear {
             AnalyticsService.shared.configure(modelContext: modelContext)
@@ -510,6 +516,30 @@ struct QuickActionSheet: View {
                     dismiss()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                         appState.showingCreatePost = true
+                    }
+                }
+
+                quickActionCard(
+                    icon: "fork.knife",
+                    title: "Log Food",
+                    subtitle: "Track a meal or snack",
+                    accent: Color(hex: "FF9500")
+                ) {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        appState.showingMealLog = true
+                    }
+                }
+
+                quickActionCard(
+                    icon: "scalemass.fill",
+                    title: "Log Weight",
+                    subtitle: "Record a body measurement",
+                    accent: GQColors.success
+                ) {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        appState.showingAddMeasurement = true
                     }
                 }
             }

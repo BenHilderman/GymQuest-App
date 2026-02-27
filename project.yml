@@ -37,6 +37,7 @@ targets:
       - path: GymQuest
         excludes:
           - "Services/HapticManager.swift"
+          - "Resources/DemoVideos/backup"
     dependencies:
       - package: GoogleSignIn
       - package: SDWebImageSwiftUI

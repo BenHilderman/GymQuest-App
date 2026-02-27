@@ -24,6 +24,7 @@ enum FeedTab: String, CaseIterable {
     case social = "Social"
     case discover = "Discover"
     case communities = "Communities"
+    case stats = "Stats"
 }
 
 struct FeedView: View {
@@ -90,9 +91,11 @@ struct FeedView: View {
                 case .social:
                     socialFeedContent
                 case .discover:
-                    TikTokFeedView(profile: profile)
+                    DiscoverFeedView(profile: profile)
                 case .communities:
                     CommunityFeedView(profile: profile)
+                case .stats:
+                    StatsFeedView(profile: profile)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -115,6 +118,11 @@ struct FeedView: View {
             }
             .onChange(of: posts.count) {
                 refreshFriendsPosts()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .navigateToFeedTab)) { notification in
+                if let tab = notification.object as? FeedTab {
+                    selectedFeedTab = tab
+                }
             }
             .sheet(isPresented: $showLearnPanel) {
                 if let exerciseName = selectedExerciseForLearn {
@@ -142,29 +150,49 @@ struct FeedView: View {
     @ViewBuilder
     private var socialFeedContent: some View {
         ScrollView {
-            // Weekly hero metric
-            WeeklyHeroSection(
-                completed: workoutsThisWeek,
-                goal: profile.daysPerWeek,
-                profile: profile,
-                workouts: allWorkouts
-            )
-            .environment(\.modelContext, modelContext)
+            VStack(spacing: 0) {
+                // Today dashboard (daily stats + quick-log)
+                TodayDashboardSection(
+                    profile: profile,
+                    workoutsThisWeek: workoutsThisWeek,
+                    allWorkouts: allWorkouts
+                )
+                .environment(\.modelContext, modelContext)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+
+                // Customizable hero widget (long-press to change)
+                SocialHeroWidget(
+                    profile: profile,
+                    workoutsCompleted: workoutsThisWeek,
+                    allWorkouts: allWorkouts
+                )
+                .environment(\.modelContext, modelContext)
+                .padding(.bottom, 4)
+
+                // Stories row — friends working out now (hidden when empty)
+                if !SocialActivityService.shared.activeFriends.isEmpty {
+                    Rectangle()
+                        .fill(GQColors.borderSubtle)
+                        .frame(height: 1)
+                        .padding(.horizontal, 4)
+
+                    WorkingOutNowRow(recentFriendCount: cachedFriendsPosts.filter { $0.timestamp > Date().addingTimeInterval(-86400) }.count)
+                }
+
+                // Squad challenge (if active)
+                if featureFlags.squadsEnabled, let squad = activeSquad, let challenge = squadChallenge {
+                    SquadChallengeCard(squad: squad, challenge: challenge)
+                        .padding(.bottom, 4)
+                }
+            }
             .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
 
-            // Stories row — friends working out now (hidden when empty)
-            if !SocialActivityService.shared.activeFriends.isEmpty {
-                WorkingOutNowRow(recentFriendCount: cachedFriendsPosts.filter { $0.timestamp > Date().addingTimeInterval(-86400) }.count)
-            }
-
-            // Squad challenge (if active)
-            if featureFlags.squadsEnabled, let squad = activeSquad, let challenge = squadChallenge {
-                SquadChallengeCard(squad: squad, challenge: challenge)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 4)
-            }
+            // Thin separator before feed posts
+            Rectangle()
+                .fill(GQColors.borderSubtle)
+                .frame(height: 1)
+                .padding(.top, 4)
 
             LazyVStack(spacing: 0) {
                 if cachedFriendsPosts.isEmpty {
@@ -180,7 +208,7 @@ struct FeedView: View {
 
                         Rectangle()
                             .fill(GQColors.borderSubtle)
-                            .frame(height: 4)
+                            .frame(height: 1)
                     }
                 }
             }
@@ -245,7 +273,7 @@ struct FeedTabsView: View {
             HStack(spacing: 0) {
                 ForEach(FeedTab.allCases, id: \.self) { tab in
                     Text(tab.rawValue)
-                        .font(.system(size: 16, weight: selectedTab == tab ? .semibold : .medium))
+                        .font(.system(size: 15, weight: selectedTab == tab ? .semibold : .medium))
                         .foregroundColor(selectedTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
@@ -270,8 +298,8 @@ struct FeedTabsView: View {
             }
             .frame(height: 2)
         }
-        .padding(.horizontal, 32)
-        .padding(.top, 12)
+        .padding(.horizontal, 20)
+        .padding(.top, -8)
         .padding(.bottom, 4)
         .background(
             ZStack {
@@ -301,10 +329,11 @@ struct PostCardV2: View {
     @State private var showWorkoutDetail = false
     @State private var isSaved = false
     @State private var showFullCaption = false
-    @State private var photoScale: CGFloat = 1.0
     @State private var showingCopySheet = false
     @State private var copySheetWorkout: SharedWorkoutData?
     @State private var cachedTopComment: Comment?
+    @State private var emotionAppeared = false
+    @State private var showEmotionText = false
 
     var detectedActivityType: DetectedActivity? {
         guard let activity = post.detectedActivity else { return nil }
@@ -344,16 +373,11 @@ struct PostCardV2: View {
                 inspiredByBadge
                 heroSection
                 captionSection
-                inlineWorkoutSummary
                 compactBottomBar
                 inlineCommentPreview
             }
         }
         .background(GQColors.surfaceBase)
-        .overlay(
-            Rectangle()
-                .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 1)
-        )
         .opacity(hasAppeared ? 1 : 0)
         .offset(y: hasAppeared ? 0 : 20)
         .background(
@@ -547,6 +571,14 @@ struct PostCardV2: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .overlay(alignment: .leading) {
+            if let emotion = post.emotion {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(emotion.color)
+                    .frame(width: 3)
+                    .padding(.vertical, 12)
+            }
+        }
     }
 
     @ViewBuilder
@@ -558,15 +590,12 @@ struct PostCardV2: View {
                 Text("Inspired by @\(inspiredBy)")
                     .font(.system(size: 12, weight: .medium))
             }
-            .foregroundColor(GQColors.adaptiveOverlay(0.6))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(GQColors.adaptiveOverlay(0.08))
-            .cornerRadius(16)
+            .foregroundColor(GQColors.textTertiary)
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
         }
     }
+
 
     @ViewBuilder
     private var heroSection: some View {
@@ -609,12 +638,21 @@ struct PostCardV2: View {
     private var photoHero: some View {
         if post.mediaItems.count > 1 {
             // Multi-media carousel with music overlay on image
-            ZStack(alignment: .bottom) {
-                ExerciseMediaCarousel(mediaItems: post.mediaItems)
+            ZStack(alignment: .topTrailing) {
+                ZStack(alignment: .bottom) {
+                    ExerciseMediaCarousel(mediaItems: post.mediaItems)
 
+                    VStack(spacing: 0) {
+                        Spacer()
+                        mediaWorkoutOverlay
+                            .padding(.bottom, 30) // above page dots
+                    }
+                }
+
+                // Music chip top-right
                 if let song = post.songTitle, let artist = post.artistName {
                     photoMusicBar(song: song, artist: artist)
-                        .padding(.bottom, 40) // above page dots
+                        .padding(12)
                 }
             }
             .clipped()
@@ -623,12 +661,17 @@ struct PostCardV2: View {
             ZStack(alignment: .topLeading) {
                 ZStack(alignment: .topTrailing) {
                     PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
-                        .scaleEffect(photoScale)
 
-                    if let activity = detectedActivityType, post.photoData != nil || post.videoData != nil {
-                        ActivityBadge(activityType: activity)
-                            .padding(12)
+                    // Activity badge + music chip stacked top-right
+                    VStack(alignment: .trailing, spacing: 6) {
+                        if let activity = detectedActivityType, post.photoData != nil || post.videoData != nil {
+                            ActivityBadge(activityType: activity)
+                        }
+                        if let song = post.songTitle, let artist = post.artistName {
+                            photoMusicBar(song: song, artist: artist)
+                        }
                     }
+                    .padding(12)
                 }
 
                 // Emotion pill overlay
@@ -637,99 +680,111 @@ struct PostCardV2: View {
                         .padding(12)
                 }
 
-                // Music + stats at bottom of image
+                // Workout overlay at bottom of image
                 VStack(spacing: 0) {
                     Spacer()
-
-                    if let song = post.songTitle, let artist = post.artistName {
-                        photoMusicBar(song: song, artist: artist)
-                    }
-
-                    if post.duration != nil || post.setCount != nil || post.workoutType != nil {
-                        photoStatsOverlay
-                    }
+                    mediaWorkoutOverlay
                 }
             }
             .clipped()
-            .onAppear {
-                withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) {
-                    photoScale = 1.02
-                }
-            }
         }
     }
 
     @ViewBuilder
     private func photoMusicBar(song: String, artist: String) -> some View {
         let isSpotify = post.musicSource?.lowercased().contains("spotify") == true
+        let serviceColor: Color = isSpotify ? Color(hex: "1DB954") : Color(hex: "FC3C44")
 
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isPlayingMusic.toggle()
-            }
+            let service: MusicService = (post.musicSource?.lowercased().contains("spotify") == true) ? .spotify : .appleMusic
+            openMusicSearch(song: song, artist: artist, service: service)
         } label: {
-            HStack(spacing: 8) {
-                MusicEQBars(barCount: 3, barWidth: 2.5, maxHeight: 12, color: .white.opacity(0.9), isPlaying: isPlayingMusic)
-
-                Text("\(song) — \(artist)")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.9))
-                    .lineLimit(1)
-
+            HStack(spacing: 6) {
                 if post.musicSource != nil {
                     if isSpotify {
-                        SpotifyIcon(size: 16)
+                        SpotifyIcon(size: 18)
                     } else {
-                        AppleMusicIcon(size: 16)
+                        AppleMusicIcon(size: 18)
                     }
+                } else {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 18, height: 18)
+                        .background(Circle().fill(Color.white.opacity(0.2)))
                 }
+
+                Text(song)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.95))
+                    .lineLimit(1)
+
+                MusicEQBars(barCount: 3, barWidth: 2, maxHeight: 10, color: serviceColor, isPlaying: isPlayingMusic)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(.black.opacity(0.25))
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
-            .overlay(
-                Capsule()
-                    .fill(.clear)
-                    .overlay(
-                        Capsule()
-                            .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
-                    )
-            )
-            .fixedSize()
-            .environment(\.colorScheme, .dark)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Color.black.opacity(0.45)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.5))
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                openMusicSearch(song: song, artist: artist, service: .spotify)
+            } label: {
+                Label("Open in Spotify", systemImage: "arrow.up.right")
+            }
+            Button {
+                openMusicSearch(song: song, artist: artist, service: .appleMusic)
+            } label: {
+                Label("Open in Apple Music", systemImage: "arrow.up.right")
+            }
+        }
     }
 
     @ViewBuilder
-    private var photoStatsOverlay: some View {
-        HStack(spacing: 12) {
-            if let type = post.workoutType {
-                Text(type)
-                    .font(.system(size: 13, weight: .semibold))
+    private var mediaWorkoutOverlay: some View {
+        let hasStats = post.duration != nil || post.setCount != nil || post.workoutType != nil
+        let hasExercises = sharedWorkout != nil && !(sharedWorkout?.exercises.isEmpty ?? true)
+
+        if hasStats || hasExercises {
+            VStack(alignment: .leading, spacing: 8) {
+                if hasStats {
+                    HStack(spacing: 12) {
+                        if let type = post.workoutType {
+                            Text(type)
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        if let duration = post.duration, duration > 0 {
+                            Text("\(duration) min")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        if let sets = post.setCount, sets > 0 {
+                            Text("\(sets) sets")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                }
+
+                if hasExercises, let workout = sharedWorkout {
+                    OverlayExerciseGifStrip(
+                        exercises: workout.exercises,
+                        totalCount: workout.exercises.count,
+                        onTapMore: { showWorkoutDetail = true }
+                    )
+                }
             }
-            if let duration = post.duration, duration > 0 {
-                Text("\(duration) min")
-                    .font(.system(size: 13, weight: .medium))
-            }
-            if let sets = post.setCount, sets > 0 {
-                Text("\(sets) sets")
-                    .font(.system(size: 13, weight: .medium))
-            }
-            Spacer()
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.6)],
-                startPoint: .top,
-                endPoint: .bottom
+            .foregroundColor(.white)
+            .padding(.vertical, 10)
+            .background(
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.65)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             )
-        )
+        }
     }
 
     @ViewBuilder
@@ -753,79 +808,11 @@ struct PostCardV2: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 4)
+            .padding(.top, 12)
         }
     }
 
-    @ViewBuilder
-    private var inlineWorkoutSummary: some View {
-        if let workout = sharedWorkout {
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(Array(workout.exercises.prefix(3).enumerated()), id: \.offset) { _, exercise in
-                    HStack(spacing: 8) {
-                        Image(systemName: "dumbbell.fill")
-                            .font(.system(size: 9))
-                            .foregroundColor(GQColors.cyanSpark)
-                            .frame(width: 16)
-                        let setCount = exercise.sets.count
-                        let topWeight = exercise.sets.map(\.weight).max() ?? 0
-                        let topReps = exercise.sets.first?.reps ?? 0
-                        if topWeight > 0 {
-                            Text("\(exercise.name) — \(setCount)×\(topReps) @ \(Int(topWeight)) lbs")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(GQColors.textPrimary)
-                        } else {
-                            Text("\(exercise.name) — \(setCount)×\(topReps)")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(GQColors.textPrimary)
-                        }
-                        Spacer()
-                    }
-                }
-                HStack(spacing: 12) {
-                    if workout.exercises.count > 3 {
-                        Button {
-                            showWorkoutDetail = true
-                        } label: {
-                            Text("View all \(workout.exercises.count) exercises")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(GQColors.cyanSpark)
-                        }
-                    }
-                    Spacer()
-                    Button {
-                        if let p = profile {
-                            launchFollowWorkout(workout)
-                        } else {
-                            showWorkoutDetail = true
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "play.fill")
-                                .font(.system(size: 9))
-                            Text("Follow Workout")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(GQGradients.primary)
-                        .clipShape(Capsule())
-                    }
-                }
-            }
-            .padding(12)
-            .background(GQColors.adaptiveOverlay(0.03))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-        }
-    }
+
 
     @ViewBuilder
     private var compactBottomBar: some View {
@@ -855,13 +842,13 @@ struct PostCardV2: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.top, 12)
             }
 
             if let voiceData = post.voiceNoteData, let duration = post.voiceNoteDuration {
                 VoiceNotePlayerView(audioData: voiceData, duration: duration)
                     .padding(.horizontal, 16)
-                    .padding(.top, 8)
+                    .padding(.top, 12)
             }
 
             PostActionsRowCompact(
@@ -937,15 +924,40 @@ struct PostCardV2: View {
     private func emotionPill(_ emotion: WorkoutEmotion) -> some View {
         HStack(spacing: 4) {
             Text(emotion.emoji)
-                .font(.system(size: 14))
-            Text(emotion.encouragement)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(GQColors.textPrimary)
+                .font(.system(size: 28))
+                .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
+
+            if showEmotionText {
+                Text(emotion.encouragement)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white)
+                    .shadow(color: .black.opacity(0.6), radius: 3, x: 0, y: 1)
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(.ultraThinMaterial)
-        .cornerRadius(16)
+        .scaleEffect(emotionAppeared ? 1.0 : 0.3)
+        .opacity(emotionAppeared ? 1.0 : 0)
+        .offset(y: emotionAppeared ? 0 : 8)
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                emotionAppeared = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(.easeIn(duration: 0.3)) {
+                    showEmotionText = true
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                withAnimation(.easeOut(duration: 0.4)) {
+                    showEmotionText = false
+                }
+            }
+        }
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showEmotionText.toggle()
+            }
+        }
     }
 
     private func saveWorkout(_ workout: SharedWorkoutData) {
@@ -2128,6 +2140,36 @@ struct FollowWorkoutButton: View {
     }
 }
 
+// MARK: - Widget Size
+
+enum WidgetSize {
+    case large, half, third
+
+    var numberFont: Font {
+        switch self {
+        case .large: .system(size: 36, weight: .bold, design: .rounded)
+        case .half: .system(size: 28, weight: .bold, design: .rounded)
+        case .third: .system(size: 20, weight: .bold, design: .rounded)
+        }
+    }
+
+    var goalFont: Font {
+        switch self {
+        case .large: .system(size: 18, weight: .semibold, design: .rounded)
+        case .half: .system(size: 14, weight: .semibold, design: .rounded)
+        case .third: .system(size: 11, weight: .semibold, design: .rounded)
+        }
+    }
+
+    var ringSize: CGFloat {
+        switch self {
+        case .large: 48
+        case .half: 36
+        case .third: 24
+        }
+    }
+}
+
 // MARK: - Weekly Hero Section
 
 struct WeeklyHeroSection: View {
@@ -2135,6 +2177,7 @@ struct WeeklyHeroSection: View {
     let goal: Int
     var profile: UserProfile
     var workouts: [Workout] = []
+    var size: WidgetSize = .large
 
     @Environment(\.modelContext) private var modelContext
     @State private var isEditingGoal = false
@@ -2158,102 +2201,16 @@ struct WeeklyHeroSection: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(alignment: .center) {
-                // Left: label + number
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("This Week")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(GQColors.textSecondary)
-
-                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                        Text("\(completed)")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(GQColors.textPrimary)
-                            .contentTransition(.numericText())
-
-                        if isEditingGoal {
-                            HStack(spacing: 2) {
-                                Text("/")
-                                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                                    .foregroundColor(GQColors.textTertiary)
-
-                                Button {
-                                    if profile.daysPerWeek > 1 {
-                                        profile.daysPerWeek -= 1
-                                        try? modelContext.save()
-                                    }
-                                } label: {
-                                    Image(systemName: "minus.circle.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(GQColors.textTertiary)
-                                }
-                                .buttonStyle(.plain)
-
-                                Text("\(profile.daysPerWeek)")
-                                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                                    .foregroundColor(GQColors.textPrimary)
-                                    .contentTransition(.numericText())
-
-                                Button {
-                                    profile.daysPerWeek += 1
-                                    try? modelContext.save()
-                                } label: {
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(GQColors.textTertiary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        } else {
-                            Text("/ \(goal)")
-                                .font(.system(size: 18, weight: .semibold, design: .rounded))
-                                .foregroundColor(GQColors.textTertiary)
-
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    isEditingGoal = true
-                                }
-                            } label: {
-                                Image(systemName: "pencil")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
-
-                Spacer()
-
-                // Compact progress ring
-                ZStack {
-                    Circle()
-                        .stroke(GQColors.borderDefault, lineWidth: 5)
-                    Circle()
-                        .trim(from: 0, to: progress)
-                        .stroke(GQColors.vividPurple, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
-
-                    if completed >= goal {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(GQColors.vividPurple)
-                    } else {
-                        Text("\(Int(progress * 100))%")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundColor(GQColors.textSecondary)
-                    }
-                }
-                .frame(width: 48, height: 48)
+        Group {
+            switch size {
+            case .third:
+                compactThirdBody
+            case .half:
+                halfBody
+            case .large:
+                largeBody
             }
-
-            weekDayDots
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .homeSocialCard()
         .contentShape(Rectangle())
         .onTapGesture {
             if isEditingGoal {
@@ -2262,6 +2219,155 @@ struct WeeklyHeroSection: View {
                 }
             }
         }
+    }
+
+    // MARK: - Large (full-width)
+    @ViewBuilder
+    private var largeBody: some View {
+        VStack(spacing: 8) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("This Week")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text("\(completed)")
+                            .font(size.numberFont)
+                            .foregroundColor(GQColors.textPrimary)
+                            .contentTransition(.numericText())
+
+                        if isEditingGoal {
+                            goalEditor
+                        } else {
+                            goalLabel
+                        }
+                    }
+                }
+
+                Spacer()
+
+                HeroProgressRing(
+                    progress: progress,
+                    completed: completed >= goal
+                )
+            }
+
+            weekDayDots
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Half
+    @ViewBuilder
+    private var halfBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("This Week")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text("\(completed)")
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+
+                    Text("/ \(goal)")
+                        .font(size.goalFont)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+
+            Spacer()
+
+            HeroProgressRing(
+                progress: progress,
+                completed: completed >= goal,
+                size: size.ringSize
+            )
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    // MARK: - Third (compact ring + number + goal)
+    @ViewBuilder
+    private var compactThirdBody: some View {
+        VStack(spacing: 4) {
+            HeroProgressRing(
+                progress: progress,
+                completed: completed >= goal,
+                size: size.ringSize
+            )
+
+            Text("\(completed)")
+                .font(size.numberFont)
+                .foregroundColor(GQColors.textPrimary)
+                .contentTransition(.numericText())
+
+            Text("/ \(goal) workouts")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Shared subviews
+    @ViewBuilder
+    private var goalEditor: some View {
+        HStack(spacing: 2) {
+            Text("/")
+                .font(size.goalFont)
+                .foregroundColor(GQColors.textTertiary)
+
+            Button {
+                if profile.daysPerWeek > 1 {
+                    profile.daysPerWeek -= 1
+                    try? modelContext.save()
+                }
+            } label: {
+                Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .buttonStyle(.plain)
+
+            Text("\(profile.daysPerWeek)")
+                .font(size.goalFont)
+                .foregroundColor(GQColors.textPrimary)
+                .contentTransition(.numericText())
+
+            Button {
+                profile.daysPerWeek += 1
+                try? modelContext.save()
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var goalLabel: some View {
+        Text("/ \(goal)")
+            .font(size.goalFont)
+            .foregroundColor(GQColors.textTertiary)
+
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isEditingGoal = true
+            }
+        } label: {
+            Image(systemName: "pencil")
+                .font(.system(size: 10))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -2290,7 +2396,7 @@ struct WeeklyHeroSection: View {
                         } else {
                             ForEach(0..<min(count, 3), id: \.self) { _ in
                                 Circle()
-                                    .fill(GQColors.vividPurple)
+                                    .fill(GQColors.textSecondary)
                                     .frame(width: 6, height: 6)
                             }
                         }
@@ -2299,6 +2405,1319 @@ struct WeeklyHeroSection: View {
                 .frame(maxWidth: .infinity)
             }
         }
+    }
+}
+
+// MARK: - Hero Progress Ring (Reusable)
+
+struct HeroProgressRing: View {
+    let progress: Double
+    let completed: Bool
+    var color: Color = GQColors.textSecondary
+    var size: CGFloat = 48
+
+    private var lineWidth: CGFloat { size >= 48 ? 5 : 4 }
+    private var iconSize: CGFloat { size >= 48 ? 16 : 12 }
+    private var percentSize: CGFloat { size >= 48 ? 12 : 10 }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(GQColors.borderDefault, lineWidth: lineWidth)
+            Circle()
+                .trim(from: 0, to: min(progress, 1.0))
+                .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
+
+            if completed {
+                Image(systemName: "checkmark")
+                    .font(.system(size: iconSize, weight: .bold))
+                    .foregroundColor(color)
+            } else {
+                Text("\(Int(progress * 100))%")
+                    .font(.system(size: percentSize, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+// MARK: - Hero Calories Widget
+
+struct HeroCaloriesWidget: View {
+    var profile: UserProfile
+    var size: WidgetSize = .large
+
+    @StateObject private var nutritionService = NutritionService.shared
+
+    private var todaysMeals: [MealLog] {
+        nutritionService.getTodaysMeals(userId: profile.id)
+    }
+
+    private var totalCalories: Int {
+        todaysMeals.compactMap(\.estimatedCalories).reduce(0, +)
+    }
+
+    private var progress: Double {
+        guard profile.dailyCalorieGoal > 0 else { return 0 }
+        return min(Double(totalCalories) / Double(profile.dailyCalorieGoal), 1.0)
+    }
+
+    private var weeklyCalories: [Int] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let weekday = cal.component(.weekday, from: today)
+        let daysFromMonday = (weekday + 5) % 7
+        guard let monday = cal.date(byAdding: .day, value: -daysFromMonday, to: today) else {
+            return Array(repeating: 0, count: 7)
+        }
+
+        var daily = [Int](repeating: 0, count: 7)
+        for i in 0..<7 {
+            guard let dayStart = cal.date(byAdding: .day, value: i, to: monday),
+                  let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) else { continue }
+            let meals = nutritionService.getMeals(userId: profile.id, from: dayStart, to: dayEnd)
+            daily[i] = meals.compactMap(\.estimatedCalories).reduce(0, +)
+        }
+        return daily
+    }
+
+    var body: some View {
+        Group {
+            switch size {
+            case .third:
+                compactThirdBody
+            case .half:
+                halfBody
+            case .large:
+                largeBody
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var largeBody: some View {
+        VStack(spacing: 8) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Today's Calories")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text("\(totalCalories)")
+                            .font(size.numberFont)
+                            .foregroundColor(GQColors.textPrimary)
+                            .contentTransition(.numericText())
+
+                        Text("/ \(profile.dailyCalorieGoal)")
+                            .font(size.goalFont)
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+
+                Spacer()
+
+                HeroProgressRing(
+                    progress: progress,
+                    completed: totalCalories >= profile.dailyCalorieGoal
+                )
+            }
+
+            weeklyBars
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private var halfBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Calories")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text("\(totalCalories)")
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+
+                    Text("/ \(profile.dailyCalorieGoal)")
+                        .font(size.goalFont)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+
+            Spacer()
+
+            HeroProgressRing(
+                progress: progress,
+                completed: totalCalories >= profile.dailyCalorieGoal,
+                size: size.ringSize
+            )
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var compactThirdBody: some View {
+        VStack(spacing: 4) {
+            HeroProgressRing(
+                progress: progress,
+                completed: totalCalories >= profile.dailyCalorieGoal,
+                size: size.ringSize
+            )
+
+            Text("\(totalCalories)")
+                .font(size.numberFont)
+                .foregroundColor(GQColors.textPrimary)
+                .contentTransition(.numericText())
+
+            Text("/ \(profile.dailyCalorieGoal) cal")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private var weeklyBars: some View {
+        let maxCal = max(weeklyCalories.max() ?? 1, 1)
+        let labels = ["M", "T", "W", "T", "F", "S", "S"]
+
+        HStack(spacing: 0) {
+            ForEach(0..<7, id: \.self) { i in
+                VStack(spacing: 2) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(i < currentDayIndex ? GQColors.textSecondary : GQColors.adaptiveOverlay(0.08))
+                        .frame(height: max(4, CGFloat(weeklyCalories[i]) / CGFloat(maxCal) * 24))
+
+                    Text(labels[i])
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private var currentDayIndex: Int {
+        let weekday = Calendar.current.component(.weekday, from: Date())
+        return (weekday + 5) % 7 + 1
+    }
+}
+
+// MARK: - Hero Steps Widget
+
+struct HeroStepsWidget: View {
+    var size: WidgetSize = .large
+
+    @StateObject private var healthKit = HealthKitService.shared
+
+    private let stepGoal = 10_000
+
+    private var progress: Double {
+        guard stepGoal > 0 else { return 0 }
+        return min(Double(healthKit.steps) / Double(stepGoal), 1.0)
+    }
+
+    var body: some View {
+        Group {
+            switch size {
+            case .third:
+                compactThirdBody
+            case .half:
+                halfBody
+            case .large:
+                largeBody
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var largeBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Steps Today")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text("\(healthKit.steps)")
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+
+                    Text("/ \(stepGoal / 1000)K")
+                        .font(size.goalFont)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+
+            Spacer()
+
+            HeroProgressRing(
+                progress: progress,
+                completed: healthKit.steps >= stepGoal
+            )
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private var halfBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Steps")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text("\(healthKit.steps)")
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+
+                    Text("/ \(stepGoal / 1000)K")
+                        .font(size.goalFont)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+
+            Spacer()
+
+            HeroProgressRing(
+                progress: progress,
+                completed: healthKit.steps >= stepGoal,
+                size: size.ringSize
+            )
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var compactThirdBody: some View {
+        VStack(spacing: 4) {
+            HeroProgressRing(
+                progress: progress,
+                completed: healthKit.steps >= stepGoal,
+                size: size.ringSize
+            )
+
+            Text("\(healthKit.steps)")
+                .font(size.numberFont)
+                .foregroundColor(GQColors.textPrimary)
+                .contentTransition(.numericText())
+
+            Text("/ \(stepGoal / 1000)K")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Hero Macros Widget
+
+struct HeroMacrosWidget: View {
+    var profile: UserProfile
+    var size: WidgetSize = .large
+
+    @StateObject private var nutritionService = NutritionService.shared
+
+    private var todaysMeals: [MealLog] {
+        nutritionService.getTodaysMeals(userId: profile.id)
+    }
+
+    private var protein: Int { todaysMeals.compactMap(\.estimatedProtein).reduce(0, +) }
+    private var carbs: Int { todaysMeals.compactMap(\.estimatedCarbs).reduce(0, +) }
+    private var fat: Int { todaysMeals.compactMap(\.estimatedFat).reduce(0, +) }
+
+    var body: some View {
+        Group {
+            switch size {
+            case .third:
+                compactThirdBody
+            case .half:
+                halfBody
+            case .large:
+                largeBody
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var largeBody: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Today's Macros")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+
+            macroBar(label: "Protein", current: protein, goal: profile.proteinGoalGrams, color: GQColors.textSecondary)
+            macroBar(label: "Carbs", current: carbs, goal: profile.carbsGoalGrams, color: GQColors.textTertiary)
+            macroBar(label: "Fat", current: fat, goal: profile.fatGoalGrams, color: GQColors.textTertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private var halfBody: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Macros")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+
+            macroBarCompact(label: "P", current: protein, goal: profile.proteinGoalGrams, color: GQColors.textSecondary)
+            macroBarCompact(label: "C", current: carbs, goal: profile.carbsGoalGrams, color: GQColors.textTertiary)
+            macroBarCompact(label: "F", current: fat, goal: profile.fatGoalGrams, color: GQColors.textTertiary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var compactThirdBody: some View {
+        VStack(spacing: 6) {
+            Text("Macros")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+
+            HStack(spacing: 2) {
+                Text("P").font(.system(size: 9, weight: .bold)).foregroundColor(GQColors.textSecondary)
+                Text("\(protein)").font(.system(size: 10, weight: .semibold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                Text("·").foregroundColor(GQColors.textTertiary)
+                Text("C").font(.system(size: 9, weight: .bold)).foregroundColor(GQColors.textTertiary)
+                Text("\(carbs)").font(.system(size: 10, weight: .semibold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                Text("·").foregroundColor(GQColors.textTertiary)
+                Text("F").font(.system(size: 9, weight: .bold)).foregroundColor(GQColors.textTertiary)
+                Text("\(fat)").font(.system(size: 10, weight: .semibold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private func macroBar(label: String, current: Int, goal: Int, color: Color) -> some View {
+        VStack(spacing: 3) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textSecondary)
+                Spacer()
+                Text("\(current)g / \(goal)g")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(GQColors.adaptiveOverlay(0.08))
+                        .frame(height: 6)
+
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(color)
+                        .frame(width: geo.size.width * min(CGFloat(current) / max(CGFloat(goal), 1), 1.0), height: 6)
+                        .animation(.spring(response: 0.5), value: current)
+                }
+            }
+            .frame(height: 6)
+        }
+    }
+
+    @ViewBuilder
+    private func macroBarCompact(label: String, current: Int, goal: Int, color: Color) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(GQColors.textSecondary)
+                .frame(width: 10)
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(GQColors.adaptiveOverlay(0.08))
+                        .frame(height: 5)
+
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(color)
+                        .frame(width: geo.size.width * min(CGFloat(current) / max(CGFloat(goal), 1), 1.0), height: 5)
+                        .animation(.spring(response: 0.5), value: current)
+                }
+            }
+            .frame(height: 5)
+
+            Text("\(current)/\(goal)g")
+                .font(.system(size: 9, weight: .medium, design: .rounded))
+                .foregroundColor(GQColors.textTertiary)
+                .fixedSize()
+        }
+    }
+}
+
+// MARK: - Hero Active Calories Widget
+
+struct HeroActiveCaloriesWidget: View {
+    var size: WidgetSize = .large
+    var activeCalGoal: Int = 600
+
+    @StateObject private var healthKit = HealthKitService.shared
+
+    private var progress: Double {
+        guard activeCalGoal > 0 else { return 0 }
+        return min(Double(healthKit.activeCalories) / Double(activeCalGoal), 1.0)
+    }
+
+    var body: some View {
+        Group {
+            switch size {
+            case .third: thirdBody
+            case .half: halfBody
+            case .large: largeBody
+            }
+        }
+    }
+
+    @ViewBuilder private var largeBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Active Calories")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text("\(healthKit.activeCalories)")
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+                    Text("/ \(activeCalGoal)")
+                        .font(size.goalFont)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Spacer()
+            HeroProgressRing(progress: progress, completed: healthKit.activeCalories >= activeCalGoal, color: GQColors.textSecondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder private var halfBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Burned")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text("\(healthKit.activeCalories)")
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+                    Text("cal")
+                        .font(size.goalFont)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Spacer()
+            HeroProgressRing(progress: progress, completed: healthKit.activeCalories >= activeCalGoal, color: GQColors.textSecondary, size: size.ringSize)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder private var thirdBody: some View {
+        VStack(spacing: 4) {
+            HeroProgressRing(
+                progress: progress,
+                completed: healthKit.activeCalories >= activeCalGoal,
+                color: GQColors.textSecondary,
+                size: size.ringSize
+            )
+            Text("\(healthKit.activeCalories)")
+                .font(size.numberFont)
+                .foregroundColor(GQColors.textPrimary)
+                .contentTransition(.numericText())
+            Text("/ \(activeCalGoal) cal")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Hero Sleep Widget
+
+struct HeroSleepWidget: View {
+    var size: WidgetSize = .large
+
+    @StateObject private var healthKit = HealthKitService.shared
+
+    private let sleepGoal: Double = 8.0
+
+    private var progress: Double {
+        guard sleepGoal > 0 else { return 0 }
+        return min(healthKit.sleepHours / sleepGoal, 1.0)
+    }
+
+    private var hoursText: String {
+        let h = Int(healthKit.sleepHours)
+        let m = Int((healthKit.sleepHours - Double(h)) * 60)
+        return m > 0 ? "\(h)h \(m)m" : "\(h)h"
+    }
+
+    var body: some View {
+        Group {
+            switch size {
+            case .third: thirdBody
+            case .half: halfBody
+            case .large: largeBody
+            }
+        }
+    }
+
+    @ViewBuilder private var largeBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Last Night's Sleep")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(hoursText)
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("/ \(Int(sleepGoal))h")
+                        .font(size.goalFont)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Spacer()
+            HeroProgressRing(progress: progress, completed: healthKit.sleepHours >= sleepGoal, color: GQColors.textSecondary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder private var halfBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Sleep")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                Text(hoursText)
+                    .font(size.numberFont)
+                    .foregroundColor(GQColors.textPrimary)
+            }
+            Spacer()
+            HeroProgressRing(progress: progress, completed: healthKit.sleepHours >= sleepGoal, color: GQColors.textSecondary, size: size.ringSize)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder private var thirdBody: some View {
+        VStack(spacing: 4) {
+            HeroProgressRing(
+                progress: progress,
+                completed: healthKit.sleepHours >= sleepGoal,
+                color: GQColors.textSecondary,
+                size: size.ringSize
+            )
+            Text(hoursText)
+                .font(size.numberFont)
+                .foregroundColor(GQColors.textPrimary)
+            Text("/ \(Int(sleepGoal))h")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Hero Streak Widget
+
+struct HeroStreakWidget: View {
+    var workouts: [Workout] = []
+    var size: WidgetSize = .large
+
+    private var streakDays: Int {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let sortedDates = Set(workouts.map { cal.startOfDay(for: $0.date) }).sorted(by: >)
+        guard let latest = sortedDates.first else { return 0 }
+
+        // Only count streak if latest workout is today or yesterday
+        let daysSinceLast = cal.dateComponents([.day], from: latest, to: today).day ?? 0
+        guard daysSinceLast <= 1 else { return 0 }
+
+        var streak = 1
+        for i in 1..<sortedDates.count {
+            let diff = cal.dateComponents([.day], from: sortedDates[i], to: sortedDates[i - 1]).day ?? 0
+            if diff == 1 {
+                streak += 1
+            } else {
+                break
+            }
+        }
+        return streak
+    }
+
+    var body: some View {
+        Group {
+            switch size {
+            case .third: thirdBody
+            case .half: halfBody
+            case .large: largeBody
+            }
+        }
+    }
+
+    @ViewBuilder private var largeBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Workout Streak")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text("\(streakDays)")
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+                    Text(streakDays == 1 ? "day" : "days")
+                        .font(size.goalFont)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Spacer()
+            Image(systemName: "trophy.fill")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder private var halfBody: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Streak")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text("\(streakDays)")
+                    .font(size.numberFont)
+                    .foregroundColor(GQColors.textPrimary)
+                    .contentTransition(.numericText())
+                Text(streakDays == 1 ? "day" : "days")
+                    .font(size.goalFont)
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder private var thirdBody: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "trophy.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+            Text("\(streakDays)")
+                .font(size.numberFont)
+                .foregroundColor(GQColors.textPrimary)
+                .contentTransition(.numericText())
+            Text("Streak")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Hero Heart Rate Widget
+
+struct HeroHeartRateWidget: View {
+    var size: WidgetSize = .large
+
+    @StateObject private var healthKit = HealthKitService.shared
+
+    var body: some View {
+        Group {
+            switch size {
+            case .third: thirdBody
+            case .half: halfBody
+            case .large: largeBody
+            }
+        }
+    }
+
+    @ViewBuilder private var largeBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Resting Heart Rate")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text("\(healthKit.restingHeartRate)")
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+                    Text("bpm")
+                        .font(size.goalFont)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Spacer()
+            Image(systemName: "heart.fill")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder private var halfBody: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Heart Rate")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text("\(healthKit.restingHeartRate)")
+                    .font(size.numberFont)
+                    .foregroundColor(GQColors.textPrimary)
+                    .contentTransition(.numericText())
+                Text("bpm")
+                    .font(size.goalFont)
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder private var thirdBody: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "heart.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+            Text("\(healthKit.restingHeartRate)")
+                .font(size.numberFont)
+                .foregroundColor(GQColors.textPrimary)
+                .contentTransition(.numericText())
+            Text("bpm")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Hero Recovery Widget
+
+struct HeroRecoveryWidget: View {
+    var size: WidgetSize = .large
+
+    @StateObject private var integration = IntegrationManager.shared
+
+    private var recoveryColor: Color {
+        switch integration.readinessLevel {
+        case .optimal: GQColors.textSecondary
+        case .good: GQColors.textSecondary
+        case .moderate: GQColors.textTertiary
+        case .low: GQColors.textTertiary
+        }
+    }
+
+    var body: some View {
+        Group {
+            switch size {
+            case .third: thirdBody
+            case .half: halfBody
+            case .large: largeBody
+            }
+        }
+    }
+
+    @ViewBuilder private var largeBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Recovery")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text("\(Int(integration.recoveryScore))%")
+                        .font(size.numberFont)
+                        .foregroundColor(GQColors.textPrimary)
+                        .contentTransition(.numericText())
+                    Text(integration.readinessLevel.rawValue)
+                        .font(size.goalFont)
+                        .foregroundColor(recoveryColor)
+                }
+            }
+            Spacer()
+            HeroProgressRing(progress: integration.recoveryScore / 100, completed: integration.recoveryScore >= 67, color: recoveryColor)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder private var halfBody: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Recovery")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                Text("\(Int(integration.recoveryScore))%")
+                    .font(size.numberFont)
+                    .foregroundColor(GQColors.textPrimary)
+                    .contentTransition(.numericText())
+            }
+            Spacer()
+            HeroProgressRing(progress: integration.recoveryScore / 100, completed: integration.recoveryScore >= 67, color: recoveryColor, size: size.ringSize)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+    }
+
+    @ViewBuilder private var thirdBody: some View {
+        VStack(spacing: 4) {
+            Image(systemName: "battery.100.bolt")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(recoveryColor)
+            Text("\(Int(integration.recoveryScore))%")
+                .font(size.numberFont)
+                .foregroundColor(GQColors.textPrimary)
+                .contentTransition(.numericText())
+            Text("Recovery")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+}
+
+// MARK: - Social Hero Widget (Grid Dispatcher + Jiggle Edit Mode)
+
+struct SocialHeroWidget: View {
+    var profile: UserProfile
+    var workoutsCompleted: Int
+    var allWorkouts: [Workout]
+
+    @Environment(\.modelContext) private var modelContext
+    @State private var isEditing = false
+    @State private var pickerSlotIndex: Int? = nil
+    @State private var showHint = false
+    @AppStorage("hasSeenWidgetHint") private var hasSeenHint = false
+
+    private var config: WidgetGridConfig { profile.widgetGridConfig }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if config.allEmpty && !isEditing {
+                addWidgetButton
+            } else {
+                if isEditing {
+                    layoutPickerRow
+                }
+
+                widgetGrid
+                    .overlay(alignment: .bottom) {
+                        if showHint && !isEditing {
+                            Text("Hold to customize")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(GQColors.textTertiary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(.ultraThinMaterial, in: Capsule())
+                                .offset(y: 24)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
+
+                if isEditing {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            isEditing = false
+                        }
+                    } label: {
+                        Text("Done")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(GQColors.vividPurple)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 8)
+                            .background(GQColors.adaptiveOverlay(0.12), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+            }
+        }
+        .sheet(item: $pickerSlotIndex) { slotIndex in
+            WidgetSlotPicker(profile: profile, slotIndex: slotIndex)
+                .environment(\.modelContext, modelContext)
+        }
+        .onAppear {
+            guard !hasSeenHint, !config.allEmpty else { return }
+            withAnimation(.easeOut(duration: 0.4).delay(1.0)) {
+                showHint = true
+            }
+            withAnimation(.easeIn(duration: 0.4).delay(4.0)) {
+                showHint = false
+            }
+            hasSeenHint = true
+        }
+    }
+
+    // MARK: - Add Widget Button (all slots empty)
+
+    @ViewBuilder
+    private var addWidgetButton: some View {
+        Button {
+            enterEditMode()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .semibold))
+                Text("Add widget")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundColor(GQColors.textTertiary)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Layout Picker Row
+
+    @ViewBuilder
+    private var layoutPickerRow: some View {
+        HStack(spacing: 2) {
+            ForEach(WidgetLayout.allCases, id: \.self) { layout in
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        var newConfig = config
+                        newConfig.layout = layout
+                        newConfig.adjustSlots()
+                        profile.widgetGridConfig = newConfig
+                        try? modelContext.save()
+                    }
+                } label: {
+                    layoutIcon(for: layout)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(
+                            config.layout == layout
+                                ? GQColors.adaptiveOverlay(0.12)
+                                : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 6)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(GQColors.adaptiveOverlay(0.06), in: RoundedRectangle(cornerRadius: 9))
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    @ViewBuilder
+    private func layoutIcon(for layout: WidgetLayout) -> some View {
+        HStack(spacing: 3) {
+            ForEach(0..<layout.slotCount, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(config.layout == layout ? GQColors.textPrimary : GQColors.textTertiary)
+                    .frame(width: layout == .single ? 16 : 8, height: 12)
+            }
+        }
+    }
+
+    // MARK: - Widget Grid
+
+    @ViewBuilder
+    private var widgetGrid: some View {
+        switch config.layout {
+        case .single:
+            slotView(index: 0, size: .large)
+        case .double:
+            HStack(spacing: 8) {
+                slotView(index: 0, size: .half)
+                slotView(index: 1, size: .half)
+            }
+        case .triple:
+            HStack(spacing: 8) {
+                slotView(index: 0, size: .third)
+                slotView(index: 1, size: .third)
+                slotView(index: 2, size: .third)
+            }
+        }
+    }
+
+    // MARK: - Slot View (wraps widget content + edit chrome)
+
+    @ViewBuilder
+    private func slotView(index: Int, size: WidgetSize) -> some View {
+        let widgetType = index < config.slots.count ? config.slots[index] : .none
+
+        Group {
+            if widgetType == .none {
+                emptySlotView(index: index)
+            } else {
+                widgetContentView(type: widgetType, size: size)
+            }
+        }
+        .homeSocialCard()
+        .frame(minHeight: size == .third ? 80 : nil)
+        .overlay {
+            if isEditing && widgetType != .none {
+                // Tap-to-change overlay
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.black.opacity(0.35))
+                    .overlay {
+                        VStack(spacing: 4) {
+                            Image(systemName: "pencil")
+                                .font(.system(size: size == .third ? 16 : 20, weight: .semibold))
+                            if size != .third {
+                                Text("Tap to change")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
+                        }
+                        .foregroundColor(GQColors.textSecondary)
+                    }
+                    .transition(.opacity)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if isEditing && widgetType != .none {
+                Button {
+                    clearSlot(index)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.white, Color.black.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+                .offset(x: -6, y: -6)
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .scaleEffect(isEditing ? 0.96 : 1.0)
+        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isEditing)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    if !isEditing {
+                        enterEditMode()
+                    }
+                }
+        )
+        .onTapGesture {
+            if isEditing {
+                pickerSlotIndex = index
+            }
+        }
+    }
+
+    // MARK: - Empty Slot
+
+    @ViewBuilder
+    private func emptySlotView(index: Int) -> some View {
+        Button {
+            if isEditing {
+                pickerSlotIndex = index
+            } else {
+                enterEditMode()
+            }
+        } label: {
+            VStack(spacing: 4) {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 20, weight: .light))
+                    .foregroundColor(GQColors.textTertiary)
+                if config.layout != .triple {
+                    Text("Add")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 60)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Widget Content Router
+
+    @ViewBuilder
+    private func widgetContentView(type: SocialWidgetType, size: WidgetSize) -> some View {
+        switch type {
+        case .workouts:
+            WeeklyHeroSection(
+                completed: workoutsCompleted,
+                goal: profile.daysPerWeek,
+                profile: profile,
+                workouts: allWorkouts,
+                size: size
+            )
+        case .calories:
+            HeroCaloriesWidget(profile: profile, size: size)
+        case .steps:
+            HeroStepsWidget(size: size)
+        case .macros:
+            HeroMacrosWidget(profile: profile, size: size)
+        case .activeCalories:
+            HeroActiveCaloriesWidget(size: size)
+        case .sleep:
+            HeroSleepWidget(size: size)
+        case .streak:
+            HeroStreakWidget(workouts: allWorkouts, size: size)
+        case .heartRate:
+            HeroHeartRateWidget(size: size)
+        case .recovery:
+            HeroRecoveryWidget(size: size)
+        case .none:
+            EmptyView()
+        }
+    }
+
+    // MARK: - Actions
+
+    private func enterEditMode() {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            isEditing = true
+        }
+    }
+
+    private func clearSlot(_ index: Int) {
+        var newConfig = config
+        if index < newConfig.slots.count {
+            newConfig.slots[index] = .none
+        }
+        profile.widgetGridConfig = newConfig
+        try? modelContext.save()
+    }
+}
+
+// MARK: - Int Identifiable for sheet(item:)
+
+extension Int: @retroactive Identifiable {
+    public var id: Int { self }
+}
+
+// MARK: - Widget Slot Picker
+
+struct WidgetSlotPicker: View {
+    var profile: UserProfile
+    let slotIndex: Int
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    private var currentType: SocialWidgetType {
+        let config = profile.widgetGridConfig
+        return slotIndex < config.slots.count ? config.slots[slotIndex] : .none
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(SocialWidgetType.allCases.filter { $0 != .none }, id: \.self) { type in
+                    Button {
+                        setSlot(to: type)
+                    } label: {
+                        pickerRow(type: type)
+                    }
+                }
+
+                Section {
+                    Button {
+                        setSlot(to: .none)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 16))
+                                .foregroundColor(.red)
+                                .frame(width: 28, height: 28)
+
+                            Text("Remove")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.red)
+
+                            Spacer()
+
+                            if currentType == .none {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.red)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Choose Widget")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.height(420)])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private func pickerRow(type: SocialWidgetType) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: type.iconName)
+                .font(.system(size: 16))
+                .foregroundColor(type.accentColor)
+                .frame(width: 28, height: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(type.displayName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(type.subtitle)
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+
+            Spacer()
+
+            if currentType == type {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(type.accentColor)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func setSlot(to type: SocialWidgetType) {
+        var newConfig = profile.widgetGridConfig
+        while newConfig.slots.count <= slotIndex {
+            newConfig.slots.append(.workouts)
+        }
+        newConfig.slots[slotIndex] = type
+        profile.widgetGridConfig = newConfig
+        try? modelContext.save()
+        dismiss()
     }
 }
 
@@ -2311,114 +3730,67 @@ struct WorkingOutNowRow: View {
     private let socialService = SocialActivityService.shared
 
     @State private var selectedFriend: String?
-    @State private var pulsePhase: CGFloat = 0.4
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                // Summary cell
-                VStack(spacing: 3) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 9))
-                            .foregroundColor(GQColors.terracotta)
-                        Text("\(socialService.friendsActiveToday)")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(GQColors.textPrimary)
-                    }
-                    Text("today")
-                        .font(.system(size: 9))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-                .frame(width: 36)
+        VStack(alignment: .leading, spacing: 10) {
+            // Section header
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 7, height: 7)
+                Text("ACTIVE NOW")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(GQColors.textTertiary)
+                Text("\u{00B7}")
+                    .foregroundColor(GQColors.textTertiary)
+                Text("\(socialService.friendsActiveToday) friends today")
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+            }
 
-                // Active friends from SocialActivityService
-                ForEach(socialService.activeFriends) { friend in
-                    Button {
-                        selectedFriend = friend.name
-                    } label: {
-                        VStack(spacing: 3) {
-                            ZStack {
-                                Circle()
-                                    .stroke(
-                                        friend.isLive ? GQColors.success.opacity(pulsePhase) : GQColors.cyanSpark.opacity(0.5),
-                                        lineWidth: 2
-                                    )
-                                    .shadow(color: friend.isLive ? GQColors.success.opacity(pulsePhase * 0.5) : .clear, radius: 6)
-                                    .frame(width: 38, height: 38)
+            // Friend avatars
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(socialService.activeFriends) { friend in
+                        Button {
+                            selectedFriend = friend.name
+                        } label: {
+                            VStack(spacing: 4) {
+                                ZStack {
+                                    Circle()
+                                        .fill(GQGradients.primary)
+                                        .frame(width: 40, height: 40)
+                                        .overlay(
+                                            Text(friend.avatarInitial)
+                                                .font(.system(size: 15, weight: .bold))
+                                                .foregroundColor(.white)
+                                        )
 
-                                Circle()
-                                    .fill(GQColors.adaptiveOverlay(0.1))
-                                    .frame(width: 32, height: 32)
-                                    .overlay(
-                                        Text(friend.avatarInitial)
-                                            .font(.system(size: 13, weight: .bold))
-                                            .foregroundColor(GQColors.textPrimary)
-                                    )
-
-                                // Location pin (top-left, only if sharing gym)
-                                if friend.gymName != nil {
-                                    VStack {
-                                        HStack {
-                                            Image(systemName: "mappin.circle.fill")
-                                                .font(.system(size: 10))
-                                                .foregroundColor(GQColors.cyanSpark)
-                                                .background(Circle().fill(GQColors.surfaceBase).frame(width: 12, height: 12))
-                                            Spacer()
-                                        }
-                                        Spacer()
-                                    }
-                                    .frame(width: 38, height: 38)
-                                }
-
-                                // Workout badge
-                                VStack {
-                                    Spacer()
-                                    HStack {
-                                        Spacer()
-                                        Text(String(friend.workoutType.prefix(1)))
-                                            .font(.system(size: 7, weight: .bold))
-                                            .foregroundColor(.white)
-                                            .frame(width: 14, height: 14)
-                                            .background(friend.isLive ? GQColors.success : GQColors.cyanSpark)
-                                            .clipShape(Circle())
-                                            .overlay(Circle().stroke(GQColors.surfaceBase, lineWidth: 1.5))
+                                    if friend.isLive {
+                                        Circle()
+                                            .fill(Color.green)
+                                            .frame(width: 10, height: 10)
+                                            .overlay(Circle().stroke(GQColors.surfaceBase, lineWidth: 2))
+                                            .offset(x: 14, y: 14)
                                     }
                                 }
-                                .frame(width: 38, height: 38)
+
+                                Text(friend.name)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(GQColors.textPrimary)
+
+                                Text(friend.workoutType)
+                                    .font(.system(size: 10))
+                                    .foregroundColor(GQColors.textTertiary)
                             }
-
-                            Text(friend.name)
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(GQColors.textPrimary)
-                            Text("\(friend.minutesElapsed)m")
-                                .font(.system(size: 9))
-                                .foregroundColor(GQColors.textTertiary)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 3)
-        }
-        .padding(.vertical, 6)
-        .background(
-            LinearGradient(
-                colors: [
-                    GQColors.surfaceElevated,
-                    GQColors.surfaceBase
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea(.container, edges: .horizontal)
-        )
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                pulsePhase = 0.8
+                .padding(.leading, 2)
             }
         }
+        .padding(.vertical, 8)
         .sheet(item: Binding<WorkoutStoryItem?>(
             get: {
                 guard let name = selectedFriend,
@@ -2839,50 +4211,89 @@ struct PostHeader: View {
 struct PostMediaView: View {
     let post: Post
     @Binding var showVideoPlayer: Bool
-    @State private var imageScale: CGFloat = 1.0
-    @State private var showFullScreen = false
-
     var body: some View {
         Group {
             if let photoData = post.photoData {
                 #if canImport(UIKit)
                 if let uiImage = UIImage(data: photoData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(minHeight: 480, maxHeight: 620)
+                    Color.clear
+                        .aspectRatio(4.0/5.0, contentMode: .fit)
+                        .overlay(
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        )
                         .clipped()
-                        .scaleEffect(imageScale)
-                        .onTapGesture(count: 2) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                imageScale = imageScale == 1.0 ? 1.1 : 1.0
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                    imageScale = 1.0
-                                }
-                            }
-                        }
-                        .onLongPressGesture {
-                            showFullScreen = true
-                        }
-                        .fullScreenCover(isPresented: $showFullScreen) {
-                            FullScreenImageView(image: uiImage, isPresented: $showFullScreen)
-                        }
                 }
                 #elseif canImport(AppKit)
                 if let nsImage = NSImage(data: photoData) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(minHeight: 480, maxHeight: 620)
+                    Color.clear
+                        .aspectRatio(4.0/5.0, contentMode: .fit)
+                        .overlay(
+                            Image(nsImage: nsImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        )
                         .clipped()
                 }
                 #endif
             } else if post.videoData != nil {
-                VideoThumbnailView(videoData: post.videoData!, showVideoPlayer: $showVideoPlayer)
+                InlineFeedVideoPlayer(videoData: post.videoData!, showVideoPlayer: $showVideoPlayer)
             }
         }
+    }
+}
+
+struct InlineFeedVideoPlayer: View {
+    let videoData: Data
+    @Binding var showVideoPlayer: Bool
+    @State private var player: AVPlayer?
+    @State private var isMuted = true
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Color.clear
+                .aspectRatio(4.0/5.0, contentMode: .fit)
+                .overlay(
+                    VideoPlayer(player: player)
+                        .aspectRatio(contentMode: .fill)
+                )
+                .clipped()
+                .disabled(true)
+                .onTapGesture {
+                    showVideoPlayer = true
+                }
+
+            Button {
+                isMuted.toggle()
+                player?.isMuted = isMuted
+            } label: {
+                Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .background(.ultraThinMaterial)
+                    .environment(\.colorScheme, .dark)
+                    .clipShape(Circle())
+            }
+            .padding(12)
+        }
+        .onAppear { setupAndPlay() }
+        .onDisappear { player?.pause() }
+    }
+
+    private func setupAndPlay() {
+        guard player == nil else { player?.play(); return }
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".mov")
+        try? videoData.write(to: tempURL)
+        let p = AVPlayer(url: tempURL)
+        p.isMuted = true
+        NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime, object: p.currentItem, queue: .main
+        ) { _ in p.seek(to: .zero); p.play() }
+        player = p
+        p.play()
     }
 }
 
@@ -2891,16 +4302,16 @@ struct WorkoutStatsBar: View {
     let setCount: Int?
 
     var body: some View {
-        HStack(spacing: 20) {
-            if let duration = duration {
+        HStack(spacing: 16) {
+            if let duration = duration, duration > 0 {
                 Label("\(duration) min", systemImage: "clock")
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundColor(GQColors.textTertiary)
             }
 
-            if let sets = setCount {
+            if let sets = setCount, sets > 0 {
                 Label("\(sets) sets", systemImage: "flame")
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundColor(GQColors.textTertiary)
             }
         }
@@ -2924,11 +4335,11 @@ struct PostActionsRow: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: isLiked ? "heart.fill" : "heart")
-                        .font(.system(size: 22))
+                        .font(.system(size: 20))
                         .foregroundColor(isLiked ? .red : GQColors.textPrimary)
                     if post.likeCount > 0 {
                         Text("\(post.likeCount)")
-                            .font(.system(size: 14))
+                            .font(.system(size: 13))
                             .foregroundColor(GQColors.textTertiary)
                     }
                 }
@@ -2944,7 +4355,7 @@ struct PostActionsRow: View {
                         .font(.system(size: 20))
                     if post.commentCount > 0 {
                         Text("\(post.commentCount)")
-                            .font(.system(size: 14))
+                            .font(.system(size: 13))
                             .foregroundColor(GQColors.textTertiary)
                     }
                 }
@@ -2957,7 +4368,7 @@ struct PostActionsRow: View {
                 Button(action: onLearn) {
                     HStack(spacing: 4) {
                         Image(systemName: "book.fill")
-                            .font(.system(size: 14))
+                            .font(.system(size: 13))
                         Text("Learn")
                             .font(.system(size: 12, weight: .medium))
                     }
@@ -4016,25 +5427,31 @@ struct PostCard: View {
             if let photoData = post.photoData {
                 #if canImport(UIKit)
                 if let uiImage = UIImage(data: photoData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxHeight: 400)
+                    Color.clear
+                        .aspectRatio(4.0/5.0, contentMode: .fit)
+                        .overlay(
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        )
                         .clipped()
                         .cornerRadius(12)
                 }
                 #elseif canImport(AppKit)
                 if let nsImage = NSImage(data: photoData) {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxHeight: 400)
+                    Color.clear
+                        .aspectRatio(4.0/5.0, contentMode: .fit)
+                        .overlay(
+                            Image(nsImage: nsImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                        )
                         .clipped()
                         .cornerRadius(12)
                 }
                 #endif
             } else if let videoData = post.videoData {
-                VideoThumbnailView(videoData: videoData, showVideoPlayer: $showVideoPlayer)
+                InlineFeedVideoPlayer(videoData: videoData, showVideoPlayer: $showVideoPlayer)
             }
 
             // workout stats
@@ -4122,29 +5539,6 @@ struct PostCard: View {
     }
 }
 
-// just a play button on black - tap to watch the actual video
-struct VideoThumbnailView: View {
-    let videoData: Data
-    @Binding var showVideoPlayer: Bool
-
-    var body: some View {
-        Button {
-            showVideoPlayer = true
-        } label: {
-            ZStack {
-                Color.black
-                    .frame(height: 250)
-                    .cornerRadius(12)
-
-                Image(systemName: "play.circle.fill")
-                    .font(.system(size: 60))
-                    .foregroundColor(.white.opacity(0.9))
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 // AVPlayer needs a URL, so we write video data to temp file first
 struct VideoPlayerView: View {
     let videoData: Data
@@ -4198,90 +5592,6 @@ struct VideoPlayerView: View {
 
 // MARK: - Full Screen Image View
 
-#if canImport(UIKit)
-struct FullScreenImageView: View {
-    let image: UIImage
-    @Binding var isPresented: Bool
-    @State private var scale: CGFloat = 1.0
-    @State private var lastScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
-
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            Image(uiImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .scaleEffect(scale)
-                .offset(offset)
-                .gesture(
-                    MagnificationGesture()
-                        .onChanged { value in
-                            scale = lastScale * value
-                        }
-                        .onEnded { _ in
-                            lastScale = scale
-                            if scale < 1.0 {
-                                withAnimation(.spring()) {
-                                    scale = 1.0
-                                    lastScale = 1.0
-                                }
-                            }
-                        }
-                )
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            offset = CGSize(
-                                width: lastOffset.width + value.translation.width,
-                                height: lastOffset.height + value.translation.height
-                            )
-                        }
-                        .onEnded { value in
-                            lastOffset = offset
-                            // Dismiss if dragged down significantly
-                            if value.translation.height > 100 && scale <= 1.0 {
-                                isPresented = false
-                            }
-                        }
-                )
-                .onTapGesture(count: 2) {
-                    withAnimation(.spring()) {
-                        if scale > 1.0 {
-                            scale = 1.0
-                            lastScale = 1.0
-                            offset = .zero
-                            lastOffset = .zero
-                        } else {
-                            scale = 2.0
-                            lastScale = 2.0
-                        }
-                    }
-                }
-
-            // Close button
-            VStack {
-                HStack {
-                    Spacer()
-                    Button {
-                        isPresented = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 30))
-                            .foregroundColor(.white.opacity(0.8))
-                    }
-                    .padding()
-                }
-                Spacer()
-            }
-        }
-        .statusBarHidden()
-    }
-}
-#endif
-
 // relative time display (2h, 3d, 1w) like instagram/twitter
 extension Date {
     func timeAgoDisplay() -> String {
@@ -4311,17 +5621,34 @@ struct CommunitySeeder {
     static func seedIfNeeded(modelContext: ModelContext, userId: UUID) {
         let descriptor = FetchDescriptor<Community>(predicate: #Predicate { $0.parentCommunityId == nil })
         let existing = (try? modelContext.fetchCount(descriptor)) ?? 0
-        guard existing == 0 else { return }
 
-        let dummyUsers = (0..<8).map { _ in UUID() }
+        let users = SocialSeeder.fakeUsers
+
+        // Seed communities + posts + challenges if first run
+        if existing == 0 {
+            seedCommunities(modelContext: modelContext, userId: userId, users: users)
+        }
+
+        // Seed events separately so existing installs get them without data wipe
+        let eventDescriptor = FetchDescriptor<CommunityEvent>()
+        let existingEvents = (try? modelContext.fetchCount(eventDescriptor)) ?? 0
+        if existingEvents == 0 {
+            seedEvents(modelContext: modelContext, userId: userId, users: users)
+        }
+
+        try? modelContext.save()
+    }
+
+    private static func seedCommunities(modelContext: ModelContext, userId: UUID, users: [(id: UUID, name: String, username: String)]) {
+        let cal = Calendar.current
 
         // The ARC - Queen's University
         let arc = Community(
             name: "The ARC - Queen's University",
             communityDescription: "Queen's Athletics & Recreation Centre community",
             location: "Kingston, ON",
-            creatorId: dummyUsers[0],
-            memberIds: [userId] + Array(dummyUsers.prefix(5)),
+            creatorId: users[0].id,
+            memberIds: [userId] + users.prefix(6).map(\.id),
             joinType: .open,
             memberCount: 234,
             isVerified: true,
@@ -4334,8 +5661,8 @@ struct CommunitySeeder {
             let channel = Community(
                 name: name,
                 communityDescription: "",
-                creatorId: dummyUsers[0],
-                memberIds: [userId] + Array(dummyUsers.prefix(3)),
+                creatorId: users[0].id,
+                memberIds: [userId] + users.prefix(3).map(\.id),
                 memberCount: Int.random(in: 15...60),
                 parentCommunityId: arc.id
             )
@@ -4347,8 +5674,8 @@ struct CommunitySeeder {
             name: "GoodLife Fitness Downtown",
             communityDescription: "Local GoodLife community",
             location: "Kingston, ON",
-            creatorId: dummyUsers[1],
-            memberIds: [userId] + Array(dummyUsers.prefix(4)),
+            creatorId: users[1].id,
+            memberIds: [userId] + users.prefix(5).map(\.id),
             joinType: .open,
             memberCount: 89,
             isVerified: true,
@@ -4360,8 +5687,8 @@ struct CommunitySeeder {
             let channel = Community(
                 name: name,
                 communityDescription: "",
-                creatorId: dummyUsers[1],
-                memberIds: [userId] + Array(dummyUsers.prefix(2)),
+                creatorId: users[1].id,
+                memberIds: [userId] + users.prefix(2).map(\.id),
                 memberCount: Int.random(in: 20...50),
                 parentCommunityId: goodlife.id
             )
@@ -4378,8 +5705,8 @@ struct CommunitySeeder {
             let g = Community(
                 name: gName,
                 communityDescription: gDesc,
-                creatorId: dummyUsers[2],
-                memberIds: Array(dummyUsers.prefix(3)),
+                creatorId: users[2].id,
+                memberIds: users.prefix(4).map(\.id),
                 joinType: .open,
                 memberCount: gCount,
                 tags: ["global"]
@@ -4387,14 +5714,27 @@ struct CommunitySeeder {
             modelContext.insert(g)
         }
 
-        // Seed memberships for user
+        // Seed memberships for user + fakeUsers
         for comm in [arc, goodlife] {
-            let membership = CommunityMembership(
+            // User membership
+            let userMembership = CommunityMembership(
                 userId: userId,
                 communityId: comm.id,
                 role: .member
             )
-            modelContext.insert(membership)
+            modelContext.insert(userMembership)
+
+            // FakeUser memberships
+            for (i, user) in users.prefix(6).enumerated() {
+                guard comm.memberIds.contains(user.id) else { continue }
+                let membership = CommunityMembership(
+                    userId: user.id,
+                    communityId: comm.id,
+                    role: i == 0 ? .admin : .member,
+                    workoutPartnerStatus: [1, 2, 4].contains(i) ? .available : .notLooking
+                )
+                modelContext.insert(membership)
+            }
         }
 
         // Seed one active challenge per gym community
@@ -4405,9 +5745,9 @@ struct CommunitySeeder {
             goalType: .sets,
             goalTarget: 20,
             currentProgress: 13,
-            startDate: Calendar.current.date(byAdding: .day, value: -4, to: Date()) ?? Date(),
-            endDate: Calendar.current.date(byAdding: .day, value: 3, to: Date()) ?? Date(),
-            participantIds: [userId] + Array(dummyUsers.prefix(4))
+            startDate: cal.date(byAdding: .day, value: -4, to: Date()) ?? Date(),
+            endDate: cal.date(byAdding: .day, value: 3, to: Date()) ?? Date(),
+            participantIds: [userId] + users.prefix(4).map(\.id)
         )
         modelContext.insert(arcChallenge)
 
@@ -4418,9 +5758,9 @@ struct CommunitySeeder {
             goalType: .workouts,
             goalTarget: 5,
             currentProgress: 2,
-            startDate: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
-            endDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
-            participantIds: [userId] + Array(dummyUsers.prefix(3))
+            startDate: cal.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
+            endDate: cal.date(byAdding: .day, value: 5, to: Date()) ?? Date(),
+            participantIds: [userId] + users.prefix(3).map(\.id)
         )
         modelContext.insert(glChallenge)
 
@@ -4459,41 +5799,31 @@ struct CommunitySeeder {
                 goalType: goalType,
                 goalTarget: goalTarget,
                 currentProgress: progress,
-                startDate: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
-                endDate: Calendar.current.date(byAdding: .day, value: 4, to: Date()) ?? Date(),
-                participantIds: Array(dummyUsers.prefix(5))
+                startDate: cal.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
+                endDate: cal.date(byAdding: .day, value: 4, to: Date()) ?? Date(),
+                participantIds: users.prefix(5).map(\.id)
             )
             modelContext.insert(gc)
         }
 
-        // Seed community posts — spread across all communities
-        let samplePosts: [(UUID, String, String, CommunityPostType)] = [
-            // ARC posts
-            (arc.id, "Alex K.", "Just hit a 225 bench PR! The ARC energy is different at 6am", .achievement),
-            (arc.id, "Jordan M.", "Anyone down for leg day tomorrow around 3pm?", .lookingForPartner),
-            (arc.id, "Taylor S.", "The powerlifting platform was empty this morning. Rare W", .general),
-            (arc.id, "Chris L.", "Hit 315 deadlift today. ARC morning crew witnessed it", .achievement),
-            // GoodLife posts
-            (goodlife.id, "Sam R.", "Great spin class this morning, instructor was amazing", .general),
-            (goodlife.id, "Morgan P.", "Looking for a bench spotter, usually train at 5pm weekdays", .lookingForPartner),
-            (goodlife.id, "Dana K.", "First week done at GoodLife. The machines are so much nicer than my old gym", .general),
+        // Seed community posts using real users
+        let samplePosts: [(UUID, Int, String, CommunityPostType)] = [
+            (arc.id, 0, "Just hit a 225 bench PR! The ARC energy is different at 6am", .achievement),
+            (arc.id, 2, "Anyone down for leg day tomorrow around 3pm?", .lookingForPartner),
+            (arc.id, 5, "The powerlifting platform was empty this morning. Rare W", .general),
+            (arc.id, 4, "Hit 315 deadlift today. ARC morning crew witnessed it", .achievement),
+            (goodlife.id, 1, "Great spin class this morning, instructor was amazing", .general),
+            (goodlife.id, 3, "Looking for a bench spotter, usually train at 5pm weekdays", .lookingForPartner),
+            (goodlife.id, 7, "First week done at GoodLife. The machines are so much nicer than my old gym", .general),
         ]
 
-        // Posts for global communities
-        let globalPosts: [(String, String, String, CommunityPostType)] = [
-            ("Home Gym Heroes", "Riley T.", "Finally got a squat rack in my garage. Game changer", .achievement),
-            ("Home Gym Heroes", "Jesse W.", "Resistance bands + bodyweight = underrated combo", .workout),
-            ("Beginner Gains", "Casey M.", "Just finished my first ever full week of training!", .achievement),
-            ("Beginner Gains", "Pat H.", "What's the difference between sumo and conventional deadlift?", .question),
-            ("PR Chasers", "Quinn D.", "315 squat at 165 bodyweight. PR by 10 lbs!", .achievement),
-        ]
-
-        for (cid, author, content, ptype) in samplePosts {
+        for (cid, userIdx, content, ptype) in samplePosts {
+            let user = users[userIdx]
             let post = CommunityPost(
                 communityId: cid,
-                authorId: dummyUsers.randomElement()!,
-                authorName: author,
-                authorUsername: author.lowercased().replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ".", with: ""),
+                authorId: user.id,
+                authorName: user.name,
+                authorUsername: user.username,
                 postType: ptype,
                 content: content,
                 likeCount: Int.random(in: 2...18),
@@ -4503,13 +5833,23 @@ struct CommunitySeeder {
             modelContext.insert(post)
         }
 
-        for (commName, author, content, ptype) in globalPosts {
+        // Posts for global communities
+        let globalPosts: [(String, Int, String, CommunityPostType)] = [
+            ("Home Gym Heroes", 8, "Finally got a squat rack in my garage. Game changer", .achievement),
+            ("Home Gym Heroes", 6, "Resistance bands + bodyweight = underrated combo", .workout),
+            ("Beginner Gains", 9, "Just finished my first ever full week of training!", .achievement),
+            ("Beginner Gains", 3, "What's the difference between sumo and conventional deadlift?", .question),
+            ("PR Chasers", 4, "315 squat at 165 bodyweight. PR by 10 lbs!", .achievement),
+        ]
+
+        for (commName, userIdx, content, ptype) in globalPosts {
             if let comm = globalFetched.first(where: { $0.name == commName }) {
+                let user = users[userIdx]
                 let post = CommunityPost(
                     communityId: comm.id,
-                    authorId: dummyUsers.randomElement()!,
-                    authorName: author,
-                    authorUsername: author.lowercased().replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ".", with: ""),
+                    authorId: user.id,
+                    authorName: user.name,
+                    authorUsername: user.username,
                     postType: ptype,
                     content: content,
                     likeCount: Int.random(in: 3...22),
@@ -4519,8 +5859,152 @@ struct CommunitySeeder {
                 modelContext.insert(post)
             }
         }
+    }
 
-        try? modelContext.save()
+    private static func seedEvents(modelContext: ModelContext, userId: UUID, users: [(id: UUID, name: String, username: String)]) {
+        let cal = Calendar.current
+        let now = Date()
+
+        // Fetch communities to attach events to
+        let allComms = (try? modelContext.fetch(FetchDescriptor<Community>(predicate: #Predicate { $0.parentCommunityId == nil }))) ?? []
+        guard let arc = allComms.first(where: { $0.name == "The ARC - Queen's University" }),
+              let goodlife = allComms.first(where: { $0.name == "GoodLife Fitness Downtown" }),
+              let prChasers = allComms.first(where: { $0.name == "PR Chasers" }),
+              let beginnerGains = allComms.first(where: { $0.name == "Beginner Gains" }) else { return }
+
+        // Helper: next occurrence of a weekday at a given hour
+        func nextWeekday(_ weekday: Int, hour: Int, minute: Int = 0) -> Date {
+            var comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear, .weekday], from: now)
+            comps.weekday = weekday
+            comps.hour = hour
+            comps.minute = minute
+            var target = cal.date(from: comps) ?? now
+            if target <= now { target = cal.date(byAdding: .weekOfYear, value: 1, to: target) ?? target }
+            return target
+        }
+
+        // ARC events
+        let e1 = CommunityEvent(
+            communityId: arc.id,
+            creatorId: users[0].id,
+            creatorName: users[0].name,
+            title: "Morning Lift Session",
+            eventDescription: "Early morning crew. Compound lifts and good vibes.",
+            location: "The ARC - Weight Room",
+            date: cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now))!.addingTimeInterval(6.5 * 3600),
+            endDate: cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now))!.addingTimeInterval(8 * 3600),
+            maxAttendees: 12,
+            attendeeIds: [userId, users[0].id, users[2].id, users[4].id],
+            eventType: .workout
+        )
+
+        let e2 = CommunityEvent(
+            communityId: arc.id,
+            creatorId: users[2].id,
+            creatorName: users[2].name,
+            title: "Powerlifting Mock Meet",
+            eventDescription: "Squat, bench, deadlift. 3 attempts each. Friendly competition — all levels welcome.",
+            location: "The ARC - Platform Area",
+            date: cal.date(byAdding: .day, value: 5, to: cal.startOfDay(for: now))!.addingTimeInterval(10 * 3600),
+            endDate: cal.date(byAdding: .day, value: 5, to: cal.startOfDay(for: now))!.addingTimeInterval(14 * 3600),
+            maxAttendees: 20,
+            attendeeIds: [users[0].id, users[2].id, users[4].id, users[6].id, users[8].id],
+            eventType: .competition
+        )
+
+        let e3 = CommunityEvent(
+            communityId: arc.id,
+            creatorId: users[5].id,
+            creatorName: users[5].name,
+            title: "Post-Exam Gym Hangout",
+            eventDescription: "Exams are over — celebrate with a chill group workout and smoothies after.",
+            location: "The ARC - Main Floor",
+            date: cal.date(byAdding: .day, value: 10, to: cal.startOfDay(for: now))!.addingTimeInterval(16 * 3600),
+            attendeeIds: [users[5].id, users[1].id],
+            eventType: .social
+        )
+
+        // GoodLife events
+        let e4 = CommunityEvent(
+            communityId: goodlife.id,
+            creatorId: users[1].id,
+            creatorName: users[1].name,
+            title: "Spin Class Group",
+            eventDescription: "Joining the 9am spin class together. Book your bike!",
+            location: "GoodLife Fitness - Studio B",
+            date: cal.date(byAdding: .day, value: 2, to: cal.startOfDay(for: now))!.addingTimeInterval(9 * 3600),
+            endDate: cal.date(byAdding: .day, value: 2, to: cal.startOfDay(for: now))!.addingTimeInterval(10 * 3600),
+            maxAttendees: 15,
+            attendeeIds: [userId, users[1].id, users[3].id, users[7].id],
+            eventType: .workout
+        )
+
+        let e5 = CommunityEvent(
+            communityId: goodlife.id,
+            creatorId: users[3].id,
+            creatorName: users[3].name,
+            title: "New Members Welcome Workout",
+            eventDescription: "Intro session for new GoodLife members. We'll show you the ropes and do a full-body workout.",
+            location: "GoodLife Fitness - Main Floor",
+            date: cal.date(byAdding: .day, value: 4, to: cal.startOfDay(for: now))!.addingTimeInterval(17 * 3600),
+            endDate: cal.date(byAdding: .day, value: 4, to: cal.startOfDay(for: now))!.addingTimeInterval(18.5 * 3600),
+            attendeeIds: [users[3].id, users[7].id],
+            eventType: .meetup
+        )
+
+        // PR Chasers — Virtual PR Friday
+        let e6 = CommunityEvent(
+            communityId: prChasers.id,
+            creatorId: users[4].id,
+            creatorName: users[4].name,
+            title: "Virtual PR Friday",
+            eventDescription: "Post your PR attempts in the feed. We'll hype you up. All lifts count.",
+            date: nextWeekday(6, hour: 17),
+            attendeeIds: [users[4].id, users[0].id, users[2].id],
+            eventType: .competition
+        )
+
+        // Beginner Gains — Form Check Saturday
+        let e7 = CommunityEvent(
+            communityId: beginnerGains.id,
+            creatorId: users[9].id,
+            creatorName: users[9].name,
+            title: "Form Check Saturday",
+            eventDescription: "Post videos of your lifts and get friendly feedback from the community.",
+            date: nextWeekday(7, hour: 12),
+            attendeeIds: [users[9].id, users[3].id],
+            eventType: .workout
+        )
+
+        // Past events
+        let e8 = CommunityEvent(
+            communityId: arc.id,
+            creatorId: users[0].id,
+            creatorName: users[0].name,
+            title: "5AM Club Kickoff",
+            eventDescription: "First official 5AM crew session. We showed up.",
+            location: "The ARC - Weight Room",
+            date: cal.date(byAdding: .day, value: -3, to: cal.startOfDay(for: now))!.addingTimeInterval(5 * 3600),
+            endDate: cal.date(byAdding: .day, value: -3, to: cal.startOfDay(for: now))!.addingTimeInterval(6.5 * 3600),
+            attendeeIds: [userId, users[0].id, users[2].id, users[4].id, users[6].id],
+            eventType: .workout
+        )
+
+        let e9 = CommunityEvent(
+            communityId: goodlife.id,
+            creatorId: users[1].id,
+            creatorName: users[1].name,
+            title: "GoodLife Summer BBQ",
+            eventDescription: "Post-workout BBQ in the parking lot. BYOB (bring your own brisket).",
+            location: "GoodLife Fitness - Patio",
+            date: cal.date(byAdding: .day, value: -5, to: cal.startOfDay(for: now))!.addingTimeInterval(18 * 3600),
+            attendeeIds: [users[1].id, users[3].id, users[5].id, users[7].id, users[9].id],
+            eventType: .social
+        )
+
+        for event in [e1, e2, e3, e4, e5, e6, e7, e8, e9] {
+            modelContext.insert(event)
+        }
     }
 }
 
@@ -4531,6 +6015,7 @@ struct CommunityFeedView: View {
     @Query private var allCommunities: [Community]
     @Query private var allChallenges: [CommunityChallenge]
     @Query private var allCommunityPosts: [CommunityPost]
+    @Query private var allEvents: [CommunityEvent]
 
     let profile: UserProfile
 
@@ -4555,23 +6040,36 @@ struct CommunityFeedView: View {
         return allChallenges.filter { $0.isActive && yourIds.contains($0.communityId) }
     }
 
+    private var upcomingEventsAcrossCommunities: [CommunityEvent] {
+        let yourIds = Set(yourCommunities.map(\.id))
+        let now = Date()
+        return allEvents
+            .filter { $0.date > now && yourIds.contains($0.communityId) }
+            .sorted { $0.date < $1.date }
+            .prefix(5)
+            .map { $0 }
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 24) {
                 // 1. Active Challenge Spotlight
                 challengeSpotlight
 
-                // 2. Your Communities
+                // 2. Upcoming Events
+                upcomingEventsSection
+
+                // 3. Your Communities
                 if !yourCommunities.isEmpty {
                     yourCommunitiesSection
                 }
 
-                // 3. Recommended For You
+                // 4. Recommended For You
                 if !recommendedCommunities.isEmpty {
                     recommendedSection
                 }
 
-                // 4. Create a Community
+                // 5. Create a Community
                 createCommunityButton
 
                 Spacer(minLength: 100)
@@ -4681,6 +6179,100 @@ struct CommunityFeedView: View {
                 Text("\(challenge.participantIds.count) participating")
                     .font(.system(size: 10))
                     .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(14)
+            .frame(width: 220)
+            .homeSocialCard(cornerRadius: 14, subtle: true)
+        }
+        .gqInteractive(scale: 0.96, haptic: .light)
+    }
+
+    // MARK: - Upcoming Events Section
+
+    @ViewBuilder
+    private var upcomingEventsSection: some View {
+        if !upcomingEventsAcrossCommunities.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar.badge.clock")
+                        .foregroundColor(GQColors.cyanSpark)
+                        .font(.system(size: 12))
+                    Text("UPCOMING EVENTS")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(GQColors.textTertiary)
+                        .tracking(1)
+                }
+                .padding(.horizontal, 16)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(upcomingEventsAcrossCommunities) { event in
+                            upcomingEventCard(event)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func upcomingEventCard(_ event: CommunityEvent) -> some View {
+        let communityName = yourCommunities.first(where: { $0.id == event.communityId })?.name ?? "Community"
+        Button {
+            if let comm = yourCommunities.first(where: { $0.id == event.communityId }) {
+                selectedCommunity = comm
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                // Event type icon + community
+                HStack(spacing: 5) {
+                    Image(systemName: event.eventType.icon)
+                        .font(.system(size: 10))
+                        .foregroundColor(event.eventType.color)
+                    Text(communityName)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(GQColors.cyanSpark)
+                        .lineLimit(1)
+                }
+
+                // Title
+                Text(event.title)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, minHeight: 34, alignment: .topLeading)
+
+                // Date/time
+                HStack(spacing: 4) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 10))
+                    Text(event.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute()))
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(GQColors.textTertiary)
+
+                // Bottom row: attendees + location
+                HStack(spacing: 8) {
+                    HStack(spacing: 3) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 9))
+                        if let max = event.maxAttendees {
+                            Text("\(event.attendeeIds.count)/\(max)")
+                        } else {
+                            Text("\(event.attendeeIds.count)")
+                        }
+                    }
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+
+                    if let location = event.location, !location.isEmpty {
+                        Text(location)
+                            .font(.system(size: 10))
+                            .foregroundColor(GQColors.textTertiary)
+                            .lineLimit(1)
+                    }
+                }
             }
             .padding(14)
             .frame(width: 220)
@@ -4908,6 +6500,17 @@ struct CommunityFeedView: View {
                     }
                 }
 
+                if let nextEvt = nextEvent(for: community.id) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 9))
+                            .foregroundColor(GQColors.cyanSpark)
+                        Text(nextEvt.date.formatted(.dateTime.weekday(.abbreviated).hour().minute()))
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.cyanSpark)
+                    }
+                }
+
                 Spacer()
 
                 if postCount24h > 0 {
@@ -4963,6 +6566,14 @@ struct CommunityFeedView: View {
         let cutoff = Date().addingTimeInterval(-86400)
         return allCommunityPosts.filter { $0.communityId == communityId && $0.timestamp > cutoff }.count
     }
+
+    private func nextEvent(for communityId: UUID) -> CommunityEvent? {
+        let now = Date()
+        return allEvents
+            .filter { $0.communityId == communityId && $0.date > now }
+            .sorted { $0.date < $1.date }
+            .first
+    }
 }
 
 // MARK: - Community Preview Card (for empty state)
@@ -5017,8 +6628,7 @@ struct CommunityPreviewCard: View {
                     .foregroundColor(GQColors.textTertiary)
             }
             .padding(14)
-            .background(GQColors.adaptiveOverlay(0.05))
-            .cornerRadius(12)
+            .homeSocialCard(cornerRadius: 12, subtle: true)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
@@ -5104,8 +6714,7 @@ struct CommunityCard: View {
             }
         }
         .padding(14)
-        .background(GQColors.adaptiveOverlay(0.05))
-        .cornerRadius(12)
+        .homeSocialCard(cornerRadius: 12, subtle: true)
         .padding(.horizontal, 16)
     }
 }
@@ -5587,7 +7196,13 @@ struct CommunityDetailView: View {
 
     @ViewBuilder
     private var workingOutNowRow: some View {
-        let activeNames = ["Alex K.", "Jordan M.", "Sam R."]
+        let users = SocialSeeder.fakeUsers
+        let activeNames: [String] = community.memberIds.compactMap { memberId in
+            guard let user = users.first(where: { $0.id == memberId }) else { return nil }
+            let hash = abs(memberId.hashValue)
+            guard hash % 3 == 0 else { return nil }
+            return user.name
+        }.prefix(4).map { $0 }
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
                 Circle()
@@ -6134,23 +7749,30 @@ struct CommunityDetailView: View {
     // MARK: - Data
 
     private var leaderboardData: [(name: String, sets: Int, workouts: Int, points: Int)] {
-        [
-            ("Alex K.", 42, 5, 210),
-            ("Jordan M.", 38, 4, 190),
-            ("Sam R.", 35, 5, 175),
-            ("Taylor W.", 30, 3, 150),
-            ("Casey B.", 25, 3, 125)
-        ]
+        let users = SocialSeeder.fakeUsers
+        return community.memberIds.compactMap { memberId in
+            guard let user = users.first(where: { $0.id == memberId }) else { return nil }
+            // Deterministic stats from UUID hash
+            let hash = abs(memberId.hashValue)
+            let sets = 20 + (hash % 30)
+            let workouts = 2 + (hash % 5)
+            let points = sets * 5
+            return (name: user.name, sets: sets, workouts: workouts, points: points)
+        }
+        .sorted { $0.points > $1.points }
     }
 
     private var memberData: [(name: String, role: String, isOnline: Bool, lookingForPartner: Bool)] {
-        [
-            ("Alex K.", "Admin", true, false),
-            ("Jordan M.", "Member", true, true),
-            ("Sam R.", "Member", false, true),
-            ("Taylor W.", "Member", true, false),
-            ("Casey B.", "Member", false, false)
-        ]
+        let users = SocialSeeder.fakeUsers
+        return community.memberIds.compactMap { memberId in
+            guard let user = users.first(where: { $0.id == memberId }) else { return nil }
+            let membership = memberships.first(where: { $0.userId == memberId })
+            let role = membership?.role ?? .member
+            let hash = abs(memberId.hashValue)
+            let isOnline = hash % 3 != 0
+            let lookingForPartner = membership?.workoutPartnerStatus == .available
+            return (name: user.name, role: role.rawValue.capitalized, isOnline: isOnline, lookingForPartner: lookingForPartner)
+        }
     }
 
     private func medalColor(for index: Int) -> Color {
@@ -6180,6 +7802,7 @@ struct CommunityDetailView: View {
 
 struct CommunityPostCard: View {
     let post: CommunityPost
+    @State private var liked: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -6226,16 +7849,21 @@ struct CommunityPostCard: View {
             // Actions
             HStack(spacing: 20) {
                 Button {
-                    // Like
+                    liked.toggle()
+                    post.likeCount += liked ? 1 : -1
+                    #if canImport(UIKit)
+                    let impact = UIImpactFeedbackGenerator(style: .light)
+                    impact.impactOccurred()
+                    #endif
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "heart")
+                        Image(systemName: liked ? "heart.fill" : "heart")
                         if post.likeCount > 0 {
                             Text("\(post.likeCount)")
                         }
                     }
                     .font(.system(size: 13))
-                    .foregroundColor(GQColors.textTertiary)
+                    .foregroundColor(liked ? .red : GQColors.textTertiary)
                 }
 
                 Button {
@@ -6510,7 +8138,7 @@ struct ExerciseMediaCarousel: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .automatic))
-                .frame(minHeight: 480, maxHeight: 620)
+                .aspectRatio(4.0/5.0, contentMode: .fit)
 
                 // Exercise indicator pills
                 if mediaItems.count > 1 {

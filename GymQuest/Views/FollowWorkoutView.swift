@@ -22,22 +22,21 @@ struct WorkoutDetailSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 6) {
                         Text(workoutData.title)
                             .font(.title2)
                             .fontWeight(.bold)
                             .foregroundColor(GQColors.textPrimary)
 
-                        HStack(spacing: 16) {
-                            Label(workoutData.workoutType, systemImage: "dumbbell.fill")
-                            Label("~\(workoutData.estimatedDuration) min", systemImage: "clock")
+                        HStack(spacing: 6) {
+                            Text(workoutData.workoutType)
+                            Text("·")
+                            Text("~\(workoutData.estimatedDuration) min")
+                            Text("·")
+                            Text("@\(workoutData.authorUsername)")
                         }
-                        .font(.subheadline)
+                        .font(.system(size: 13))
                         .foregroundColor(GQColors.textSecondary)
-
-                        Text("by @\(workoutData.authorUsername)")
-                            .font(.caption)
-                            .foregroundColor(GQColors.textTertiary)
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity)
@@ -93,6 +92,7 @@ struct ExercisePreviewCard: View {
 
     @State private var isExpanded = false
     @State private var showAddedCheck = false
+    @State private var showFormTips = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -103,17 +103,29 @@ struct ExercisePreviewCard: View {
                     }
                 } label: {
                     HStack(spacing: 12) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(GQColors.vividPurple.opacity(0.2))
-                                .frame(width: 36, height: 36)
-                            Text("\(index)")
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(GQColors.textPrimary)
-                        }
-
                         if FeatureFlags.shared.exerciseGifsEnabled {
-                            ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: false)
+                            ZStack(alignment: .topLeading) {
+                                ExerciseGifView(exerciseName: exercise.name, size: .medium, showFallback: false)
+                                    .frame(width: 56, height: 56)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                                Text("\(index)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 18, height: 18)
+                                    .background(GQColors.vividPurple)
+                                    .clipShape(Circle())
+                                    .offset(x: -4, y: -4)
+                            }
+                        } else {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(GQColors.vividPurple.opacity(0.2))
+                                    .frame(width: 36, height: 36)
+                                Text("\(index)")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(GQColors.textPrimary)
+                            }
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
@@ -121,7 +133,7 @@ struct ExercisePreviewCard: View {
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(GQColors.textPrimary)
 
-                            Text("\(exercise.sets.count) sets • \(exercise.muscleGroup)")
+                            Text("\(exercise.sets.count) sets")
                                 .font(.caption)
                                 .foregroundColor(GQColors.textSecondary)
                         }
@@ -159,23 +171,23 @@ struct ExercisePreviewCard: View {
             }
 
             if isExpanded {
-                VStack(alignment: .leading, spacing: 12) {
-                    VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(spacing: 6) {
                         ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { setIndex, set in
                             HStack {
-                                Text("Set \(setIndex + 1)")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(GQColors.textSecondary)
-                                    .frame(width: 50, alignment: .leading)
-
-                                Text("\(set.reps) reps")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(GQColors.textPrimary)
+                                Text("\(setIndex + 1)")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundColor(GQColors.textTertiary)
+                                    .frame(width: 20, alignment: .center)
 
                                 if set.weight > 0 {
-                                    Text("@ \(Int(set.weight)) lbs")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(GQColors.gold)
+                                    Text("\(set.reps) × \(Int(set.weight)) lbs")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(GQColors.textPrimary)
+                                } else {
+                                    Text("\(set.reps) reps")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(GQColors.textPrimary)
                                 }
 
                                 Spacer()
@@ -183,35 +195,49 @@ struct ExercisePreviewCard: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "clock")
                                         .font(.system(size: 11))
-                                    Text("\(set.restSeconds)s rest")
+                                    Text("\(set.restSeconds)s")
                                         .font(.system(size: 12))
                                 }
                                 .foregroundColor(GQColors.textTertiary)
                             }
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 2)
                         }
                     }
 
                     if !exercise.demoTips.isEmpty {
-                        Divider()
-                            .background(GQColors.adaptiveOverlay(0.06))
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showFormTips.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "lightbulb.fill")
+                                    .font(.system(size: 11))
+                                Text("Form Tips")
+                                    .font(.system(size: 12, weight: .medium))
+                                Spacer()
+                                Image(systemName: showFormTips ? "chevron.up" : "chevron.down")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundColor(GQColors.vividPurple)
+                            .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.plain)
 
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("FORM TIPS")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(GQColors.textTertiary)
-                                .tracking(0.5)
-
-                            ForEach(exercise.demoTips, id: \.self) { tip in
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 12))
-                                        .foregroundColor(GQColors.success)
-                                    Text(tip)
-                                        .font(.system(size: 13))
-                                        .foregroundColor(GQColors.textSecondary)
+                        if showFormTips {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(exercise.demoTips, id: \.self) { tip in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(GQColors.success)
+                                        Text(tip)
+                                            .font(.system(size: 13))
+                                            .foregroundColor(GQColors.textSecondary)
+                                    }
                                 }
                             }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                         }
                     }
                 }

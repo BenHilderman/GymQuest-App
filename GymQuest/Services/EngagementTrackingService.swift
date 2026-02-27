@@ -1,6 +1,10 @@
 import Foundation
 import SwiftData
 
+extension Notification.Name {
+    static let feedShouldReRank = Notification.Name("feedShouldReRankNotification")
+}
+
 @MainActor
 final class EngagementTrackingService: ObservableObject {
     static let shared = EngagementTrackingService()
@@ -10,6 +14,14 @@ final class EngagementTrackingService: ObservableObject {
     private var modelContext: ModelContext?
     private var interactionCount = 0
     private var lastScoreRefresh: Date = .distantPast
+
+    // MARK: - Session State (in-memory, resets on app launch)
+
+    var sessionWorkoutBoosts: [String: Double] = [:]
+    var sessionAuthorBoosts: [String: Double] = [:]
+    var sessionHashtagBoosts: [String: Double] = [:]
+    var sessionSkippedPostIds: Set<UUID> = []
+    var sessionNotInterestedPostIds: Set<UUID> = []
 
     // MARK: - Setup
 
@@ -42,9 +54,77 @@ final class EngagementTrackingService: ObservableObject {
         guard watchTime > 0.5 else { return }
 
         let engagement = getOrCreateEngagement(postId: postId, userId: userId)
+
+        // Skip detection: scrolled past in < 2s
+        if watchTime < 2.0 {
+            engagement.skipped = true
+            sessionSkippedPostIds.insert(postId)
+
+            // Record negative session signal for the post's workout type/author
+            if let post = fetchPost(postId: postId) {
+                if let workoutType = post.workoutType {
+                    sessionWorkoutBoosts[workoutType, default: 0] -= 0.3
+                }
+                sessionAuthorBoosts[post.authorId.uuidString, default: 0] -= 0.2
+            }
+
+            saveAndTrackInteraction(userId: userId)
+            return
+        }
+
+        // Positive engagement path
         engagement.watchTimeSec += watchTime
 
+        // Compute completion ratio
+        if let post = fetchPost(postId: postId), let duration = post.duration, duration > 0 {
+            let ratio = min(watchTime / Double(duration), 1.0)
+            engagement.maxCompletionRatio = max(engagement.maxCompletionRatio, ratio)
+
+            // Extract hashtags from engaged content and boost session
+            if watchTime >= 5.0 {
+                let hashtags = extractHashtags(from: post.caption)
+                for tag in hashtags {
+                    sessionHashtagBoosts[tag, default: 0] += 0.2
+                }
+                if let workoutType = post.workoutType {
+                    sessionWorkoutBoosts[workoutType, default: 0] += 0.3
+                }
+                sessionAuthorBoosts[post.authorId.uuidString, default: 0] += 0.2
+            }
+        }
+
         updatePostAvgWatchTime(postId: postId, newWatchTime: watchTime)
+        saveAndTrackInteraction(userId: userId)
+    }
+
+    // MARK: - Video Loop Tracking
+
+    func trackVideoLoop(postId: UUID, userId: UUID) {
+        let engagement = getOrCreateEngagement(postId: postId, userId: userId)
+        engagement.completionCount += 1
+        try? modelContext?.save()
+    }
+
+    // MARK: - Not Interested
+
+    func trackNotInterested(postId: UUID, userId: UUID) {
+        let engagement = getOrCreateEngagement(postId: postId, userId: userId)
+        engagement.notInterested = true
+        sessionNotInterestedPostIds.insert(postId)
+
+        // Record strong negative for workout type and author
+        if let post = fetchPost(postId: postId) {
+            if let workoutType = post.workoutType {
+                sessionWorkoutBoosts[workoutType, default: 0] -= 1.0
+            }
+            sessionAuthorBoosts[post.authorId.uuidString, default: 0] -= 1.0
+
+            let hashtags = extractHashtags(from: post.caption)
+            for tag in hashtags {
+                sessionHashtagBoosts[tag, default: 0] -= 0.5
+            }
+        }
+
         saveAndTrackInteraction(userId: userId)
     }
 
@@ -104,13 +184,19 @@ final class EngagementTrackingService: ObservableObject {
             ctx.insert(profile)
         }
 
-        // Compute workout type weights from engagement
+        // Compute weights from engagement
         var workoutScores: [String: Double] = [:]
         var workoutCounts: [String: Double] = [:]
         var authorScores: [String: Double] = [:]
         var authorCounts: [String: Double] = [:]
         var formatScores: [String: Double] = [:]
         var formatCounts: [String: Double] = [:]
+        var hashtagScores: [String: Double] = [:]
+        var hashtagCounts: [String: Double] = [:]
+        var emotionScores: [String: Double] = [:]
+        var emotionCounts: [String: Double] = [:]
+        var negativeWorkoutScores: [String: Double] = [:]
+        var negativeAuthorScores: [String: Double] = [:]
         var totalWatchTime: Double = 0
 
         // Fetch posts for engagement context
@@ -127,6 +213,17 @@ final class EngagementTrackingService: ObservableObject {
             let interactionWeight = engagementWeight(engagement)
             totalWatchTime += engagement.watchTimeSec
 
+            // Negative signals
+            if engagement.notInterested || engagement.skipped {
+                if let workoutType = post.workoutType {
+                    negativeWorkoutScores[workoutType, default: 0] += engagement.notInterested ? 3.0 : 1.0
+                }
+                negativeAuthorScores[post.authorId.uuidString, default: 0] += engagement.notInterested ? 3.0 : 1.0
+                continue
+            }
+
+            // Positive signals only below this point
+
             // Workout type affinity
             if let workoutType = post.workoutType {
                 workoutScores[workoutType, default: 0] += interactionWeight
@@ -142,20 +239,46 @@ final class EngagementTrackingService: ObservableObject {
             let format = post.videoData != nil ? "video" : (post.photoData != nil ? "photo" : "text")
             formatScores[format, default: 0] += interactionWeight
             formatCounts[format, default: 0] += 1
+
+            // Hashtag affinity (from positive engagements)
+            if interactionWeight > 1.0 {
+                let hashtags = extractHashtags(from: post.caption)
+                for tag in hashtags {
+                    hashtagScores[tag, default: 0] += interactionWeight * 0.5
+                    hashtagCounts[tag, default: 0] += 1
+                }
+            }
+
+            // Emotion affinity
+            if let emotion = post.workoutEmotion, !emotion.isEmpty {
+                emotionScores[emotion, default: 0] += interactionWeight
+                emotionCounts[emotion, default: 0] += 1
+            }
         }
 
         // Normalize and apply EMA (0.7 new + 0.3 old)
         let newWorkoutWeights = normalizeWeights(scores: workoutScores, counts: workoutCounts)
         let newAuthorWeights = normalizeWeights(scores: authorScores, counts: authorCounts)
         let newFormatWeights = normalizeWeights(scores: formatScores, counts: formatCounts)
+        let newHashtagWeights = normalizeWeights(scores: hashtagScores, counts: hashtagCounts)
+        let newEmotionWeights = normalizeWeights(scores: emotionScores, counts: emotionCounts)
+        let newNegativeWorkoutWeights = normalizeNegativeWeights(scores: negativeWorkoutScores)
+        let newNegativeAuthorWeights = normalizeNegativeWeights(scores: negativeAuthorScores)
 
         profile.workoutTypeWeights = emaBlend(old: profile.workoutTypeWeights, new: newWorkoutWeights)
         profile.authorWeights = emaBlend(old: profile.authorWeights, new: newAuthorWeights)
         profile.contentFormatWeights = emaBlend(old: profile.contentFormatWeights, new: newFormatWeights)
+        profile.hashtagWeights = emaBlend(old: profile.hashtagWeights, new: newHashtagWeights)
+        profile.emotionWeights = emaBlend(old: profile.emotionWeights, new: newEmotionWeights)
+        profile.negativeWorkoutTypeWeights = emaBlend(old: profile.negativeWorkoutTypeWeights, new: newNegativeWorkoutWeights)
+        profile.negativeAuthorWeights = emaBlend(old: profile.negativeAuthorWeights, new: newNegativeAuthorWeights)
         profile.avgSessionTimeSec = totalWatchTime / Double(max(engagements.count, 1))
         profile.lastUpdated = Date()
 
         try? ctx.save()
+
+        // Notify feed to re-rank
+        NotificationCenter.default.post(name: .feedShouldReRank, object: nil)
     }
 
     // MARK: - Post Score Refresh
@@ -163,8 +286,8 @@ final class EngagementTrackingService: ObservableObject {
     func refreshPostScores() {
         guard let ctx = modelContext else { return }
 
-        // Only refresh every 5 minutes
-        guard Date().timeIntervalSince(lastScoreRefresh) > 300 else { return }
+        // Throttle to every 60 seconds
+        guard Date().timeIntervalSince(lastScoreRefresh) > 60 else { return }
         lastScoreRefresh = Date()
 
         let cutoff = Date().addingTimeInterval(-86400) // last 24h
@@ -200,6 +323,12 @@ final class EngagementTrackingService: ObservableObject {
         let engagement = PostEngagement(postId: postId, userId: userId)
         ctx.insert(engagement)
         return engagement
+    }
+
+    private func fetchPost(postId: UUID) -> Post? {
+        guard let ctx = modelContext else { return nil }
+        let descriptor = FetchDescriptor<Post>(predicate: #Predicate { $0.id == postId })
+        return try? ctx.fetch(descriptor).first
     }
 
     private func incrementViewCount(postId: UUID) {
@@ -240,8 +369,8 @@ final class EngagementTrackingService: ObservableObject {
         try? modelContext?.save()
         interactionCount += 1
 
-        // Update interests every 10 interactions
-        if interactionCount >= 10 {
+        // Update interests every 3 interactions (faster adaptation)
+        if interactionCount >= 3 {
             interactionCount = 0
             updateUserInterests(userId: userId)
         }
@@ -249,16 +378,44 @@ final class EngagementTrackingService: ObservableObject {
 
     private func engagementWeight(_ engagement: PostEngagement) -> Double {
         var weight = 0.0
-        weight += min(engagement.watchTimeSec / 10.0, 1.0) * 1.0 // watch time
+
+        // Negative signals
+        if engagement.notInterested { return -5.0 }
+        if engagement.skipped { return -1.0 }
+
+        // Watch time (0-1 point)
+        weight += min(engagement.watchTimeSec / 10.0, 1.0) * 1.0
+
+        // Completion bonus (0-2 points)
+        weight += engagement.maxCompletionRatio * 2.0
+
+        // Rewatch bonus (up to 6 points)
+        weight += Double(min(engagement.completionCount, 3)) * 2.0
+
+        // Action weights
         if engagement.liked { weight += 1.0 }
         if engagement.commented { weight += 3.0 }
         if engagement.shared { weight += 5.0 }
         if engagement.saved { weight += 4.0 }
         if engagement.followed { weight += 6.0 }
+
         return weight
     }
 
+    private func extractHashtags(from caption: String) -> [String] {
+        caption.split(separator: " ")
+            .filter { $0.hasPrefix("#") }
+            .map { String($0).lowercased() }
+    }
+
     private func normalizeWeights(scores: [String: Double], counts: [String: Double]) -> [String: Double] {
+        guard !scores.isEmpty else { return [:] }
+        let maxScore = scores.values.max() ?? 1.0
+        guard maxScore > 0 else { return [:] }
+        return scores.mapValues { $0 / maxScore }
+    }
+
+    private func normalizeNegativeWeights(scores: [String: Double]) -> [String: Double] {
         guard !scores.isEmpty else { return [:] }
         let maxScore = scores.values.max() ?? 1.0
         guard maxScore > 0 else { return [:] }

@@ -100,7 +100,7 @@ struct SocialSeeder {
                     demoTips: ["Full hang at bottom", "Chin over bar"]
                 ),
                 SharedWorkoutData.SharedExercise(
-                    name: "Dumbbell Curl",
+                    name: "Bicep Curls",
                     muscleGroup: "Biceps",
                     sets: [
                         .init(reps: 12, weight: 30, restSeconds: 60),
@@ -687,7 +687,7 @@ struct SocialSeeder {
             let items: [PostMedia] = [
                 PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
                 PostMedia(exerciseName: "Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
-                PostMedia(exerciseName: "Incline DB Press", exerciseIndex: 1, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Incline Dumbbell Press", exerciseIndex: 1, mediaType: .photo, data: photoData),
             ]
             p24.mediaItemsData = try? JSONEncoder().encode(items)
         }

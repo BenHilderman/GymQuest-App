@@ -12,7 +12,7 @@ struct DiscoverSeeder {
     }
 
     static func seedIfNeeded(modelContext: ModelContext) {
-        guard !UserDefaults.standard.bool(forKey: "hasSeededDiscoverVideos_v1") else { return }
+        guard !UserDefaults.standard.bool(forKey: "hasSeededDiscoverVideos_v2") else { return }
 
         let now = Date()
 
@@ -36,8 +36,6 @@ struct DiscoverSeeder {
             let spotifyURL: String?
             let appleMusicURL: String?
             let hoursAgo: Double
-            let likeCount: Int
-            let commentCount: Int
             let emotion: String
         }
 
@@ -49,7 +47,7 @@ struct DiscoverSeeder {
                 songTitle: "Lose Yourself", artistName: "Eminem", musicSource: "Apple Music",
                 spotifyURL: "https://open.spotify.com/playlist/37i9dQZF1DX76Wlfdnj7AP",
                 appleMusicURL: "https://music.apple.com/playlist/gym-motivation/pl.u-55D6YKEFxVad",
-                hoursAgo: 0.5, likeCount: 1247, commentCount: 3, emotion: "Fired Up"
+                hoursAgo: 0.5, emotion: "Fired Up"
             ),
             VideoDef(
                 filename: "demo_shoulder_press", userIdx: 1,
@@ -58,7 +56,7 @@ struct DiscoverSeeder {
                 songTitle: "HUMBLE.", artistName: "Kendrick Lamar", musicSource: "Spotify",
                 spotifyURL: "https://open.spotify.com/playlist/37i9dQZF1DX3rxVfibe1L0",
                 appleMusicURL: nil,
-                hoursAgo: 1.5, likeCount: 892, commentCount: 4, emotion: "Strong"
+                hoursAgo: 1.5, emotion: "Strong"
             ),
             VideoDef(
                 filename: "demo_barbell_row", userIdx: 2,
@@ -67,7 +65,7 @@ struct DiscoverSeeder {
                 songTitle: "Till I Collapse", artistName: "Eminem", musicSource: "Apple Music",
                 spotifyURL: nil,
                 appleMusicURL: "https://music.apple.com/playlist/beast-mode/pl.u-2aoqZBACxb5",
-                hoursAgo: 3, likeCount: 634, commentCount: 3, emotion: "Grinding"
+                hoursAgo: 3, emotion: "Grinding"
             ),
             VideoDef(
                 filename: "demo_pull_ups", userIdx: 3,
@@ -75,7 +73,7 @@ struct DiscoverSeeder {
                 workoutType: "Pull", duration: 48, setCount: 14, exerciseHighlight: "Pull Up",
                 songTitle: "Power", artistName: "Kanye West", musicSource: "Apple Music",
                 spotifyURL: nil, appleMusicURL: nil,
-                hoursAgo: 5, likeCount: 1563, commentCount: 4, emotion: "Strong"
+                hoursAgo: 5, emotion: "Strong"
             ),
             VideoDef(
                 filename: "demo_deadlift", userIdx: 4,
@@ -84,7 +82,7 @@ struct DiscoverSeeder {
                 songTitle: "Stronger", artistName: "Kanye West", musicSource: "Spotify",
                 spotifyURL: "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
                 appleMusicURL: "https://music.apple.com/playlist/heavy-lifting/pl.u-BNA6YzrH0rJgB",
-                hoursAgo: 6, likeCount: 1891, commentCount: 4, emotion: "Fired Up"
+                hoursAgo: 6, emotion: "Fired Up"
             ),
             VideoDef(
                 filename: "demo_squat", userIdx: 5,
@@ -93,7 +91,7 @@ struct DiscoverSeeder {
                 songTitle: "Run This Town", artistName: "JAY-Z", musicSource: "Spotify",
                 spotifyURL: "https://open.spotify.com/playlist/37i9dQZF1DX76Wlfdnj7AP",
                 appleMusicURL: nil,
-                hoursAgo: 8, likeCount: 1102, commentCount: 3, emotion: "Fired Up"
+                hoursAgo: 8, emotion: "Fired Up"
             ),
             VideoDef(
                 filename: "demo_leg_press", userIdx: 6,
@@ -101,7 +99,7 @@ struct DiscoverSeeder {
                 workoutType: "Legs", duration: 55, setCount: 16, exerciseHighlight: "Leg Press",
                 songTitle: "DNA.", artistName: "Kendrick Lamar", musicSource: "Spotify",
                 spotifyURL: nil, appleMusicURL: nil,
-                hoursAgo: 12, likeCount: 723, commentCount: 3, emotion: "Grinding"
+                hoursAgo: 12, emotion: "Grinding"
             ),
             VideoDef(
                 filename: "demo_treadmill", userIdx: 7,
@@ -110,7 +108,7 @@ struct DiscoverSeeder {
                 songTitle: "Blinding Lights", artistName: "The Weeknd", musicSource: "Apple Music",
                 spotifyURL: "https://open.spotify.com/playlist/37i9dQZF1DX3rxVfibe1L0",
                 appleMusicURL: "https://music.apple.com/playlist/running-mix/pl.u-EdAVzDqCRXy8d",
-                hoursAgo: 14, likeCount: 456, commentCount: 3, emotion: "Strong"
+                hoursAgo: 14, emotion: "Strong"
             ),
             VideoDef(
                 filename: "demo_cycling", userIdx: 8,
@@ -118,7 +116,7 @@ struct DiscoverSeeder {
                 workoutType: "Cardio", duration: 45, setCount: 0, exerciseHighlight: "Cycling",
                 songTitle: "Levitating", artistName: "Dua Lipa", musicSource: "Spotify",
                 spotifyURL: nil, appleMusicURL: nil,
-                hoursAgo: 18, likeCount: 312, commentCount: 3, emotion: "Strong"
+                hoursAgo: 18, emotion: "Strong"
             ),
             VideoDef(
                 filename: "demo_yoga", userIdx: 9,
@@ -127,7 +125,7 @@ struct DiscoverSeeder {
                 songTitle: "Sunset Lover", artistName: "Petit Biscuit", musicSource: "Apple Music",
                 spotifyURL: nil,
                 appleMusicURL: "https://music.apple.com/playlist/chill-vibes/pl.u-MDAWvFOtXNP",
-                hoursAgo: 24, likeCount: 578, commentCount: 4, emotion: "Relaxed"
+                hoursAgo: 24, emotion: "Relaxed"
             ),
             VideoDef(
                 filename: "demo_dumbbell_curl", userIdx: 0,
@@ -136,7 +134,7 @@ struct DiscoverSeeder {
                 songTitle: "Sicko Mode", artistName: "Travis Scott", musicSource: "Spotify",
                 spotifyURL: "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
                 appleMusicURL: nil,
-                hoursAgo: 30, likeCount: 845, commentCount: 3, emotion: "Grinding"
+                hoursAgo: 30, emotion: "Grinding"
             ),
             VideoDef(
                 filename: "demo_kettlebell", userIdx: 1,
@@ -144,7 +142,7 @@ struct DiscoverSeeder {
                 workoutType: "Push", duration: 25, setCount: 10, exerciseHighlight: "Kettlebell Swing",
                 songTitle: "Eye of the Tiger", artistName: "Survivor", musicSource: "Apple Music",
                 spotifyURL: nil, appleMusicURL: nil,
-                hoursAgo: 36, likeCount: 967, commentCount: 3, emotion: "Fired Up"
+                hoursAgo: 36, emotion: "Fired Up"
             ),
         ]
 
@@ -279,13 +277,6 @@ struct DiscoverSeeder {
                 return try? JSONEncoder().encode(workout)
             }()
 
-            // Compute realistic engagement metrics
-            let viewCount = def.likeCount * Int.random(in: 8...15)
-            let shareCount = max(def.likeCount / Int.random(in: 5...10), 1)
-            let saveCount = max(def.likeCount / Int.random(in: 3...8), 1)
-            let avgWatch = Double.random(in: 8...25)
-            let engScore = min(Double(def.likeCount + def.commentCount * 3 + shareCount * 5 + saveCount * 4) / max(Double(viewCount), 1.0), 1.0)
-
             let post = Post(
                 authorId: user.id,
                 authorName: user.name,
@@ -301,13 +292,13 @@ struct DiscoverSeeder {
                 artistName: def.artistName,
                 musicSource: def.musicSource,
                 sharedWorkoutData: workoutData,
-                likeCount: def.likeCount,
-                commentCount: def.commentCount,
-                viewCount: viewCount,
-                shareCount: shareCount,
-                saveCount: saveCount,
-                avgWatchTimeSec: avgWatch,
-                engagementScore: engScore,
+                likeCount: 0,
+                commentCount: 0,
+                viewCount: 0,
+                shareCount: 0,
+                saveCount: 0,
+                avgWatchTimeSec: 0,
+                engagementScore: 0,
                 spotifyPlaylistURL: def.spotifyURL,
                 appleMusicPlaylistURL: def.appleMusicURL,
                 workoutEmotion: def.emotion
@@ -385,7 +376,7 @@ struct DiscoverSeeder {
         seedComment(ctx: modelContext, postId: postIds[11], user: fakeUsers[2], content: "Hip hinge power. Functional fitness at its best", hoursAgo: 34)
 
         try? modelContext.save()
-        UserDefaults.standard.set(true, forKey: "hasSeededDiscoverVideos_v1")
+        UserDefaults.standard.set(true, forKey: "hasSeededDiscoverVideos_v2")
     }
 
     private static func seedComment(ctx: ModelContext, postId: UUID, user: (id: UUID, name: String, username: String), content: String, hoursAgo h: Double) {

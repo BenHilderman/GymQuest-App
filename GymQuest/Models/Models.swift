@@ -692,6 +692,9 @@ final class UserProfile {
     var followerCount: Int = 0
     var followingCount: Int = 0
 
+    // Social hero widget grid config (JSON-encoded WidgetGridConfig)
+    var widgetConfigJSON: String = WidgetGridConfig.defaultJSON
+
     // Computed wrappers for raw-stored enums
     var gender: Gender? {
         get { genderRaw.flatMap { Gender(rawValue: $0) } }
@@ -716,6 +719,11 @@ final class UserProfile {
     var experienceLevel: ExperienceLevel? {
         get { experienceLevelRaw.flatMap { ExperienceLevel(rawValue: $0) } }
         set { experienceLevelRaw = newValue?.rawValue }
+    }
+
+    var widgetGridConfig: WidgetGridConfig {
+        get { WidgetGridConfig.from(json: widgetConfigJSON) }
+        set { widgetConfigJSON = newValue.toJSON() }
     }
 
     var availableEquipment: [EquipmentType] {
@@ -808,6 +816,138 @@ final class UserProfile {
         let titles = ["Beginner", "Novice", "Apprentice", "Intermediate", "Experienced",
                       "Advanced", "Expert", "Elite", "Master", "Champion", "Legend"]
         return titles[min(level - 1, titles.count - 1)]
+    }
+}
+
+enum SocialWidgetType: String, Codable, CaseIterable {
+    case workouts = "workouts"
+    case calories = "calories"
+    case steps = "steps"
+    case macros = "macros"
+    case activeCalories = "activeCalories"
+    case sleep = "sleep"
+    case streak = "streak"
+    case heartRate = "heartRate"
+    case recovery = "recovery"
+    case none = "none"
+
+    var displayName: String {
+        switch self {
+        case .workouts: "Workouts"
+        case .calories: "Calories"
+        case .steps: "Steps"
+        case .macros: "Macros"
+        case .activeCalories: "Active Calories"
+        case .sleep: "Sleep"
+        case .streak: "Streak"
+        case .heartRate: "Heart Rate"
+        case .recovery: "Recovery"
+        case .none: "None"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .workouts: "Weekly workout count vs goal"
+        case .calories: "Today's calories vs daily goal"
+        case .steps: "Steps today from HealthKit"
+        case .macros: "Protein, carbs & fat breakdown"
+        case .activeCalories: "Calories burned today"
+        case .sleep: "Last night's sleep duration"
+        case .streak: "Consecutive workout days"
+        case .heartRate: "Resting heart rate"
+        case .recovery: "Recovery readiness score"
+        case .none: "Hide the hero widget"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .workouts: "dumbbell.fill"
+        case .calories: "flame.fill"
+        case .steps: "figure.walk"
+        case .macros: "chart.bar.fill"
+        case .activeCalories: "bolt.heart.fill"
+        case .sleep: "moon.fill"
+        case .streak: "trophy.fill"
+        case .heartRate: "heart.fill"
+        case .recovery: "battery.100.bolt"
+        case .none: "eye.slash"
+        }
+    }
+
+    var accentColor: Color {
+        GQColors.textSecondary
+    }
+
+    /// All selectable types (excludes .none)
+    static var selectableTypes: [SocialWidgetType] {
+        allCases.filter { $0 != .none }
+    }
+}
+
+enum WidgetLayout: String, Codable, CaseIterable {
+    case single   // 1 full-width
+    case double   // 2 half-width side-by-side
+    case triple   // 3 third-width side-by-side
+
+    var slotCount: Int {
+        switch self {
+        case .single: 1
+        case .double: 2
+        case .triple: 3
+        }
+    }
+}
+
+struct WidgetGridConfig: Codable {
+    var layout: WidgetLayout = .single
+    var slots: [SocialWidgetType] = [.workouts]
+
+    static let defaultJSON: String = {
+        let config = WidgetGridConfig()
+        return config.toJSON()
+    }()
+
+    static func from(json: String) -> WidgetGridConfig {
+        guard let data = json.data(using: .utf8),
+              let config = try? JSONDecoder().decode(WidgetGridConfig.self, from: data) else {
+            return WidgetGridConfig()
+        }
+        return config
+    }
+
+    func toJSON() -> String {
+        guard let data = try? JSONEncoder().encode(self),
+              let str = String(data: data, encoding: .utf8) else {
+            return WidgetGridConfig.defaultJSON
+        }
+        return str
+    }
+
+    /// Adjust slot count to match layout, padding with unique types or trimming from end
+    mutating func adjustSlots() {
+        let needed = layout.slotCount
+        if slots.count < needed {
+            let usedTypes = Set(slots.filter { $0 != .none })
+            let available = SocialWidgetType.selectableTypes.filter { !usedTypes.contains($0) }
+            var nextIndex = 0
+            while slots.count < needed {
+                if nextIndex < available.count {
+                    slots.append(available[nextIndex])
+                    nextIndex += 1
+                } else {
+                    slots.append(.steps)
+                }
+            }
+        } else if slots.count > needed {
+            slots = Array(slots.prefix(needed))
+        }
+    }
+
+    /// True when every slot is .none
+    var allEmpty: Bool {
+        slots.allSatisfy { $0 == .none }
     }
 }
 
@@ -3105,6 +3245,10 @@ final class PostEngagement {
     var saved: Bool
     var followed: Bool
     var timestamp: Date
+    var completionCount: Int = 0
+    var maxCompletionRatio: Double = 0
+    var skipped: Bool = false
+    var notInterested: Bool = false
 
     init(
         id: UUID = UUID(),
@@ -3116,7 +3260,11 @@ final class PostEngagement {
         shared: Bool = false,
         saved: Bool = false,
         followed: Bool = false,
-        timestamp: Date = Date()
+        timestamp: Date = Date(),
+        completionCount: Int = 0,
+        maxCompletionRatio: Double = 0,
+        skipped: Bool = false,
+        notInterested: Bool = false
     ) {
         self.id = id
         self.postId = postId
@@ -3128,6 +3276,10 @@ final class PostEngagement {
         self.saved = saved
         self.followed = followed
         self.timestamp = timestamp
+        self.completionCount = completionCount
+        self.maxCompletionRatio = maxCompletionRatio
+        self.skipped = skipped
+        self.notInterested = notInterested
     }
 }
 
@@ -3139,6 +3291,10 @@ final class UserInterestProfile {
     var workoutTypeWeightsJSON: String
     var authorWeightsJSON: String
     var contentFormatWeightsJSON: String
+    var hashtagWeightsJSON: String = "{}"
+    var emotionWeightsJSON: String = "{}"
+    var negativeWorkoutTypeWeightsJSON: String = "{}"
+    var negativeAuthorWeightsJSON: String = "{}"
     var avgSessionTimeSec: Double
     var lastUpdated: Date
 
@@ -3157,12 +3313,36 @@ final class UserInterestProfile {
         set { contentFormatWeightsJSON = Self.encodeWeights(newValue) }
     }
 
+    var hashtagWeights: [String: Double] {
+        get { Self.decodeWeights(hashtagWeightsJSON) }
+        set { hashtagWeightsJSON = Self.encodeWeights(newValue) }
+    }
+
+    var emotionWeights: [String: Double] {
+        get { Self.decodeWeights(emotionWeightsJSON) }
+        set { emotionWeightsJSON = Self.encodeWeights(newValue) }
+    }
+
+    var negativeWorkoutTypeWeights: [String: Double] {
+        get { Self.decodeWeights(negativeWorkoutTypeWeightsJSON) }
+        set { negativeWorkoutTypeWeightsJSON = Self.encodeWeights(newValue) }
+    }
+
+    var negativeAuthorWeights: [String: Double] {
+        get { Self.decodeWeights(negativeAuthorWeightsJSON) }
+        set { negativeAuthorWeightsJSON = Self.encodeWeights(newValue) }
+    }
+
     init(
         id: UUID = UUID(),
         userId: UUID = UUID(),
         workoutTypeWeights: [String: Double] = [:],
         authorWeights: [String: Double] = [:],
         contentFormatWeights: [String: Double] = [:],
+        hashtagWeights: [String: Double] = [:],
+        emotionWeights: [String: Double] = [:],
+        negativeWorkoutTypeWeights: [String: Double] = [:],
+        negativeAuthorWeights: [String: Double] = [:],
         avgSessionTimeSec: Double = 0,
         lastUpdated: Date = Date()
     ) {
@@ -3171,6 +3351,10 @@ final class UserInterestProfile {
         self.workoutTypeWeightsJSON = Self.encodeWeights(workoutTypeWeights)
         self.authorWeightsJSON = Self.encodeWeights(authorWeights)
         self.contentFormatWeightsJSON = Self.encodeWeights(contentFormatWeights)
+        self.hashtagWeightsJSON = Self.encodeWeights(hashtagWeights)
+        self.emotionWeightsJSON = Self.encodeWeights(emotionWeights)
+        self.negativeWorkoutTypeWeightsJSON = Self.encodeWeights(negativeWorkoutTypeWeights)
+        self.negativeAuthorWeightsJSON = Self.encodeWeights(negativeAuthorWeights)
         self.avgSessionTimeSec = avgSessionTimeSec
         self.lastUpdated = lastUpdated
     }

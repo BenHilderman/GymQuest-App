@@ -167,6 +167,21 @@ struct LiftAIApp: App {
                     .modelContainer(container)
                     .preferredColorScheme(AppAppearance(rawValue: appearance)?.colorScheme ?? .light)
                     .onOpenURL { url in
+                        #if DEBUG
+                        if url.scheme == "liftai", let host = url.host {
+                            let tab: FeedTab? = switch host {
+                            case "discover": .discover
+                            case "social": .social
+                            case "communities": .communities
+                            case "stats": .stats
+                            default: nil
+                            }
+                            if let tab {
+                                appState.selectedTab = .feed
+                                NotificationCenter.default.post(name: .navigateToFeedTab, object: tab)
+                            }
+                        }
+                        #endif
                         #if canImport(GoogleSignIn)
                         GIDSignIn.sharedInstance.handle(url)
                         #endif
@@ -200,6 +215,8 @@ class AppState: ObservableObject {
     @Published var showingWorkoutStartOptions = false
     @Published var showingQuickActions = false
     @Published var showingLogEntry = false
+    @Published var showingMealLog = false
+    @Published var showingAddMeasurement = false
     @Published var liveWorkoutStatus: LiveWorkoutStatus?
 
     var isWorkoutActive: Bool { activeWorkout != nil }
@@ -251,6 +268,12 @@ class AppState: ObservableObject {
 
         static let visibleTabs: [Tab] = [.feed, .profile]
     }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let navigateToFeedTab = Notification.Name("navigateToFeedTab")
 }
 
 // MARK: - Active Workout State
