@@ -18,6 +18,7 @@
 		047A8DA6A7E03CA8D37F9416 /* FormCuesMistakesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A26B6C820896A5F1762CBA5 /* FormCuesMistakesView.swift */; };
 		048B0BE778DD9F3855F996C2 /* 3291.gif in Resources */ = {isa = PBXBuildFile; fileRef = 3A1D35977B41A0DD91A4075D /* 3291.gif */; };
 		0495C6C08ACE8463D3C8A14F /* LoginFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D8B9FA71A465CC0A3C94E08 /* LoginFlowUITests.swift */; };
+		C1B5D7A2F8E94C3B9D1A6E70 /* ClubsTabUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3E7F1B4D6C8492E8F0B3A51 /* ClubsTabUITests.swift */; };
 		04C64B900FDB1F25884DD957 /* Configuration.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 54AB386AED689B69BE340C36 /* Configuration.storekit */; };
 		04CE78704AFEBC5479C32013 /* 0581.gif in Resources */ = {isa = PBXBuildFile; fileRef = A9B7768240EC4E6C85E805C1 /* 0581.gif */; };
 		04FB9DBAA4743C04044E3693 /* 0040.gif in Resources */ = {isa = PBXBuildFile; fileRef = 08B3BB941AD3924D92D5D927 /* 0040.gif */; };
@@ -322,6 +323,7 @@
 		A9F857714B23CF3D6D0B5B36 /* TestFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1258EAB2B4027AD6C12156B /* TestFixtures.swift */; };
 		AA03FBD2B1F39DE09DB31BD5 /* 0635.gif in Resources */ = {isa = PBXBuildFile; fileRef = 0D3FFB1030EC8FC308BBD354 /* 0635.gif */; };
 		AA645F6743D2FCAE7F92A370 /* 1460.gif in Resources */ = {isa = PBXBuildFile; fileRef = 5EF1398D7EF4C726428E7B76 /* 1460.gif */; };
+		AA9456834F387224E486127A /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A06BD80C132606A64C2E96 /* TodayView.swift */; };
 		AAFC21D915DAA134EAED9163 /* 0300.gif in Resources */ = {isa = PBXBuildFile; fileRef = B2C9440504D01265BDF7E785 /* 0300.gif */; };
 		AB541257ED4AC7044D8489DA /* 0296.gif in Resources */ = {isa = PBXBuildFile; fileRef = E7A8FF52FA8D4A1554C078EF /* 0296.gif */; };
 		AB9C5B82A49D3C2F381674BD /* 0670.gif in Resources */ = {isa = PBXBuildFile; fileRef = 1016EDEF8EC710B0E7ACEFD8 /* 0670.gif */; };
@@ -341,6 +343,8 @@
 		B0DD9E1E6C66040B717EC6AC /* SquadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 655F2878C344BCAB4E96687D /* SquadService.swift */; };
 		B125502E7204EA5ABDB6E2D2 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 7D16CAE9214D6F391B56AE0A /* SnapshotTesting */; };
 		B1919BDD3D2A55414ED3DB29 /* demo_leg_press.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 20E9876AF41845D3AA3A835D /* demo_leg_press.mp4 */; };
+		B1B0C3D4E5F6789012345678 /* LocationTrackingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A0C3D4E5F6789012345678 /* LocationTrackingService.swift */; };
+		B1C0C3D4E5F6789012345678 /* LocationTrackingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A0C3D4E5F6789012345678 /* LocationTrackingService.swift */; };
 		B1F0270F0F4063D2D2A7989C /* 1466.gif in Resources */ = {isa = PBXBuildFile; fileRef = D4707D82CD607E748BFD1706 /* 1466.gif */; };
 		B21B8F3388A70FB0FB01F874 /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = 3AF31601813826CD8ED9017B /* SDWebImageSwiftUI */; };
 		B2313A390E8C10608FA0D2A3 /* 0873.gif in Resources */ = {isa = PBXBuildFile; fileRef = 1D18F835F70D76D9C8552CAC /* 0873.gif */; };
@@ -364,6 +368,7 @@
 		BA88CF14E2EDD2F430CF393F /* 0861.gif in Resources */ = {isa = PBXBuildFile; fileRef = 9F0EB5E8A6862967E1B4FBEC /* 0861.gif */; };
 		BADE4C7FD30B6D91B0758869 /* ReplicateVideoGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1B227E45EF3A87C257CC91 /* ReplicateVideoGenerator.swift */; };
 		BB005813D1EB9216B49D7A0E /* TodayDashboardSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE268A4C31CF9536994156F3 /* TodayDashboardSection.swift */; };
+		BB22BEDCE007F990B3DD83A2 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2A06BD80C132606A64C2E96 /* TodayView.swift */; };
 		BCA2CF24B832E8D07D029291 /* PRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6D642307B4359A8EA9BC50 /* PRService.swift */; };
 		BCF9C388212538DB14211F9F /* AuthServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33C89CF6E2000D9A64BC3220 /* AuthServiceTests.swift */; };
 		BD0E5B069CA8CD2907B7C150 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E4D54DD994DF4457DE77972B /* LaunchScreen.storyboard */; };
@@ -542,6 +547,7 @@
 		0D51C21B3BF7F5FA9AAC0B5B /* 3636.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3636.gif; sourceTree = "<group>"; };
 		0D7039D248B9E03824CEE17D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		0D8B9FA71A465CC0A3C94E08 /* LoginFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginFlowUITests.swift; sourceTree = "<group>"; };
+		A3E7F1B4D6C8492E8F0B3A51 /* ClubsTabUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClubsTabUITests.swift; sourceTree = "<group>"; };
 		1016EDEF8EC710B0E7ACEFD8 /* 0670.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0670.gif; sourceTree = "<group>"; };
 		120430F57DF820A25C85F96A /* GymQuestUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GymQuestUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		120952F356DE633D172BE8CE /* 1437.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 1437.gif; sourceTree = "<group>"; };
@@ -708,6 +714,7 @@
 		AEFDCFD180E8E15D2F71F1D3 /* 3769.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3769.gif; sourceTree = "<group>"; };
 		AF093E90D1A3988A38F09B5C /* 0580.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0580.gif; sourceTree = "<group>"; };
 		AFDE64DCB367EF2E7B97879B /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
+		B1A0C3D4E5F6789012345678 /* LocationTrackingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationTrackingService.swift; sourceTree = "<group>"; };
 		B264E9A484BEC20B8914AC58 /* TrainingPlanOfferView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingPlanOfferView.swift; sourceTree = "<group>"; };
 		B2C9440504D01265BDF7E785 /* 0300.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0300.gif; sourceTree = "<group>"; };
 		B4E530F95ABC6B1797EE174A /* MealLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealLogView.swift; sourceTree = "<group>"; };
@@ -760,6 +767,7 @@
 		E1258EAB2B4027AD6C12156B /* TestFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestFixtures.swift; sourceTree = "<group>"; };
 		E1B092AA6E17DF0272E66409 /* IntegrationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationsView.swift; sourceTree = "<group>"; };
 		E1D1B61D86C0D86DB8B66341 /* VoiceNoteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceNoteService.swift; sourceTree = "<group>"; };
+		E2A06BD80C132606A64C2E96 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		E2A3F142DB9D2AC7F4A7D25A /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		E327A56594177FED6856D608 /* 1345.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 1345.gif; sourceTree = "<group>"; };
 		E3A559F771F37E93C9C6C6D9 /* WorkoutCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutCardView.swift; sourceTree = "<group>"; };
@@ -827,6 +835,7 @@
 			isa = PBXGroup;
 			children = (
 				0D8B9FA71A465CC0A3C94E08 /* LoginFlowUITests.swift */,
+				A3E7F1B4D6C8492E8F0B3A51 /* ClubsTabUITests.swift */,
 			);
 			path = SmokeTests;
 			sourceTree = "<group>";
@@ -922,6 +931,7 @@
 				E2A3F142DB9D2AC7F4A7D25A /* HealthKitService.swift */,
 				490AD8E92C2B301BCACBA754 /* IntegrationManager.swift */,
 				BD721DF9B7BB614DC186930A /* LearningService.swift */,
+				B1A0C3D4E5F6789012345678 /* LocationTrackingService.swift */,
 				6B035EA7CB30F8474A113E68 /* MusicService.swift */,
 				EB667EE34B89059704D8B10B /* NotificationService.swift */,
 				F74138D000FA43ECD5872A75 /* NowPlayingService.swift */,
@@ -1066,6 +1076,7 @@
 				5AF6A30A749E05646DB9D707 /* SquadView.swift */,
 				27331576C3EA75AC0B8C5373 /* StatsFeedView.swift */,
 				FE268A4C31CF9536994156F3 /* TodayDashboardSection.swift */,
+				E2A06BD80C132606A64C2E96 /* TodayView.swift */,
 				E3A559F771F37E93C9C6C6D9 /* WorkoutCardView.swift */,
 				B6D6A1627F7D2F5E21C9D1B5 /* WorkoutStartOptionsView.swift */,
 				64188F116B5ADF609FD1EF82 /* WorkoutTypeSelectionView.swift */,
@@ -1880,6 +1891,7 @@
 				935400BE4805FE8985EDAAF2 /* IntegrationManager.swift in Sources */,
 				F4A4B893485F6415D88BB886 /* IntegrationsView.swift in Sources */,
 				065EBD7E53FE227D330E971D /* LearningService.swift in Sources */,
+				B1B0C3D4E5F6789012345678 /* LocationTrackingService.swift in Sources */,
 				B486D7A66D2072725DDC5EDB /* LogView.swift in Sources */,
 				304A9316E6651058F5189BED /* LogWorkoutView.swift in Sources */,
 				F6B47AB27604A856AF9E65F7 /* LoginView.swift in Sources */,
@@ -1914,6 +1926,7 @@
 				06B269F4A6A5F205837636AD /* StravaService.swift in Sources */,
 				D5B73E2FBAA2684BD5D24362 /* SubscriptionService.swift in Sources */,
 				BB005813D1EB9216B49D7A0E /* TodayDashboardSection.swift in Sources */,
+				AA9456834F387224E486127A /* TodayView.swift in Sources */,
 				959D79C83121F8C70EBA9F50 /* TrainingPlanOfferView.swift in Sources */,
 				7F0455CD5E00B44B59AACCBB /* VideoGeneratorView.swift in Sources */,
 				061A06BE58F5EA8F834E72D6 /* VoiceNotePlayerView.swift in Sources */,
@@ -1938,6 +1951,7 @@
 			files = (
 				2EDEB17E04E07A8AA27F41BC /* AccessibilityAuditTests.swift in Sources */,
 				0495C6C08ACE8463D3C8A14F /* LoginFlowUITests.swift in Sources */,
+				C1B5D7A2F8E94C3B9D1A6E70 /* ClubsTabUITests.swift in Sources */,
 				E636D585EFB35F33C37A3AE1 /* XCUIApplicationExtensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1999,6 +2013,7 @@
 				ABD02AFCC7A8253E97FDE93F /* IntegrationManager.swift in Sources */,
 				DB320DEBB2A1BF2B6A61850A /* IntegrationsView.swift in Sources */,
 				D1855A236400DDD9D8FA9AEE /* LearningService.swift in Sources */,
+				B1C0C3D4E5F6789012345678 /* LocationTrackingService.swift in Sources */,
 				F438382C6403189372E6994B /* LogView.swift in Sources */,
 				3D3BD7AE30621D81D5153F97 /* LogWorkoutView.swift in Sources */,
 				F446D447D7FE6625DEA73B06 /* LoginView.swift in Sources */,
@@ -2033,6 +2048,7 @@
 				9D5252C236D73244147AF8A4 /* StravaService.swift in Sources */,
 				85B43FB8928426911D579E78 /* SubscriptionService.swift in Sources */,
 				8B46B2D6DD7895E205DDB2BB /* TodayDashboardSection.swift in Sources */,
+				BB22BEDCE007F990B3DD83A2 /* TodayView.swift in Sources */,
 				E2E6E3B57E888BFDC7AB811B /* TrainingPlanOfferView.swift in Sources */,
 				2873B58C726DFC42A082E6EA /* VideoGeneratorView.swift in Sources */,
 				BEBF0458B419DC84750115AD /* VoiceNotePlayerView.swift in Sources */,
@@ -2201,8 +2217,8 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2315,8 +2331,8 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -2439,8 +2455,8 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2485,8 +2501,8 @@
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
