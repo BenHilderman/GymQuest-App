@@ -21,6 +21,8 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
     @Published var workoutType = ""
     @Published var heartRate: Double = 0
     @Published var streak = 0
+    @Published var quickExercises: [String] = []
+    @Published var suggestedWeight: Double? = nil
 
     private var session: WCSession?
     private var healthStore = HKHealthStore()
@@ -131,8 +133,25 @@ extension WatchConnectivityManager: WCSessionDelegate {
         case "streak":
             streak = message["value"] as? Int ?? 0
 
+        case "exerciseList":
+            quickExercises = message["exercises"] as? [String] ?? []
+
+        case "suggestedWeight":
+            suggestedWeight = message["weight"] as? Double
+
         default:
             break
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        Task { @MainActor in
+            if let exercises = applicationContext["quickExercises"] as? [String] {
+                quickExercises = exercises
+            }
+            if let weight = applicationContext["suggestedWeight"] as? Double {
+                suggestedWeight = weight
+            }
         }
     }
 }

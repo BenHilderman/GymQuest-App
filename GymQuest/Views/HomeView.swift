@@ -24,6 +24,13 @@ struct ActivityView: View {
 
     @Query(sort: \PREvent.date, order: .reverse) private var prEvents: [PREvent]
 
+    private var recoveryData: (score: Double?, hrv: Double?, sleep: Double?, source: String) {
+        RecoveryAdvisorCard.buildRecommendation(
+            whoopService: WhoopService.shared,
+            healthKitService: HealthKitService.shared
+        )
+    }
+
     @State private var showingWorkoutTypePicker = false
     @State private var showingMealLog = false
 
@@ -66,6 +73,23 @@ struct ActivityView: View {
                         }
                     )
                     .padding(.horizontal, 16)
+
+                    // RECOVERY ADVISOR
+                    if FeatureFlags.shared.recoveryAdvisorEnabled {
+                        RecoveryAdvisorCard(
+                            recoveryScore: recoveryData.score,
+                            hrvMs: recoveryData.hrv,
+                            sleepHours: recoveryData.sleep,
+                            source: recoveryData.source
+                        )
+                        .padding(.horizontal, 16)
+                    }
+
+                    // TRAINING PLAN QUICK ACCESS
+                    if FeatureFlags.shared.trainingPlanEnabled {
+                        TrainingPlanQuickCard(profile: profile)
+                            .padding(.horizontal, 16)
+                    }
 
                     // MAIN ACTIONS
                     VStack(spacing: 12) {
@@ -898,6 +922,14 @@ struct WorkoutReviewSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        if workout.hasRoute {
+            RunSummaryView(workout: workout)
+        } else {
+            genericWorkoutReview
+        }
+    }
+
+    private var genericWorkoutReview: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
@@ -1820,6 +1852,64 @@ struct NutritionPill: View {
                 .font(.system(size: 11))
                 .foregroundColor(GQColors.textTertiary)
         }
+    }
+}
+
+// MARK: - Training Plan Quick Card
+
+struct TrainingPlanQuickCard: View {
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \TrainingPlan.createdAt, order: .reverse) private var plans: [TrainingPlan]
+    let profile: UserProfile
+
+    private var activePlan: TrainingPlan? {
+        plans.first { $0.isActive }
+    }
+
+    var body: some View {
+        NavigationLink {
+            TrainingPlanView(profile: profile)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: activePlan != nil ? "calendar.badge.checkmark" : "brain.head.profile")
+                    .font(.title3)
+                    .foregroundStyle(GQGradients.primary)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    if let plan = activePlan {
+                        Text("Week \(plan.currentWeek) of \(plan.totalWeeks)")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(GQColors.textPrimary)
+                        Text(plan.title)
+                            .font(.caption)
+                            .foregroundColor(GQColors.textSecondary)
+                    } else {
+                        Text("Generate AI Plan")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(GQColors.textPrimary)
+                        Text("Periodized training tailored to you")
+                            .font(.caption)
+                            .foregroundColor(GQColors.textSecondary)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(GQColors.textSecondary)
+            }
+            .padding()
+            .background(GQColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

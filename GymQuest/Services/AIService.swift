@@ -17,11 +17,22 @@ class AIService: ObservableObject {
     @Published var isLoading = false
 
 
+    /// Recovery data from Whoop/HealthKit
+    struct RecoveryContext: Codable {
+        let recoveryScore: Double?     // 0-100 percentage
+        let hrvMs: Double?             // Heart rate variability in ms
+        let restingHeartRate: Double?
+        let sleepHours: Double?
+        let sleepQualityPercent: Double?
+        let source: String             // "whoop", "healthkit", or "none"
+    }
+
     /// Complete context package sent to AI - this is the JSON payload
     struct TrainingContext: Codable {
         let user: UserContext
         let stats: StatsContext
         let recentSessions: [SessionSummary]
+        let recovery: RecoveryContext?
     }
 
     /// User profile data for personalization
@@ -68,7 +79,7 @@ class AIService: ObservableObject {
 
     /// Aggregates user data into a structured context for AI consumption
     /// Limited to 10 recent workouts to manage token usage - was having slow response issues
-    func buildContext(profile: UserProfile, workouts: [Workout]) -> TrainingContext {
+    func buildContext(profile: UserProfile, workouts: [Workout], recovery: RecoveryContext? = nil) -> TrainingContext {
         let recentWorkouts = Array(workouts.prefix(10))
         let weekStart = Calendar.current.startOfWeek(for: Date())
         let weeklyWorkouts = workouts.filter { $0.date >= weekStart }
@@ -109,7 +120,8 @@ class AIService: ObservableObject {
                     },
                     notes: workout.notes
                 )
-            }
+            },
+            recovery: recovery
         )
     }
 
@@ -171,6 +183,46 @@ class AIService: ObservableObject {
         return highVolumeWeeks >= 3
     }
 
+    /// Build recovery-aware and muscle preservation rules for the system prompt
+    private func recoveryRules(profile: UserProfile, context: TrainingContext) -> String {
+        var rules = ""
+
+        // Recovery-based rules
+        if let recovery = context.recovery, recovery.source != "none" {
+            if let score = recovery.recoveryScore {
+                if score < 34 {
+                    rules += "\n- RECOVERY ALERT: Score \(Int(score))% — recommend deload/mobility only. No heavy compounds."
+                } else if score < 67 {
+                    rules += "\n- Recovery \(Int(score))%: moderate session. Reduce volume 20-30% from normal."
+                } else {
+                    rules += "\n- Recovery \(Int(score))%: fully recovered. Push hard today."
+                }
+            }
+            if let hrv = recovery.hrvMs {
+                rules += "\n- HRV: \(Int(hrv))ms"
+            }
+            if let sleep = recovery.sleepHours {
+                rules += "\n- Sleep: \(String(format: "%.1f", sleep))h"
+            }
+        }
+
+        // Muscle preservation rules (GLP-1 / weight loss users)
+        if profile.goal == .musclePreservation {
+            rules += """
+
+            - MUSCLE PRESERVATION MODE:
+            - Prioritize compound movements (squat, bench, deadlift, row, OHP)
+            - Emphasize protein intake (1g per lb bodyweight minimum)
+            - Limit cardio to 2-3 sessions/week, keep it moderate
+            - Progressive overload is critical — maintain or increase strength
+            - RPE 7-8 range for most working sets
+            - Never recommend extreme caloric deficits
+            """
+        }
+
+        return rules
+    }
+
 
     /// Core AI interaction: builds context -> calls provider -> logs response
     func chat(
@@ -205,6 +257,7 @@ class AIService: ObservableObject {
         - Equipment: \(profile.availableEquipment.map(\.rawValue).joined(separator: ", ").isEmpty ? "not specified" : profile.availableEquipment.map(\.rawValue).joined(separator: ", "))
         - If they need a deload, say it directly
         - End with ONE clear next action when relevant
+        \(recoveryRules(profile: profile, context: context))
         """
 
         let response: String
@@ -418,7 +471,7 @@ class AIService: ObservableObject {
     }
 
 
-    private func getDemoResponse(prompt: String, context: TrainingContext) -> String {
+    func getDemoResponse(prompt: String, context: TrainingContext) -> String {
         let lowerPrompt = prompt.lowercased()
 
         if lowerPrompt.contains("warm") {

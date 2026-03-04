@@ -37,6 +37,7 @@ struct LiftAIApp: App {
     @StateObject private var featureFlags = FeatureFlags.shared
     @StateObject private var subscriptionService = SubscriptionService.shared
     @AppStorage("appAppearance") private var appearance: String = AppAppearance.light.rawValue
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         let schema = Schema([
@@ -82,12 +83,12 @@ struct LiftAIApp: App {
             // Nutrition (GymQuest 2.0)
             MealLog.self,
 
-            // Communities
-            Community.self,
-            CommunityPost.self,
-            CommunityMembership.self,
-            CommunityChallenge.self,
-            CommunityEvent.self,
+            // Clubs
+            Club.self,
+            ClubPost.self,
+            ClubMembership.self,
+            ClubChallenge.self,
+            ClubEvent.self,
 
             // Templates (GymQuest 2.0)
             WorkoutTemplate.self,
@@ -97,6 +98,11 @@ struct LiftAIApp: App {
 
             // Analytics (GymQuest 2.0)
             AnalyticsEvent.self,
+
+            // Training Plans & Coaching
+            TrainingPlan.self,
+            CoachNote.self,
+            ExerciseLeaderboardEntry.self,
 
             // Form Studio
             FormExercise.self,
@@ -166,14 +172,20 @@ struct LiftAIApp: App {
                     .environmentObject(subscriptionService)
                     .modelContainer(container)
                     .preferredColorScheme(AppAppearance(rawValue: appearance)?.colorScheme ?? .light)
+                    .onChange(of: scenePhase) { _, phase in
+                        if phase == .active {
+                            NowPlayingService.shared.startPolling()
+                        } else {
+                            NowPlayingService.shared.stopPolling()
+                        }
+                    }
                     .onOpenURL { url in
                         #if DEBUG
                         if url.scheme == "liftai", let host = url.host {
                             let tab: FeedTab? = switch host {
                             case "discover": .discover
                             case "social": .social
-                            case "communities": .communities
-                            case "stats": .stats
+                            case "clubs": .clubs
                             default: nil
                             }
                             if let tab {
@@ -199,7 +211,7 @@ struct LiftAIApp: App {
 // basically the brain of the app
 @MainActor
 class AppState: ObservableObject {
-    @Published var selectedTab: Tab = .feed
+    @Published var selectedTab: Tab = .today
     @Published var showingLogWorkout = false
     @Published var showingAddExercise = false
     @Published var showingStats = false
@@ -252,21 +264,25 @@ class AppState: ObservableObject {
         case authenticated
     }
 
-    // 2-tab layout: Home + You with center action hub
+    // 4-tab layout: Home + Today + Activity + You with center action hub
     enum Tab: String {
         case feed = "Home"
-        case home = "Activity"   // hidden — only used during active workouts
+        case today = "Today"
+        case home = "Workout"    // hidden — only used during active workouts
+        case activity = "Activity"
         case profile = "You"
 
         var icon: String {
             switch self {
             case .feed: return "person.2.fill"
+            case .today: return "chart.bar.fill"
             case .home: return "house.fill"
+            case .activity: return "heart.fill"
             case .profile: return "person.fill"
             }
         }
 
-        static let visibleTabs: [Tab] = [.feed, .profile]
+        static let visibleTabs: [Tab] = [.feed, .today, .activity, .profile]
     }
 }
 

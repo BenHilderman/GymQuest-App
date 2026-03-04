@@ -352,6 +352,7 @@ struct GoalStepView: View {
         case .strength: return "dumbbell.fill"
         case .performance: return "bolt.fill"
         case .general: return "heart.fill"
+        case .musclePreservation: return "figure.walk"
         }
     }
 }

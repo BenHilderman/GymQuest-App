@@ -15,6 +15,192 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import CoreLocation
+
+// MARK: - Route Point (GPS tracking for cardio workouts)
+
+struct RoutePoint: Codable {
+    let latitude: Double
+    let longitude: Double
+    let altitude: Double?
+    let timestamp: TimeInterval // seconds since workout start
+    let speed: Double?          // m/s from CLLocation
+    let horizontalAccuracy: Double?
+}
+
+// MARK: - Run Analysis Types
+
+struct KilometerSplit: Identifiable {
+    let id: Int // 1-based km number
+    let distanceMeters: Double
+    let durationSeconds: Double
+    let elevationChange: Double // meters, positive = uphill
+    var paceSecondsPerKm: Double {
+        guard distanceMeters > 0 else { return 0 }
+        return durationSeconds / (distanceMeters / 1000.0)
+    }
+    var paceString: String {
+        let total = Int(paceSecondsPerKm)
+        return "\(total / 60):\(String(format: "%02d", total % 60))"
+    }
+}
+
+enum PaceCategory {
+    case fast, medium, slow
+
+    var color: Color {
+        switch self {
+        case .fast: return GQColors.success
+        case .medium: return GQColors.warning
+        case .slow: return GQColors.coralRed
+        }
+    }
+}
+
+struct PaceSegment: Identifiable {
+    let id = UUID()
+    let points: [RoutePoint]
+    let paceSecondsPerKm: Double
+    let paceCategory: PaceCategory
+}
+
+struct ElevationPoint: Identifiable {
+    let id = UUID()
+    let distanceKm: Double
+    let altitude: Double
+}
+
+// MARK: - Run Analysis Computation
+
+enum RunAnalysis {
+    static func computeSplits(from points: [RoutePoint]) -> [KilometerSplit] {
+        guard points.count >= 2 else { return [] }
+        var splits: [KilometerSplit] = []
+        var splitStart = 0
+        var cumulativeDistance: Double = 0
+        var splitDistance: Double = 0
+
+        for i in 1..<points.count {
+            let prev = CLLocation(latitude: points[i-1].latitude, longitude: points[i-1].longitude)
+            let curr = CLLocation(latitude: points[i].latitude, longitude: points[i].longitude)
+            let seg = curr.distance(from: prev)
+            cumulativeDistance += seg
+            splitDistance += seg
+
+            if splitDistance >= 1000 {
+                let duration = points[i].timestamp - points[splitStart].timestamp
+                let elevChange = (points[i].altitude ?? 0) - (points[splitStart].altitude ?? 0)
+                splits.append(KilometerSplit(
+                    id: splits.count + 1,
+                    distanceMeters: splitDistance,
+                    durationSeconds: duration,
+                    elevationChange: elevChange
+                ))
+                splitStart = i
+                splitDistance = 0
+            }
+        }
+
+        // Final partial split if > 200m
+        if splitDistance > 200 {
+            let duration = points.last!.timestamp - points[splitStart].timestamp
+            let elevChange = (points.last!.altitude ?? 0) - (points[splitStart].altitude ?? 0)
+            splits.append(KilometerSplit(
+                id: splits.count + 1,
+                distanceMeters: splitDistance,
+                durationSeconds: duration,
+                elevationChange: elevChange
+            ))
+        }
+
+        return splits
+    }
+
+    static func computePaceSegments(from points: [RoutePoint], averagePace: Double) -> [PaceSegment] {
+        guard points.count >= 2, averagePace > 0 else { return [] }
+        let fastThreshold = averagePace * 0.92
+        let slowThreshold = averagePace * 1.08
+
+        func category(for pace: Double) -> PaceCategory {
+            if pace < fastThreshold { return .fast }
+            if pace > slowThreshold { return .slow }
+            return .medium
+        }
+
+        var segments: [PaceSegment] = []
+        var currentPoints: [RoutePoint] = [points[0]]
+        var currentCategory: PaceCategory = .medium
+
+        for i in 1..<points.count {
+            let prev = CLLocation(latitude: points[i-1].latitude, longitude: points[i-1].longitude)
+            let curr = CLLocation(latitude: points[i].latitude, longitude: points[i].longitude)
+            let dist = curr.distance(from: prev)
+            let time = points[i].timestamp - points[i-1].timestamp
+
+            guard dist > 0, time > 0 else {
+                currentPoints.append(points[i])
+                continue
+            }
+
+            let segPace = time / (dist / 1000.0)
+            let cat = category(for: segPace)
+
+            if cat != currentCategory && currentPoints.count > 1 {
+                segments.append(PaceSegment(
+                    points: currentPoints,
+                    paceSecondsPerKm: averagePace,
+                    paceCategory: currentCategory
+                ))
+                currentPoints = [points[i-1]] // overlap for continuity
+                currentCategory = cat
+            }
+            currentPoints.append(points[i])
+        }
+
+        if currentPoints.count > 1 {
+            segments.append(PaceSegment(
+                points: currentPoints,
+                paceSecondsPerKm: averagePace,
+                paceCategory: currentCategory
+            ))
+        }
+
+        return segments
+    }
+
+    static func computeElevationProfile(from points: [RoutePoint]) -> [ElevationPoint] {
+        guard points.count >= 2 else { return [] }
+        var profile: [ElevationPoint] = []
+        var cumDistance: Double = 0
+
+        for i in 0..<points.count {
+            if i > 0 {
+                let prev = CLLocation(latitude: points[i-1].latitude, longitude: points[i-1].longitude)
+                let curr = CLLocation(latitude: points[i].latitude, longitude: points[i].longitude)
+                cumDistance += curr.distance(from: prev)
+            }
+            if let alt = points[i].altitude {
+                profile.append(ElevationPoint(distanceKm: cumDistance / 1000.0, altitude: alt))
+            }
+        }
+
+        return profile
+    }
+
+    static func computeElevationGain(from points: [RoutePoint]) -> Double {
+        var gain: Double = 0
+        var lastAlt: Double?
+        for point in points {
+            guard let alt = point.altitude else { continue }
+            if let prev = lastAlt {
+                let delta = alt - prev
+                if delta > 0.5 { gain += delta }
+            }
+            lastAlt = alt
+        }
+        return gain
+    }
+}
 
 // MARK: - Shared Workout Data (for Follow Workout feature)
 
@@ -28,6 +214,7 @@ struct SharedWorkoutData: Codable, Identifiable {
     var authorName: String
     var authorUsername: String
     var notes: String?
+    var routePoints: [RoutePoint]?
 
     struct SharedExercise: Codable, Identifiable {
         var id: UUID = UUID()
@@ -61,7 +248,7 @@ struct SharedWorkoutData: Codable, Identifiable {
         }
     }
 
-    init(id: UUID = UUID(), title: String = "", workoutType: String = "", estimatedDuration: Int = 0, exercises: [SharedExercise] = [], authorName: String = "", authorUsername: String = "", notes: String? = nil) {
+    init(id: UUID = UUID(), title: String = "", workoutType: String = "", estimatedDuration: Int = 0, exercises: [SharedExercise] = [], authorName: String = "", authorUsername: String = "", notes: String? = nil, routePoints: [RoutePoint]? = nil) {
         self.id = id
         self.title = title
         self.workoutType = workoutType
@@ -70,6 +257,7 @@ struct SharedWorkoutData: Codable, Identifiable {
         self.authorName = authorName
         self.authorUsername = authorUsername
         self.notes = notes
+        self.routePoints = routePoints
     }
 
     /// Create SharedWorkoutData from a Workout
@@ -101,7 +289,8 @@ struct SharedWorkoutData: Codable, Identifiable {
             exercises: sharedExercises,
             authorName: author.name,
             authorUsername: author.username,
-            notes: workout.notes.isEmpty ? nil : workout.notes
+            notes: workout.notes.isEmpty ? nil : workout.notes,
+            routePoints: workout.routePoints.isEmpty ? nil : workout.routePoints
         )
     }
 
@@ -256,6 +445,12 @@ final class Workout {
     var templateId: UUID? // if created from a template
     var isFavorite: Bool
 
+    // GPS route tracking for cardio workouts
+    var routeData: Data?        // JSON-encoded [RoutePoint]
+    var totalDistance: Double?   // meters
+    var averagePace: Double?    // seconds per kilometer
+    var elevationGain: Double?  // meters
+
     @Relationship(deleteRule: .cascade) var exercises: [Exercise]
     @Relationship(deleteRule: .cascade) var prEvents: [PREvent]
     @Relationship(deleteRule: .cascade) var mediaItems: [MediaItem]
@@ -274,7 +469,11 @@ final class Workout {
         templateId: UUID? = nil,
         prEvents: [PREvent] = [],
         mediaItems: [MediaItem] = [],
-        isFavorite: Bool = false
+        isFavorite: Bool = false,
+        routeData: Data? = nil,
+        totalDistance: Double? = nil,
+        averagePace: Double? = nil,
+        elevationGain: Double? = nil
     ) {
         self.id = id
         self.date = date
@@ -291,6 +490,10 @@ final class Workout {
         self.prEvents = prEvents
         self.mediaItems = mediaItems
         self.isFavorite = isFavorite
+        self.routeData = routeData
+        self.totalDistance = totalDistance
+        self.averagePace = averagePace
+        self.elevationGain = elevationGain
     }
 
     var totalSets: Int {
@@ -328,6 +531,18 @@ final class Workout {
     var hasPRs: Bool {
         !prEvents.isEmpty
     }
+
+    /// Decoded route points from GPS tracking
+    var routePoints: [RoutePoint] {
+        get {
+            guard let data = routeData else { return [] }
+            return (try? JSONDecoder().decode([RoutePoint].self, from: data)) ?? []
+        }
+        set { routeData = try? JSONEncoder().encode(newValue) }
+    }
+
+    /// Whether this workout has a valid GPS route
+    var hasRoute: Bool { routeData != nil && (totalDistance ?? 0) > 0 }
 }
 
 /// Summary of the top set for an exercise
@@ -466,6 +681,13 @@ enum WorkoutType: String, Codable, CaseIterable {
 
     var color: Color {
         return Color(red: 0.0, green: 0.9, blue: 0.9) // Cyan accent
+    }
+
+    var isGPSEligible: Bool {
+        switch self {
+        case .cardio, .hiit: return true
+        default: return false
+        }
     }
 
     init(from decoder: Decoder) throws {
@@ -671,6 +893,7 @@ final class UserProfile {
     var weightKg: Double?
     var weightUnitRaw: String = WeightUnit.lbs.rawValue
     var heightUnitRaw: String = HeightUnit.ftIn.rawValue
+    var distanceUnitRaw: String = DistanceUnit.km.rawValue
     var workoutEnvironmentRaw: String?
     var experienceLevelRaw: String?
     var availableEquipmentJSON: String = "[]"
@@ -692,6 +915,16 @@ final class UserProfile {
     var followerCount: Int = 0
     var followingCount: Int = 0
 
+    // Referral system
+    var referralCode: String = ""
+    var referredByCode: String = ""
+    var referralCount: Int = 0
+
+    static func generateReferralCode() -> String {
+        let chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return String((0..<6).map { _ in chars.randomElement()! })
+    }
+
     // Social hero widget grid config (JSON-encoded WidgetGridConfig)
     var widgetConfigJSON: String = WidgetGridConfig.defaultJSON
 
@@ -709,6 +942,11 @@ final class UserProfile {
     var heightUnit: HeightUnit {
         get { HeightUnit(rawValue: heightUnitRaw) ?? .ftIn }
         set { heightUnitRaw = newValue.rawValue }
+    }
+
+    var distanceUnit: DistanceUnit {
+        get { DistanceUnit(rawValue: distanceUnitRaw) ?? .km }
+        set { distanceUnitRaw = newValue.rawValue }
     }
 
     var workoutEnvironment: WorkoutEnvironment? {
@@ -956,6 +1194,7 @@ enum FitnessGoal: String, Codable, CaseIterable {
     case strength = "Strength"
     case performance = "Performance"
     case general = "General Fitness"
+    case musclePreservation = "Muscle Preservation"
 }
 
 // MARK: - Fitness Profile Enums
@@ -975,6 +1214,11 @@ enum WeightUnit: String, Codable, CaseIterable {
 enum HeightUnit: String, Codable, CaseIterable {
     case cm = "cm"
     case ftIn = "ft/in"
+}
+
+enum DistanceUnit: String, Codable, CaseIterable {
+    case km = "km"
+    case miles = "miles"
 }
 
 enum WorkoutEnvironment: String, Codable, CaseIterable {
@@ -1110,8 +1354,8 @@ final class Post {
     var authorUsername: String
     var timestamp: Date
     var caption: String
-    var photoData: Data? // optional image
-    var videoData: Data?  // optional video
+    @Attribute(.externalStorage) var photoData: Data? // optional image
+    @Attribute(.externalStorage) var videoData: Data?  // optional video
 
     // workout info (optional)
     var workoutType: String?
@@ -1154,7 +1398,7 @@ final class Post {
 
     // Location tagging
     var locationName: String?           // e.g., "The ARC - Queen's University"
-    var locationId: UUID?               // Link to Community if from known gym
+    var locationId: UUID?               // Link to Club if from known gym
 
     // Squad/Group tagging
     var taggedSquadIds: [UUID]          // Squads this post is shared with
@@ -1168,7 +1412,7 @@ final class Post {
     var workoutEmotion: String?         // WorkoutEmotion rawValue
 
     // Voice note (audio clip attached to post)
-    var voiceNoteData: Data?
+    @Attribute(.externalStorage) var voiceNoteData: Data?
     var voiceNoteDuration: Double?
     var isPremiumAuthor: Bool
 
@@ -1769,54 +2013,138 @@ final class ForgivenessToken {
     }
 }
 
-// MARK: - Community System (GymQuest 2.0)
+// MARK: - Club System (GymQuest 2.0)
 
-/// Community join type
-enum CommunityJoinType: String, Codable, CaseIterable {
+/// Club join type
+enum ClubJoinType: String, Codable, CaseIterable {
     case open = "Open"           // Anyone can join
     case request = "Request"     // Request to join, admin approves
 }
 
-/// Community (gyms, universities, rec centers)
+/// Club category for activity/sports-driven clubs
+enum ClubCategory: String, Codable, CaseIterable {
+    // Activity-based
+    case running = "Running"
+    case cycling = "Cycling"
+    case weightlifting = "Weightlifting"
+    case crossfit = "CrossFit"
+    case yoga = "Yoga"
+    case hiit = "HIIT"
+    case swimming = "Swimming"
+    // Sports/recreation
+    case basketball = "Basketball"
+    case soccer = "Soccer"
+    case tennis = "Tennis"
+    case volleyball = "Volleyball"
+    case hockey = "Hockey"
+    // General
+    case generalFitness = "General Fitness"
+    case martialArts = "Martial Arts"
+    case dance = "Dance"
+    case climbing = "Climbing"
+
+    var icon: String {
+        switch self {
+        case .running: return "figure.run"
+        case .cycling: return "figure.outdoor.cycle"
+        case .weightlifting: return "figure.strengthtraining.traditional"
+        case .crossfit: return "figure.highintensity.intervaltraining"
+        case .yoga: return "figure.mind.and.body"
+        case .hiit: return "bolt.heart.fill"
+        case .swimming: return "figure.pool.swim"
+        case .basketball: return "basketball.fill"
+        case .soccer: return "soccerball"
+        case .tennis: return "tennis.racket"
+        case .volleyball: return "volleyball.fill"
+        case .hockey: return "hockey.puck.fill"
+        case .generalFitness: return "dumbbell.fill"
+        case .martialArts: return "figure.martial.arts"
+        case .dance: return "figure.dance"
+        case .climbing: return "figure.climbing"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .running: return GQColors.cyanSpark
+        case .cycling: return GQColors.deepBlue
+        case .weightlifting: return GQColors.vividPurple
+        case .crossfit: return GQColors.sunsetOrange
+        case .yoga: return GQColors.mint
+        case .hiit: return GQColors.coralRed
+        case .swimming: return GQColors.cyanSpark
+        case .basketball: return GQColors.terracotta
+        case .soccer: return GQColors.mint
+        case .tennis: return GQColors.electricGold
+        case .volleyball: return GQColors.sunsetOrange
+        case .hockey: return GQColors.deepBlue
+        case .generalFitness: return GQColors.cyanSpark
+        case .martialArts: return GQColors.coralRed
+        case .dance: return GQColors.vividPurple
+        case .climbing: return GQColors.terracotta
+        }
+    }
+
+    var isActivityBased: Bool {
+        switch self {
+        case .running, .cycling, .weightlifting, .crossfit, .yoga, .hiit, .swimming:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+/// Club (gyms, universities, rec centers)
 @Model
-final class Community {
+final class Club {
     var id: UUID
     var name: String                    // e.g., "The ARC - Queen's University"
-    var communityDescription: String
+    var clubDescription: String
     var location: String?               // e.g., "Kingston, ON"
-    var imageData: Data?                // Community banner/logo
+    var latitude: Double?
+    var longitude: Double?
+    var imageData: Data?                // Club banner/logo
     var creatorId: UUID
     var adminIds: [UUID]
     var memberIds: [UUID]
     var pendingRequestIds: [UUID]       // Users requesting to join
-    var joinType: CommunityJoinType
+    var joinType: ClubJoinType
     var memberCount: Int
     var isVerified: Bool                // Official gym/university account
     var tags: [String]                  // e.g., ["university", "gym", "weightlifting"]
     var createdAt: Date
-    var parentCommunityId: UUID?        // non-nil = this is a channel/sub-community
+    var parentClubId: UUID?        // non-nil = this is a channel/sub-club
+    var category: ClubCategory?
+
+    var resolvedCategory: ClubCategory { category ?? .generalFitness }
 
     init(
         id: UUID = UUID(),
         name: String = "",
-        communityDescription: String = "",
+        clubDescription: String = "",
         location: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
         imageData: Data? = nil,
         creatorId: UUID = UUID(),
         adminIds: [UUID] = [],
         memberIds: [UUID] = [],
         pendingRequestIds: [UUID] = [],
-        joinType: CommunityJoinType = .open,
+        joinType: ClubJoinType = .open,
         memberCount: Int = 0,
         isVerified: Bool = false,
         tags: [String] = [],
         createdAt: Date = Date(),
-        parentCommunityId: UUID? = nil
+        parentClubId: UUID? = nil,
+        category: ClubCategory? = nil
     ) {
         self.id = id
         self.name = name
-        self.communityDescription = communityDescription
+        self.clubDescription = clubDescription
         self.location = location
+        self.latitude = latitude
+        self.longitude = longitude
         self.imageData = imageData
         self.creatorId = creatorId
         self.adminIds = adminIds.isEmpty ? [creatorId] : adminIds
@@ -1827,7 +2155,8 @@ final class Community {
         self.isVerified = isVerified
         self.tags = tags
         self.createdAt = createdAt
-        self.parentCommunityId = parentCommunityId
+        self.parentClubId = parentClubId
+        self.category = category
     }
 
     var isOpen: Bool {
@@ -1835,19 +2164,19 @@ final class Community {
     }
 
     var isChannel: Bool {
-        parentCommunityId != nil
+        parentClubId != nil
     }
 }
 
-/// Community post (workout shared to a community)
+/// Club post (workout shared to a club)
 @Model
-final class CommunityPost {
+final class ClubPost {
     var id: UUID
-    var communityId: UUID
+    var clubId: UUID
     var authorId: UUID
     var authorName: String
     var authorUsername: String
-    var postType: CommunityPostType
+    var postType: ClubPostType
     var content: String
     var workoutId: UUID?                // Link to workout if sharing one
     var photoData: Data?
@@ -1858,11 +2187,11 @@ final class CommunityPost {
 
     init(
         id: UUID = UUID(),
-        communityId: UUID = UUID(),
+        clubId: UUID = UUID(),
         authorId: UUID = UUID(),
         authorName: String = "",
         authorUsername: String = "",
-        postType: CommunityPostType = .workout,
+        postType: ClubPostType = .workout,
         content: String = "",
         workoutId: UUID? = nil,
         photoData: Data? = nil,
@@ -1872,7 +2201,7 @@ final class CommunityPost {
         channelId: UUID? = nil
     ) {
         self.id = id
-        self.communityId = communityId
+        self.clubId = clubId
         self.authorId = authorId
         self.authorName = authorName
         self.authorUsername = authorUsername
@@ -1887,7 +2216,7 @@ final class CommunityPost {
     }
 }
 
-enum CommunityPostType: String, Codable, CaseIterable {
+enum ClubPostType: String, Codable, CaseIterable {
     case workout = "Workout"
     case lookingForPartner = "Looking for Partner"
     case question = "Question"
@@ -1905,12 +2234,13 @@ enum CommunityPostType: String, Codable, CaseIterable {
     }
 }
 
-// MARK: - Community Membership
+// MARK: - Club Membership
 
-enum CommunityRole: String, Codable {
+enum ClubRole: String, Codable {
     case member
     case admin
     case owner
+    case verifiedCoach
 }
 
 enum WorkoutPartnerStatus: String, Codable {
@@ -1919,38 +2249,44 @@ enum WorkoutPartnerStatus: String, Codable {
 }
 
 @Model
-final class CommunityMembership {
+final class ClubMembership {
     var id: UUID
     var userId: UUID
-    var communityId: UUID
-    var role: CommunityRole
+    var clubId: UUID
+    var role: ClubRole
     var workoutPartnerStatus: WorkoutPartnerStatus
     var joinedAt: Date
 
     init(
         id: UUID = UUID(),
         userId: UUID = UUID(),
-        communityId: UUID = UUID(),
-        role: CommunityRole = .member,
+        clubId: UUID = UUID(),
+        role: ClubRole = .member,
         workoutPartnerStatus: WorkoutPartnerStatus = .notLooking,
         joinedAt: Date = Date()
     ) {
         self.id = id
         self.userId = userId
-        self.communityId = communityId
+        self.clubId = clubId
         self.role = role
         self.workoutPartnerStatus = workoutPartnerStatus
         self.joinedAt = joinedAt
     }
 }
 
-// MARK: - Community Event
+// MARK: - Club Event
 
-enum CommunityEventType: String, Codable, CaseIterable {
+enum ClubEventType: String, Codable, CaseIterable {
     case workout = "Workout"
     case meetup = "Meetup"
     case competition = "Competition"
     case social = "Social"
+    case groupRun = "Group Run"
+    case groupRide = "Group Ride"
+    case practice = "Practice"
+    case pickupGame = "Pickup Game"
+    case tournament = "Tournament"
+    case scrimmage = "Scrimmage"
 
     var icon: String {
         switch self {
@@ -1958,6 +2294,12 @@ enum CommunityEventType: String, Codable, CaseIterable {
         case .meetup: return "person.3.fill"
         case .competition: return "trophy.fill"
         case .social: return "party.popper.fill"
+        case .groupRun: return "figure.run"
+        case .groupRide: return "figure.outdoor.cycle"
+        case .practice: return "sportscourt.fill"
+        case .pickupGame: return "basketball.fill"
+        case .tournament: return "trophy.fill"
+        case .scrimmage: return "soccerball"
         }
     }
 
@@ -1967,14 +2309,20 @@ enum CommunityEventType: String, Codable, CaseIterable {
         case .meetup: return GQColors.vividPurple
         case .competition: return GQColors.electricGold
         case .social: return GQColors.sunsetOrange
+        case .groupRun: return GQColors.cyanSpark
+        case .groupRide: return GQColors.deepBlue
+        case .practice: return GQColors.mint
+        case .pickupGame: return GQColors.terracotta
+        case .tournament: return GQColors.electricGold
+        case .scrimmage: return GQColors.mint
         }
     }
 }
 
 @Model
-final class CommunityEvent {
+final class ClubEvent {
     var id: UUID
-    var communityId: UUID
+    var clubId: UUID
     var creatorId: UUID
     var creatorName: String
     var title: String
@@ -1984,12 +2332,14 @@ final class CommunityEvent {
     var endDate: Date?
     var maxAttendees: Int?
     var attendeeIds: [UUID]
-    var eventType: CommunityEventType
+    var eventType: ClubEventType
     var createdAt: Date
+    var isRecurring: Bool
+    var recurrenceRule: String?    // "weekly", "biweekly", "monthly"
 
     init(
         id: UUID = UUID(),
-        communityId: UUID = UUID(),
+        clubId: UUID = UUID(),
         creatorId: UUID = UUID(),
         creatorName: String = "",
         title: String = "",
@@ -1999,11 +2349,13 @@ final class CommunityEvent {
         endDate: Date? = nil,
         maxAttendees: Int? = nil,
         attendeeIds: [UUID] = [],
-        eventType: CommunityEventType = .workout,
-        createdAt: Date = Date()
+        eventType: ClubEventType = .workout,
+        createdAt: Date = Date(),
+        isRecurring: Bool = false,
+        recurrenceRule: String? = nil
     ) {
         self.id = id
-        self.communityId = communityId
+        self.clubId = clubId
         self.creatorId = creatorId
         self.creatorName = creatorName
         self.title = title
@@ -2015,16 +2367,21 @@ final class CommunityEvent {
         self.attendeeIds = attendeeIds
         self.eventType = eventType
         self.createdAt = createdAt
+        self.isRecurring = isRecurring
+        self.recurrenceRule = recurrenceRule
     }
 }
 
-// MARK: - Community Challenge
+// MARK: - Club Challenge
 
 enum ChallengeGoalType: String, Codable, CaseIterable {
     case workouts = "Workouts"
     case sets = "Sets"
     case volume = "Volume (lbs)"
     case streak = "Day Streak"
+    case distance = "Distance (km)"
+    case duration = "Duration (min)"
+    case games = "Games Played"
 
     var icon: String {
         switch self {
@@ -2032,14 +2389,17 @@ enum ChallengeGoalType: String, Codable, CaseIterable {
         case .sets: return "flame.fill"
         case .volume: return "scalemass.fill"
         case .streak: return "calendar.badge.checkmark"
+        case .distance: return "map.fill"
+        case .duration: return "timer"
+        case .games: return "sportscourt.fill"
         }
     }
 }
 
 @Model
-final class CommunityChallenge {
+final class ClubChallenge {
     var id: UUID
-    var communityId: UUID
+    var clubId: UUID
     var title: String
     var challengeDescription: String
     var goalType: ChallengeGoalType
@@ -2052,7 +2412,7 @@ final class CommunityChallenge {
 
     init(
         id: UUID = UUID(),
-        communityId: UUID = UUID(),
+        clubId: UUID = UUID(),
         title: String = "",
         challengeDescription: String = "",
         goalType: ChallengeGoalType = .sets,
@@ -2064,7 +2424,7 @@ final class CommunityChallenge {
         createdAt: Date = Date()
     ) {
         self.id = id
-        self.communityId = communityId
+        self.clubId = clubId
         self.title = title
         self.challengeDescription = challengeDescription
         self.goalType = goalType
@@ -2126,6 +2486,9 @@ final class Squad {
     var activeChallengeId: UUID?
     var streakWeeks: Int
     var createdAt: Date
+    var squadVsSquadOpponentId: UUID?
+    var xpMultiplier: Double
+    var weeklyLeaderboardData: Data?
 
     init(
         id: UUID = UUID(),
@@ -2136,7 +2499,10 @@ final class Squad {
         weeklyGoal: WeeklyGoal = WeeklyGoal(),
         activeChallengeId: UUID? = nil,
         streakWeeks: Int = 0,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        squadVsSquadOpponentId: UUID? = nil,
+        xpMultiplier: Double = 1.0,
+        weeklyLeaderboardData: Data? = nil
     ) {
         self.id = id
         self.name = name
@@ -2147,6 +2513,9 @@ final class Squad {
         self.activeChallengeId = activeChallengeId
         self.streakWeeks = streakWeeks
         self.createdAt = createdAt
+        self.squadVsSquadOpponentId = squadVsSquadOpponentId
+        self.xpMultiplier = xpMultiplier
+        self.weeklyLeaderboardData = weeklyLeaderboardData
     }
 
     var weeklyGoal: WeeklyGoal {
@@ -3367,6 +3736,182 @@ final class UserInterestProfile {
         guard let data = json.data(using: .utf8) else { return [:] }
         return (try? JSONDecoder().decode([String: Double].self, from: data)) ?? [:]
     }
+}
+
+// MARK: - Training Plan (AI-generated periodized plans)
+
+struct TrainingPlanExercise: Codable, Identifiable {
+    var id = UUID()
+    var name: String
+    var sets: Int
+    var reps: Int
+    var weight: Double?
+    var rpe: Int?
+    var notes: String?
+}
+
+struct TrainingPlanDay: Codable, Identifiable {
+    var id = UUID()
+    var dayNumber: Int
+    var label: String // e.g. "Push Day", "Upper Body"
+    var workoutType: String
+    var exercises: [TrainingPlanExercise]
+    var isRestDay: Bool
+}
+
+struct TrainingPlanWeek: Codable, Identifiable {
+    var id = UUID()
+    var weekNumber: Int
+    var focus: String // e.g. "Volume", "Intensity", "Deload"
+    var days: [TrainingPlanDay]
+}
+
+@Model
+final class TrainingPlan {
+    var id: UUID
+    var userId: UUID
+    var title: String
+    var weeksJSON: Data? // Encoded [TrainingPlanWeek]
+    var currentWeek: Int
+    var currentDay: Int
+    var isActive: Bool
+    var createdAt: Date
+    var completedAt: Date?
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID = UUID(),
+        title: String = "AI Training Plan",
+        weeks: [TrainingPlanWeek] = [],
+        currentWeek: Int = 1,
+        currentDay: Int = 1,
+        isActive: Bool = true,
+        createdAt: Date = Date(),
+        completedAt: Date? = nil
+    ) {
+        self.id = id
+        self.userId = userId
+        self.title = title
+        self.weeksJSON = try? JSONEncoder().encode(weeks)
+        self.currentWeek = currentWeek
+        self.currentDay = currentDay
+        self.isActive = isActive
+        self.createdAt = createdAt
+        self.completedAt = completedAt
+    }
+
+    var weeks: [TrainingPlanWeek] {
+        get {
+            guard let data = weeksJSON else { return [] }
+            return (try? JSONDecoder().decode([TrainingPlanWeek].self, from: data)) ?? []
+        }
+        set {
+            weeksJSON = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    var totalWeeks: Int { weeks.count }
+
+    var currentDayPlan: TrainingPlanDay? {
+        guard currentWeek > 0, currentWeek <= weeks.count else { return nil }
+        let week = weeks[currentWeek - 1]
+        guard currentDay > 0, currentDay <= week.days.count else { return nil }
+        return week.days[currentDay - 1]
+    }
+}
+
+// MARK: - Coach Notes (Hybrid Coaching)
+
+enum CoachNotePriority: String, Codable, CaseIterable {
+    case normal
+    case important
+    case urgent
+}
+
+@Model
+final class CoachNote {
+    var id: UUID
+    var coachId: UUID
+    var memberId: UUID
+    var noteText: String
+    var priority: String // Stored as raw value
+    var exerciseName: String?
+    var dayNumber: Int?
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        coachId: UUID = UUID(),
+        memberId: UUID = UUID(),
+        noteText: String = "",
+        priority: CoachNotePriority = .normal,
+        exerciseName: String? = nil,
+        dayNumber: Int? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.coachId = coachId
+        self.memberId = memberId
+        self.noteText = noteText
+        self.priority = priority.rawValue
+        self.exerciseName = exerciseName
+        self.dayNumber = dayNumber
+        self.createdAt = createdAt
+    }
+
+    var notePriority: CoachNotePriority {
+        get { CoachNotePriority(rawValue: priority) ?? .normal }
+        set { priority = newValue.rawValue }
+    }
+}
+
+// MARK: - Exercise Leaderboard (Gym Segments)
+
+@Model
+final class ExerciseLeaderboardEntry {
+    var id: UUID
+    var clubId: UUID
+    var userId: UUID
+    var userName: String
+    var exerciseName: String
+    var estimated1RM: Double
+    var weightClass: String?
+    var ageGroup: String?
+    var updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        clubId: UUID = UUID(),
+        userId: UUID = UUID(),
+        userName: String = "",
+        exerciseName: String = "",
+        estimated1RM: Double = 0,
+        weightClass: String? = nil,
+        ageGroup: String? = nil,
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.clubId = clubId
+        self.userId = userId
+        self.userName = userName
+        self.exerciseName = exerciseName
+        self.estimated1RM = estimated1RM
+        self.weightClass = weightClass
+        self.ageGroup = ageGroup
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - Squad Member Volume (Squad Leaderboard)
+
+struct SquadMemberVolume: Codable, Identifiable {
+    var id = UUID()
+    var userId: UUID
+    var userName: String
+    var totalVolume: Double
+    var totalSets: Int
+    var workoutCount: Int
+    var weekStart: Date
 }
 
 // ExtendedExerciseDatabase and ExerciseMetadata are now in ExerciseDatabase.swift

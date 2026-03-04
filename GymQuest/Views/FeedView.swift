@@ -22,7 +22,7 @@ import AppKit
 // MARK: - Feed Tab
 
 enum FeedTab: String, CaseIterable {
-    case social = "Social"
+    case social = "Feed"
     case discover = "Discover"
     case clubs = "Clubs"
 }
@@ -32,26 +32,17 @@ struct FeedView: View {
     @EnvironmentObject var featureFlags: FeatureFlags
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
-    @Query(sort: \PRMoment.createdAt, order: .reverse) private var prMoments: [PRMoment]
-    @Query(sort: \LearningItem.createdAt, order: .reverse) private var learningItems: [LearningItem]
-    @Query(sort: \Workout.date, order: .reverse) private var allWorkouts: [Workout]
     @Query private var allFriendRecords: [Friend]
     @Query private var allUserProfiles: [UserProfile]
 
     let profile: UserProfile
-
-    private var workoutsThisWeek: Int {
-        let calendar = Calendar.current
-        let now = Date()
-        guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return 0 }
-        return allWorkouts.filter { $0.date >= startOfWeek }.count
-    }
 
     @State private var selectedFeedTab: FeedTab = .social
     @State private var showLearnPanel = false
     @State private var selectedExerciseForLearn: String?
     @State private var activeSquad: Squad?
     @State private var squadChallenge: SquadChallenge?
+    @State private var hasSeeded = false
 
     // MARK: - Cached Social Graph
 
@@ -99,16 +90,30 @@ struct FeedView: View {
             .scrollContentBackground(.hidden)
             .gqPageBackground()
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    NavBarLogo()
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        appState.showingCreatePost = true
+                    } label: {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 20))
+                            .foregroundColor(GQColors.textSecondary)
+                    }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $appState.showingCreatePost) {
+                CreatePostView(profile: profile)
+            }
             .onAppear {
-                SocialSeeder.seedIfNeeded(modelContext: modelContext)
+                if !hasSeeded {
+                    hasSeeded = true
+                    SocialSeeder.seedIfNeeded(modelContext: modelContext)
+                }
                 loadActiveSquad()
-                refreshSocialGraph()
-                refreshFriendsPosts()
+                Task {
+                    refreshSocialGraph()
+                    refreshFriendsPosts()
+                }
             }
             .onChange(of: allFriendRecords.count) {
                 refreshSocialGraph()
@@ -126,7 +131,6 @@ struct FeedView: View {
                 if let exerciseName = selectedExerciseForLearn {
                     LearnThisPanel(
                         exerciseName: exerciseName,
-                        learningItems: learningItems.filter { $0.exerciseName == exerciseName },
                         profile: profile,
                         onAddToPlan: { item in
                             addLearningToPlan(item)
@@ -252,7 +256,7 @@ struct FeedTabsView: View {
             HStack(spacing: 0) {
                 ForEach(FeedTab.allCases, id: \.self) { tab in
                     Text(tab.rawValue)
-                        .font(.system(size: 15, weight: selectedTab == tab ? .semibold : .medium))
+                        .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
                         .foregroundColor(selectedTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
@@ -263,28 +267,25 @@ struct FeedTabsView: View {
                         }
                 }
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, 6)
 
             // Single sliding underline
             GeometryReader { geometry in
                 let tabWidth = geometry.size.width / CGFloat(FeedTab.allCases.count)
                 Rectangle()
                     .fill(GQGradients.primary)
-                .frame(width: tabWidth, height: 2)
-                .clipShape(RoundedRectangle(cornerRadius: 1))
+                .frame(width: tabWidth, height: 1.5)
+                .clipShape(RoundedRectangle(cornerRadius: 0.75))
                 .offset(x: tabWidth * CGFloat(tabIndex))
                 .animation(.easeInOut(duration: 0.3), value: tabIndex)
             }
-            .frame(height: 2)
+            .frame(height: 1.5)
         }
         .padding(.horizontal, 20)
-        .padding(.top, -8)
-        .padding(.bottom, 4)
+        .padding(.top, -10)
+        .padding(.bottom, 2)
         .background(
-            ZStack {
-                GQColors.surfaceBase.opacity(0.82)
-                Rectangle().fill(.ultraThinMaterial)
-            }
+            GQColors.background
             .ignoresSafeArea(edges: .top)
         )
     }
@@ -311,9 +312,10 @@ struct PostCardV2: View {
     @State private var showingCopySheet = false
     @State private var copySheetWorkout: SharedWorkoutData?
     @State private var cachedTopComment: Comment?
-    @State private var emotionAppeared = false
-    @State private var showEmotionText = false
     @State private var showEmojiBurst = true
+    @State private var showFullRouteMap = false
+    @State private var profileUserId: IdentifiableUUID?
+    @State private var cachedWorkout: SharedWorkoutData?
 
     var detectedActivityType: DetectedActivity? {
         guard let activity = post.detectedActivity else { return nil }
@@ -321,7 +323,7 @@ struct PostCardV2: View {
     }
 
     var sharedWorkout: SharedWorkoutData? {
-        post.getSharedWorkout()
+        cachedWorkout
     }
 
     /// Compact post: no photo or video attached
@@ -359,31 +361,24 @@ struct PostCardV2: View {
         }
         .background(GQColors.surfaceBase)
         .opacity(hasAppeared ? 1 : 0)
-        .offset(y: hasAppeared ? 0 : 20)
-        .background(
-            GeometryReader { geo in
-                Color.clear
-                    .onChange(of: geo.frame(in: .global).midY) { _, midY in
-                        let screenMid = UIScreen.main.bounds.height / 2
-                        let zone = UIScreen.main.bounds.height * 0.2
-                        let inCenter = abs(midY - screenMid) < zone
-                        if post.songTitle != nil {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                isPlayingMusic = inCenter
-                            }
-                        }
-                    }
-            }
-        )
+        .task {
+            cachedWorkout = post.getSharedWorkout()
+        }
         .onAppear {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                hasAppeared = true
-            }
+            hasAppeared = true
             fetchTopComment()
+            if post.songTitle != nil {
+                isPlayingMusic = true
+            }
             if post.emotion != nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                     showEmojiBurst = false
                 }
+            }
+        }
+        .onDisappear {
+            if post.songTitle != nil {
+                isPlayingMusic = false
             }
         }
         .fullScreenCover(isPresented: $showVideoPlayer) {
@@ -423,6 +418,34 @@ struct PostCardV2: View {
                 WorkoutCopySheet(workoutData: workout, profile: userProfile)
             }
         }
+        .fullScreenCover(isPresented: $showFullRouteMap) {
+            if let points = sharedWorkout?.routePoints {
+                NavigationStack {
+                    PostRouteMapView(
+                        routePoints: points,
+                        distance: "5.00 km",
+                        pace: "4:31 /km",
+                        height: .infinity
+                    )
+                    .ignoresSafeArea()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button { showFullRouteMap = false } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.white.opacity(0.8))
+                            }
+                        }
+                    }
+                    .toolbarBackground(.hidden, for: .navigationBar)
+                }
+            }
+        }
+        .sheet(item: $profileUserId) { wrapped in
+            if let p = profile {
+                UserProfileSheet(userId: wrapped.id, currentProfile: p)
+            }
+        }
     }
 
     // MARK: - Extracted ViewBuilders
@@ -430,7 +453,12 @@ struct PostCardV2: View {
     @ViewBuilder
     private var headerRow: some View {
         HStack {
-            PostHeaderEnhanced(post: post, activityType: detectedActivityType, locationName: post.locationName)
+            PostHeaderEnhanced(
+                post: post,
+                activityType: detectedActivityType,
+                locationName: post.locationName,
+                onTapUser: { profileUserId = IdentifiableUUID(id: post.authorId) }
+            )
 
             if post.authorId == currentUserId {
                 PostDeleteButton {
@@ -445,24 +473,36 @@ struct PostCardV2: View {
     @ViewBuilder
     private var compactTextOnlyLayout: some View {
         HStack(alignment: .top, spacing: 10) {
-            // Small avatar
-            Circle()
-                .fill(GQColors.primary)
-                .frame(width: 32, height: 32)
-                .overlay(
-                    Text(String(post.authorName.prefix(1)).uppercased())
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
-                )
+            // Small avatar (tappable)
+            Button {
+                profileUserId = IdentifiableUUID(id: post.authorId)
+            } label: {
+                Circle()
+                    .fill(GQColors.primary)
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Text(String(post.authorName.prefix(1)).uppercased())
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+            }
+            .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
-                    Text(post.authorName)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    Text("@\(post.authorUsername)")
-                        .font(.system(size: 12))
-                        .foregroundColor(GQColors.textSecondary)
+                    Button {
+                        profileUserId = IdentifiableUUID(id: post.authorId)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(post.authorName)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(GQColors.textPrimary)
+                            Text("@\(post.authorUsername)")
+                                .font(.system(size: 12))
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
                     Text(post.timestamp.timeAgoDisplay())
                         .font(.system(size: 12))
                         .foregroundColor(GQColors.textTertiary)
@@ -621,84 +661,48 @@ struct PostCardV2: View {
 
     @ViewBuilder
     private var photoHero: some View {
-        if post.mediaItems.count > 1 {
-            // Multi-media carousel with music overlay on image
-            ZStack {
+        ZStack {
+            if post.mediaItems.count > 1 {
                 ExerciseMediaCarousel(mediaItems: post.mediaItems)
-
-                // Emoji burst overlay
-                if let emotion = post.emotion, showEmojiBurst {
-                    EmojiBurstOverlay(emoji: emotion.emoji, isActive: true)
-                }
-
-                // Workout overlay at bottom, above page dots
-                VStack(spacing: 0) {
-                    Spacer()
-                    mediaWorkoutOverlay
-                        .padding(.bottom, 30)
-                }
-
-                // Music bar top-center
-                if let song = post.songTitle, let artist = post.artistName {
-                    VStack {
-                        photoMusicBar(song: song, artist: artist)
-                            .padding(.top, 12)
-                        Spacer()
-                    }
-                }
-            }
-            .clipped()
-        } else {
-            // Single photo/video with overlays
-            ZStack {
+            } else {
                 PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
+            }
 
-                // Emoji burst overlay
-                if let emotion = post.emotion, showEmojiBurst {
-                    EmojiBurstOverlay(emoji: emotion.emoji, isActive: true)
-                }
+            // Emoji burst overlay
+            if let emotion = post.emotion, showEmojiBurst {
+                EmojiBurstOverlay(emoji: emotion.emoji, isActive: true)
+            }
 
-                // Music bar top-center
-                if let song = post.songTitle, let artist = post.artistName {
-                    VStack {
-                        photoMusicBar(song: song, artist: artist)
-                            .padding(.top, 12)
-                        Spacer()
-                    }
-                }
-
-                // Activity badge top-right
-                if let activity = detectedActivityType, post.photoData != nil || post.videoData != nil {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            ActivityBadge(activityType: activity)
-                        }
-                        Spacer()
-                    }
-                    .padding(12)
-                }
-
-                // Emotion pill top-left
-                if let emotion = post.emotion {
-                    VStack {
-                        HStack {
-                            emotionPill(emotion)
-                            Spacer()
-                        }
-                        Spacer()
-                    }
-                    .padding(12)
-                }
-
-                // Workout overlay at bottom of image
-                VStack(spacing: 0) {
+            // Music bar top-center
+            if let song = post.songTitle, let artist = post.artistName {
+                VStack {
+                    photoMusicBar(song: song, artist: artist)
+                        .padding(.top, 12)
                     Spacer()
-                    mediaWorkoutOverlay
                 }
             }
-            .clipped()
+
+            // Activity badge top-right
+            if let activity = detectedActivityType,
+               post.photoData != nil || post.videoData != nil || !post.mediaItems.isEmpty {
+                VStack {
+                    HStack {
+                        Spacer()
+                        ActivityBadge(activityType: activity)
+                    }
+                    Spacer()
+                }
+                .padding(12)
+            }
+
+            // Workout overlay at bottom
+            VStack(spacing: 0) {
+                Spacer()
+                mediaWorkoutOverlay
+                    .padding(.bottom, post.mediaItems.count > 1 ? 30 : 0)
+            }
         }
+        .clipped()
     }
 
     @ViewBuilder
@@ -753,11 +757,40 @@ struct PostCardV2: View {
     }
 
     @ViewBuilder
+    private var isCardioWithRoute: Bool {
+        guard let workout = sharedWorkout,
+              let points = workout.routePoints, !points.isEmpty else { return false }
+        let cardioKeywords = ["Cardio", "Run", "Cycling", "Walking", "Hiking"]
+        let type = post.workoutType ?? ""
+        let highlight = post.exerciseHighlight ?? ""
+        return cardioKeywords.contains(where: { type.contains($0) || highlight.contains($0) })
+    }
+
+    @ViewBuilder
     private var mediaWorkoutOverlay: some View {
         let hasStats = post.duration != nil || post.setCount != nil || post.workoutType != nil
         let hasExercises = sharedWorkout != nil && !(sharedWorkout?.exercises.isEmpty ?? true)
 
-        if hasStats || hasExercises {
+        if isCardioWithRoute, let points = sharedWorkout?.routePoints {
+            // Route map for cardio posts
+            VStack(spacing: 0) {
+                PostRouteMapView(
+                    routePoints: points,
+                    distance: post.duration.map { _ in "5.00 km" },
+                    pace: "4:31 /km"
+                )
+                .onTapGesture { showFullRouteMap = true }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
+            .background(
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.65)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+        } else if hasStats || hasExercises {
             VStack(alignment: .leading, spacing: 8) {
                 if hasStats {
                     HStack(spacing: 12) {
@@ -931,46 +964,6 @@ struct PostCardV2: View {
 
     // MARK: - Helpers
 
-    @ViewBuilder
-    private func emotionPill(_ emotion: WorkoutEmotion) -> some View {
-        HStack(spacing: 4) {
-            Text(emotion.emoji)
-                .font(.system(size: 28))
-                .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
-
-            if showEmotionText {
-                Text(emotion.encouragement)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.6), radius: 3, x: 0, y: 1)
-                    .transition(.opacity.combined(with: .move(edge: .leading)))
-            }
-        }
-        .scaleEffect(emotionAppeared ? 1.0 : 0.3)
-        .opacity(emotionAppeared ? 1.0 : 0)
-        .offset(y: emotionAppeared ? 0 : 8)
-        .onAppear {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
-                emotionAppeared = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                withAnimation(.easeIn(duration: 0.3)) {
-                    showEmotionText = true
-                }
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                withAnimation(.easeOut(duration: 0.4)) {
-                    showEmotionText = false
-                }
-            }
-        }
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showEmotionText.toggle()
-            }
-        }
-    }
-
     private func saveWorkout(_ workout: SharedWorkoutData) {
         copySheetWorkout = workout
         showingCopySheet = true
@@ -1024,17 +1017,10 @@ struct WorkoutHeroCard: View {
     @State private var showCopied = false
     @State private var shimmerOffset: CGFloat = -1
     @State private var iconAnimating = false
-    @State private var breathingScale: CGFloat = 1.0
-    @State private var shape1Offset: CGSize = .zero
-    @State private var shape2Offset: CGSize = .zero
-    @State private var shape3Offset: CGSize = .zero
-    @State private var shape4Offset: CGSize = .zero
     @State private var displayedDuration: Int = 0
     @State private var displayedSetCount: Int = 0
     @State private var statsAppeared = false
     @State private var volumeBarAppeared = false
-    @State private var watermarkRocking = false
-    @State private var watermarkOpacity: Double = 0.07
 
     private var cardioSubType: CardioSubType? {
         guard workoutType == "Cardio" else { return nil }
@@ -1130,22 +1116,21 @@ struct WorkoutHeroCard: View {
 
     @ViewBuilder
     private var shimmerOverlay: some View {
-        GeometryReader { geo in
-            LinearGradient(
-                stops: [
-                    .init(color: .clear, location: 0),
-                    .init(color: .white.opacity(0.12), location: 0.45),
-                    .init(color: .white.opacity(0.2), location: 0.5),
-                    .init(color: .white.opacity(0.12), location: 0.55),
-                    .init(color: .clear, location: 1),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .frame(width: geo.size.width * 1.5)
-            .offset(x: geo.size.width * shimmerOffset)
-            .allowsHitTesting(false)
-        }
+        LinearGradient(
+            stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .white.opacity(0.12), location: 0.45),
+                .init(color: .white.opacity(0.2), location: 0.5),
+                .init(color: .white.opacity(0.12), location: 0.55),
+                .init(color: .clear, location: 1),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .frame(maxWidth: .infinity)
+        .scaleEffect(x: 1.5, anchor: .leading)
+        .offset(x: shimmerOffset * 300)
+        .allowsHitTesting(false)
     }
 
     var body: some View {
@@ -1184,14 +1169,14 @@ struct WorkoutHeroCard: View {
                     ZStack {
                         Image(systemName: watermarkIcons.0)
                             .font(.system(size: 70, weight: .thin))
-                            .foregroundColor(.white.opacity(watermarkOpacity))
-                            .rotationEffect(.degrees(watermarkRocking ? -7 : -17))
+                            .foregroundColor(.white.opacity(0.07))
+                            .rotationEffect(.degrees(-17))
                             .offset(x: -30, y: -10)
 
                         Image(systemName: watermarkIcons.1)
                             .font(.system(size: 55, weight: .thin))
-                            .foregroundColor(.white.opacity(watermarkOpacity * 0.85))
-                            .rotationEffect(.degrees(watermarkRocking ? 20 : 10))
+                            .foregroundColor(.white.opacity(0.06))
+                            .rotationEffect(.degrees(10))
                             .offset(x: 10, y: 15)
                     }
                     .padding(.trailing, 10)
@@ -1231,12 +1216,6 @@ struct WorkoutHeroCard: View {
             withAnimation(.easeInOut(duration: 1.2).delay(0.3)) {
                 shimmerOffset = 1.5
             }
-            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
-                watermarkRocking = true
-            }
-            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
-                watermarkOpacity = 0.10
-            }
             volumeBarAppeared = true
         }
     }
@@ -1259,28 +1238,28 @@ struct WorkoutHeroCard: View {
                     )
                 )
 
-            // Animated floating decorative shapes
+            // Static decorative shapes
             ZStack {
                 Circle()
                     .fill(.white.opacity(0.06))
                     .frame(width: 80, height: 80)
-                    .offset(x: -90 + shape1Offset.width, y: -40 + shape1Offset.height)
+                    .offset(x: -90, y: -40)
 
                 Circle()
                     .fill(.white.opacity(0.04))
                     .frame(width: 50, height: 50)
-                    .offset(x: 100 + shape2Offset.width, y: 50 + shape2Offset.height)
+                    .offset(x: 100, y: 50)
 
                 Capsule()
                     .fill(.white.opacity(0.05))
                     .frame(width: 60, height: 20)
                     .rotationEffect(.degrees(-25))
-                    .offset(x: 80 + shape3Offset.width, y: -60 + shape3Offset.height)
+                    .offset(x: 80, y: -60)
 
                 Circle()
                     .fill(.white.opacity(0.07))
                     .frame(width: 30, height: 30)
-                    .offset(x: -70 + shape4Offset.width, y: 60 + shape4Offset.height)
+                    .offset(x: -70, y: 60)
             }
 
             // Floating energy particles
@@ -1331,7 +1310,7 @@ struct WorkoutHeroCard: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .scaleEffect(breathingScale)
+                            .scaleEffect(1.0)
                             .symbolEffect(.bounce, options: .repeating.speed(0.3), value: iconAnimating)
                     }
 
@@ -1373,26 +1352,7 @@ struct WorkoutHeroCard: View {
             withAnimation(.easeInOut(duration: 1.2).delay(0.3)) {
                 shimmerOffset = 1.5
             }
-            // Breathing scale
-            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
-                breathingScale = 1.05
-            }
-            // Floating shapes drift
-            withAnimation(.easeInOut(duration: 3.5).repeatForever(autoreverses: true)) {
-                shape1Offset = CGSize(width: 8, height: -12)
-            }
-            withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true).delay(0.5)) {
-                shape2Offset = CGSize(width: -10, height: 8)
-            }
-            withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true).delay(1)) {
-                shape3Offset = CGSize(width: -12, height: 10)
-            }
-            withAnimation(.easeInOut(duration: 4.5).repeatForever(autoreverses: true).delay(0.3)) {
-                shape4Offset = CGSize(width: 10, height: -8)
-            }
-            // Icon bounce trigger
             iconAnimating = true
-            // Count-up stats
             withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
                 statsAppeared = true
             }
@@ -1418,7 +1378,7 @@ struct WorkoutHeroCard: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .scaleEffect(breathingScale)
+                .scaleEffect(1.0)
                 .symbolEffect(.bounce, options: .repeating.speed(0.3), value: iconAnimating)
         }
 
@@ -1456,12 +1416,7 @@ struct WorkoutHeroCard: View {
 
     @ViewBuilder
     private var floatingParticles: some View {
-        ForEach(0..<7, id: \.self) { i in
-            FloatingParticle(
-                index: i,
-                color: gradientColors[i % gradientColors.count]
-            )
-        }
+        EmptyView()
     }
 
     // MARK: - Muscle Group Indicators
@@ -1590,19 +1545,18 @@ struct WorkoutHeroCard: View {
         }
         .padding(.vertical, 4)
         .background(alignment: .leading) {
-            GeometryReader { geo in
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(
-                        LinearGradient(
-                            colors: gradientColors.map { $0.opacity(0.15) },
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
+            RoundedRectangle(cornerRadius: 4)
+                .fill(
+                    LinearGradient(
+                        colors: gradientColors.map { $0.opacity(0.15) },
+                        startPoint: .leading,
+                        endPoint: .trailing
                     )
-                    .frame(width: geo.size.width * (volumeBarAppeared ? max(proportion, 0.05) : 0), height: 24)
-                    .frame(maxHeight: .infinity, alignment: .center)
-                    .animation(.easeOut(duration: 0.6).delay(0.2), value: volumeBarAppeared)
-            }
+                )
+                .frame(height: 24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .scaleEffect(x: volumeBarAppeared ? max(proportion, 0.05) : 0, anchor: .leading)
+                .animation(.easeOut(duration: 0.6).delay(0.2), value: volumeBarAppeared)
         }
     }
 
@@ -4104,29 +4058,40 @@ struct PostHeaderEnhanced: View {
     let post: Post
     let activityType: DetectedActivity?
     var locationName: String? = nil
+    var onTapUser: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 12) {
-            // Simple avatar
-            Circle()
-                .fill(GQGradients.primary)
-                .frame(width: 42, height: 42)
-                .overlay(
-                    Text(String(post.authorName.prefix(1)).uppercased())
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                )
+            // Simple avatar (tappable)
+            Button {
+                onTapUser?()
+            } label: {
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 42, height: 42)
+                    .overlay(
+                        Text(String(post.authorName.prefix(1)).uppercased())
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                    )
+            }
+            .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(post.authorName)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
+                Button {
+                    onTapUser?()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(post.authorName)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
 
-                    Text("@\(post.authorUsername)")
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textTertiary)
+                        Text("@\(post.authorUsername)")
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
                 }
+                .buttonStyle(.plain)
 
                 HStack(spacing: 4) {
                     Text(post.timestamp.timeAgoDisplay())
@@ -4244,11 +4209,16 @@ struct PostHeader: View {
 struct PostMediaView: View {
     let post: Post
     @Binding var showVideoPlayer: Bool
+    #if canImport(UIKit)
+    @State private var cachedImage: UIImage?
+    #elseif canImport(AppKit)
+    @State private var cachedImage: NSImage?
+    #endif
     var body: some View {
         Group {
-            if let photoData = post.photoData {
+            if post.photoData != nil {
                 #if canImport(UIKit)
-                if let uiImage = UIImage(data: photoData) {
+                if let uiImage = cachedImage {
                     Color.clear
                         .aspectRatio(4.0/5.0, contentMode: .fit)
                         .overlay(
@@ -4259,7 +4229,7 @@ struct PostMediaView: View {
                         .clipped()
                 }
                 #elseif canImport(AppKit)
-                if let nsImage = NSImage(data: photoData) {
+                if let nsImage = cachedImage {
                     Color.clear
                         .aspectRatio(4.0/5.0, contentMode: .fit)
                         .overlay(
@@ -4273,6 +4243,14 @@ struct PostMediaView: View {
             } else if post.videoData != nil {
                 InlineFeedVideoPlayer(videoData: post.videoData!, showVideoPlayer: $showVideoPlayer)
             }
+        }
+        .task {
+            guard cachedImage == nil, let data = post.photoData else { return }
+            #if canImport(UIKit)
+            cachedImage = UIImage(data: data)
+            #elseif canImport(AppKit)
+            cachedImage = NSImage(data: data)
+            #endif
         }
     }
 }
@@ -4962,10 +4940,14 @@ struct LearningFeedCard: View {
 struct LearnThisPanel: View {
     @Environment(\.modelContext) private var modelContext
     let exerciseName: String
-    let learningItems: [LearningItem]
     let profile: UserProfile
     let onAddToPlan: (LearningItem) -> Void
     let onClose: () -> Void
+
+    @Query(sort: \LearningItem.createdAt, order: .reverse) private var allLearningItems: [LearningItem]
+    private var learningItems: [LearningItem] {
+        allLearningItems.filter { $0.exerciseName == exerciseName }
+    }
 
     @State private var learningContent: ExerciseLearningContent?
     @State private var showingRobotDemo = false
@@ -6211,44 +6193,42 @@ struct ClubFeedView: View {
     // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
-                .foregroundColor(GQColors.textTertiary)
-            TextField("Search clubs...", text: $searchText)
-                .font(.system(size: 15))
-                .foregroundColor(GQColors.textPrimary)
+        HStack(spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textTertiary)
+                TextField("Search clubs...", text: $searchText)
+                    .font(.system(size: 15))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(GQColors.adaptiveOverlay(0.08))
+            .cornerRadius(12)
+
+            viewModeToggle
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(GQColors.adaptiveOverlay(0.08))
-        .cornerRadius(12)
         .padding(.horizontal, 16)
     }
 
     // MARK: - Category Pills + Toggle Row
 
     private var categoryAndToggleRow: some View {
-        HStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    categoryPill(label: "All", icon: nil, isSelected: selectedCategory == nil) {
-                        withAnimation(.easeInOut(duration: 0.2)) { selectedCategory = nil }
-                    }
-                    ForEach(activeCategories, id: \.self) { cat in
-                        categoryPill(label: cat.rawValue, icon: cat.icon, isSelected: selectedCategory == cat) {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                selectedCategory = selectedCategory == cat ? nil : cat
-                            }
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                categoryPill(label: "All", icon: nil, isSelected: selectedCategory == nil) {
+                    withAnimation(.easeInOut(duration: 0.2)) { selectedCategory = nil }
+                }
+                ForEach(activeCategories, id: \.self) { cat in
+                    categoryPill(label: cat.rawValue, icon: cat.icon, isSelected: selectedCategory == cat) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedCategory = selectedCategory == cat ? nil : cat
                         }
                     }
                 }
-                .padding(.leading, 16)
-                .padding(.trailing, 8)
             }
-
-            viewModeToggle
-                .padding(.trailing, 16)
+            .padding(.horizontal, 16)
         }
     }
 
@@ -7928,6 +7908,28 @@ struct ClubDetailView: View {
                 .background(index < 3 ? Color.white.opacity(0.04) : Color.clear)
                 .cornerRadius(10)
             }
+
+            // Exercise Leaderboard link
+            NavigationLink {
+                LeaderboardView(clubId: club.id)
+            } label: {
+                HStack {
+                    Image(systemName: "trophy.fill")
+                        .foregroundColor(GQColors.electricGold)
+                    Text("Exercise Leaderboard")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(12)
+            }
+            .padding(.horizontal, 16)
         }
     }
 
@@ -8369,22 +8371,6 @@ struct ExerciseMediaCarousel: View {
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
                                     .clipped()
-                            }
-
-                            // Exercise label overlay
-                            if let exerciseName = media.exerciseName {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "dumbbell.fill")
-                                        .font(.system(size: 10))
-                                    Text(exerciseName)
-                                        .font(.system(size: 12, weight: .semibold))
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color.black.opacity(0.6))
-                                .cornerRadius(8)
-                                .padding(12)
                             }
 
                             // Video indicator

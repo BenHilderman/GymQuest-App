@@ -112,6 +112,31 @@ final class FeatureFlags: ObservableObject {
         didSet { save("devSkipAuth", value: devSkipAuth) }
     }
 
+    /// Progressive overload suggestions during workouts
+    @Published var progressiveOverloadEnabled: Bool {
+        didSet { save("progressiveOverloadEnabled", value: progressiveOverloadEnabled) }
+    }
+
+    /// AI-generated training plans
+    @Published var trainingPlanEnabled: Bool {
+        didSet { save("trainingPlanEnabled", value: trainingPlanEnabled) }
+    }
+
+    /// Real-time form check camera with pose detection
+    @Published var formCheckCameraEnabled: Bool {
+        didSet { save("formCheckCameraEnabled", value: formCheckCameraEnabled) }
+    }
+
+    /// Voice coach for hands-free workout control
+    @Published var voiceCoachEnabled: Bool {
+        didSet { save("voiceCoachEnabled", value: voiceCoachEnabled) }
+    }
+
+    /// Recovery advisor card using Whoop/HealthKit data
+    @Published var recoveryAdvisorEnabled: Bool {
+        didSet { save("recoveryAdvisorEnabled", value: recoveryAdvisorEnabled) }
+    }
+
     // MARK: - One-Time Prompt Tracking
 
     var hasSeenGymLocationPrompt: Bool {
@@ -148,6 +173,13 @@ final class FeatureFlags: ObservableObject {
         self.exerciseGifsEnabled = defaults.object(forKey: prefix + "exerciseGifsEnabled") as? Bool ?? true
         self.devSkipAuth = defaults.object(forKey: prefix + "devSkipAuth") as? Bool ?? false
         self.premiumEnabled = defaults.object(forKey: prefix + "premiumEnabled") as? Bool ?? true
+
+        // Market-dominating features
+        self.progressiveOverloadEnabled = defaults.object(forKey: prefix + "progressiveOverloadEnabled") as? Bool ?? true
+        self.trainingPlanEnabled = defaults.object(forKey: prefix + "trainingPlanEnabled") as? Bool ?? true
+        self.formCheckCameraEnabled = defaults.object(forKey: prefix + "formCheckCameraEnabled") as? Bool ?? false
+        self.voiceCoachEnabled = defaults.object(forKey: prefix + "voiceCoachEnabled") as? Bool ?? false
+        self.recoveryAdvisorEnabled = defaults.object(forKey: prefix + "recoveryAdvisorEnabled") as? Bool ?? true
     }
 
     private func save(_ key: String, value: Bool) {
@@ -175,6 +207,11 @@ final class FeatureFlags: ObservableObject {
         voiceNotesEnabled = true
         gymLocationSharing = true
         exerciseGifsEnabled = true
+        progressiveOverloadEnabled = true
+        trainingPlanEnabled = true
+        formCheckCameraEnabled = true
+        voiceCoachEnabled = true
+        recoveryAdvisorEnabled = true
     }
 
     /// Reset to default feature state
@@ -197,6 +234,11 @@ final class FeatureFlags: ObservableObject {
         voiceNotesEnabled = true
         gymLocationSharing = true
         exerciseGifsEnabled = true
+        progressiveOverloadEnabled = true
+        trainingPlanEnabled = true
+        formCheckCameraEnabled = false
+        voiceCoachEnabled = false
+        recoveryAdvisorEnabled = true
     }
 
     /// Check if app is in demo mode (no external dependencies needed)

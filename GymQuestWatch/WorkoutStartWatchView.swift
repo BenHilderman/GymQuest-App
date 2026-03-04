@@ -21,7 +21,7 @@ struct WorkoutStartWatchView: View {
     private var workoutTypeSelection: some View {
         ScrollView {
             VStack(spacing: 8) {
-                Text("GymQuest")
+                Text("Lift AI")
                     .font(.headline)
                     .foregroundColor(.cyan)
 
@@ -55,6 +55,38 @@ struct WorkoutStartWatchView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(type.color.opacity(0.3))
+                }
+                // Quick Exercises (most-used from iPhone)
+                if !connectivity.quickExercises.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("QUICK START")
+                            .font(.caption2.bold())
+                            .foregroundColor(.secondary)
+                            .tracking(0.5)
+
+                        ForEach(connectivity.quickExercises.prefix(5), id: \.self) { exercise in
+                            Button {
+                                connectivity.sendWorkoutStart(type: "Custom")
+                                connectivity.currentExerciseName = exercise
+                                Task {
+                                    await connectivity.startHealthKitWorkout()
+                                }
+                            } label: {
+                                HStack {
+                                    Image(systemName: "dumbbell.fill")
+                                        .font(.caption)
+                                        .frame(width: 20)
+                                    Text(exercise)
+                                        .font(.caption)
+                                        .lineLimit(1)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.top, 4)
                 }
             }
             .padding(.horizontal, 4)

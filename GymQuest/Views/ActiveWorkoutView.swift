@@ -51,6 +51,9 @@ struct ActiveWorkoutView: View {
     @State private var isSharingLive = false
     @State private var showingGymLocationPrompt = false
     @State private var partyService = WorkoutPartyService()
+    @State private var locationService = LocationTrackingService.shared
+    @State private var isTrackingLocation = false
+    @State private var overloadSuggestions: [String: OverloadSuggestion] = [:]
 
     let customTitle: String?
 
@@ -150,6 +153,15 @@ struct ActiveWorkoutView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // Live GPS stats bar for cardio tracking
+                if isTrackingLocation {
+                    LiveGPSStatsBar(
+                        distance: locationService.currentDistance,
+                        pace: locationService.currentPace
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 // Exercise list
                 ScrollView {
                     LazyVStack(spacing: 16) {
@@ -158,7 +170,8 @@ struct ActiveWorkoutView: View {
                                 exercise: $exercise,
                                 workoutTypeColors: workoutTypeColors,
                                 onShowDemo: { showFormPeek(for: exercise.name) },
-                                onSetCompleted: { exerciseName in startRestTimer(exerciseName: exerciseName) }
+                                onSetCompleted: { exerciseName in startRestTimer(exerciseName: exerciseName) },
+                                overloadSuggestion: overloadSuggestions[exercise.name]
                             )
                             .staggeredAppear(index: index, stagger: 0.06)
                         }
@@ -189,14 +202,44 @@ struct ActiveWorkoutView: View {
                 }
                 .padding(.top, 60)
             }
+
+            #if canImport(UIKit)
+            // Voice coach floating button
+            if FeatureFlags.shared.voiceCoachEnabled {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VoiceCoachButton(
+                            exercises: exercises,
+                            currentExerciseName: exercises.first(where: { !$0.sets.allSatisfy(\.isCompleted) })?.name,
+                            profile: profile,
+                            allWorkouts: (try? modelContext.fetch(FetchDescriptor<Workout>())) ?? []
+                        )
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 100)
+                    }
+                }
+            }
+            #endif
         }
         .gqPageBackground()
         .onAppear {
             initializeFromAppState()
             startTimer()
+            loadOverloadSuggestions()
             if !FeatureFlags.shared.hasSeenGymLocationPrompt {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     showingGymLocationPrompt = true
+                }
+            }
+            // Auto-start GPS for cardio/HIIT workouts
+            if workoutType.isGPSEligible {
+                if locationService.hasPermission {
+                    locationService.startTracking()
+                    isTrackingLocation = true
+                } else if locationService.needsPermission {
+                    locationService.requestPermission()
                 }
             }
         }
@@ -204,6 +247,10 @@ struct ActiveWorkoutView: View {
             timer?.invalidate()
             restTimer?.invalidate()
             partyService.stopParty()
+            if isTrackingLocation {
+                locationService.stopTracking()
+                isTrackingLocation = false
+            }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isResting && !restTimerHidden)
         .sheet(isPresented: $showingAddExercise) {
@@ -563,6 +610,17 @@ struct ActiveWorkoutView: View {
         }
     }
 
+    private func loadOverloadSuggestions() {
+        guard FeatureFlags.shared.progressiveOverloadEnabled else { return }
+        let descriptor = FetchDescriptor<Workout>(sortBy: [SortDescriptor(\.date, order: .reverse)])
+        guard let allWorkouts = try? modelContext.fetch(descriptor) else { return }
+        overloadSuggestions = ProgressiveOverloadService.shared.getSuggestions(
+            exercises: exercises,
+            allWorkouts: allWorkouts,
+            profile: profile
+        )
+    }
+
     private func formatTime(_ seconds: Int) -> String {
         let mins = seconds / 60
         let secs = seconds % 60
@@ -604,6 +662,21 @@ struct ActiveWorkoutView: View {
             duration: elapsedTime / 60,
             exercises: workoutExercises
         )
+
+        // Save GPS route data for cardio workouts
+        if isTrackingLocation {
+            let points = locationService.stopTracking()
+            isTrackingLocation = false
+            if !points.isEmpty {
+                workout.routePoints = points
+                workout.totalDistance = locationService.currentDistance
+                workout.elevationGain = locationService.currentElevationGain
+                let durationSec = Double(elapsedTime)
+                let distKm = locationService.currentDistance / 1000.0
+                workout.averagePace = distKm > 0 ? durationSec / distKm : nil
+            }
+        }
+
         modelContext.insert(workout)
 
         let xpEarned = 20 + (exercises.reduce(0) { $0 + $1.sets.filter { $0.isCompleted }.count } * 5)
@@ -780,6 +853,7 @@ struct ActiveExerciseCard: View {
     let workoutTypeColors: [Color]
     let onShowDemo: () -> Void
     var onSetCompleted: ((String) -> Void)? = nil
+    var overloadSuggestion: OverloadSuggestion? = nil
 
     @State private var previousWeight: Double?
     @State private var previousReps: Int?
@@ -834,6 +908,40 @@ struct ActiveExerciseCard: View {
                     .padding(.leading, 4)
             }
 
+            // AI suggestion + last performance hint
+            if let pw = previousWeight, pw > 0 {
+                HStack(spacing: 0) {
+                    Text("Last: \(Int(pw)) lbs")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                    if let pr = previousReps, pr > 0 {
+                        Text(" \u{00D7} \(pr) reps")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    Spacer()
+                    // AI suggestion badge
+                    HStack(spacing: 4) {
+                        Image(systemName: "brain")
+                            .font(.system(size: 11, weight: .medium))
+                        Text("AI: \(Int(pw)) lbs")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(GQColors.vividPurple)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule().fill(GQColors.vividPurple.opacity(0.12))
+                    )
+                }
+            }
+
+            // Progressive overload suggestion pill
+            if FeatureFlags.shared.progressiveOverloadEnabled,
+               let suggestion = overloadSuggestion {
+                OverloadSuggestionPill(suggestion: suggestion)
+            }
+
             VStack(spacing: 8) {
                 ForEach($exercise.sets) { $set in
                     ActiveSetRow(
@@ -881,6 +989,25 @@ struct ActiveExerciseCard: View {
                     .font(.system(size: 18))
                     .foregroundColor(workoutAccent)
                     .padding(10)
+            }
+        }
+        .onAppear {
+            loadPreviousPerformance()
+        }
+    }
+
+    private func loadPreviousPerformance() {
+        let descriptor = FetchDescriptor<Workout>(
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        guard let workouts = try? modelContext.fetch(descriptor) else { return }
+        for workout in workouts {
+            if let matchingExercise = workout.exercises.first(where: { $0.name == exercise.name }) {
+                if let topSet = matchingExercise.sets.sorted(by: { $0.weight > $1.weight }).first {
+                    previousWeight = topSet.weight
+                    previousReps = topSet.reps
+                }
+                break
             }
         }
     }
@@ -1848,7 +1975,7 @@ struct WorkoutSessionCompletionSheet: View {
     // Share state
     @State private var shareToFeed = true
     @State private var showEnhancedEditor = false
-    @State private var shareToCommunity = false
+    @State private var shareToClub = false
     @State private var taggedFriends: Set<String> = []
 
     // Legacy media state (single-photo picker)
@@ -2476,19 +2603,19 @@ struct WorkoutSessionCompletionSheet: View {
         ]
     }
 
-    // MARK: - Community Toggle
+    // MARK: - Club Toggle
 
     @ViewBuilder
-    private var communityToggle: some View {
-        Toggle(isOn: $shareToCommunity) {
+    private var clubToggle: some View {
+        Toggle(isOn: $shareToClub) {
             HStack(spacing: 10) {
                 Image(systemName: "building.2.fill")
                     .font(.system(size: 16))
                     .foregroundColor(GQColors.vividPurple)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Post to Community")
+                    Text("Post to Club")
                         .font(.system(size: 14, weight: .medium))
-                    Text("Share with your gym community")
+                    Text("Share with your club")
                         .font(.system(size: 12))
                         .foregroundColor(GQColors.textTertiary)
                 }
@@ -2756,6 +2883,65 @@ struct WorkoutStatItem: View {
     }
 }
 
+// MARK: - Live GPS Stats Bar
+
+struct LiveGPSStatsBar: View {
+    let distance: Double  // meters
+    let pace: Double      // seconds per kilometer
+
+    private var distanceKm: String {
+        String(format: "%.2f", distance / 1000.0)
+    }
+
+    private var paceString: String {
+        guard pace > 0 && pace < 3600 else { return "--:--" }
+        let minutes = Int(pace) / 60
+        let seconds = Int(pace) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    var body: some View {
+        HStack(spacing: 20) {
+            HStack(spacing: 6) {
+                Image(systemName: "map")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.success)
+                Text("\(distanceKm) km")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+
+            Rectangle()
+                .fill(Color.white.opacity(0.2))
+                .frame(width: 1, height: 16)
+
+            HStack(spacing: 6) {
+                Image(systemName: "speedometer")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.cyanSpark)
+                Text("\(paceString) /km")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+
+            Spacer()
+
+            // Live indicator
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(GQColors.success)
+                    .frame(width: 6, height: 6)
+                Text("GPS")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.black.opacity(0.3))
+    }
+}
+
 // MARK: - Compact Rest Timer Bar
 
 struct CompactRestTimerBar: View {
@@ -2897,6 +3083,51 @@ struct CompactRestTimerBar: View {
         .background(GQColors.surfaceOverlay)
         .overlay(alignment: .bottom) { Rectangle().fill(GQColors.borderDefault).frame(height: 0.5) }
         .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+    }
+}
+
+// MARK: - Overload Suggestion Pill
+
+struct OverloadSuggestionPill: View {
+    let suggestion: OverloadSuggestion
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: directionIcon)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(directionColor)
+
+            Text("Try \(Int(suggestion.suggestedWeight)) lbs x \(suggestion.suggestedReps)")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(directionColor)
+
+            if suggestion.confidence == .high {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(directionColor.opacity(0.7))
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(directionColor.opacity(0.1))
+        .clipShape(Capsule())
+        .overlay(Capsule().stroke(directionColor.opacity(0.3), lineWidth: 1))
+    }
+
+    private var directionIcon: String {
+        switch suggestion.direction {
+        case .increase: return "arrow.up.right"
+        case .hold: return "equal"
+        case .decrease: return "arrow.down.right"
+        }
+    }
+
+    private var directionColor: Color {
+        switch suggestion.direction {
+        case .increase: return GQColors.success
+        case .hold: return GQColors.electricGold
+        case .decrease: return GQColors.sunsetOrange
+        }
     }
 }
 

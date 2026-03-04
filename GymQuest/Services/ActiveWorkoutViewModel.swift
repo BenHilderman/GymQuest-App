@@ -146,6 +146,10 @@ class ActiveWorkoutViewModel {
     var firstExerciseMilestoneShown = false
     var firstSetMilestoneShown = false
 
+    // MARK: - Progressive Overload
+
+    var overloadSuggestions: [String: OverloadSuggestion] = [:]
+
     // MARK: - Sheets / Navigation
 
     var showingAddExercise = false
@@ -631,5 +635,21 @@ class ActiveWorkoutViewModel {
             return exercises[currentIdx + 1].name
         }
         return "Almost done!"
+    }
+
+    // MARK: - Progressive Overload
+
+    /// Load overload suggestions for all current exercises
+    func loadOverloadSuggestions() {
+        let descriptor = FetchDescriptor<Workout>(
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        guard let allWorkouts = try? modelContext.fetch(descriptor) else { return }
+
+        overloadSuggestions = ProgressiveOverloadService.shared.getSuggestions(
+            exercises: exercises,
+            allWorkouts: allWorkouts,
+            profile: profile
+        )
     }
 }

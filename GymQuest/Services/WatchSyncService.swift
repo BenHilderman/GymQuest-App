@@ -57,6 +57,26 @@ final class WatchSyncService: NSObject, ObservableObject {
     func sendStreak(_ value: Int) {
         try? session?.updateApplicationContext(["action": "streak", "value": value])
     }
+
+    /// Send top exercises to watch for quick-start
+    func sendExerciseList(_ exercises: [String]) {
+        let message: [String: Any] = [
+            "action": "exerciseList",
+            "exercises": Array(exercises.prefix(10))
+        ]
+        session?.sendMessage(message, replyHandler: nil, errorHandler: nil)
+        // Also set in application context for persistence
+        try? session?.updateApplicationContext(["quickExercises": Array(exercises.prefix(10))])
+    }
+
+    /// Send progressive overload suggestion to watch
+    func sendSuggestedWeight(_ weight: Double) {
+        let message: [String: Any] = [
+            "action": "suggestedWeight",
+            "weight": weight
+        ]
+        session?.sendMessage(message, replyHandler: nil, errorHandler: nil)
+    }
 }
 
 // MARK: - WCSessionDelegate

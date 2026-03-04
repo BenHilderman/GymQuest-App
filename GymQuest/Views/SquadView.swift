@@ -565,6 +565,30 @@ struct SquadDetailView: View {
                             )
                     )
 
+                    // Squad Leaderboard Link
+                    NavigationLink {
+                        SquadLeaderboardView(squad: squad, profile: profile)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "chart.bar.fill")
+                                .foregroundColor(GQColors.vividPurple)
+                            Text("Volume Leaderboard")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(GQColors.textPrimary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+                        .padding(16)
+                        .background(GQColors.surfaceBase)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(GQColors.borderDefault, lineWidth: 1)
+                        )
+                    }
+
                     // Active Challenge
                     if let challenge = activeChallenge {
                         ActiveChallengeCard(challenge: challenge)

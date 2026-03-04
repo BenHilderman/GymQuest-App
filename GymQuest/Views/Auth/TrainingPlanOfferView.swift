@@ -20,17 +20,18 @@ struct TrainingPlanOfferView: View {
     @State private var phase: OfferPhase = .generating
     @State private var generatingProgress: CGFloat = 0
     @State private var generatingTextIndex = 0
-    @State private var selectedTier: PricingTier = .yearly
+    @State private var selectedProduct: Product?
     @State private var isPurchasing = false
     @State private var rotationAngle: Double = 0
-    @State private var shimmerPhase: CGFloat = 0
-    @State private var particlePhase: CGFloat = 0
+    @State private var heroAppeared = false
 
-    private let generatingTexts = [
-        "Analyzing your profile...",
-        "Building your plan...",
-        "Personalizing exercises..."
-    ]
+    private var generatingTexts: [String] {
+        [
+            "Analyzing \(data.name)'s goals...",
+            "Matching exercises to your \(data.environment.rawValue.lowercased()) setup...",
+            "Building your \(data.goal.rawValue.lowercased()) program..."
+        ]
+    }
 
     private var data: OnboardingData {
         appState.onboardingData ?? OnboardingData(
@@ -56,14 +57,9 @@ struct TrainingPlanOfferView: View {
         case generating, summary
     }
 
-    enum PricingTier {
-        case monthly, yearly
-    }
-
     var body: some View {
         ZStack {
-            OBTheme.bg.ignoresSafeArea()
-            shimmerBg
+            GQColors.background.ignoresSafeArea()
 
             switch phase {
             case .generating:
@@ -75,101 +71,132 @@ struct TrainingPlanOfferView: View {
         }
         .onAppear {
             startGenerating()
-            withAnimation(.linear(duration: 8).repeatForever(autoreverses: true)) {
-                shimmerPhase = 1
-            }
+            selectedProduct = subscriptionService.yearlyProduct
         }
-    }
-
-    // MARK: - Shimmer Background
-
-    @ViewBuilder
-    private var shimmerBg: some View {
-        ZStack {
-            Circle()
-                .fill(Color(hex: "E8D0F0").opacity(0.2))
-                .frame(width: 300, height: 300)
-                .blur(radius: 80)
-                .offset(x: -60 + shimmerPhase * 120, y: -100 + shimmerPhase * 50)
-
-            Circle()
-                .fill(Color(hex: "F0D8E8").opacity(0.15))
-                .frame(width: 250, height: 250)
-                .blur(radius: 70)
-                .offset(x: 80 - shimmerPhase * 100, y: 150 - shimmerPhase * 80)
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
     }
 
     // MARK: - Generating Phase
 
+    private let generatingGradient = LinearGradient(
+        colors: [Color(hex: "3D7CFF").opacity(0.55), Color(hex: "D45FAA").opacity(0.45), Color(hex: "FF6B9D").opacity(0.50)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
+
     @ViewBuilder
     private var generatingView: some View {
-        VStack(spacing: 40) {
-            Spacer()
+        ZStack {
+            // Soft animated background blobs matching onboarding
+            Color(hex: "F8F8FC").ignoresSafeArea()
 
-            // Pulsing icon with rotating gradient border
-            ZStack {
-                Circle()
-                    .stroke(
-                        AngularGradient(
-                            colors: [
-                                GQColors.vividPurple.opacity(0.7),
-                                GQColors.cyanSpark.opacity(0.5),
-                                GQColors.deepBlue.opacity(0.6),
-                                GQColors.vividPurple.opacity(0.7)
-                            ],
-                            center: .center
-                        ),
-                        lineWidth: 3
-                    )
-                    .frame(width: 100, height: 100)
-                    .rotationEffect(.degrees(rotationAngle))
+            Circle()
+                .fill(Color(hex: "E8D0F0").opacity(0.25))
+                .frame(width: 280, height: 280)
+                .blur(radius: 70)
+                .offset(x: -40 + generatingProgress * 80, y: -80)
 
-                Image(systemName: "brain.head.profile.fill")
-                    .font(.system(size: 40))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [GQColors.vividPurple.opacity(0.85), GQColors.cyanSpark.opacity(0.85)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+            Circle()
+                .fill(Color(hex: "D8D0F0").opacity(0.2))
+                .frame(width: 220, height: 220)
+                .blur(radius: 60)
+                .offset(x: 60 - generatingProgress * 60, y: 120)
+
+            VStack(spacing: 32) {
+                Spacer()
+
+                // Rotating ring with pulsing center
+                ZStack {
+                    // Outer track
+                    Circle()
+                        .stroke(Color(hex: "C9B8E8").opacity(0.2), lineWidth: 3)
+                        .frame(width: 110, height: 110)
+
+                    // Spinning arc
+                    Circle()
+                        .trim(from: 0, to: 0.35)
+                        .stroke(generatingGradient, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .frame(width: 110, height: 110)
+                        .rotationEffect(.degrees(rotationAngle))
+
+                    // Pulsing gradient center
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [GQColors.deepBlue.opacity(0.9), GQColors.vividPurple.opacity(0.9)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
+                        .frame(width: 52, height: 52)
+                        .scaleEffect(generatingProgress < 1 ? 1.0 + sin(generatingProgress * .pi * 2) * 0.08 : 1.0)
+                        .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 16, y: 0)
+                        .shadow(color: GQColors.deepBlue.opacity(0.15), radius: 24, y: 0)
+
+                    // Checkmark icon inside
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+
+                // Progress bar (horizontal, matching onboarding CTA style)
+                VStack(spacing: 14) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color(hex: "C9B8E8").opacity(0.2))
+
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [GQColors.deepBlue.opacity(0.9), GQColors.vividPurple.opacity(0.9)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: geo.size.width * generatingProgress)
+                        }
+                    }
+                    .frame(height: 6)
+                    .padding(.horizontal, 60)
+
+                    Text("\(Int(generatingProgress * 100))%")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color(hex: "3C3C43").opacity(0.55))
+                }
+
+                // Cycling text in a bubble-style card
+                Text(generatingTexts[generatingTextIndex])
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(Color(hex: "1C1C1E"))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.white, Color(hex: "F3EEFF")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                     )
-                    .scaleEffect(generatingProgress < 1 ? 1.0 + sin(generatingProgress * .pi) * 0.1 : 1.0)
-            }
-
-            // Progress ring
-            ZStack {
-                Circle()
-                    .stroke(Color.black.opacity(0.06), lineWidth: 4)
-                    .frame(width: 60, height: 60)
-
-                Circle()
-                    .trim(from: 0, to: generatingProgress)
-                    .stroke(
-                        LinearGradient(
-                            colors: [GQColors.deepBlue, GQColors.vividPurple],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ),
-                        style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color(hex: "C9B8E8").opacity(0.5), Color(hex: "E8D0F0").opacity(0.4)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.2
+                            )
                     )
-                    .frame(width: 60, height: 60)
-                    .rotationEffect(.degrees(-90))
+                    .shadow(color: Color(hex: "3D7CFF").opacity(0.12), radius: 12, y: 3)
+                    .animation(.easeInOut(duration: 0.4), value: generatingTextIndex)
+                    .padding(.horizontal, 32)
 
-                Text("\(Int(generatingProgress * 100))%")
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundStyle(OBTheme.textPrimary)
+                Spacer()
             }
-
-            // Cycling text
-            Text(generatingTexts[generatingTextIndex])
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(OBTheme.textSecondary)
-                .animation(.easeInOut(duration: 0.3), value: generatingTextIndex)
-
-            Spacer()
         }
     }
 
@@ -177,107 +204,122 @@ struct TrainingPlanOfferView: View {
 
     @ViewBuilder
     private var summaryView: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                // Skip link
-                HStack {
-                    Spacer()
-                    Button {
-                        skipToApp()
-                    } label: {
-                        Text("Maybe Later")
-                            .font(.subheadline)
-                            .foregroundStyle(OBTheme.textSecondary)
-                    }
-                    .buttonStyle(.plain)
+        ZStack {
+            // Warm floating gradient blobs
+            Color(hex: "F8F8FC").ignoresSafeArea()
+
+            Circle()
+                .fill(Color(hex: "E8D0F0").opacity(0.25))
+                .frame(width: 280, height: 280)
+                .blur(radius: 70)
+                .offset(x: -60, y: -120)
+
+            Circle()
+                .fill(Color(hex: "D8D0F0").opacity(0.2))
+                .frame(width: 220, height: 220)
+                .blur(radius: 60)
+                .offset(x: 80, y: 200)
+
+            Circle()
+                .fill(Color(hex: "FFE0D0").opacity(0.15))
+                .frame(width: 200, height: 200)
+                .blur(radius: 50)
+                .offset(x: -40, y: 400)
+
+            ScrollView {
+                VStack(spacing: 24) {
+                    heroSection
+                    weekOverview
+                    sampleDay
+                    featuresSection
+                    tierCardsSection
+                    ctaSection
+
+                    Spacer(minLength: 40)
                 }
-                .padding(.horizontal, 20)
                 .padding(.top, 8)
-
-                planHeader
-                statsRow
-                weekOverview
-                sampleDay
-                pricingSection
-                ctaButtons
-
-                Spacer(minLength: 40)
             }
-            .padding(.top, 8)
         }
     }
 
-    // MARK: - Plan Header
+    // MARK: - Hero Section
 
     @ViewBuilder
-    private var planHeader: some View {
-        VStack(spacing: 10) {
-            Text("\(data.name)'s")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(OBTheme.textSecondary)
+    private var heroSection: some View {
+        VStack(spacing: 16) {
+            NavBarLogo()
+                .opacity(heroAppeared ? 1 : 0)
+                .offset(y: heroAppeared ? 0 : 10)
 
-            Text(plan.title)
-                .font(.system(size: 32, weight: .bold))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [GQColors.deepBlue, GQColors.vividPurple],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+            VStack(spacing: 6) {
+                Text("Your Plan Is Ready")
+                    .font(.system(size: 36, weight: .heavy, design: .rounded))
+                    .foregroundStyle(GQColors.textPrimary)
+
+                Text(plan.title)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(GQColors.textSecondary)
+            }
+            .opacity(heroAppeared ? 1 : 0)
+            .offset(y: heroAppeared ? 0 : 16)
+
+            Text(personalizationBlurb)
+                .font(.subheadline)
+                .foregroundStyle(GQColors.textTertiary)
                 .multilineTextAlignment(.center)
+                .lineSpacing(3)
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(heroAppeared ? 1 : 0)
+                .offset(y: heroAppeared ? 0 : 12)
 
-            Text("Built for your body")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(OBTheme.textSecondary)
-                .italic()
-
-            Text("\(plan.weekCount) Week Program")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(GQColors.vividPurple.opacity(0.7))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 4)
-                .background(
-                    Capsule()
-                        .fill(GQColors.vividPurple.opacity(0.08))
-                )
-        }
-        .padding(.horizontal, 20)
-    }
-
-    // MARK: - Stats Row
-
-    @ViewBuilder
-    private var statsRow: some View {
-        HStack(spacing: 0) {
-            statPill(icon: "calendar", label: "\(data.daysPerWeek)/week")
-            statPill(icon: "chart.bar.fill", label: data.experience.rawValue)
-            statPill(icon: "mappin.and.ellipse", label: data.environment.rawValue)
-        }
-        .padding(.horizontal, 20)
-    }
-
-    @ViewBuilder
-    private func statPill(icon: String, label: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 12))
-                .foregroundStyle(GQColors.vividPurple.opacity(0.7))
-            Text(label)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(OBTheme.textPrimary)
+            HStack(spacing: 8) {
+                capsuleBadge(text: "\(plan.weekCount) Weeks")
+                capsuleBadge(text: "\(data.daysPerWeek)×/Week")
+                capsuleBadge(text: data.goal.rawValue)
+            }
+            .opacity(heroAppeared ? 1 : 0)
+            .offset(y: heroAppeared ? 0 : 10)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(OBTheme.card)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(OBTheme.cardBorder, lineWidth: 1)
-        )
-        .shadow(color: OBTheme.cardShadow, radius: 8, y: 2)
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 8)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.6)) {
+                heroAppeared = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func capsuleBadge(text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(GQColors.textSecondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(
+                Capsule().fill(GQColors.textSecondary.opacity(0.08))
+            )
+    }
+
+    private var personalizationBlurb: String {
+        let env: String
+        switch data.environment {
+        case .gym: env = "full gym access"
+        case .home: env = "your home setup"
+        case .both: env = "gym and home training"
+        case .outdoor: env = "outdoor training"
+        }
+
+        let exp: String
+        switch data.experience {
+        case .beginner: exp = "build a strong foundation"
+        case .intermediate: exp = "push past plateaus"
+        case .advanced: exp = "maximize your potential"
+        }
+
+        return "A \(data.experience.rawValue.lowercased())-level program using \(env) to help you \(exp)."
     }
 
     // MARK: - Week Overview
@@ -285,49 +327,55 @@ struct TrainingPlanOfferView: View {
     @ViewBuilder
     private var weekOverview: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("WEEKLY SPLIT")
+            Text("YOUR WEEKLY SPLIT")
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(GQColors.vividPurple.opacity(0.6))
+                .foregroundStyle(GQColors.textTertiary)
                 .tracking(1.2)
+                .padding(.horizontal, 20)
 
-            VStack(spacing: 8) {
+            VStack(spacing: 0) {
                 ForEach(Array(plan.days.enumerated()), id: \.offset) { index, day in
                     HStack(spacing: 12) {
                         Image(systemName: splitDayIcon(day.name))
                             .font(.system(size: 14))
-                            .foregroundStyle(GQColors.vividPurple.opacity(0.7))
+                            .foregroundStyle(GQColors.textSecondary)
                             .frame(width: 28)
 
                         Text("Day \(index + 1)")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(OBTheme.textSecondary)
+                            .foregroundStyle(GQColors.textSecondary)
                             .frame(width: 44, alignment: .leading)
 
                         Text(day.name)
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(OBTheme.textPrimary)
+                            .foregroundStyle(GQColors.textPrimary)
 
                         Spacer()
 
                         Text("\(day.exercises.count) exercises")
                             .font(.system(size: 12))
-                            .foregroundStyle(OBTheme.textSecondary)
+                            .foregroundStyle(GQColors.textSecondary)
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(OBTheme.card)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(OBTheme.cardBorder, lineWidth: 1)
-                    )
-                    .shadow(color: OBTheme.cardShadow, radius: 8, y: 2)
+
+                    if index < plan.days.count - 1 {
+                        Divider()
+                            .padding(.leading, 56)
+                    }
                 }
             }
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(GQColors.cardBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 20)
     }
 
     private func splitDayIcon(_ name: String) -> String {
@@ -340,7 +388,7 @@ struct TrainingPlanOfferView: View {
         return "dumbbell"
     }
 
-    // MARK: - Sample Day
+    // MARK: - Sample Day (GIF Strip)
 
     @ViewBuilder
     private var sampleDay: some View {
@@ -348,273 +396,270 @@ struct TrainingPlanOfferView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("DAY 1 PREVIEW")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(GQColors.vividPurple.opacity(0.6))
+                    .foregroundStyle(GQColors.textTertiary)
                     .tracking(1.2)
+                    .padding(.horizontal, 20)
 
-                VStack(spacing: 8) {
-                    ForEach(Array(firstDay.exercises.prefix(5).enumerated()), id: \.offset) { index, name in
-                        HStack(spacing: 10) {
-                            if FeatureFlags.shared.exerciseGifsEnabled, ExerciseGifService.shared.hasGif(for: name) {
-                                ExerciseGifView(exerciseName: name, size: .thumbnail, showFallback: false)
-                                    .scaleEffect(0.7)
-                                    .frame(width: 28, height: 28)
-                            } else {
-                                Circle()
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [GQColors.deepBlue.opacity(0.8), GQColors.vividPurple.opacity(0.8)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 8, height: 8)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(Array(firstDay.exercises.prefix(6).enumerated()), id: \.offset) { index, name in
+                            VStack(spacing: 8) {
+                                ExerciseGifView(exerciseName: name, size: .medium)
+                                    .frame(width: 120, height: 120)
+
+                                Text(name)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(GQColors.textPrimary)
+                                    .lineLimit(2, reservesSpace: true)
+                                    .multilineTextAlignment(.center)
+                                    .frame(width: 120)
+
+                                Text(sampleSetsReps(for: index))
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textTertiary)
                             }
-
-                            Text(name)
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(OBTheme.textPrimary)
-
-                            Spacer()
-
-                            Text(sampleSetsReps(for: index))
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(OBTheme.textSecondary)
+                            .padding(10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(GQColors.cardBackground)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .stroke(GQColors.borderDefault, lineWidth: 1)
+                            )
                         }
-                        .padding(.vertical, 4)
                     }
-
-                    if firstDay.exercises.count > 5 {
-                        Text("+ \(firstDay.exercises.count - 5) more")
-                            .font(.system(size: 13))
-                            .foregroundStyle(OBTheme.textSecondary)
-                    }
+                    .padding(.horizontal, 20)
                 }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(OBTheme.card)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(
-                            LinearGradient(
-                                colors: [GQColors.vividPurple.opacity(0.15), GQColors.deepBlue.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: OBTheme.cardShadow, radius: 8, y: 2)
             }
-            .padding(.horizontal, 20)
         }
     }
 
     private func sampleSetsReps(for index: Int) -> String {
-        let sets = [4, 3, 4, 3, 3]
-        let reps = [8, 10, 8, 12, 10]
+        let sets: [Int]
+        let reps: [Int]
+        switch data.goal {
+        case .strength:
+            sets = [5, 5, 4, 3, 3]
+            reps = [3, 5, 5, 6, 5]
+        case .hypertrophy:
+            sets = [4, 3, 4, 3, 3]
+            reps = [8, 10, 10, 12, 12]
+        case .performance:
+            sets = [4, 3, 3, 3, 3]
+            reps = [6, 8, 8, 10, 10]
+        case .general:
+            sets = [3, 3, 3, 3, 3]
+            reps = [10, 12, 12, 15, 12]
+        case .musclePreservation:
+            sets = [4, 3, 4, 3, 3]
+            reps = [8, 10, 8, 12, 10]
+        }
         let s = sets[index % sets.count]
         let r = reps[index % reps.count]
         return "\(s)×\(r)"
     }
 
-    // MARK: - Pricing Section
+    // MARK: - Features Section
 
     @ViewBuilder
-    private var pricingSection: some View {
-        VStack(spacing: 16) {
-            // Free vs Pro comparison
-            HStack(spacing: 12) {
-                comparisonCard(
-                    title: "Free",
-                    features: ["Basic template", "Limited exercises", "No AI adjustments"],
-                    isPro: false
-                )
-                comparisonCard(
-                    title: "Pro",
-                    features: [
-                        "AI adapts your plan every week",
-                        "500+ exercises with guides",
-                        "Auto-progressive overload",
-                        "Real-time form coaching",
-                        "Detailed analytics & insights"
-                    ],
-                    isPro: true
-                )
-            }
-            .padding(.horizontal, 20)
-
-            // Tier selector
-            HStack(spacing: 0) {
-                tierButton(tier: .monthly, label: "$10.99/mo", sublabel: "Monthly")
-                tierButton(tier: .yearly, label: "$79.99/yr", sublabel: "Save 39%")
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(hex: "F0F0F0"))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(OBTheme.cardBorder, lineWidth: 1)
-            )
-            .padding(.horizontal, 20)
+    private var featuresSection: some View {
+        VStack(spacing: 0) {
+            featureRow(icon: "brain.head.profile", title: "AI Weekly Adjustments", desc: "Your plan evolves as you progress", color: GQColors.deepBlue)
+            featureRow(icon: "figure.strengthtraining.traditional", title: "500+ Exercise Library", desc: "Guided demos for every movement", color: GQColors.vividPurple)
+            featureRow(icon: "chart.line.uptrend.xyaxis", title: "Progressive Overload", desc: "Automatic weight & volume tracking", color: GQColors.cyanSpark)
+            featureRow(icon: "clock.arrow.circlepath", title: "Real-Time Coaching", desc: "Form cues and rest timers", color: GQColors.success)
         }
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(GQColors.cardBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(GQColors.borderDefault, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+        .padding(.horizontal, 20)
     }
 
     @ViewBuilder
-    private func comparisonCard(title: String, features: [String], isPro: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(isPro ? GQColors.vividPurple : OBTheme.textSecondary)
+    private func featureRow(icon: String, title: String, desc: String, color: Color) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(color)
+                .frame(width: 36, height: 36)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(color.opacity(0.12))
+                )
 
-                if isPro {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(GQColors.vividPurple)
-                }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(GQColors.textPrimary)
+                Text(desc)
+                    .font(.caption)
+                    .foregroundStyle(GQColors.textSecondary)
             }
 
-            ForEach(features, id: \.self) { feature in
-                HStack(spacing: 6) {
-                    Image(systemName: isPro ? "checkmark.circle.fill" : "xmark.circle")
-                        .font(.system(size: 11))
-                        .foregroundStyle(isPro ? GQColors.vividPurple.opacity(0.7) : Color(hex: "C0C0C0"))
-                    Text(feature)
-                        .font(.system(size: 12))
-                        .foregroundStyle(isPro ? OBTheme.textPrimary : OBTheme.textSecondary)
-                }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    // MARK: - Tier Cards
+
+    private var savingsPercent: Int? {
+        guard let monthly = subscriptionService.monthlyProduct,
+              let yearly = subscriptionService.yearlyProduct else { return nil }
+        let monthlyAnnual = monthly.price * 12
+        guard monthlyAnnual > 0 else { return nil }
+        let saved = (1 - yearly.price / monthlyAnnual) * 100
+        let rounded = NSDecimalNumber(decimal: saved).intValue
+        return rounded > 0 ? rounded : nil
+    }
+
+    @ViewBuilder
+    private var tierCardsSection: some View {
+        VStack(spacing: 12) {
+            if let yearly = subscriptionService.yearlyProduct {
+                let savings = savingsPercent.map { "Save \($0)%" }
+                tierCard(
+                    product: yearly,
+                    label: "Yearly",
+                    savingsText: savings,
+                    priceDetail: "\(yearly.displayPrice)/year"
+                )
+            } else {
+                tierCardFallback(label: "Yearly", price: "$79.99/year", savingsText: "Save 39%", isSelected: selectedProduct == nil)
+            }
+
+            if let monthly = subscriptionService.monthlyProduct {
+                tierCard(
+                    product: monthly,
+                    label: "Monthly",
+                    savingsText: nil,
+                    priceDetail: "\(monthly.displayPrice)/month"
+                )
+            } else {
+                tierCardFallback(label: "Monthly", price: "$10.99/month", savingsText: nil, isSelected: false)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
+        .padding(.horizontal, 20)
+    }
+
+    @ViewBuilder
+    private func tierCard(product: Product, label: String, savingsText: String?, priceDetail: String) -> some View {
+        let isSelected = selectedProduct?.id == product.id
+
+        Button {
+            withAnimation(GQMotion.press) {
+                selectedProduct = product
+            }
+        } label: {
+            tierCardContent(label: label, savingsText: savingsText, priceDetail: priceDetail, isSelected: isSelected)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func tierCardFallback(label: String, price: String, savingsText: String?, isSelected: Bool) -> some View {
+        tierCardContent(label: label, savingsText: savingsText, priceDetail: price, isSelected: isSelected)
+    }
+
+    @ViewBuilder
+    private func tierCardContent(label: String, savingsText: String?, priceDetail: String, isSelected: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(label)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(GQColors.textPrimary)
+
+                    if let savingsText {
+                        Text(savingsText)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(GQColors.vividPurple)
+                    }
+                }
+
+                Text(priceDetail)
+                    .font(.subheadline)
+                    .foregroundStyle(GQColors.textSecondary)
+            }
+
+            Spacer()
+
+            Circle()
+                .fill(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(Color.clear))
+                .frame(width: 22, height: 22)
+                .overlay(
+                    Circle()
+                        .stroke(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.borderProminent), lineWidth: 2)
+                )
+                .overlay {
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+        }
+        .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(
-                    isPro
-                        ? LinearGradient(
-                            colors: [GQColors.vividPurple.opacity(0.04), GQColors.deepBlue.opacity(0.02)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                          )
-                        : LinearGradient(
-                            colors: [Color(hex: "F5F5F5"), Color(hex: "F0F0F0")],
-                            startPoint: .top,
-                            endPoint: .bottom
-                          )
-                )
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(GQColors.deepBlue.opacity(0.03))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(
-                    isPro
-                        ? LinearGradient(colors: [GQColors.vividPurple.opacity(0.3), GQColors.deepBlue.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                        : LinearGradient(colors: [OBTheme.cardBorder], startPoint: .top, endPoint: .bottom),
-                    lineWidth: 1
+                    isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQGradients.glassBorder),
+                    lineWidth: isSelected ? 2 : 1
                 )
         )
-        .shadow(color: isPro ? GQColors.vividPurple.opacity(0.06) : .clear, radius: 8, y: 2)
+        .shadow(
+            color: .black.opacity(isSelected ? 0.10 : 0.06),
+            radius: isSelected ? 12 : 8,
+            y: isSelected ? 4 : 3
+        )
     }
 
-    @ViewBuilder
-    private func tierButton(tier: PricingTier, label: String, sublabel: String) -> some View {
-        let isSelected = selectedTier == tier
-
-        Button {
-            withAnimation(.spring(response: 0.3)) {
-                selectedTier = tier
-            }
-        } label: {
-            VStack(spacing: 2) {
-                Text(label)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(isSelected ? .white : OBTheme.textPrimary)
-                Text(sublabel)
-                    .font(.system(size: 11))
-                    .foregroundStyle(isSelected ? .white.opacity(0.8) : OBTheme.textSecondary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(
-                Group {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [GQColors.deepBlue, GQColors.vividPurple],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                    }
-                }
-            )
-        }
-        .buttonStyle(.plain)
-        .padding(2)
-    }
-
-    // MARK: - CTA Buttons
+    // MARK: - CTA Section
 
     @ViewBuilder
-    private var ctaButtons: some View {
+    private var ctaSection: some View {
         VStack(spacing: 12) {
-            // Start Pro
             Button {
                 purchasePro()
             } label: {
-                HStack(spacing: 8) {
-                    if isPurchasing {
-                        ProgressView()
-                            .tint(.white)
-                    } else {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 14))
-                        Text("Start Pro Plan")
-                            .font(.system(size: 17, weight: .bold))
-                    }
+                if isPurchasing {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Text("Continue")
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background(
-                    Capsule().fill(
-                        LinearGradient(
-                            colors: [GQColors.deepBlue, GQColors.vividPurple],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                )
-                .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 12, y: 4)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PrimaryButtonStyle())
             .disabled(isPurchasing)
+            .opacity(isPurchasing ? 0.5 : 1.0)
 
-            // 7-day free trial note
-            Text("7-day free trial included")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(OBTheme.textSecondary)
+            Text("7-day free trial · Cancel anytime")
+                .font(.caption)
+                .foregroundStyle(GQColors.textTertiary)
 
-            // Start Free
             Button {
                 skipToApp()
             } label: {
-                Text("Start Free")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(OBTheme.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 48)
-                    .background(
-                        Capsule()
-                            .fill(Color(hex: "F0F0F0"))
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(OBTheme.cardBorder, lineWidth: 1)
-                    )
+                Text("Maybe Later")
+                    .font(.subheadline)
+                    .foregroundStyle(GQColors.textSecondary)
             }
             .buttonStyle(.plain)
             .disabled(isPurchasing)
@@ -665,43 +710,31 @@ struct TrainingPlanOfferView: View {
     }
 
     private func purchasePro() {
+        guard let product = selectedProduct else { return }
         isPurchasing = true
 
         Task {
-            let product: Product?
-            switch selectedTier {
-            case .monthly:
-                product = subscriptionService.monthlyProduct
-            case .yearly:
-                product = subscriptionService.yearlyProduct
-            }
-
-            if let product {
-                do {
-                    let success = try await subscriptionService.purchase(product)
-                    if success {
-                        skipToApp()
-                        return
-                    }
-                } catch {
-                    print("Purchase failed: \(error)")
+            do {
+                let success = try await subscriptionService.purchase(product)
+                if success {
+                    skipToApp()
+                    return
                 }
+            } catch {
+                print("Purchase failed: \(error)")
             }
-
             isPurchasing = false
         }
     }
-}
 
-// MARK: - Theme Namespace (local to this file)
-
-private enum OBTheme {
-    static let bg = Color(hex: "F8F8FC")
-    static let card = Color.white
-    static let textPrimary = Color(hex: "1C1C1E")
-    static let textSecondary = Color(hex: "3C3C43").opacity(0.55)
-    static let cardBorder = Color.black.opacity(0.06)
-    static let cardShadow = Color.black.opacity(0.04)
+    private var equipmentIcon: String {
+        switch data.environment {
+        case .gym: return "dumbbell.fill"
+        case .home: return "house.fill"
+        case .both: return "arrow.triangle.2.circlepath"
+        case .outdoor: return "figure.outdoor.cycle"
+        }
+    }
 }
 
 // MARK: - Training Plan Generator
@@ -718,7 +751,6 @@ struct TrainingPlanGenerator {
         equipment: Set<EquipmentType>,
         daysPerWeek: Int
     ) -> GeneratedPlan {
-        let title = "\(goal.rawValue) Plan"
         let weekCount: Int
         switch experience {
         case .beginner: weekCount = 8
@@ -734,7 +766,18 @@ struct TrainingPlanGenerator {
             )
         }
 
+        let splitLabel = splitLabel(for: splitNames, daysPerWeek: daysPerWeek)
+        let title = "\(daysPerWeek)-Day \(splitLabel) \(goal.rawValue)"
+
         return GeneratedPlan(title: title, weekCount: weekCount, days: days)
+    }
+
+    private static func splitLabel(for names: [String], daysPerWeek: Int) -> String {
+        let first = names.first?.lowercased() ?? ""
+        if first.contains("full body") { return "Full Body" }
+        if names.count >= 3 && first.contains("push") { return "Push/Pull/Legs" }
+        if first.contains("upper") { return "Upper/Lower" }
+        return "Split"
     }
 
     private static func splitForDays(_ days: Int) -> [String] {
