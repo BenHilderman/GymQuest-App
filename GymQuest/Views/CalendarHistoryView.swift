@@ -172,7 +172,7 @@ struct CalendarHistoryView: View {
     private func cellBackground(workout: Workout?, isToday: Bool) -> some ShapeStyle {
         if let workout {
             if workout.type == .rest {
-                return AnyShapeStyle(Color(hex: "8E8E93").opacity(0.3))
+                return AnyShapeStyle(GQColors.textTertiary.opacity(0.3))
             }
             return AnyShapeStyle(
                 LinearGradient(

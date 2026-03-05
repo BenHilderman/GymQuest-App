@@ -55,8 +55,8 @@ struct SquadView: View {
                                         .foregroundColor(GQColors.textPrimary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(GQColors.deepBlue.opacity(0.3))
-                                        .cornerRadius(10)
+                                        .background(GQColors.deepBlue.opacity(0.12))
+                                        .cornerRadius(GQRadius.md)
                                 }
 
                                 Button {
@@ -67,8 +67,8 @@ struct SquadView: View {
                                         .foregroundColor(GQColors.textPrimary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(GQColors.cyanSpark.opacity(0.3))
-                                        .cornerRadius(10)
+                                        .background(GQColors.cyanSpark.opacity(0.12))
+                                        .cornerRadius(GQRadius.md)
                                 }
                             }
                             .buttonStyle(GQInteractiveStyle())
@@ -131,11 +131,11 @@ struct EmptySquadView: View {
                         Text("Create a Squad")
                     }
                     .font(.headline)
-                    .foregroundColor(.black)
+                    .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(Color.white)
-                    .cornerRadius(12)
+                    .background(GQColors.cardBackground)
+                    .cornerRadius(GQRadius.md)
                 }
 
                 Button(action: onJoinSquad) {
@@ -147,8 +147,8 @@ struct EmptySquadView: View {
                     .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(GQColors.deepBlue.opacity(0.3))
-                    .cornerRadius(12)
+                    .background(GQColors.deepBlue.opacity(0.12))
+                    .cornerRadius(GQRadius.md)
                 }
             }
             .padding(.horizontal, 40)
@@ -185,11 +185,11 @@ struct SquadCardView: View {
                         if squad.streakWeeks > 0 {
                             HStack(spacing: 4) {
                                 Image(systemName: "flame.fill")
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(GQColors.sunsetOrange)
                                 Text("\(squad.streakWeeks)w")
                             }
                             .font(.system(size: 12))
-                            .foregroundColor(.orange)
+                            .foregroundColor(GQColors.sunsetOrange)
                         }
                     }
                 }
@@ -220,7 +220,7 @@ struct SquadCardView: View {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             Capsule()
-                                .fill(Color.black.opacity(0.06))
+                                .fill(GQColors.overlayLight)
                                 .frame(height: 6)
 
                             Capsule()
@@ -255,7 +255,7 @@ struct SquadCardView: View {
                             // Rank
                             Text("\(index + 1)")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(index == 0 ? .yellow : .gray)
+                                .foregroundColor(index == 0 ? GQColors.prGold : GQColors.textTertiary)
                                 .frame(width: 20)
 
                             // Avatar
@@ -268,7 +268,7 @@ struct SquadCardView: View {
                                     .clipShape(Circle())
                             } else {
                                 Circle()
-                                    .fill(Color.black.opacity(0.06))
+                                    .fill(GQColors.overlayLight)
                                     .frame(width: 28, height: 28)
                                     .overlay(
                                         Text(String(stats.username.prefix(1)))
@@ -279,7 +279,7 @@ struct SquadCardView: View {
 
                             Text(stats.username)
                                 .font(.system(size: 13))
-                                .foregroundColor(stats.userId == profile.id ? .blue : GQColors.textPrimary)
+                                .foregroundColor(stats.userId == profile.id ? GQColors.deepBlue : GQColors.textPrimary)
 
                             Spacer()
 
@@ -298,7 +298,7 @@ struct SquadCardView: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(
                     LinearGradient(
-                        colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
+                        colors: [GQColors.overlayLight, GQColors.overlaySubtle],
                         startPoint: .top,
                         endPoint: .bottom
                     ),
@@ -449,11 +449,11 @@ struct JoinSquadSheet: View {
                 } label: {
                     Text("Join Squad")
                         .font(.headline)
-                        .foregroundColor(.black)
+                        .foregroundColor(GQColors.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(inviteCode.count == 6 ? Color.white : Color.gray)
-                        .cornerRadius(12)
+                        .background(inviteCode.count == 6 ? GQColors.cardBackground : GQColors.overlayMedium)
+                        .cornerRadius(GQRadius.md)
                 }
                 .disabled(inviteCode.count != 6)
                 .padding(.horizontal, 20)
@@ -557,7 +557,7 @@ struct SquadDetailView: View {
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
+                                    colors: [GQColors.overlayLight, GQColors.overlaySubtle],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 ),
@@ -604,8 +604,8 @@ struct SquadDetailView: View {
                             .foregroundColor(GQColors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(GQColors.vividPurple.opacity(0.3))
-                            .cornerRadius(12)
+                            .background(GQColors.vividPurple.opacity(0.12))
+                            .cornerRadius(GQRadius.md)
                         }
                         .buttonStyle(GQInteractiveStyle())
                     }
@@ -632,7 +632,7 @@ struct SquadDetailView: View {
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
+                                    colors: [GQColors.overlayLight, GQColors.overlaySubtle],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 ),
@@ -742,9 +742,9 @@ struct LeaderboardRow: View {
 
     var rankColor: Color {
         switch rank {
-        case 1: return .yellow
-        case 2: return .gray
-        case 3: return .orange
+        case 1: return GQColors.prGold
+        case 2: return GQColors.textTertiary
+        case 3: return GQColors.sunsetOrange
         default: return GQColors.textPrimary.opacity(0.5)
         }
     }
@@ -767,7 +767,7 @@ struct LeaderboardRow: View {
                     .clipShape(Circle())
             } else {
                 Circle()
-                    .fill(Color.black.opacity(0.06))
+                    .fill(GQColors.overlayLight)
                     .frame(width: 36, height: 36)
                     .overlay(
                         Text(String(stats.username.prefix(1)))
@@ -779,7 +779,7 @@ struct LeaderboardRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(stats.username)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(isCurrentUser ? .blue : GQColors.textPrimary)
+                    .foregroundColor(isCurrentUser ? GQColors.deepBlue : GQColors.textPrimary)
 
                 Text("Lv. \(stats.level)")
                     .font(.system(size: 11))
@@ -816,7 +816,7 @@ struct ActiveChallengeCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ACTIVE CHALLENGE")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.purple.opacity(0.8))
+                        .foregroundColor(GQColors.vividPurple.opacity(0.8))
                         .tracking(0.5)
 
                     Text(challenge.title)
@@ -845,17 +845,11 @@ struct ActiveChallengeCard: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Color.black.opacity(0.06))
+                            .fill(GQColors.overlayLight)
                             .frame(height: 10)
 
                         Capsule()
-                            .fill(
-                                LinearGradient(
-                                    colors: [.purple, .blue],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .fill(GQGradients.primary)
                             .frame(width: geo.size.width * progress, height: 10)
                     }
                 }

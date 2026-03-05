@@ -49,19 +49,16 @@ struct ContentView: View {
     @ViewBuilder
     private func mainContent(profile: UserProfile) -> some View {
         ZStack(alignment: .bottom) {
-            // All views rendered simultaneously, visibility controlled by opacity
-            // This prevents the black flash by keeping views pre-rendered
-            ZStack {
-                FeedView(profile: profile)
-                    .opacity(appState.selectedTab == .feed ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .feed)
-
-                ProfileView(profile: profile)
-                    .opacity(appState.selectedTab == .profile ? 1 : 0)
-                    .allowsHitTesting(appState.selectedTab == .profile)
+            Group {
+                switch appState.selectedTab {
+                case .feed: FeedView(profile: profile)
+                case .today: TodayView(profile: profile)
+                case .activity: SocialActivityView(profile: profile)
+                case .profile: ProfileView(profile: profile)
+                case .home: Color.clear
+                }
             }
             .transaction { transaction in
-                // Keep tab changes deterministic with no implicit crossfade animations.
                 transaction.animation = nil
             }
             .ignoresSafeArea(.keyboard)
@@ -119,7 +116,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $appState.showingQuickActions) {
             QuickActionSheet()
-                .presentationDetents([.height(500)])
+                .presentationDetents([.height(260)])
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $appState.showingLogEntry) {
@@ -129,55 +126,11 @@ struct ContentView: View {
             MealLogView(profile: profile)
         }
         .sheet(isPresented: $appState.showingAddMeasurement) {
-            AddMeasurementSheet(profile: profile)
+            AddMeasurementSheet(profile: profile, measurementType: .weight)
         }
         .onAppear {
             AnalyticsService.shared.configure(modelContext: modelContext)
         }
-    }
-}
-
-// MARK: - Tab Bar Notch Shape
-
-struct TabBarNotchShape: Shape {
-    let notchRadius: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        let midX = rect.midX
-        let transition: CGFloat = 8
-        let notchLeft = midX - notchRadius - transition
-        let notchRight = midX + notchRadius + transition
-
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: notchLeft, y: rect.minY))
-
-        // Smooth entry curve into notch
-        path.addQuadCurve(
-            to: CGPoint(x: midX - notchRadius, y: rect.minY + notchRadius * 0.35),
-            control: CGPoint(x: midX - notchRadius - transition * 0.15, y: rect.minY)
-        )
-
-        // Semicircular scoop
-        path.addArc(
-            center: CGPoint(x: midX, y: rect.minY + notchRadius * 0.35),
-            radius: notchRadius,
-            startAngle: .degrees(180),
-            endAngle: .degrees(0),
-            clockwise: true
-        )
-
-        // Smooth exit curve out of notch
-        path.addQuadCurve(
-            to: CGPoint(x: notchRight, y: rect.minY),
-            control: CGPoint(x: midX + notchRadius + transition * 0.15, y: rect.minY)
-        )
-
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.closeSubpath()
-        return path
     }
 }
 
@@ -198,25 +151,33 @@ struct FloatingTabBar: View {
                     }
                 }
 
-                // Center add button
+                FloatingTabButton(tab: .today, icon: "chart.bar", selectedIcon: "chart.bar.fill", label: "Today")
+
+                // Center add button — matches app logo style
                 Button {
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    #endif
                     appState.showingQuickActions = true
                 } label: {
                     ZStack {
                         Circle()
                             .fill(GQGradients.primary)
                             .frame(width: 46, height: 46)
+                            .shadow(color: GQColors.vividPurple.opacity(0.35), radius: 8, y: 2)
 
                         Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.system(size: 22, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }
-                .buttonStyle(GQInteractiveStyle(scaleAmount: 0.90, hapticStyle: .medium))
+                .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
                 .offset(y: -6)
                 .accessibilityLabel("Quick actions")
                 .accessibilityHint("Double tap to start a workout, log entry, or create a post")
+
+                FloatingTabButton(tab: .activity, icon: "heart", selectedIcon: "heart.fill", label: "Activity")
 
                 FloatingTabButton(tab: .profile, icon: "person", selectedIcon: "person.fill", label: "You")
             }
@@ -227,11 +188,11 @@ struct FloatingTabBar: View {
         .padding(.bottom, 4)
         .background(
             ZStack(alignment: .top) {
-                TabBarNotchShape(notchRadius: 17)
+                UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
                     .fill(GQColors.surfaceBase.opacity(0.82))
-                TabBarNotchShape(notchRadius: 17)
+                UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
                     .fill(.ultraThinMaterial)
-                TabBarNotchShape(notchRadius: 17)
+                UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16)
                     .stroke(GQColors.borderSubtle.opacity(0.4), lineWidth: 0.5)
                 // Top divider
                 Rectangle()
@@ -479,15 +440,13 @@ struct QuickActionSheet: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
-            .padding(.bottom, 14)
+            .padding(.bottom, 24)
 
-            VStack(spacing: 10) {
-                quickActionCard(
+            HStack(spacing: 32) {
+                quickActionCircle(
                     icon: "figure.strengthtraining.traditional",
-                    title: "Start Workout",
-                    subtitle: "Begin a live session",
-                    accent: GQColors.vividPurple,
-                    emphasized: true
+                    label: "Start Workout",
+                    accent: GQColors.vividPurple
                 ) {
                     dismiss()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -495,35 +454,10 @@ struct QuickActionSheet: View {
                     }
                 }
 
-                quickActionCard(
-                    icon: "square.and.pencil",
-                    title: "Log Workout",
-                    subtitle: "Log a past session manually",
-                    accent: GQColors.cyanSpark
-                ) {
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        appState.showingLogEntry = true
-                    }
-                }
-
-                quickActionCard(
-                    icon: "camera.fill",
-                    title: "New Post",
-                    subtitle: "Share with friends",
-                    accent: GQColors.sunsetOrange
-                ) {
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        appState.showingCreatePost = true
-                    }
-                }
-
-                quickActionCard(
+                quickActionCircle(
                     icon: "fork.knife",
-                    title: "Log Food",
-                    subtitle: "Track a meal or snack",
-                    accent: Color(hex: "FF9500")
+                    label: "Log Food",
+                    accent: GQColors.sunsetOrange
                 ) {
                     dismiss()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -531,10 +465,9 @@ struct QuickActionSheet: View {
                     }
                 }
 
-                quickActionCard(
+                quickActionCircle(
                     icon: "scalemass.fill",
-                    title: "Log Weight",
-                    subtitle: "Record a body measurement",
+                    label: "Log Weight",
                     accent: GQColors.success
                 ) {
                     dismiss()
@@ -551,45 +484,29 @@ struct QuickActionSheet: View {
     }
 
     @ViewBuilder
-    private func quickActionCard(
+    private func quickActionCircle(
         icon: String,
-        title: String,
-        subtitle: String,
+        label: String,
         accent: Color,
-        emphasized: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(accent.opacity(0.18))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(accent)
-                }
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    Text(subtitle)
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(GQColors.textTertiary)
+            VStack(spacing: 10) {
+                Circle()
+                    .fill(accent.opacity(0.18))
+                    .frame(width: 64, height: 64)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(accent)
+                    )
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                    .multilineTextAlignment(.center)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .homeSocialCard(accent: accent, emphasized: emphasized)
         }
-        .buttonStyle(GQInteractiveStyle())
+        .buttonStyle(.plain)
     }
 }
 

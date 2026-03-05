@@ -50,9 +50,12 @@ struct ActivityView: View {
     private var activityContent: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 14) {
+                VStack(spacing: GQSpacing.xxl) {
                     // GREETING HEADER
                     greetingHeader
+
+                    // HERO METRIC
+                    heroMetricCard
 
                     // WEEK OVERVIEW
                     WeeklyProgressCard(
@@ -181,6 +184,37 @@ struct ActivityView: View {
                 .foregroundColor(GQColors.textSecondary)
         }
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Hero Metric
+
+    private var heroMetricCard: some View {
+        VStack(spacing: 4) {
+            if streak > 0 {
+                HStack(spacing: 8) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: 28))
+                        .foregroundStyle(GQColors.sunsetOrange)
+                    Text("\(streak)")
+                        .font(GQTypography.heroMetric)
+                        .foregroundStyle(GQColors.textPrimary)
+                }
+                Text("day streak")
+                    .font(GQTypography.caption)
+                    .foregroundStyle(GQColors.textSecondary)
+            } else {
+                Text("\(weeklyProgress.completed)")
+                    .font(GQTypography.heroMetric)
+                    .foregroundStyle(GQColors.textPrimary)
+                Text("workouts this week")
+                    .font(GQTypography.caption)
+                    .foregroundStyle(GQColors.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, GQSpacing.xxl)
+        .gqCard(shadow: .elevated)
         .padding(.horizontal, 16)
     }
 

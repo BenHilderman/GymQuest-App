@@ -434,13 +434,19 @@ struct ActiveWorkoutView: View {
                 .animation(.spring(response: 0.5, dampingFraction: 0.8), value: workoutProgress)
 
             // Timer text inside ring
-            Text(formatTime(elapsedTime))
-                .font(GQTypography.heroNumber)
-                .monospacedDigit()
-                .foregroundColor(GQColors.textPrimary)
-                .contentTransition(.numericText())
+            VStack(spacing: 2) {
+                Text(formatTime(elapsedTime))
+                    .font(GQTypography.heroNumber)
+                    .monospacedDigit()
+                    .foregroundColor(GQColors.textPrimary)
+                    .contentTransition(.numericText())
+
+                Text("\(completedSetsCount)/\(totalSetsCount) sets")
+                    .font(GQTypography.micro)
+                    .foregroundStyle(GQColors.textTertiary)
+            }
         }
-        .frame(width: 120, height: 120)
+        .frame(width: 140, height: 140)
     }
 
     // MARK: - Type Badge

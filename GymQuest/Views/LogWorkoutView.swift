@@ -98,8 +98,8 @@ struct LogWorkoutView: View {
         TextField("What's on your mind?", text: $caption, axis: .vertical)
             .lineLimit(3...6)
             .padding(14)
-            .background(Color.black.opacity(0.05))
-            .cornerRadius(12)
+            .background(GQColors.surfaceSecondary)
+            .cornerRadius(GQRadius.md)
     }
 
     @ViewBuilder
@@ -149,8 +149,8 @@ struct LogWorkoutView: View {
                     .foregroundColor(includeWorkout ? GQColors.cyanSpark : .gray.opacity(0.5))
             }
             .padding(16)
-            .background(Color.black.opacity(includeWorkout ? 0.06 : 0.03))
-            .cornerRadius(12)
+            .background(includeWorkout ? GQColors.overlayLight : GQColors.overlaySubtle)
+            .cornerRadius(GQRadius.md)
         }
         .buttonStyle(GQInteractiveStyle())
     }
@@ -162,8 +162,8 @@ struct LogWorkoutView: View {
             exercisesSection
         }
         .padding(16)
-        .background(Color.black.opacity(0.02))
-        .cornerRadius(12)
+        .background(GQColors.overlaySubtle)
+        .cornerRadius(GQRadius.md)
         .padding(.top, 8)
     }
 
@@ -427,7 +427,7 @@ struct MediaSection: View {
                                 }
                                 .foregroundColor(GQColors.textTertiary)
                                 .frame(width: 80, height: 200)
-                                .background(Color.black.opacity(0.03))
+                                .background(GQColors.overlaySubtle)
                                 .cornerRadius(12)
                             }
                         }
@@ -460,11 +460,11 @@ struct MediaSection: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 160)
-                    .background(Color.black.opacity(0.02))
+                    .background(GQColors.overlaySubtle)
                     .cornerRadius(16)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .strokeBorder(Color.black.opacity(0.06), style: StrokeStyle(lineWidth: 1, dash: [6]))
+                            .strokeBorder(GQColors.overlayLight, style: StrokeStyle(lineWidth: 1, dash: [6]))
                     )
                 }
             }
@@ -497,7 +497,7 @@ struct WorkoutTypeChip: View {
             .foregroundColor(isSelected ? .white : GQColors.textPrimary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(isSelected ? GQColors.textPrimary : Color.black.opacity(0.06))
+            .background(isSelected ? GQColors.textPrimary : GQColors.overlayLight)
             .cornerRadius(16)
             .scaleEffect(isSelected ? 1.05 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
@@ -521,7 +521,7 @@ struct DurationChip: View {
                 .foregroundColor(isSelected ? .white : GQColors.textPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(isSelected ? GQColors.textPrimary : Color.black.opacity(0.06))
+                .background(isSelected ? GQColors.textPrimary : GQColors.overlayLight)
                 .cornerRadius(16)
                 .scaleEffect(isSelected ? 1.05 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
@@ -577,7 +577,7 @@ struct ExerciseRow: View {
                             .multilineTextAlignment(.center)
                             .frame(width: 44)
                             .padding(6)
-                            .background(Color.black.opacity(0.03))
+                            .background(GQColors.overlaySubtle)
                             .cornerRadius(6)
                             #if os(iOS)
                             .keyboardType(.numberPad)
@@ -592,7 +592,7 @@ struct ExerciseRow: View {
                             .multilineTextAlignment(.center)
                             .frame(width: 54)
                             .padding(6)
-                            .background(Color.black.opacity(0.03))
+                            .background(GQColors.overlaySubtle)
                             .cornerRadius(6)
                             #if os(iOS)
                             .keyboardType(.decimalPad)
@@ -633,7 +633,7 @@ struct ExerciseRow: View {
             }
         }
         .padding(12)
-        .background(Color.black.opacity(0.02))
+        .background(GQColors.overlaySubtle)
         .cornerRadius(10)
     }
 }
@@ -661,7 +661,7 @@ struct AddExerciseSheet: View {
                     .pickerStyle(.menu)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
-                    .background(Color.black.opacity(0.05))
+                    .background(GQColors.surfaceSecondary)
                     .cornerRadius(12)
                     .onChange(of: selectedExercise) {
                         if let muscle = ExerciseDatabase.exercises[selectedExercise] {
@@ -683,7 +683,7 @@ struct AddExerciseSheet: View {
                     .pickerStyle(.menu)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
-                    .background(Color.black.opacity(0.05))
+                    .background(GQColors.surfaceSecondary)
                     .cornerRadius(12)
                 }
 

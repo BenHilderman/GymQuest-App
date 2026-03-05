@@ -293,6 +293,15 @@ extension View {
 }
 
 // MARK: - Color Palette
+//
+// Active palette (use for all new components):
+//   - deepBlue  (#3D7CFF) — primary brand, buttons, links
+//   - vividPurple (#C95BFF) — secondary accent, AI badges, highlights
+//   - success    (#1ED760) — positive states, streaks, confirmations
+//
+// Deprecated for new use (keep for existing surfaces only):
+//   - cyanSpark, coralRed, sunsetOrange, electricGold
+//
 
 struct GQColors {
     // Energy color cycle - bold, vibrant colors that flow
@@ -359,6 +368,12 @@ struct GQColors {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
+    // Overlay tokens — semantic surface variations
+    static let surfaceSecondary = adaptiveOverlay(0.04)
+    static let overlaySubtle = adaptiveOverlay(0.03)
+    static let overlayLight = adaptiveOverlay(0.05)
+    static let overlayMedium = adaptiveOverlay(0.08)
 
     // Section label color — vibrant uppercase headers
     static let sectionLabel = GQColors.cyanSpark.opacity(0.8)
@@ -437,6 +452,72 @@ struct GQMotion {
     static let press = Animation.spring(response: 0.22, dampingFraction: 0.72)
     static let micro = Animation.spring(response: 0.2, dampingFraction: 0.75)
     static let standard = Animation.easeOut(duration: 0.25)
+}
+
+// MARK: - Shadow System
+
+enum GQShadow {
+    case card
+    case elevated
+    case floating
+
+    var color: Color { Color.black }
+
+    var opacity: Double {
+        switch self {
+        case .card: return 0.06
+        case .elevated: return 0.10
+        case .floating: return 0.16
+        }
+    }
+
+    var radius: CGFloat {
+        switch self {
+        case .card: return 8
+        case .elevated: return 12
+        case .floating: return 20
+        }
+    }
+
+    var y: CGFloat {
+        switch self {
+        case .card: return 3
+        case .elevated: return 4
+        case .floating: return 8
+        }
+    }
+}
+
+extension View {
+    func gqShadow(_ level: GQShadow = .card) -> some View {
+        shadow(color: level.color.opacity(level.opacity), radius: level.radius, y: level.y)
+    }
+}
+
+// MARK: - Unified Card Modifier
+
+struct GQCardModifier: ViewModifier {
+    var cornerRadius: CGFloat
+    var shadow: GQShadow
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(GQColors.cardBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
+            .gqShadow(shadow)
+    }
+}
+
+extension View {
+    func gqCard(cornerRadius: CGFloat = GQRadius.lg, shadow: GQShadow = .card) -> some View {
+        modifier(GQCardModifier(cornerRadius: cornerRadius, shadow: shadow))
+    }
 }
 
 // MARK: - Hex Color Extension
@@ -746,10 +827,14 @@ extension View {
 struct GQTypography {
     static let heroTitle = Font.system(size: 32, weight: .bold)
     static let heroNumber = Font.system(size: 48, weight: .bold, design: .rounded)
+    static let heroMetric = Font.system(size: 56, weight: .bold, design: .rounded)
     static let cardTitle = Font.system(size: 20, weight: .semibold)
+    static let sectionTitle = Font.system(size: 18, weight: .semibold)
     static let sectionHeader = Font.system(size: 12, weight: .bold)
     static let body = Font.system(size: 16, weight: .regular)
+    static let cardBody = Font.system(size: 14, weight: .regular)
     static let caption = Font.system(size: 13, weight: .medium)
+    static let micro = Font.system(size: 10, weight: .medium)
     static let stat = Font.system(size: 28, weight: .bold, design: .rounded)
     static let statLabel = Font.system(size: 11, weight: .medium)
 }
@@ -811,7 +896,7 @@ struct GlassCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(GQColors.borderDefault, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+            .gqShadow(.card)
     }
 }
 
@@ -830,7 +915,7 @@ struct HeroCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: 18)
                     .stroke(GQColors.borderDefault, lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
+            .gqShadow(.elevated)
     }
 }
 
@@ -1121,15 +1206,7 @@ struct WorkoutFlowCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(GQColors.cardBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(GQColors.borderDefault, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(emphasized ? 0.08 : 0.05), radius: emphasized ? 8 : 4, y: emphasized ? 3 : 2)
+            .modifier(GQCardModifier(cornerRadius: cornerRadius, shadow: emphasized ? .elevated : .card))
     }
 }
 
@@ -1148,15 +1225,7 @@ struct HomeSocialCardModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(GQColors.cardBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(GQColors.borderDefault, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(emphasized ? 0.08 : 0.05), radius: emphasized ? 8 : 4, y: emphasized ? 3 : 2)
+            .modifier(GQCardModifier(cornerRadius: cornerRadius, shadow: emphasized ? .elevated : .card))
     }
 }
 
@@ -1738,6 +1807,9 @@ struct MusicEQBars: View {
         .onAppear {
             if isPlaying { animating = true }
         }
+        .onDisappear {
+            animating = false
+        }
         .onChange(of: isPlaying) { _, playing in
             animating = playing
         }
@@ -1752,6 +1824,7 @@ struct MusicPhotoOverlay: View {
     var musicSource: String? = nil
 
     @State private var vinylRotation: Double = 0
+    @State private var isVisible = false
 
     private var isSpotify: Bool { musicSource == "Spotify" }
     private var serviceColor: Color { isSpotify ? Color(hex: "1DB954") : Color(hex: "FC3C44") }
@@ -1815,9 +1888,14 @@ struct MusicPhotoOverlay: View {
                 .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
         )
         .onAppear {
+            isVisible = true
             withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
                 vinylRotation = 360
             }
+        }
+        .onDisappear {
+            isVisible = false
+            vinylRotation = 0
         }
     }
 }
@@ -1955,6 +2033,9 @@ struct MusicBadge: View {
                 animateBars = true
             }
         }
+        .onDisappear {
+            animateBars = false
+        }
     }
 }
 
@@ -2010,6 +2091,9 @@ struct ShimmerEffect: ViewModifier {
                 withAnimation(.linear(duration: 2).repeatForever(autoreverses: false)) {
                     phase = 1
                 }
+            }
+            .onDisappear {
+                phase = 0
             }
     }
 }

@@ -78,7 +78,7 @@ struct TrainingPlanOfferView: View {
     // MARK: - Generating Phase
 
     private let generatingGradient = LinearGradient(
-        colors: [Color(hex: "3D7CFF").opacity(0.55), Color(hex: "D45FAA").opacity(0.45), Color(hex: "FF6B9D").opacity(0.50)],
+        colors: [GQColors.deepBlue.opacity(0.55), GQColors.vividPurple.opacity(0.45), GQColors.coralRed.opacity(0.50)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -87,16 +87,16 @@ struct TrainingPlanOfferView: View {
     private var generatingView: some View {
         ZStack {
             // Soft animated background blobs matching onboarding
-            Color(hex: "F8F8FC").ignoresSafeArea()
+            GQColors.background.ignoresSafeArea()
 
             Circle()
-                .fill(Color(hex: "E8D0F0").opacity(0.25))
+                .fill(GQColors.vividPurple.opacity(0.15))
                 .frame(width: 280, height: 280)
                 .blur(radius: 70)
                 .offset(x: -40 + generatingProgress * 80, y: -80)
 
             Circle()
-                .fill(Color(hex: "D8D0F0").opacity(0.2))
+                .fill(GQColors.vividPurple.opacity(0.12))
                 .frame(width: 220, height: 220)
                 .blur(radius: 60)
                 .offset(x: 60 - generatingProgress * 60, y: 120)
@@ -108,7 +108,7 @@ struct TrainingPlanOfferView: View {
                 ZStack {
                     // Outer track
                     Circle()
-                        .stroke(Color(hex: "C9B8E8").opacity(0.2), lineWidth: 3)
+                        .stroke(GQColors.vividPurple.opacity(0.2), lineWidth: 3)
                         .frame(width: 110, height: 110)
 
                     // Spinning arc
@@ -143,7 +143,7 @@ struct TrainingPlanOfferView: View {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(Color(hex: "C9B8E8").opacity(0.2))
+                                .fill(GQColors.vividPurple.opacity(0.2))
 
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(
@@ -161,20 +161,20 @@ struct TrainingPlanOfferView: View {
 
                     Text("\(Int(generatingProgress * 100))%")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color(hex: "3C3C43").opacity(0.55))
+                        .foregroundStyle(GQColors.textSecondary)
                 }
 
                 // Cycling text in a bubble-style card
                 Text(generatingTexts[generatingTextIndex])
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundColor(Color(hex: "1C1C1E"))
+                    .foregroundColor(GQColors.textPrimary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 14)
                     .background(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [Color.white, Color(hex: "F3EEFF")],
+                                    colors: [GQColors.cardBackground, GQColors.vividPurple.opacity(0.04)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -184,14 +184,14 @@ struct TrainingPlanOfferView: View {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color(hex: "C9B8E8").opacity(0.5), Color(hex: "E8D0F0").opacity(0.4)],
+                                    colors: [GQColors.vividPurple.opacity(0.5), GQColors.vividPurple.opacity(0.25)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
                                 lineWidth: 1.2
                             )
                     )
-                    .shadow(color: Color(hex: "3D7CFF").opacity(0.12), radius: 12, y: 3)
+                    .gqShadow(.card)
                     .animation(.easeInOut(duration: 0.4), value: generatingTextIndex)
                     .padding(.horizontal, 32)
 
@@ -206,22 +206,22 @@ struct TrainingPlanOfferView: View {
     private var summaryView: some View {
         ZStack {
             // Warm floating gradient blobs
-            Color(hex: "F8F8FC").ignoresSafeArea()
+            GQColors.background.ignoresSafeArea()
 
             Circle()
-                .fill(Color(hex: "E8D0F0").opacity(0.25))
+                .fill(GQColors.vividPurple.opacity(0.15))
                 .frame(width: 280, height: 280)
                 .blur(radius: 70)
                 .offset(x: -60, y: -120)
 
             Circle()
-                .fill(Color(hex: "D8D0F0").opacity(0.2))
+                .fill(GQColors.vividPurple.opacity(0.12))
                 .frame(width: 220, height: 220)
                 .blur(radius: 60)
                 .offset(x: 80, y: 200)
 
             Circle()
-                .fill(Color(hex: "FFE0D0").opacity(0.15))
+                .fill(GQColors.sunsetOrange.opacity(0.10))
                 .frame(width: 200, height: 200)
                 .blur(radius: 50)
                 .offset(x: -40, y: 400)
@@ -365,15 +365,7 @@ struct TrainingPlanOfferView: View {
                     }
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(GQColors.cardBackground)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(GQColors.borderDefault, lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+            .gqCard()
             .padding(.horizontal, 20)
         }
     }
@@ -471,15 +463,7 @@ struct TrainingPlanOfferView: View {
             featureRow(icon: "clock.arrow.circlepath", title: "Real-Time Coaching", desc: "Form cues and rest timers", color: GQColors.success)
         }
         .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(GQColors.cardBackground)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(GQColors.borderDefault, lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+        .gqCard()
         .padding(.horizontal, 20)
     }
 
@@ -624,11 +608,7 @@ struct TrainingPlanOfferView: View {
                     lineWidth: isSelected ? 2 : 1
                 )
         )
-        .shadow(
-            color: .black.opacity(isSelected ? 0.10 : 0.06),
-            radius: isSelected ? 12 : 8,
-            y: isSelected ? 4 : 3
-        )
+        .gqShadow(isSelected ? .elevated : .card)
     }
 
     // MARK: - CTA Section

@@ -12,9 +12,9 @@ import SwiftUI
 import SwiftData
 import AVKit
 
-private let profileNeutralAccent = Color.black.opacity(0.12)
-private let profilePrimaryAccent = Color.black.opacity(0.42)
-private let profileFireAccent = Color(hex: "FF9500")
+private let profileNeutralAccent = GQColors.overlayMedium
+private let profilePrimaryAccent = GQColors.adaptiveOverlay(0.42)
+private let profileFireAccent = GQColors.sunsetOrange
 
 struct ProfileView: View {
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
@@ -41,6 +41,12 @@ struct ProfileView: View {
     @State private var weeklyProgress: (completed: Int, target: Int) = (0, 0)
     @State private var readinessLevel: ReadinessLevel = .good
 
+    // Cached computed stats (refreshed on appear and data change)
+    @State private var cachedStreak: Int = 0
+    @State private var cachedVolume: String = "0"
+    @State private var cachedDuration: String = "0h"
+    @State private var cachedWorkoutCount: Int = 0
+
     private var profileAccent: Color {
         profileNeutralAccent
     }
@@ -56,9 +62,7 @@ struct ProfileView: View {
         }
     }
 
-    private var totalWorkoutCount: Int {
-        workouts.filter { $0.type != .rest }.count
-    }
+    private var totalWorkoutCount: Int { cachedWorkoutCount }
 
     var body: some View {
         NavigationStack {
@@ -114,7 +118,7 @@ struct ProfileView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(GQColors.textPrimary)
                             .frame(width: 34, height: 34)
-                            .background(Color.black.opacity(0.05))
+                            .background(GQColors.overlayLight)
                             .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
@@ -144,7 +148,11 @@ struct ProfileView: View {
                 CoachView(profile: profile, workouts: Array(workouts), aiService: AIService())
             }
             .onAppear {
+                refreshProfileStats()
                 loadProfileActivityData()
+            }
+            .onChange(of: workouts.count) { _, _ in
+                refreshProfileStats()
             }
         }
     }
@@ -218,19 +226,19 @@ struct ProfileView: View {
     @ViewBuilder
     private var progressSummaryRow: some View {
         HStack(spacing: 0) {
-            summaryStatItem(value: "\(nonRestWorkouts.count)", label: "Workouts")
+            summaryStatItem(value: "\(cachedWorkoutCount)", label: "Workouts")
 
             Rectangle()
                 .fill(GQColors.borderSubtle)
                 .frame(width: 1, height: 32)
 
-            summaryStatItem(value: "\(currentStreak)", label: "Day Streak")
+            summaryStatItem(value: "\(cachedStreak)", label: "Day Streak")
 
             Rectangle()
                 .fill(GQColors.borderSubtle)
                 .frame(width: 1, height: 32)
 
-            summaryStatItem(value: homeTotalVolumeFormatted, label: "Volume")
+            summaryStatItem(value: cachedVolume, label: "Volume")
         }
         .padding(.vertical, 14)
         .homeSocialCard(cornerRadius: 14)
@@ -248,54 +256,57 @@ struct ProfileView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var currentStreak: Int {
+    // MARK: - Cached Stats Refresh
+
+    private func refreshProfileStats() {
+        let nonRest = workouts.filter { $0.type != .rest }
+        cachedWorkoutCount = nonRest.count
+
+        // Streak calculation
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let sortedDates = nonRestWorkouts
+        let sortedDates = nonRest
             .map { calendar.startOfDay(for: $0.date) }
-            .sorted(by: >)
 
         let uniqueDates = Array(Set(sortedDates)).sorted(by: >)
-        guard let first = uniqueDates.first else { return 0 }
-
-        let daysSinceFirst = calendar.dateComponents([.day], from: first, to: today).day ?? 0
-        guard daysSinceFirst <= 1 else { return 0 }
-
-        var streak = 1
-        for i in 1..<uniqueDates.count {
-            let diff = calendar.dateComponents([.day], from: uniqueDates[i], to: uniqueDates[i - 1]).day ?? 0
-            if diff == 1 {
-                streak += 1
+        if let first = uniqueDates.first {
+            let daysSinceFirst = calendar.dateComponents([.day], from: first, to: today).day ?? 0
+            if daysSinceFirst <= 1 {
+                var streak = 1
+                for i in 1..<uniqueDates.count {
+                    let diff = calendar.dateComponents([.day], from: uniqueDates[i], to: uniqueDates[i - 1]).day ?? 0
+                    if diff == 1 {
+                        streak += 1
+                    } else {
+                        break
+                    }
+                }
+                cachedStreak = streak
             } else {
-                break
+                cachedStreak = 0
             }
+        } else {
+            cachedStreak = 0
         }
-        return streak
-    }
 
-    // MARK: - Activity Computed Properties
-
-    private var nonRestWorkouts: [Workout] {
-        workouts.filter { $0.type != .rest }
-    }
-
-    private var homeTotalVolumeFormatted: String {
+        // Volume
         let volume = workouts.reduce(0.0) { $0 + $1.totalVolume }
         if volume >= 1_000_000 {
-            return String(format: "%.1fM", volume / 1_000_000)
+            cachedVolume = String(format: "%.1fM", volume / 1_000_000)
         } else if volume >= 1_000 {
-            return String(format: "%.1fk", volume / 1_000)
+            cachedVolume = String(format: "%.1fk", volume / 1_000)
+        } else {
+            cachedVolume = "\(Int(volume))"
         }
-        return "\(Int(volume))"
-    }
 
-    private var homeTotalDurationFormatted: String {
+        // Duration
         let totalMinutes = workouts.reduce(0) { $0 + $1.duration }
         let hours = totalMinutes / 60
         if hours >= 1000 {
-            return String(format: "%.1fk", Double(hours) / 1000)
+            cachedDuration = String(format: "%.1fk", Double(hours) / 1000)
+        } else {
+            cachedDuration = "\(hours)h"
         }
-        return "\(hours)h"
     }
 
     private var recentPRs: [PREvent] {
@@ -412,7 +423,7 @@ struct ProfileView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(.red)
+                        .foregroundColor(GQColors.error)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Connect Apple Health")
                             .font(.system(size: 14, weight: .semibold))
@@ -575,7 +586,7 @@ struct ProfileView: View {
         VStack(spacing: 6) {
             ZStack {
                 Circle()
-                    .fill(unlocked ? GQColors.vividPurple.opacity(0.15) : Color.black.opacity(0.04))
+                    .fill(unlocked ? GQColors.vividPurple.opacity(0.15) : GQColors.surfaceSecondary)
                     .frame(width: 48, height: 48)
                 Image(systemName: icon)
                     .font(.system(size: 20))
@@ -608,7 +619,7 @@ struct ProfileView: View {
                         .padding(.vertical, 8)
                         .background(
                             Capsule()
-                                .fill(selectedTopTab == tab ? Color.black.opacity(0.06) : Color.clear)
+                                .fill(selectedTopTab == tab ? GQColors.overlayLight : Color.clear)
                         )
                 }
                 .buttonStyle(.plain)
@@ -675,7 +686,7 @@ struct ProfileView: View {
     private var avatarInitial: some View {
         ZStack {
             Circle()
-                .fill(Color.black.opacity(0.06))
+                .fill(GQColors.overlayLight)
             Text(String(profile.name.prefix(1)).uppercased())
                 .font(.system(size: 30, weight: .bold))
                 .foregroundColor(GQColors.textPrimary)
@@ -693,7 +704,7 @@ struct ProfileView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "heart.text.square.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(Color(hex: "FF3B30"))
+                        .foregroundColor(GQColors.error)
                     Text("EMOTION JOURNEY")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(GQColors.textTertiary)
@@ -725,14 +736,14 @@ struct ProfileView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 14))
-                                .foregroundColor(Color(hex: "FF9500"))
+                                .foregroundColor(GQColors.sunsetOrange)
                             Text("\(insights.resilienceStreak) workouts showing up when it's hard")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(GQColors.textPrimary)
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.04)))
+                        .background(RoundedRectangle(cornerRadius: 12).fill(GQColors.surfaceSecondary))
                     }
 
                     let columns = [GridItem(.adaptive(minimum: 80), spacing: 8)]
@@ -930,7 +941,7 @@ struct WorkoutHistoryRowV2: View {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
                                 .font(.system(size: 11))
-                                .foregroundColor(Color.black.opacity(0.30))
+                                .foregroundColor(GQColors.adaptiveOverlay(0.30))
                             Text("\(workout.duration) min")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -940,7 +951,7 @@ struct WorkoutHistoryRowV2: View {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 11))
-                                .foregroundColor(Color(hex: "FF9500"))
+                                .foregroundColor(GQColors.sunsetOrange)
                             Text("\(workout.totalSets) sets")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -990,7 +1001,7 @@ struct WorkoutHistoryRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
                                 .font(.system(size: 11))
-                                .foregroundColor(Color.black.opacity(0.30))
+                                .foregroundColor(GQColors.adaptiveOverlay(0.30))
                             Text("\(duration) min")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -1000,7 +1011,7 @@ struct WorkoutHistoryRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 11))
-                                .foregroundColor(Color(hex: "FF9500"))
+                                .foregroundColor(GQColors.sunsetOrange)
                             Text("\(sets) sets")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -1035,7 +1046,7 @@ struct WorkoutHistoryRow: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(
                 LinearGradient(
-                    colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
+                    colors: [GQColors.overlayLight, GQColors.overlaySubtle],
                     startPoint: .top,
                     endPoint: .bottom
                 ),
@@ -1049,11 +1060,16 @@ struct WorkoutHistoryRow: View {
 
 struct ProfilePostThumbnail: View {
     let post: Post
+    #if canImport(UIKit)
+    @State private var cachedImage: UIImage?
+    #elseif canImport(AppKit)
+    @State private var cachedImage: NSImage?
+    #endif
 
     var body: some View {
         ZStack {
             #if canImport(UIKit)
-            if let data = post.photoData, let image = UIImage(data: data) {
+            if let image = cachedImage {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -1095,7 +1111,7 @@ struct ProfilePostThumbnail: View {
                     )
             }
             #elseif canImport(AppKit)
-            if let data = post.photoData, let image = NSImage(data: data) {
+            if let image = cachedImage {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -1118,6 +1134,14 @@ struct ProfilePostThumbnail: View {
                             .foregroundColor(profilePrimaryAccent)
                     )
             }
+            #endif
+        }
+        .task {
+            guard cachedImage == nil, let data = post.photoData else { return }
+            #if canImport(UIKit)
+            cachedImage = UIImage(data: data)
+            #elseif canImport(AppKit)
+            cachedImage = NSImage(data: data)
             #endif
         }
         .overlay(alignment: .bottomLeading) {
@@ -1244,7 +1268,7 @@ struct ProfilePostCard: View {
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.black.opacity(0.04), lineWidth: 1)
+                .stroke(GQColors.surfaceSecondary, lineWidth: 1)
         )
     }
 }
@@ -1340,7 +1364,7 @@ struct PostDetailView: View {
                                         .fill(.ultraThinMaterial)
                                         .overlay(
                                             Capsule()
-                                                .stroke(Color.black.opacity(0.13), lineWidth: 1)
+                                                .stroke(GQColors.adaptiveOverlay(0.13), lineWidth: 1)
                                         )
                                 )
                         }
@@ -1640,7 +1664,7 @@ struct SettingsView: View {
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 8)
                                             .frame(maxWidth: .infinity)
-                                            .background(isSelected ? GQColors.vividPurple.opacity(0.15) : Color.black.opacity(0.03))
+                                            .background(isSelected ? GQColors.vividPurple.opacity(0.15) : GQColors.overlaySubtle)
                                             .foregroundColor(isSelected ? GQColors.vividPurple : GQColors.textPrimary)
                                             .cornerRadius(8)
                                             .overlay(
@@ -1730,11 +1754,11 @@ struct SettingsView: View {
                             .padding(.vertical, 10)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.black.opacity(0.04))
+                                    .fill(GQColors.surfaceSecondary)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.black.opacity(0.07), lineWidth: 1)
+                                    .stroke(GQColors.overlayMedium, lineWidth: 1)
                             )
                         }
                         .onChange(of: aiProvider) { _, newValue in
@@ -1902,11 +1926,11 @@ struct SettingsView: View {
                 .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.black.opacity(0.04))
+                        .fill(GQColors.surfaceSecondary)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.black.opacity(0.07), lineWidth: 1)
+                        .stroke(GQColors.overlayMedium, lineWidth: 1)
                 )
         }
     }
@@ -1923,11 +1947,11 @@ struct SettingsView: View {
                 .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.black.opacity(0.04))
+                        .fill(GQColors.surfaceSecondary)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.black.opacity(0.07), lineWidth: 1)
+                        .stroke(GQColors.overlayMedium, lineWidth: 1)
                 )
         }
     }
