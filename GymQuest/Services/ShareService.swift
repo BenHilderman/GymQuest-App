@@ -108,6 +108,21 @@ class ShareService: ObservableObject {
         return nil
     }
 
+    // MARK: - Shareworthy Detection
+
+    enum ShareworthyReason {
+        case prDetected
+        case streakMilestone(Int)
+        case comebackWorkout
+    }
+
+    func isShareworthy(prCount: Int, streakDays: Int, daysSinceLastWorkout: Int?) -> ShareworthyReason? {
+        if prCount > 0 { return .prDetected }
+        if [7, 14, 30, 60, 100].contains(streakDays) { return .streakMilestone(streakDays) }
+        if let days = daysSinceLastWorkout, days >= 7 { return .comebackWorkout }
+        return nil
+    }
+
     // MARK: - Share Sheet
 
     #if canImport(UIKit)
@@ -160,7 +175,7 @@ struct ShareableWorkoutCardV2: View {
         VStack(spacing: 0) {
             // Brand header
             HStack {
-                Text("GYMQUEST")
+                Text("LIFT AI")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(.white.opacity(0.4))
                     .tracking(3)
@@ -229,7 +244,7 @@ struct ShareableWorkoutCardV2: View {
             // Footer branding
             HStack {
                 Spacer()
-                Text("Track your gains")
+                Text("Tracked with Lift AI")
                     .font(.system(size: 10))
                     .foregroundColor(.white.opacity(0.3))
                 Spacer()
@@ -513,7 +528,7 @@ struct ShareablePRCard: View {
         VStack(spacing: 0) {
             // Brand header
             HStack {
-                Text("GYMQUEST")
+                Text("LIFT AI")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(.white.opacity(0.4))
                     .tracking(3)
@@ -615,7 +630,7 @@ struct ShareableWeeklyRecapCard: View {
         VStack(spacing: 0) {
             // Brand header
             HStack {
-                Text("GYMQUEST")
+                Text("LIFT AI")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(.white.opacity(0.4))
                     .tracking(3)

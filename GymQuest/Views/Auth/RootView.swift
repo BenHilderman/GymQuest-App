@@ -71,14 +71,6 @@ struct RootView: View {
 
         if let _ = authService.checkExistingAuth() {
             appState.authState = .authenticated
-        } else {
-            // TEMP: skip login, go straight to onboarding
-            appState.authState = .onboarding(
-                authMethod: "email",
-                email: "test@liftai.app",
-                googleId: nil,
-                tempPassword: "TestPass123!"
-            )
         }
 
         hasCheckedAuth = true

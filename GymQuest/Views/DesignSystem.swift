@@ -25,6 +25,15 @@ final class HapticManager {
     private let notificationGenerator = UINotificationFeedbackGenerator()
     #endif
 
+    private var isEnabled: Bool {
+        #if canImport(UIKit)
+        guard UserDefaults.standard.object(forKey: "hapticFeedbackEnabled") as? Bool ?? true else { return false }
+        return !UIAccessibility.isReduceMotionEnabled
+        #else
+        return false
+        #endif
+    }
+
     private init() {
         #if canImport(UIKit)
         lightGenerator.prepare()
@@ -37,12 +46,14 @@ final class HapticManager {
 
     func tap() {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         lightGenerator.impactOccurred()
         #endif
     }
 
     func select() {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         selectionGenerator.selectionChanged()
         selectionGenerator.prepare()
         #endif
@@ -50,6 +61,7 @@ final class HapticManager {
 
     func impact(_ style: HapticStyle = .medium) {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         switch style {
         case .light: lightGenerator.impactOccurred()
         case .medium: mediumGenerator.impactOccurred()
@@ -60,6 +72,7 @@ final class HapticManager {
 
     func setComplete(setNumber: Int, totalSets: Int) {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         // Progressive intensity: later sets get heavier haptics
         let progress = Double(setNumber) / Double(max(totalSets, 1))
         if progress >= 1.0 {
@@ -84,6 +97,7 @@ final class HapticManager {
 
     func workoutComplete() {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         notificationGenerator.notificationOccurred(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             self.heavyGenerator.impactOccurred()
@@ -96,12 +110,14 @@ final class HapticManager {
 
     func success() {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         notificationGenerator.notificationOccurred(.success)
         #endif
     }
 
     func error() {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         notificationGenerator.notificationOccurred(.error)
         #endif
     }
@@ -126,6 +142,7 @@ final class HapticManager {
 
     func prDetected() {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         heavyGenerator.impactOccurred()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
             self.mediumGenerator.impactOccurred()
@@ -138,6 +155,7 @@ final class HapticManager {
 
     func milestoneReached() {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         heavyGenerator.impactOccurred()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             self.heavyGenerator.impactOccurred()
@@ -151,6 +169,7 @@ final class HapticManager {
 
     func countdownGo() {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         heavyGenerator.impactOccurred()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             self.heavyGenerator.impactOccurred()
@@ -172,6 +191,7 @@ final class HapticManager {
 
     func exerciseComplete() {
         #if canImport(UIKit)
+        guard isEnabled else { return }
         heavyGenerator.impactOccurred()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             self.notificationGenerator.notificationOccurred(.success)
@@ -181,6 +201,298 @@ final class HapticManager {
 
     enum HapticStyle {
         case light, medium, heavy
+    }
+}
+
+// MARK: - Live PR Banner (in-workout overlay)
+
+struct LivePRBanner: View {
+    let exerciseName: String
+    let prType: String
+    let delta: String
+
+    @State private var trophyScale: CGFloat = 0.3
+    @State private var glowOpacity: Double = 1.0
+    @State private var deltaValue: Int = 0
+    @State private var appeared = false
+
+    private var deltaNumber: Int? {
+        let cleaned = delta.replacingOccurrences(of: "+", with: "")
+            .replacingOccurrences(of: " lbs", with: "")
+            .replacingOccurrences(of: " reps", with: "")
+            .replacingOccurrences(of: " lb", with: "")
+        return Int(cleaned)
+    }
+
+    var body: some View {
+        ZStack {
+            HStack(spacing: 10) {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 20))
+                    .foregroundColor(.white)
+                    .scaleEffect(trophyScale)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("NEW \(prType)")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(.white.opacity(0.9))
+                    Text(exerciseName)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                }
+
+                Spacer()
+
+                if let target = deltaNumber {
+                    Text(delta.contains("lbs") ? "+\(deltaValue) lbs" : delta.contains("reps") ? "+\(deltaValue) reps" : "+\(deltaValue)")
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .foregroundColor(.white)
+                        .contentTransition(.numericText())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(.white.opacity(0.2)))
+                        .onAppear {
+                            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                                deltaValue = target
+                            }
+                        }
+                } else {
+                    Text(delta)
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(.white.opacity(0.2)))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(
+                        LinearGradient(
+                            colors: [GQColors.prGold, GQColors.prGold.opacity(0.8), Color.orange],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .opacity(glowOpacity)
+            )
+            .animatedGradientBorder(
+                cornerRadius: 14,
+                lineWidth: 1.5,
+                colors: [GQColors.prGold, .white.opacity(0.6), GQColors.prGold],
+                duration: 3.0
+            )
+            .shadow(color: GQColors.prGold.opacity(0.4), radius: 12, y: 4)
+            .padding(.horizontal, 16)
+
+            MiniConfettiBurst()
+                .allowsHitTesting(false)
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                trophyScale = 1.0
+            }
+            withAnimation(
+                .easeInOut(duration: 1.2)
+                .repeatForever(autoreverses: true)
+            ) {
+                glowOpacity = 0.85
+            }
+        }
+    }
+}
+
+// MARK: - Mini Confetti Burst
+
+struct MiniConfettiBurst: View {
+    @State private var particles: [ConfettiParticle] = []
+    @State private var isAnimating = false
+
+    let colors: [Color] = [GQColors.prGold, .orange, .yellow, .white]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(particles) { particle in
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(particle.color)
+                        .frame(width: particle.size.width, height: particle.size.height)
+                        .rotationEffect(.degrees(isAnimating ? particle.spinEnd : particle.spinStart))
+                        .position(
+                            x: isAnimating ? particle.endX : geo.size.width / 2,
+                            y: isAnimating ? particle.endY : geo.size.height * 0.2
+                        )
+                        .opacity(isAnimating ? 0 : 1)
+                }
+            }
+            .onAppear {
+                particles = (0..<20).map { _ in
+                    ConfettiParticle(
+                        color: colors.randomElement() ?? .white,
+                        size: CGSize(width: CGFloat.random(in: 3...7), height: CGFloat.random(in: 6...12)),
+                        endX: CGFloat.random(in: -20...geo.size.width + 20),
+                        endY: CGFloat.random(in: geo.size.height * 0.4...geo.size.height + 60),
+                        spinStart: Double.random(in: 0...360),
+                        spinEnd: Double.random(in: 360...720)
+                    )
+                }
+                withAnimation(.easeOut(duration: 1.0)) {
+                    isAnimating = true
+                }
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+// MARK: - PR Badge Card (completion screen)
+
+struct PRBadgeCard: View {
+    let exerciseName: String
+    let prType: String
+    let delta: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                AnimatedGradientCircle(
+                    size: 40,
+                    lineWidth: 2,
+                    colors: [GQColors.prGold, .orange, GQColors.prGold],
+                    duration: 6
+                )
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(GQColors.prGold)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(prType)
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundColor(GQColors.prGold)
+                Text(exerciseName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+
+            Spacer()
+
+            Text(delta)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.prGold)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(
+                    RadialGradient(
+                        colors: [GQColors.prGold.opacity(0.08), GQColors.cardBackground],
+                        center: .leading,
+                        startRadius: 0,
+                        endRadius: 200
+                    )
+                )
+        )
+        .animatedGradientBorder(
+            cornerRadius: 12,
+            lineWidth: 1.5,
+            colors: [GQColors.prGold, .white.opacity(0.6), GQColors.prGold],
+            duration: 4
+        )
+    }
+}
+
+// MARK: - Coach Insight Card
+
+struct CoachInsightCard: View {
+    let message: String
+    let icon: String
+    let tintColor: Color
+
+    @State private var iconRotation: Double = -10
+    @State private var accentPulse: Double = 0.6
+
+    init(message: String, icon: String = "sparkles", tintColor: Color = GQColors.deepBlue) {
+        self.message = message
+        self.icon = icon
+        self.tintColor = tintColor
+    }
+
+    private var isFlameInsight: Bool { icon == "flame.fill" }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(tintColor)
+                .frame(width: 3)
+                .opacity(accentPulse)
+
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(tintColor)
+                    .rotationEffect(.degrees(iconRotation))
+
+                Text(message)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(2)
+
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+        .background(RoundedRectangle(cornerRadius: 12).fill(GQColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(tintColor.opacity(0.2), lineWidth: 1))
+        .conditionalAnimatedBorder(
+            enabled: isFlameInsight,
+            cornerRadius: 12,
+            lineWidth: 1.5,
+            colors: [GQColors.success, GQColors.cyanSpark, GQColors.success],
+            duration: 5
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
+                iconRotation = 0
+            }
+            withAnimation(
+                .easeInOut(duration: 0.6)
+            ) {
+                accentPulse = 1.0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(.easeInOut(duration: 0.6)) {
+                    accentPulse = 0.6
+                }
+            }
+        }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func conditionalAnimatedBorder(
+        enabled: Bool,
+        cornerRadius: CGFloat,
+        lineWidth: CGFloat,
+        colors: [Color],
+        duration: Double
+    ) -> some View {
+        if enabled {
+            self.animatedGradientBorder(
+                cornerRadius: cornerRadius,
+                lineWidth: lineWidth,
+                colors: colors,
+                duration: duration
+            )
+        } else {
+            self
+        }
     }
 }
 
@@ -443,7 +755,7 @@ struct GQLayout {
     static let screenHorizontal: CGFloat = GQSpacing.screenHorizontal
     static let sectionSpacing: CGFloat = GQSpacing.lg
     static let pageTop: CGFloat = 10
-    static let pageBottom: CGFloat = 120
+    static let pageBottom: CGFloat = 90
     static let cardHorizontal: CGFloat = 14
     static let cardVertical: CGFloat = 13
 }

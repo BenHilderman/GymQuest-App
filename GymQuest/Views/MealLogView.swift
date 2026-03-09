@@ -18,7 +18,6 @@ struct MealLogView: View {
     @State private var foodText = ""
     @State private var photoItem: PhotosPickerItem?
     @State private var photoData: Data?
-    @State private var suggestedTags: [String] = []
     @State private var showingCamera = false
     @State private var showLoggedOverlay = false
     @State private var editingCalories = false
@@ -29,14 +28,9 @@ struct MealLogView: View {
     @State private var manualProtein = ""
     @State private var manualCarbs = ""
     @State private var manualFat = ""
-    @State private var servingWeightText = ""
-
-    private var servingWeight: Int? {
-        Int(servingWeightText)
-    }
 
     private var estimation: FoodNutritionEstimator.NutritionInfo {
-        FoodNutritionEstimator.estimate(from: foodText, weightGrams: servingWeight)
+        FoodNutritionEstimator.estimate(from: foodText, weightGrams: nil)
     }
 
     private var calories: Int { Int(manualCalories) ?? estimation.calories }
@@ -44,207 +38,40 @@ struct MealLogView: View {
     private var carbs: Int { Int(manualCarbs) ?? estimation.carbs }
     private var fat: Int { Int(manualFat) ?? estimation.fat }
 
-    private var mealAccent: Color {
-        switch guessMealType() {
-        case .breakfast: return GQColors.electricGold
-        case .lunch: return GQColors.cyanSpark
-        case .dinner: return GQColors.vividPurple
-        case .snack: return GQColors.success
-        case .preworkout: return GQColors.sunsetOrange
-        case .postworkout: return GQColors.coralRed
-        }
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 24) {
-                    // Text area
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("WHAT DID YOU EAT?")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.gray)
-                            .tracking(0.5)
+                VStack(spacing: 20) {
+                    // 1. Input row — photo + camera
+                    inputRow
 
-                        HStack(alignment: .top, spacing: 8) {
-                            TextField("e.g., 2 eggs, toast, coffee", text: $foodText, axis: .vertical)
-                                .lineLimit(3...6)
-                                .textFieldStyle(.plain)
-                                .padding()
-                                .background(Color.black.opacity(0.05))
-                                .cornerRadius(12)
+                    // 2. Photo preview
+                    photoPreview
 
-                            if FeatureFlags.shared.voiceNotesEnabled {
-                                MealDictationButton(foodText: $foodText)
-                                    .padding(.top, 12)
-                            }
-                        }
-                    }
+                    // 3. Text field
+                    foodInputSection
 
-                    // Serving size input
+                    // 4. Nutrition pills
                     if !foodText.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("SERVING SIZE")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.gray)
-                                .tracking(0.5)
-
-                            HStack(spacing: 10) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "scalemass")
-                                        .font(.system(size: 14))
-                                        .foregroundColor(GQColors.cyanSpark)
-                                    TextField("Weight", text: $servingWeightText)
-                                        #if os(iOS)
-                                        .keyboardType(.numberPad)
-                                        #endif
-                                        .textFieldStyle(.plain)
-                                    Text("g")
-                                        .foregroundColor(GQColors.textSecondary)
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .background(Color.black.opacity(0.05))
-                                .cornerRadius(10)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(Color.black.opacity(0.08), lineWidth: 1)
-                                )
-
-                                if let serving = FoodNutritionEstimator.defaultServing(for: foodText) {
-                                    Button {
-                                        servingWeightText = "\(serving.grams)"
-                                    } label: {
-                                        Text("\(serving.grams)g — \(serving.description)")
-                                            .font(.system(size: 12, weight: .medium))
-                                            .foregroundColor(GQColors.cyanSpark)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 8)
-                                            .background(GQColors.cyanSpark.opacity(0.12))
-                                            .cornerRadius(8)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-
-                            if servingWeight == nil {
-                                Text("Leave empty for default serving")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.gray.opacity(0.6))
-                            }
-                        }
+                        nutritionSection
                     }
 
-                    // Auto-estimated nutrition row
-                    if !foodText.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("ESTIMATED NUTRITION")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(.gray)
-                                .tracking(0.5)
-
-                            HStack(spacing: 8) {
-                                nutritionPill(label: "Cal", value: calories, color: .orange, editing: $editingCalories, manualValue: $manualCalories)
-                                nutritionPill(label: "Protein", value: protein, color: GQColors.cyanSpark, editing: $editingProtein, manualValue: $manualProtein)
-                                nutritionPill(label: "Carbs", value: carbs, color: GQColors.vividPurple, editing: $editingCarbs, manualValue: $manualCarbs)
-                                nutritionPill(label: "Fat", value: fat, color: GQColors.sunsetOrange, editing: $editingFat, manualValue: $manualFat)
-                            }
-
-                            Text("Tap a value to edit manually")
-                                .font(.system(size: 10))
-                                .foregroundColor(.gray.opacity(0.6))
+                    // 5. Log button
+                    Button { logMeal() } label: {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("Log")
                         }
                     }
-
-                    // Optional photo
-                    if let photoData = photoData {
-                        #if canImport(UIKit)
-                        if let uiImage = UIImage(data: photoData) {
-                            Image(uiImage: uiImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(height: 180)
-                                .frame(maxWidth: .infinity)
-                                .clipShape(RoundedRectangle(cornerRadius: 14))
-                                .overlay(alignment: .topTrailing) {
-                                    Button {
-                                        self.photoData = nil
-                                        self.photoItem = nil
-                                    } label: {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .font(.system(size: 22))
-                                            .foregroundColor(GQColors.textPrimary)
-                                            .shadow(radius: 2)
-                                    }
-                                    .padding(8)
-                                }
-                        }
-                        #endif
-                    } else {
-                        PhotosPicker(selection: $photoItem, matching: .images) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "camera.fill")
-                                    .font(.system(size: 16))
-                                Text("Add Photo")
-                                    .font(.system(size: 14, weight: .medium))
-                            }
-                            .foregroundColor(GQColors.textSecondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.black.opacity(0.04))
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    // Action buttons
-                    VStack(spacing: 10) {
-                        Button { logMeal(share: false) } label: {
-                            HStack {
-                                Image(systemName: "checkmark.circle.fill")
-                                Text("Log")
-                            }
-                            .font(.headline)
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Color.white)
-                            .cornerRadius(12)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(foodText.trimmingCharacters(in: .whitespaces).isEmpty)
-
-                        Button { logMeal(share: true) } label: {
-                            HStack {
-                                Image(systemName: "square.and.arrow.up")
-                                Text("Log & Share")
-                            }
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                LinearGradient(
-                                    colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(12)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(foodText.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(foodText.trimmingCharacters(in: .whitespaces).isEmpty)
 
                     Spacer(minLength: 40)
                 }
-                .padding(.bottom, 120)
+                .padding(.horizontal)
+                .padding(.bottom, 80)
             }
-            .background(GQColors.background.ignoresSafeArea())
+            .gqPageBackground()
             .navigationTitle("Log Food")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -257,12 +84,10 @@ struct MealLogView: View {
             .onChange(of: photoItem) { _, newItem in
                 Task {
                     if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                        HapticManager.shared.tap()
                         photoData = data
                     }
                 }
-            }
-            .onAppear {
-                loadSuggestedTags()
             }
             #if os(iOS)
             .sheet(isPresented: $showingCamera) {
@@ -288,119 +113,118 @@ struct MealLogView: View {
         }
     }
 
-    private func sectionTitle(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(.system(size: 11, weight: .bold))
-            .foregroundColor(GQColors.textTertiary)
-            .tracking(0.5)
-    }
+    // MARK: - Subviews
 
-    private func loadSuggestedTags() {
-        let service = NutritionService.shared
-        service.configure(modelContext: modelContext)
-        suggestedTags = service.getSuggestedTags(userId: profile.id, mealType: guessMealType())
-    }
-}
-
-// MARK: - Supporting Views
-
-struct MealTypeChip: View {
-    let type: MealType
-    let isSelected: Bool
-    let action: () -> Void
-
-    private var accent: Color {
-        switch type {
-        case .breakfast: return GQColors.electricGold
-        case .lunch: return GQColors.cyanSpark
-        case .dinner: return GQColors.vividPurple
-        case .snack: return GQColors.success
-        case .preworkout: return GQColors.sunsetOrange
-        case .postworkout: return GQColors.coralRed
-        }
-    }
-
-    var body: some View {
-        Button {
-            HapticManager.shared.select()
-            action()
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: type.icon)
-                Text(type.rawValue)
-            }
-            .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
-            .foregroundColor(isSelected ? .white : GQColors.textPrimary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected ? accent.opacity(0.85) : Color.black.opacity(0.05))
-            )
-            .overlay(
-                Capsule()
-                    .stroke(isSelected ? accent.opacity(0.55) : Color.black.opacity(0.08), lineWidth: 1)
-            )
-        }
-        .buttonStyle(GQInteractiveStyle())
-    }
-}
-
-struct TagChip: View {
-    let tag: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button {
-            HapticManager.shared.tap()
-            action()
-        } label: {
-            Text(tag)
-                .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
-                .foregroundColor(isSelected ? .white : GQColors.textSecondary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(isSelected ? GQColors.cyanSpark.opacity(0.34) : Color.black.opacity(0.05))
-                .cornerRadius(16)
+    @ViewBuilder
+    private var inputRow: some View {
+        HStack(spacing: 12) {
+            PhotosPicker(selection: $photoItem, matching: .images) {
+                HStack(spacing: 6) {
+                    Image(systemName: "photo.on.rectangle")
+                        .font(.system(size: 16))
+                    Text("Photo")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .foregroundColor(GQColors.textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(GQColors.surfaceBase)
+                .cornerRadius(12)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(isSelected ? GQColors.cyanSpark.opacity(0.6) : Color.black.opacity(0.08), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(GQColors.borderDefault, lineWidth: 1)
                 )
-        }
-        .buttonStyle(GQInteractiveStyle())
-    }
-}
-
-struct FeelingButton: View {
-    let feeling: MealFeeling
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button {
-            HapticManager.shared.select()
-            action()
-        } label: {
-            VStack(spacing: 6) {
-                Text(feeling.emoji)
-                    .font(.system(size: 24))
-                    .scaleEffect(isSelected ? 1.15 : 1.0)
-                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isSelected)
-                Text(feeling.rawValue)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(isSelected ? .white : GQColors.textSecondary)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(isSelected ? feeling.color.opacity(0.25) : Color.black.opacity(0.04))
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(isSelected ? feeling.color.opacity(0.7) : Color.black.opacity(0.06), lineWidth: 1)
-            )
+            .buttonStyle(.plain)
+
+            #if os(iOS)
+            Button {
+                showingCamera = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 16))
+                    Text("Camera")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .foregroundColor(GQColors.textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(GQColors.surfaceBase)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(GQColors.borderDefault, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            #endif
         }
-        .buttonStyle(GQInteractiveStyle())
+    }
+
+    @ViewBuilder
+    private var photoPreview: some View {
+        if let photoData = photoData {
+            #if canImport(UIKit)
+            if let uiImage = UIImage(data: photoData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(height: 180)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(alignment: .topTrailing) {
+                        Button {
+                            self.photoData = nil
+                            self.photoItem = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundColor(GQColors.textPrimary)
+                                .shadow(radius: 2)
+                        }
+                        .padding(8)
+                    }
+            }
+            #endif
+        }
+    }
+
+    @ViewBuilder
+    private var foodInputSection: some View {
+        HStack(alignment: .top, spacing: 8) {
+            TextField("What did you eat?", text: $foodText, axis: .vertical)
+                .lineLimit(2...4)
+                .textFieldStyle(.plain)
+                .padding()
+                .background(GQColors.surfaceBase)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(GQColors.borderDefault, lineWidth: 1)
+                )
+
+            if FeatureFlags.shared.voiceNotesEnabled {
+                MealDictationButton(foodText: $foodText)
+                    .padding(.top, 12)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var nutritionSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                nutritionPill(label: "Cal", value: calories, color: .orange, editing: $editingCalories, manualValue: $manualCalories)
+                nutritionPill(label: "Protein", value: protein, color: GQColors.cyanSpark, editing: $editingProtein, manualValue: $manualProtein)
+                nutritionPill(label: "Carbs", value: carbs, color: GQColors.vividPurple, editing: $editingCarbs, manualValue: $manualCarbs)
+                nutritionPill(label: "Fat", value: fat, color: GQColors.sunsetOrange, editing: $editingFat, manualValue: $manualFat)
+            }
+
+            Text("Tap a value to edit manually")
+                .font(.system(size: 10))
+                .foregroundColor(GQColors.textTertiary)
+        }
     }
 }
 
@@ -443,7 +267,7 @@ extension MealLogView {
         .buttonStyle(GQInteractiveStyle())
     }
 
-    func logMeal(share: Bool) {
+    func logMeal() {
         let service = NutritionService.shared
         service.configure(modelContext: modelContext)
 
@@ -456,22 +280,18 @@ extension MealLogView {
             feeling: .good,
             notes: ""
         ) {
-            // Update nutrition estimates on the saved meal
             meal.estimatedCalories = calories
             meal.estimatedProtein = protein
             meal.estimatedCarbs = carbs
             meal.estimatedFat = fat
-
-            if share {
-                meal.privacy = .publicFeed
-            }
         }
 
         try? modelContext.save()
+        HapticManager.shared.success()
         dismiss()
     }
 
-    private func guessMealType() -> MealType {
+    func guessMealType() -> MealType {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
         case 5...10: return .breakfast
@@ -668,7 +488,6 @@ struct MealSummaryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Photo or icon
             #if canImport(UIKit)
             if let photoData = meal.photoData,
                let uiImage = UIImage(data: photoData) {
@@ -697,7 +516,7 @@ struct MealSummaryRow: View {
                 } else {
                     Text(meal.mealType.rawValue)
                         .font(.system(size: 11))
-                        .foregroundColor(.gray)
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
 
@@ -712,11 +531,11 @@ struct MealSummaryRow: View {
     private var mealIconFallback: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.black.opacity(0.06))
+                .fill(GQColors.surfaceBase)
                 .frame(width: 44, height: 44)
 
             Image(systemName: meal.mealType.icon)
-                .foregroundColor(.gray)
+                .foregroundColor(GQColors.textTertiary)
         }
     }
 }

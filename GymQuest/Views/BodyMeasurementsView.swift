@@ -105,7 +105,7 @@ struct BodyMeasurementsView: View {
             }
         }
         .sheet(isPresented: $showingAddMeasurement) {
-            AddMeasurementSheet(profile: profile)
+            AddMeasurementSheet(profile: profile, measurementType: selectedType)
         }
     }
 
@@ -306,45 +306,49 @@ struct MeasurementTypeRow: View {
 struct AddMeasurementSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: \BodyMeasurement.date, order: .reverse) private var allMeasurements: [BodyMeasurement]
 
     let profile: UserProfile
+    let measurementType: MeasurementType
 
-    @State private var selectedType: MeasurementType = .weight
     @State private var value: String = ""
-    @State private var date: Date = Date()
-    @State private var notes: String = ""
+
+    private var lastMeasurement: BodyMeasurement? {
+        allMeasurements
+            .first { $0.userId == profile.id && $0.type == measurementType }
+    }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Measurement Type") {
-                    Picker("Type", selection: $selectedType) {
-                        ForEach(MeasurementType.allCases, id: \.self) { type in
-                            Text(type.rawValue).tag(type)
-                        }
-                    }
-                }
+            VStack(spacing: 24) {
+                Spacer()
 
-                Section("Value") {
-                    HStack {
-                        TextField("0.0", text: $value)
-                            .keyboardType(.decimalPad)
+                HStack(spacing: 4) {
+                    TextField(lastMeasurement.map { String(format: "%.1f", $0.value) } ?? "0.0", text: $value)
+                        #if os(iOS)
+                        .keyboardType(.decimalPad)
+                        #endif
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundColor(GQColors.textPrimary)
+                        .multilineTextAlignment(.center)
 
-                        Text(selectedType.unit)
-                            .foregroundColor(GQColors.textTertiary)
-                    }
+                    Text(measurementType.unit)
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
                 }
+                .padding(.horizontal, 24)
 
-                Section("Date") {
-                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                Button { saveMeasurement() } label: {
+                    Text("Save")
                 }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(value.isEmpty)
+                .padding(.horizontal)
 
-                Section("Notes (Optional)") {
-                    TextField("Any notes...", text: $notes, axis: .vertical)
-                        .lineLimit(3...5)
-                }
+                Spacer()
             }
-            .navigationTitle("Add Measurement")
+            .gqPageBackground()
+            .navigationTitle("Log \(measurementType.rawValue)")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -352,15 +356,9 @@ struct AddMeasurementSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveMeasurement()
-                    }
-                    .disabled(value.isEmpty)
-                }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.height(220)])
     }
 
     private func saveMeasurement() {
@@ -368,10 +366,10 @@ struct AddMeasurementSheet: View {
 
         let measurement = BodyMeasurement(
             userId: profile.id,
-            type: selectedType,
+            type: measurementType,
             value: numValue,
-            date: date,
-            notes: notes.isEmpty ? nil : notes
+            date: Date(),
+            notes: nil
         )
 
         modelContext.insert(measurement)

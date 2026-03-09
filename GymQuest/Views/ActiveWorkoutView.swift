@@ -19,6 +19,74 @@ struct LiveWorkoutStatus {
     var completedSets: Int
     var totalSets: Int
 }
+
+// MARK: - Coach Insight
+
+struct CoachInsight: Identifiable {
+    let id = UUID()
+    let message: String
+    let icon: String
+    let tintColor: Color
+
+    enum InsightType {
+        case progress, suggestion, warning, celebration
+    }
+}
+
+// MARK: - Workout Insight Engine
+
+struct WorkoutInsightEngine {
+    static func generateSetInsight(
+        exerciseName: String,
+        currentWeight: Double,
+        currentReps: Int,
+        previousWeight: Double?,
+        previousReps: Int?,
+        overloadSuggestion: OverloadSuggestion?
+    ) -> CoachInsight? {
+        guard currentWeight > 0, currentReps > 0 else { return nil }
+
+        // Weight increase detection
+        if let prevW = previousWeight, prevW > 0, currentWeight > prevW {
+            let delta = Int(currentWeight - prevW)
+            return CoachInsight(
+                message: "You're lifting \(delta) lbs more than last session on \(exerciseName)!",
+                icon: "flame.fill",
+                tintColor: GQColors.success
+            )
+        }
+
+        // Volume increase detection
+        if let prevW = previousWeight, let prevR = previousReps, prevW > 0, prevR > 0 {
+            let currentVol = currentWeight * Double(currentReps)
+            let previousVol = prevW * Double(prevR)
+            if currentVol > previousVol {
+                let pctIncrease = Int(((currentVol - previousVol) / previousVol) * 100)
+                if pctIncrease >= 5 {
+                    return CoachInsight(
+                        message: "Set volume up \(pctIncrease)% vs last session. Keep pushing!",
+                        icon: "chart.line.uptrend.xyaxis",
+                        tintColor: GQColors.success
+                    )
+                }
+            }
+        }
+
+        // Same weight, encourage progression
+        if let prevW = previousWeight, prevW > 0, currentWeight == prevW {
+            if let suggestion = overloadSuggestion, suggestion.direction == .increase {
+                return CoachInsight(
+                    message: "Matching last session. Try \(Int(suggestion.suggestedWeight)) lbs next set?",
+                    icon: "arrow.up.right",
+                    tintColor: GQColors.deepBlue
+                )
+            }
+        }
+
+        return nil
+    }
+}
+
 // MARK: - Active Workout Session
 
 struct ActiveWorkoutView: View {
@@ -54,6 +122,24 @@ struct ActiveWorkoutView: View {
     @State private var locationService = LocationTrackingService.shared
     @State private var isTrackingLocation = false
     @State private var overloadSuggestions: [String: OverloadSuggestion] = [:]
+    @State private var showingPostWorkoutPaywall = false
+    @AppStorage("hasSeenPostWorkoutPaywall") private var hasSeenPostWorkoutPaywall = false
+
+    // PR celebration state
+    @State private var activePRBanner: LivePREvent?
+    @State private var showPRConfetti = false
+    @State private var livePRsDetected: [LivePREvent] = []
+    @State private var prBannerTimer: Timer?
+
+    // Completion experience state
+    @State private var showingCompletionExperience = false
+    @State private var detectedPRMoments: [PRMoment] = []
+    @State private var didLevelUp = false
+    @State private var previousLevel: Int = 0
+    @State private var xpEarned: Int = 0
+
+    // Coach insight state
+    @State private var activeCoachInsight: CoachInsight?
 
     let customTitle: String?
 
@@ -153,6 +239,12 @@ struct ActiveWorkoutView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
+                // Coach insight card during rest
+                if isResting, let insight = activeCoachInsight {
+                    CoachInsightCard(message: insight.message, icon: insight.icon, tintColor: insight.tintColor)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 // Live GPS stats bar for cardio tracking
                 if isTrackingLocation {
                     LiveGPSStatsBar(
@@ -170,8 +262,14 @@ struct ActiveWorkoutView: View {
                                 exercise: $exercise,
                                 workoutTypeColors: workoutTypeColors,
                                 onShowDemo: { showFormPeek(for: exercise.name) },
-                                onSetCompleted: { exerciseName in startRestTimer(exerciseName: exerciseName) },
-                                overloadSuggestion: overloadSuggestions[exercise.name]
+                                onSetCompleted: { exerciseName in
+                                    startRestTimer(exerciseName: exerciseName)
+                                    WorkoutDraft.save(workoutType: workoutType, customTitle: customTitle, startTime: workoutStartTime, exercises: exercises)
+                                },
+                                overloadSuggestion: overloadSuggestions[exercise.name],
+                                onPRDetected: { pr in
+                                    handleLivePR(pr)
+                                }
                             )
                             .staggeredAppear(index: index, stagger: 0.06)
                         }
@@ -201,6 +299,25 @@ struct ActiveWorkoutView: View {
                     Spacer()
                 }
                 .padding(.top, 60)
+            }
+
+            // PR celebration banner overlay
+            if let pr = activePRBanner {
+                VStack {
+                    LivePRBanner(
+                        exerciseName: pr.exerciseName,
+                        prType: pr.type.label,
+                        delta: pr.displayDelta
+                    )
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    Spacer()
+                }
+                .padding(.top, 60)
+            }
+
+            // Mini confetti burst for PRs
+            if showPRConfetti {
+                MiniConfettiBurst()
             }
 
             #if canImport(UIKit)
@@ -246,6 +363,7 @@ struct ActiveWorkoutView: View {
         .onDisappear {
             timer?.invalidate()
             restTimer?.invalidate()
+            prBannerTimer?.invalidate()
             partyService.stopParty()
             if isTrackingLocation {
                 locationService.stopTracking()
@@ -255,6 +373,9 @@ struct ActiveWorkoutView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isResting && !restTimerHidden)
         .sheet(isPresented: $showingAddExercise) {
             AddExerciseToSessionSheet(exercises: $exercises, workoutType: workoutType)
+        }
+        .onChange(of: exercises.count) {
+            WorkoutDraft.save(workoutType: workoutType, customTitle: customTitle, startTime: workoutStartTime, exercises: exercises)
         }
         .sheet(isPresented: $showMusicPicker) {
             MusicPickerSheet(selectedSong: $workoutSong, activityType: displayTitle)
@@ -270,7 +391,13 @@ struct ActiveWorkoutView: View {
             }
         }
         .fullScreenCover(isPresented: $showingPostEditor, onDismiss: {
-            appState.endWorkout()
+            WorkoutDraft.clear()
+            if !hasSeenPostWorkoutPaywall {
+                hasSeenPostWorkoutPaywall = true
+                showingPostWorkoutPaywall = true
+            } else {
+                appState.endWorkout()
+            }
         }) {
             if let workout = savedWorkout {
                 EnhancedPostEditorView(
@@ -291,25 +418,49 @@ struct ActiveWorkoutView: View {
             }
             Button("End Workout", role: .destructive) {
                 timer?.invalidate()
+                WorkoutDraft.clear()
                 appState.endWorkout()
             }
             Button("Keep Going", role: .cancel) {}
         } message: {
             Text("Pause to come back later, or end to discard this workout.")
         }
-        .confirmationDialog(
-            "Workout Complete!",
-            isPresented: $showingCompletionChoice,
-            titleVisibility: .visible
-        ) {
-            Button("Share Post") {
-                showingPostEditor = true
+        .fullScreenCover(isPresented: $showingCompletionExperience) {
+            if let workout = savedWorkout {
+                WorkoutCompletionExperience(
+                    workout: workout,
+                    exercises: exercises,
+                    duration: elapsedTime,
+                    livePRs: livePRsDetected,
+                    detectedPRMoments: detectedPRMoments,
+                    didLevelUp: didLevelUp,
+                    previousLevel: previousLevel,
+                    newLevel: profile.level,
+                    xpEarned: xpEarned,
+                    profile: profile,
+                    workoutType: workoutType,
+                    onSharePost: {
+                        showingCompletionExperience = false
+                        showingPostEditor = true
+                    },
+                    onDone: {
+                        WorkoutDraft.clear()
+                        showingCompletionExperience = false
+                        if !hasSeenPostWorkoutPaywall {
+                            hasSeenPostWorkoutPaywall = true
+                            showingPostWorkoutPaywall = true
+                        } else {
+                            appState.endWorkout()
+                        }
+                    }
+                )
             }
-            Button("Just Save") {
-                appState.endWorkout()
-            }
-        } message: {
-            Text("Would you like to share this workout?")
+        }
+        .sheet(isPresented: $showingPostWorkoutPaywall, onDismiss: {
+            appState.endWorkout()
+        }) {
+            PaywallView()
+                .environmentObject(SubscriptionService.shared)
         }
         .alert("Share Gym Location?", isPresented: $showingGymLocationPrompt) {
             Button("Share Location") {
@@ -685,12 +836,26 @@ struct ActiveWorkoutView: View {
 
         modelContext.insert(workout)
 
-        let xpEarned = 20 + (exercises.reduce(0) { $0 + $1.sets.filter { $0.isCompleted }.count } * 5)
-        _ = profile.addXP(xpEarned)
+        // Track level before XP to detect level-up
+        previousLevel = profile.level
+        let earnedXP = 20 + (exercises.reduce(0) { $0 + $1.sets.filter { $0.isCompleted }.count } * 5)
+        xpEarned = earnedXP
+        didLevelUp = profile.addXP(earnedXP)
 
         try? modelContext.save()
+
+        // Detect post-hoc PRs
+        let allWorkouts = (try? modelContext.fetch(FetchDescriptor<Workout>())) ?? []
+        let prResult = PRService.shared.detectAllPRs(
+            workout: workout,
+            allWorkouts: allWorkouts,
+            profile: profile,
+            modelContext: modelContext
+        )
+        detectedPRMoments = prResult.moments
+
         savedWorkout = workout
-        showingCompletionChoice = true
+        showingCompletionExperience = true
     }
 
     private func makeCompletedExercises() -> [CompletedExercise] {
@@ -732,6 +897,22 @@ struct ActiveWorkoutView: View {
         restTimeRemaining = duration
         isResting = true
 
+        // Generate coach insight for this rest period
+        if let activeExercise = exercises.first(where: { $0.name == exerciseName }),
+           let lastCompletedSet = activeExercise.sets.last(where: { $0.isCompleted }) {
+            let insight = WorkoutInsightEngine.generateSetInsight(
+                exerciseName: exerciseName,
+                currentWeight: lastCompletedSet.weight,
+                currentReps: lastCompletedSet.reps,
+                previousWeight: nil, // loaded per-card, use overload suggestion context
+                previousReps: nil,
+                overloadSuggestion: overloadSuggestions[exerciseName]
+            )
+            withAnimation(.easeInOut(duration: 0.3)) {
+                activeCoachInsight = insight
+            }
+        }
+
         restTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             Task { @MainActor in
                 restTimeRemaining -= 1
@@ -755,6 +936,30 @@ struct ActiveWorkoutView: View {
         restTimer?.invalidate()
         restTimer = nil
         isResting = false
+        withAnimation(.easeOut(duration: 0.2)) {
+            activeCoachInsight = nil
+        }
+    }
+
+    // MARK: - Live PR Handling
+
+    private func handleLivePR(_ pr: LivePREvent) {
+        livePRsDetected.append(pr)
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+            activePRBanner = pr
+            showPRConfetti = true
+        }
+        HapticManager.shared.prDetected()
+
+        prBannerTimer?.invalidate()
+        prBannerTimer = Timer.scheduledTimer(withTimeInterval: 4, repeats: false) { _ in
+            Task { @MainActor in
+                withAnimation(.easeOut(duration: 0.3)) {
+                    activePRBanner = nil
+                    showPRConfetti = false
+                }
+            }
+        }
     }
 
     private func updateLiveStatus() {
@@ -851,6 +1056,115 @@ struct ActiveSet: Identifiable {
     }
 }
 
+// MARK: - Exercise Notes Field
+
+struct ExerciseNotesField: View {
+    @Binding var notes: String
+    @State private var isExpanded = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "note.text")
+                        .font(.system(size: 12))
+                        .foregroundColor(notes.isEmpty ? GQColors.textTertiary : GQColors.vividPurple)
+                    Text(notes.isEmpty ? "Add note" : "Note")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(notes.isEmpty ? GQColors.textTertiary : GQColors.vividPurple)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                }
+            }
+            .buttonStyle(.plain)
+
+            if isExpanded {
+                TextField("e.g., felt tight in left shoulder", text: $notes, axis: .vertical)
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1...4)
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(GQColors.surfaceOverlay))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(GQColors.borderDefault, lineWidth: 1))
+                    .padding(.top, 8)
+            }
+        }
+    }
+}
+
+// MARK: - Plate Calculator
+
+struct PlateCalculatorView: View {
+    let targetWeight: Double
+    let barWeight: Double = 45.0
+
+    private var plates: [(weight: Double, count: Int)] {
+        let availablePlates: [Double] = [45, 25, 10, 5, 2.5]
+        var remaining = max(0, (targetWeight - barWeight) / 2.0)
+        var result: [(Double, Int)] = []
+
+        for plate in availablePlates {
+            let count = Int(remaining / plate)
+            if count > 0 {
+                result.append((plate, count))
+                remaining -= Double(count) * plate
+            }
+        }
+        return result
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 4) {
+                Image(systemName: "scalemass")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("Plates per side")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundColor(GQColors.textPrimary)
+
+            if targetWeight <= barWeight {
+                Text("Bar only (\(Int(barWeight)) lbs)")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textSecondary)
+            } else {
+                HStack(spacing: 8) {
+                    ForEach(plates, id: \.weight) { plate in
+                        HStack(spacing: 3) {
+                            Text("\(plate.count)\u{00D7}")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.textSecondary)
+                            Text(plate.weight.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(plate.weight))" : String(format: "%.1f", plate.weight))
+                                .font(.system(size: 14, weight: .bold, design: .rounded))
+                                .foregroundColor(GQColors.textPrimary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(GQColors.vividPurple.opacity(0.12))
+                                )
+                        }
+                    }
+                }
+
+                Text("+ \(Int(barWeight)) lb bar")
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12).fill(GQColors.surfaceOverlay))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(GQColors.borderDefault, lineWidth: 1))
+    }
+}
+
 // MARK: - Active Exercise Card
 
 struct ActiveExerciseCard: View {
@@ -860,9 +1174,15 @@ struct ActiveExerciseCard: View {
     let onShowDemo: () -> Void
     var onSetCompleted: ((String) -> Void)? = nil
     var overloadSuggestion: OverloadSuggestion? = nil
+    var onPRDetected: ((LivePREvent) -> Void)? = nil
 
     @State private var previousWeight: Double?
     @State private var previousReps: Int?
+    @State private var bestWeight: Double?
+    @State private var bestReps: Int?
+    @State private var best1RM: Double?
+    @State private var showPlateCalculator = false
+    @State private var prFiredForExercise = false
 
     var completedCount: Int {
         exercise.sets.filter { $0.isCompleted }.count
@@ -874,6 +1194,16 @@ struct ActiveExerciseCard: View {
 
     private var workoutAccent: Color {
         workoutTypeColors.first ?? GQColors.vividPurple
+    }
+
+    private var isBarbellExercise: Bool {
+        let name = exercise.name.lowercased()
+        let barbellKeywords = ["barbell", "bench press", "squat", "deadlift", "overhead press", "ohp", "row"]
+        return barbellKeywords.contains(where: { name.contains($0) })
+    }
+
+    private var topSetWeight: Double {
+        exercise.sets.compactMap { $0.weight }.max() ?? 0
     }
 
     var body: some View {
@@ -907,6 +1237,26 @@ struct ActiveExerciseCard: View {
                     .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+
+                // Plate calculator button (for barbell exercises)
+                if isBarbellExercise {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showPlateCalculator.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "scalemass").foregroundColor(workoutAccent)
+                            Text("Plates").foregroundColor(GQColors.textSecondary)
+                        }
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(showPlateCalculator ? workoutAccent.opacity(0.15) : GQColors.surfaceOverlay))
+                        .overlay(Capsule().stroke(showPlateCalculator ? workoutAccent.opacity(0.4) : GQColors.borderDefault, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
 
                 Text("\(completedCount)/\(exercise.sets.count)")
                     .font(.system(size: 13, weight: .semibold))
@@ -947,6 +1297,14 @@ struct ActiveExerciseCard: View {
                let suggestion = overloadSuggestion {
                 OverloadSuggestionPill(suggestion: suggestion)
             }
+
+            // Plate calculator (barbell exercises)
+            if showPlateCalculator && isBarbellExercise && topSetWeight > 0 {
+                PlateCalculatorView(targetWeight: topSetWeight)
+            }
+
+            // Exercise notes (expandable)
+            ExerciseNotesField(notes: $exercise.notes)
 
             VStack(spacing: 8) {
                 ForEach($exercise.sets) { $set in
@@ -1007,14 +1365,43 @@ struct ActiveExerciseCard: View {
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
         guard let workouts = try? modelContext.fetch(descriptor) else { return }
+
+        var foundPrevious = false
+        var overallBestWeight: Double = 0
+        var overallBestReps: Int = 0
+        var overallBest1RM: Double = 0
+
         for workout in workouts {
-            if let matchingExercise = workout.exercises.first(where: { $0.name == exercise.name }) {
-                if let topSet = matchingExercise.sets.sorted(by: { $0.weight > $1.weight }).first {
-                    previousWeight = topSet.weight
-                    previousReps = topSet.reps
+            for ex in workout.exercises where ex.name == exercise.name {
+                // Set previous (most recent) performance
+                if !foundPrevious {
+                    if let topSet = ex.sets.sorted(by: { $0.weight > $1.weight }).first {
+                        previousWeight = topSet.weight
+                        previousReps = topSet.reps
+                    }
+                    foundPrevious = true
                 }
-                break
+                // Track all-time bests across all workouts
+                for set in ex.sets where set.weight > 0 && set.reps > 0 {
+                    if set.weight > overallBestWeight {
+                        overallBestWeight = set.weight
+                        overallBestReps = set.reps
+                    }
+                    // Epley e1RM formula
+                    if set.reps >= 1 && set.reps <= 12 {
+                        let e1rm = set.weight * (1 + Double(set.reps) / 30.0)
+                        if e1rm > overallBest1RM {
+                            overallBest1RM = e1rm
+                        }
+                    }
+                }
             }
+        }
+
+        if overallBestWeight > 0 {
+            bestWeight = overallBestWeight
+            bestReps = overallBestReps
+            best1RM = overallBest1RM > 0 ? overallBest1RM : nil
         }
     }
 
@@ -1024,8 +1411,65 @@ struct ActiveExerciseCard: View {
         if newCompletedCount == exercise.sets.count && newCompletedCount > 0 {
             HapticManager.shared.success()
         }
+
+        // Live PR detection on each set completion
+        if !prFiredForExercise {
+            checkForPR()
+        }
+
         // Auto-trigger rest timer on any set completion
         onSetCompleted?(exercise.name)
+    }
+
+    private func checkForPR() {
+        guard let bw = bestWeight, bw > 0 else {
+            // First time doing this exercise — fire baseline PR if meaningful weight
+            if let topCompleted = exercise.sets.filter({ $0.isCompleted && $0.weight > 0 }).max(by: { $0.weight < $1.weight }) {
+                prFiredForExercise = true
+                let pr = LivePREvent(
+                    exerciseName: exercise.name,
+                    type: .weight,
+                    newValue: topCompleted.weight,
+                    previousValue: 0,
+                    delta: topCompleted.weight
+                )
+                onPRDetected?(pr)
+            }
+            return
+        }
+
+        let completedSets = exercise.sets.filter { $0.isCompleted && $0.weight > 0 && $0.reps > 0 }
+        guard let topSet = completedSets.max(by: { $0.weight < $1.weight }) else { return }
+
+        // Weight PR: higher weight at same or more reps
+        if topSet.weight > bw && topSet.reps >= (bestReps ?? 0) {
+            prFiredForExercise = true
+            let pr = LivePREvent(
+                exerciseName: exercise.name,
+                type: .weight,
+                newValue: topSet.weight,
+                previousValue: bw,
+                delta: topSet.weight - bw
+            )
+            onPRDetected?(pr)
+            return
+        }
+
+        // e1RM PR
+        if topSet.reps >= 1 && topSet.reps <= 12 {
+            let currentE1RM = topSet.weight * (1 + Double(topSet.reps) / 30.0)
+            if let prevBest = best1RM, currentE1RM > prevBest + 5 {
+                prFiredForExercise = true
+                let pr = LivePREvent(
+                    exerciseName: exercise.name,
+                    type: .estimated1RM,
+                    newValue: currentE1RM,
+                    previousValue: prevBest,
+                    delta: currentE1RM - prevBest
+                )
+                onPRDetected?(pr)
+            }
+        }
     }
 }
 
@@ -1854,6 +2298,390 @@ struct FilterChip: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(GQInteractiveStyle())
+    }
+}
+
+// MARK: - Workout Completion Experience
+
+struct WorkoutCompletionExperience: View {
+    let workout: Workout
+    let exercises: [ActiveExercise]
+    let duration: Int
+    let livePRs: [LivePREvent]
+    let detectedPRMoments: [PRMoment]
+    let didLevelUp: Bool
+    let previousLevel: Int
+    let newLevel: Int
+    let xpEarned: Int
+    let profile: UserProfile
+    let workoutType: WorkoutType
+    let onSharePost: () -> Void
+    let onDone: () -> Void
+
+    @State private var phase: Int = 0
+    @State private var showConfetti = false
+    @State private var darkOverlayOpacity: Double = 1.0
+    @State private var checkmarkTrim: CGFloat = 0
+    @State private var animatedDuration: Int = 0
+    @State private var animatedSets: Int = 0
+    @State private var animatedExercises: Int = 0
+    @State private var animatedVolume: Int = 0
+    @State private var animatedXP: Int = 0
+    @State private var shareButtonScale: CGFloat = 1.0
+
+    private var totalSets: Int {
+        exercises.reduce(0) { $0 + $1.sets.filter { $0.isCompleted }.count }
+    }
+
+    private var totalVolume: Double {
+        exercises.reduce(0.0) { total, ex in
+            total + ex.sets.filter { $0.isCompleted }.reduce(0.0) { $0 + ($1.weight * Double($1.reps)) }
+        }
+    }
+
+    private var exerciseCount: Int {
+        exercises.filter { $0.sets.contains(where: { $0.isCompleted }) }.count
+    }
+
+    private var allPRs: [LivePREvent] { livePRs }
+
+    /// Post-hoc PRs that weren't already caught live
+    private var uniquePostHocPRs: [PRMoment] {
+        let liveExerciseNames = Set(livePRs.map(\.exerciseName))
+        return detectedPRMoments.filter { moment in
+            guard let name = moment.exerciseName else { return true }
+            return !liveExerciseNames.contains(name)
+        }
+    }
+
+    private var hasPRs: Bool { !allPRs.isEmpty || !uniquePostHocPRs.isEmpty }
+
+    var body: some View {
+        ZStack {
+            GQColors.background.ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 24) {
+                    completionHeaderSection
+                    statsSection
+                    if hasPRs { prSection }
+                    if didLevelUp { levelUpSection }
+                    actionsSection
+                }
+                .padding(20)
+                .padding(.top, 40)
+            }
+
+            if showConfetti {
+                ConfettiView()
+                    .ignoresSafeArea()
+            }
+
+            // Dark entry overlay
+            Color.black
+                .ignoresSafeArea()
+                .opacity(darkOverlayOpacity)
+                .allowsHitTesting(false)
+        }
+        .onAppear {
+            // Dark fade-in
+            withAnimation(.easeOut(duration: 0.3)) {
+                darkOverlayOpacity = 0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    phase = 1
+                }
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    checkmarkTrim = 1.0
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { phase = 2 }
+                // Animate stat numbers
+                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                    animatedDuration = duration / 60
+                    animatedSets = totalSets
+                    animatedExercises = exerciseCount
+                    animatedVolume = Int(totalVolume)
+                    animatedXP = xpEarned
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { phase = 3 }
+                // Confetti fires with PRs, not at start
+                if hasPRs {
+                    showConfetti = true
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { phase = 4 }
+                if !hasPRs {
+                    showConfetti = true
+                }
+            }
+        }
+    }
+
+    // MARK: - Completion Header
+
+    @ViewBuilder
+    private var completionHeaderSection: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(GQColors.success.opacity(0.15))
+                    .frame(width: 80, height: 80)
+                AnimatedGradientCircle(
+                    size: 80,
+                    lineWidth: 3,
+                    colors: [GQColors.success, GQColors.cyanSpark, GQColors.success],
+                    duration: 4
+                )
+                .opacity(checkmarkTrim)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 36, weight: .bold))
+                    .foregroundColor(GQColors.success)
+            }
+            .scaleEffect(phase >= 1 ? 1.0 : 0.3)
+            .opacity(phase >= 1 ? 1.0 : 0)
+
+            Text("Workout Complete!")
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .opacity(phase >= 1 ? 1.0 : 0)
+
+            Text(workoutType.rawValue)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+                .opacity(phase >= 1 ? 1.0 : 0)
+        }
+    }
+
+    // MARK: - Stats Section
+
+    @ViewBuilder
+    private var statsSection: some View {
+        if phase >= 2 {
+            VStack(spacing: 16) {
+                HStack(spacing: 16) {
+                    completionStatCard(
+                        icon: "clock.fill",
+                        animatedValue: animatedDuration,
+                        unit: "min",
+                        label: "Duration",
+                        index: 0
+                    )
+                    completionStatCard(
+                        icon: "checkmark.circle.fill",
+                        animatedValue: animatedSets,
+                        unit: "sets",
+                        label: "Total Sets",
+                        index: 1
+                    )
+                }
+                HStack(spacing: 16) {
+                    completionStatCard(
+                        icon: "dumbbell.fill",
+                        animatedValue: animatedExercises,
+                        unit: "",
+                        label: "Exercises",
+                        index: 2
+                    )
+                    completionStatCardVolume(index: 3)
+                }
+
+                // XP earned
+                HStack(spacing: 8) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(GQColors.electricGold)
+                    Text("+\(animatedXP) XP")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundColor(GQColors.electricGold)
+                        .contentTransition(.numericText())
+                }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 16)
+                .background(Capsule().fill(GQColors.electricGold.opacity(0.12)))
+                .staggeredAppear(index: 4, stagger: 0.3)
+            }
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+    }
+
+    @ViewBuilder
+    private func completionStatCard(icon: String, animatedValue: Int, unit: String, label: String, index: Int) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundColor(GQColors.vividPurple)
+            HStack(spacing: 2) {
+                Text("\(animatedValue)")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+                    .contentTransition(.numericText())
+                if !unit.isEmpty {
+                    Text(unit)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(RoundedRectangle(cornerRadius: 12).fill(GQColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(GQColors.borderDefault, lineWidth: 1))
+        .staggeredAppear(index: index, stagger: 0.3)
+    }
+
+    @ViewBuilder
+    private func completionStatCardVolume(index: Int) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: "scalemass.fill")
+                .font(.system(size: 16))
+                .foregroundColor(GQColors.vividPurple)
+            HStack(spacing: 2) {
+                Text(animatedVolume >= 1000 ? String(format: "%.1fk", Double(animatedVolume) / 1000) : "\(animatedVolume)")
+                    .font(GQTypography.heroNumber)
+                    .foregroundColor(GQColors.textPrimary)
+                    .contentTransition(.numericText())
+                Text("lbs")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            Text("Volume")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(RoundedRectangle(cornerRadius: 12).fill(GQColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(GQColors.borderDefault, lineWidth: 1))
+        .staggeredAppear(index: index, stagger: 0.3)
+    }
+
+    // MARK: - PR Section
+
+    @ViewBuilder
+    private var prSection: some View {
+        if phase >= 3 {
+            VStack(spacing: 12) {
+                Text("PERSONAL RECORDS")
+                    .font(.system(size: 12, weight: .heavy))
+                    .foregroundColor(GQColors.prGold)
+                    .tracking(1)
+
+                ForEach(allPRs) { pr in
+                    PRBadgeCard(
+                        exerciseName: pr.exerciseName,
+                        prType: pr.type.label,
+                        delta: pr.displayDelta
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+                }
+
+                ForEach(uniquePostHocPRs) { moment in
+                    PRBadgeCard(
+                        exerciseName: moment.exerciseName ?? "Exercise",
+                        prType: moment.prType.rawValue.uppercased(),
+                        delta: moment.improvement ?? moment.value
+                    )
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+                }
+            }
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .onAppear {
+                HapticManager.shared.prDetected()
+            }
+        }
+    }
+
+    // MARK: - Level Up Section
+
+    @ViewBuilder
+    private var levelUpSection: some View {
+        if phase >= 3 {
+            LevelUpBanner(newLevel: newLevel)
+                .transition(.scale.combined(with: .opacity))
+                .onAppear {
+                    HapticManager.shared.milestoneReached()
+                }
+        }
+    }
+
+    // MARK: - Actions Section
+
+    @ViewBuilder
+    private var actionsSection: some View {
+        if phase >= 4 {
+            VStack(spacing: 12) {
+                Button(action: onSharePost) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.arrow.up")
+                        Text(hasPRs ? "Share Your PR" : "Share Workout")
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(LinearGradient(
+                                colors: hasPRs ? [GQColors.prGold, .orange] : [GQColors.deepBlue, GQColors.vividPurple],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ))
+                    )
+                }
+                .scaleEffect(shareButtonScale)
+                .animatedGradientBorder(
+                    cornerRadius: 12,
+                    lineWidth: 1.5,
+                    colors: hasPRs
+                        ? [GQColors.prGold, .white.opacity(0.6), GQColors.prGold]
+                        : [GQColors.deepBlue, GQColors.vividPurple, GQColors.deepBlue],
+                    duration: 4
+                )
+                .onAppear {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.6).delay(0.2)) {
+                        shareButtonScale = 1.03
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            shareButtonScale = 1.0
+                        }
+                    }
+                }
+
+                Button(action: onDone) {
+                    Text("Done")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(GQColors.surfaceElevated))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(GQColors.borderDefault, lineWidth: 1))
+                }
+            }
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+    }
+
+    private func formatVolume(_ vol: Double) -> String {
+        if vol >= 1000 {
+            return String(format: "%.1fk", vol / 1000)
+        }
+        return "\(Int(vol))"
     }
 }
 
@@ -2758,6 +3586,7 @@ struct WorkoutSessionCompletionSheet: View {
     }
 
     private func saveOnly() {
+        WorkoutDraft.clear()
         let workoutExercises = exercises.map { activeExercise -> Exercise in
             let sets = activeExercise.sets.filter { $0.isCompleted }.enumerated().map { index, activeSet in
                 ExerciseSet(
@@ -2811,6 +3640,7 @@ struct WorkoutSessionCompletionSheet: View {
     /// Save workout to SwiftData without creating a post (used before opening enhanced editor).
     private func saveWorkoutOnly() {
         guard savedWorkout == nil else { return }
+        WorkoutDraft.clear()
         let workoutExercises = exercises.map { activeExercise -> Exercise in
             let sets = activeExercise.sets.filter { $0.isCompleted }.enumerated().map { index, activeSet in
                 ExerciseSet(
@@ -2960,42 +3790,94 @@ struct CompactRestTimerBar: View {
     var accentColor: Color = GQColors.primary
 
     @State private var showPills = false
+    @State private var shimmerRotation: Double = 0
+    @State private var heartbeatScale: CGFloat = 1.0
+    @State private var backgroundFlash: Double = 0.05
+    @State private var completionBurst: CGFloat = 1.0
+    @State private var showCheckmark = false
 
     var progress: CGFloat {
         guard restTimerTotal > 0 else { return 0 }
         return CGFloat(restTimeRemaining) / CGFloat(restTimerTotal)
     }
 
+    private var isHeartbeat: Bool {
+        restTimeRemaining <= 5 && restTimeRemaining > 0
+    }
+
     private var isUrgent: Bool {
         restTimeRemaining <= 3 && restTimeRemaining > 0
     }
 
+    /// Smoothly interpolated ring color from accent -> coral starting at 5s
     private var ringColor: Color {
-        isUrgent ? GQColors.coralRed : accentColor
+        guard restTimeRemaining <= 5, restTimeRemaining > 0 else { return accentColor }
+        let t = Double(5 - restTimeRemaining) / 5.0
+        return Color(
+            red: lerp(accentRGB.red, coralRGB.red, t),
+            green: lerp(accentRGB.green, coralRGB.green, t),
+            blue: lerp(accentRGB.blue, coralRGB.blue, t)
+        )
+    }
+
+    private var accentRGB: (red: Double, green: Double, blue: Double) {
+        // Use accent color components — approximate for the gradient
+        (0.4, 0.5, 1.0)
+    }
+
+    private var coralRGB: (red: Double, green: Double, blue: Double) {
+        (0.95, 0.3, 0.3)
+    }
+
+    private func lerp(_ a: Double, _ b: Double, _ t: Double) -> Double {
+        a + (b - a) * t
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                // Circular progress — enlarged
+                // Circular progress with shimmer ring
                 ZStack {
                     Circle()
                         .stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 4)
                     Circle()
                         .trim(from: 0, to: progress)
-                        .stroke(ringColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .stroke(
+                            AngularGradient(
+                                colors: [ringColor, ringColor.opacity(0.3), ringColor],
+                                center: .center,
+                                startAngle: .degrees(shimmerRotation),
+                                endAngle: .degrees(shimmerRotation + 360)
+                            ),
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                        )
                         .rotationEffect(.degrees(-90))
                         .animation(.linear(duration: 1), value: progress)
+
+                    if showCheckmark {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(GQColors.success)
+                            .transition(.scale.combined(with: .opacity))
+                    }
                 }
                 .frame(width: 52, height: 52)
+                .scaleEffect(restTimeRemaining == 0 ? completionBurst : heartbeatScale)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    // Countdown — large bold
-                    Text("\(restTimeRemaining)s")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundColor(isUrgent ? GQColors.coralRed : GQColors.textPrimary)
-                        .contentTransition(.numericText())
-                        .monospacedDigit()
+                    if showCheckmark {
+                        Text("Go!")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(GQColors.success)
+                            .contentTransition(.symbolEffect(.replace))
+                    } else {
+                        Text("\(restTimeRemaining)s")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundColor(isUrgent ? GQColors.coralRed : GQColors.textPrimary)
+                            .contentTransition(.numericText())
+                            .monospacedDigit()
+                            .scaleEffect(heartbeatScale)
+                    }
 
                     Text("Rest")
                         .font(.system(size: 12, weight: .medium))
@@ -3086,9 +3968,61 @@ struct CompactRestTimerBar: View {
             }
             .frame(height: 3)
         }
-        .background(GQColors.surfaceOverlay)
+        .background(
+            GQColors.surfaceOverlay
+                .overlay(
+                    isUrgent
+                    ? RoundedRectangle(cornerRadius: 0)
+                        .fill(ringColor.opacity(backgroundFlash))
+                    : nil
+                )
+        )
         .overlay(alignment: .bottom) { Rectangle().fill(GQColors.borderDefault).frame(height: 0.5) }
         .shadow(color: .black.opacity(0.04), radius: 4, y: 2)
+        .onAppear {
+            withAnimation(
+                .linear(duration: 4)
+                .repeatForever(autoreverses: false)
+            ) {
+                shimmerRotation = 360
+            }
+        }
+        .onChange(of: restTimeRemaining) { oldValue, newValue in
+            // Heartbeat pulse for last 5 seconds
+            if newValue <= 5 && newValue > 0 {
+                withAnimation(.spring(response: 0.15, dampingFraction: 0.4)) {
+                    heartbeatScale = 1.06
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                        heartbeatScale = 1.0
+                    }
+                }
+            }
+            // Background flash for last 3 seconds
+            if newValue <= 3 && newValue > 0 {
+                withAnimation(.easeIn(duration: 0.15)) {
+                    backgroundFlash = 0.12
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        backgroundFlash = 0.05
+                    }
+                }
+            }
+            // Completion burst at 0
+            if newValue == 0 {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                    completionBurst = 1.15
+                    showCheckmark = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        completionBurst = 1.0
+                    }
+                }
+            }
+        }
     }
 }
 

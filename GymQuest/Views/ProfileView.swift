@@ -30,7 +30,6 @@ struct ProfileView: View {
     @State private var selectedWorkout: Workout?
     @State private var selectedPost: Post?
     @State private var selectedTab: ProfileContentTab = .posts
-    @State private var selectedTopTab: ProfileTopTab = .profile
     @State private var emotionInsightsExpanded = false
     @State private var showingCoach = false
     @State private var showingCalendarHistory = false
@@ -69,28 +68,16 @@ struct ProfileView: View {
             ScrollView {
                 VStack(spacing: 8) {
                     profileHeader
+                    profileCompletionBanner
                     todayHealthStatsCard
                     achievementBadgesSection
-                    profileTopTabPicker
-
-                    switch selectedTopTab {
-                    case .profile:
-                        VStack(spacing: 0) {
-                            profileTabBar
-                            profileTabContent
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                        }
-                        .homeSocialCard(cornerRadius: 14)
-
-                    case .progress:
-                        progressSummaryRow
-                        profileWeeklyProgress
-
-                        ProgressAnalyticsView(profile: profile, inline: true)
-
-                        aiCoachCard
+                    VStack(spacing: 0) {
+                        profileTabBar
+                        profileTabContent
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
                     }
+                    .homeSocialCard(cornerRadius: 14)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, GQLayout.pageTop)
@@ -377,6 +364,73 @@ struct ProfileView: View {
         loadProfileActivityData()
     }
 
+    // MARK: - Profile Completion
+
+    private var profileCompletionFields: [(String, Bool)] {
+        [
+            ("Photo", profile.profilePhotoData != nil),
+            ("Gym Name", !profile.gymName.isEmpty),
+            ("Equipment", !profile.availableEquipment.isEmpty),
+            ("Experience", profile.experienceLevel != nil)
+        ]
+    }
+
+    private var profileCompletionPercent: Int {
+        let fields = profileCompletionFields
+        let completed = fields.filter(\.1).count
+        return Int(Double(completed) / Double(fields.count) * 100)
+    }
+
+    private var isProfileComplete: Bool {
+        profileCompletionPercent >= 100
+    }
+
+    @ViewBuilder
+    private var profileCompletionBanner: some View {
+        if !isProfileComplete {
+            Button {
+                showingSettings = true
+            } label: {
+                HStack(spacing: 12) {
+                    // Progress ring
+                    ZStack {
+                        Circle()
+                            .stroke(GQColors.overlayLight, lineWidth: 3)
+                            .frame(width: 38, height: 38)
+                        Circle()
+                            .trim(from: 0, to: Double(profileCompletionPercent) / 100.0)
+                            .stroke(GQColors.vividPurple, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                            .frame(width: 38, height: 38)
+                            .rotationEffect(.degrees(-90))
+                        Text("\(profileCompletionPercent)%")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(GQColors.vividPurple)
+                    }
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Complete your profile")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                        let missing = profileCompletionFields.filter { !$0.1 }.map(\.0)
+                        Text("Add: \(missing.joined(separator: ", "))")
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .padding(12)
+                .homeSocialCard(accent: GQColors.vividPurple, subtle: true)
+            }
+            .buttonStyle(GQInteractiveStyle())
+        }
+    }
+
     // MARK: - Profile Header
 
     // MARK: - Today Health Stats Card
@@ -601,40 +655,7 @@ struct ProfileView: View {
         .opacity(unlocked ? 1 : 0.5)
     }
 
-    // MARK: - Profile Top Tab Picker
-
-    private var profileTopTabPicker: some View {
-        HStack(spacing: 4) {
-            ForEach(ProfileTopTab.allCases, id: \.self) { tab in
-                Button {
-                    withAnimation(GQMotion.micro) {
-                        selectedTopTab = tab
-                    }
-                    HapticManager.shared.select()
-                } label: {
-                    Text(tab.rawValue)
-                        .font(.system(size: 14, weight: selectedTopTab == tab ? .semibold : .medium))
-                        .foregroundColor(selectedTopTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(selectedTopTab == tab ? GQColors.overlayLight : Color.clear)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(3)
-        .background(
-            Capsule()
-                .fill(GQColors.surfaceBase)
-                .overlay(
-                    Capsule()
-                        .stroke(GQColors.borderSubtle, lineWidth: 1)
-                )
-        )
-    }
+    // MARK: - (Top tab picker removed — single-level tabs now)
 
     private func igStatColumn(value: String, label: String) -> some View {
         VStack(spacing: 2) {
@@ -776,19 +797,25 @@ struct ProfileView: View {
         HStack(spacing: 0) {
             ForEach(ProfileContentTab.allCases, id: \.self) { tab in
                 Button {
-                    selectedTab = tab
+                    withAnimation(GQMotion.micro) {
+                        selectedTab = tab
+                    }
                 } label: {
-                    VStack(spacing: 10) {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundColor(selectedTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
+                    VStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Image(systemName: tab.icon)
+                                .font(.system(size: 12, weight: .semibold))
+                            Text(tab.rawValue)
+                                .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .medium))
+                        }
+                        .foregroundColor(selectedTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
 
                         Rectangle()
                             .fill(selectedTab == tab ? GQColors.textPrimary : Color.clear)
                             .frame(height: 2)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.top, 12)
+                    .padding(.top, 10)
                 }
                 .buttonStyle(.plain)
             }
@@ -844,23 +871,78 @@ struct ProfileView: View {
                 }
             }
 
+        case .prs:
+            if prEvents.isEmpty {
+                ProfileEmptyState(
+                    icon: "trophy.fill",
+                    title: "No PRs yet",
+                    subtitle: "Hit a personal record to see it here."
+                )
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(prEvents) { pr in
+                        HStack(spacing: 10) {
+                            ZStack {
+                                Circle()
+                                    .fill(GQColors.electricGold.opacity(0.15))
+                                    .frame(width: 42, height: 42)
+                                Image(systemName: "trophy.fill")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(GQColors.electricGold)
+                            }
+
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(pr.exerciseName)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(GQColors.textPrimary)
+                                    .lineLimit(1)
+                                HStack(spacing: 8) {
+                                    Text(prValueFormatted(pr))
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(GQColors.electricGold)
+                                    Text(pr.prType.rawValue)
+                                        .font(.system(size: 11))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+                            }
+
+                            Spacer()
+
+                            Text(pr.date.formatted(.dateTime.month(.abbreviated).day()))
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        .padding(12)
+                        .homeSocialCard(accent: GQColors.electricGold, subtle: true)
+                    }
+                }
+            }
+
+        case .progress:
+            VStack(spacing: 12) {
+                progressSummaryRow
+                profileWeeklyProgress
+
+                ProgressAnalyticsView(profile: profile, inline: true)
+
+                aiCoachCard
+            }
         }
     }
 }
 
-private enum ProfileTopTab: String, CaseIterable {
-    case profile = "Profile"
+private enum ProfileContentTab: String, CaseIterable {
+    case posts = "Posts"
+    case workouts = "Workouts"
+    case prs = "PRs"
     case progress = "Progress"
-}
-
-private enum ProfileContentTab: CaseIterable {
-    case posts
-    case workouts
 
     var icon: String {
         switch self {
         case .posts: return "square.grid.3x3.fill"
         case .workouts: return "list.bullet.rectangle"
+        case .prs: return "trophy.fill"
+        case .progress: return "chart.line.uptrend.xyaxis"
         }
     }
 }
@@ -1549,6 +1631,7 @@ struct SettingsView: View {
 
     @StateObject private var authService = AuthService()
     @AppStorage("appAppearance") private var appAppearance: String = AppAppearance.light.rawValue
+    @AppStorage("hapticFeedbackEnabled") private var hapticEnabled = true
 
     var body: some View {
         NavigationStack {
@@ -1556,46 +1639,40 @@ struct SettingsView: View {
                 VStack(spacing: GQLayout.sectionSpacing) {
                     GQScreenTitleBlock(
                         title: "Settings",
-                        subtitle: "Profile, integrations, and AI preferences.",
+                        subtitle: "Profile, integrations, and preferences.",
                         accent: profileNeutralAccent
                     )
                     .gqScreenHorizontalPadding()
                     .padding(.top, GQLayout.pageTop)
 
+                    // MARK: Account
                     VStack(alignment: .leading, spacing: 10) {
-                        sectionHeader("Profile")
+                        sectionHeader("Account")
                         settingsTextField(title: "Name", text: $name)
                         settingsTextField(title: "Username", text: $username)
 
-                        // Privacy toggle
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Public Profile")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(GQColors.textPrimary)
-                                Text(profile.isProfilePublic ? "Anyone can see your posts" : "Only mutual friends can see your posts")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
-                            Spacer()
-                            Toggle("", isOn: Binding(
-                                get: { profile.isProfilePublic },
-                                set: { newValue in
-                                    profile.isProfilePublic = newValue
-                                    try? modelContext.save()
+                        if let email = profile.email, !email.isEmpty {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Email")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(GQColors.textSecondary)
+                                    Text(email)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(GQColors.textPrimary)
                                 }
-                            ))
-                            .labelsHidden()
-                            .tint(GQColors.vividPurple)
+                                Spacer()
+                            }
                         }
                     }
                     .padding(16)
                     .homeSocialCard(accent: profileNeutralAccent)
                     .gqScreenHorizontalPadding()
 
-                    // MARK: Appearance
+                    // MARK: Preferences
                     VStack(alignment: .leading, spacing: 10) {
-                        sectionHeader("Appearance")
+                        sectionHeader("Preferences")
+
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Theme")
                                 .font(.system(size: 12, weight: .medium))
@@ -1607,6 +1684,23 @@ struct SettingsView: View {
                             }
                             .pickerStyle(.segmented)
                         }
+
+                        #if canImport(UIKit)
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Haptic Feedback")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(GQColors.textPrimary)
+                                Text("Vibration on taps and actions")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $hapticEnabled)
+                                .labelsHidden()
+                                .tint(GQColors.vividPurple)
+                        }
+                        #endif
                     }
                     .padding(16)
                     .homeSocialCard(accent: profileNeutralAccent)
@@ -1676,11 +1770,24 @@ struct SettingsView: View {
                                 }
                             }
                         }
+
+                        NavigationLink {
+                            BodyMeasurementsView(profile: profile)
+                        } label: {
+                            settingsRow(
+                                icon: "ruler",
+                                title: "Body Measurements",
+                                subtitle: "Track physical changes over time",
+                                color: GQColors.electricGold
+                            )
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(16)
                     .homeSocialCard(accent: profileNeutralAccent)
                     .gqScreenHorizontalPadding()
 
+                    // MARK: Integrations
                     VStack(alignment: .leading, spacing: 10) {
                         sectionHeader("Integrations")
 
@@ -1707,27 +1814,23 @@ struct SettingsView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                    }
+                    .padding(16)
+                    .homeSocialCard(accent: profileNeutralAccent)
+                    .gqScreenHorizontalPadding()
+
+                    // MARK: Notifications
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionHeader("Notifications")
 
                         NavigationLink {
                             NotificationSettingsView()
                         } label: {
                             settingsRow(
                                 icon: "bell.fill",
-                                title: "Notifications",
+                                title: "Notification Preferences",
                                 subtitle: "Reminders and updates",
                                 color: GQColors.sunsetOrange
-                            )
-                        }
-                        .buttonStyle(.plain)
-
-                        NavigationLink {
-                            BodyMeasurementsView(profile: profile)
-                        } label: {
-                            settingsRow(
-                                icon: "ruler",
-                                title: "Body Measurements",
-                                subtitle: "Track physical changes over time",
-                                color: GQColors.electricGold
                             )
                         }
                         .buttonStyle(.plain)
@@ -1736,6 +1839,36 @@ struct SettingsView: View {
                     .homeSocialCard(accent: profileNeutralAccent)
                     .gqScreenHorizontalPadding()
 
+                    // MARK: Privacy
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionHeader("Privacy")
+
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Public Profile")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(GQColors.textPrimary)
+                                Text(profile.isProfilePublic ? "Anyone can see your posts" : "Only mutual friends can see your posts")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { profile.isProfilePublic },
+                                set: { newValue in
+                                    profile.isProfilePublic = newValue
+                                    try? modelContext.save()
+                                }
+                            ))
+                            .labelsHidden()
+                            .tint(GQColors.vividPurple)
+                        }
+                    }
+                    .padding(16)
+                    .homeSocialCard(accent: profileNeutralAccent)
+                    .gqScreenHorizontalPadding()
+
+                    // MARK: AI
                     VStack(alignment: .leading, spacing: 10) {
                         sectionHeader("AI")
 
@@ -1802,20 +1935,37 @@ struct SettingsView: View {
                     .homeSocialCard(accent: profileNeutralAccent)
                     .gqScreenHorizontalPadding()
 
-                    HStack(spacing: 10) {
-                        WorkoutFlowMetricChip(
-                            icon: "star.fill",
-                            value: "Lv \(profile.level)",
-                            label: "Current Level",
-                            color: GQColors.electricGold
-                        )
-                        WorkoutFlowMetricChip(
-                            icon: "bolt.fill",
-                            value: "\(profile.xp)",
-                            label: "XP",
-                            color: GQColors.success
-                        )
+                    // MARK: Support & Legal
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionHeader("Support & Legal")
+
+                        HStack(spacing: 10) {
+                            WorkoutFlowMetricChip(
+                                icon: "star.fill",
+                                value: "Lv \(profile.level)",
+                                label: "Current Level",
+                                color: GQColors.electricGold
+                            )
+                            WorkoutFlowMetricChip(
+                                icon: "bolt.fill",
+                                value: "\(profile.xp)",
+                                label: "XP",
+                                color: GQColors.success
+                            )
+                        }
+
+                        HStack {
+                            Text("App Version")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(GQColors.textPrimary)
+                            Spacer()
+                            Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                                .font(.system(size: 14))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
                     }
+                    .padding(16)
+                    .homeSocialCard(accent: profileNeutralAccent)
                     .gqScreenHorizontalPadding()
 
                     Button(role: .destructive) {

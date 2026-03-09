@@ -34,9 +34,9 @@ final class DesignSystemSnapshotTests: SnapshotTestCase {
         // record = true
 
         let view = HStack(spacing: 12) {
-            StatPill(icon: "flame.fill", value: "5", label: "Streak")
-            StatPill(icon: "dumbbell.fill", value: "12", label: "Sets")
-            StatPill(icon: "chart.bar.fill", value: "2.5k", label: "Volume")
+            StatPill(icon: "flame.fill", value: "5", label: "Streak", color: .orange)
+            StatPill(icon: "dumbbell.fill", value: "12", label: "Sets", color: .cyan)
+            StatPill(icon: "chart.bar.fill", value: "2.5k", label: "Volume", color: .purple)
         }
         .padding()
         .background(GQColors.deepBlack)

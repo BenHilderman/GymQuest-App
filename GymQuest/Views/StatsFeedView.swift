@@ -4,8 +4,9 @@
 //
 //  Created by Benjamin Hilderman
 //
-//  Stats tab — activity rings, health data, body weight trends,
-//  volume charts, workout splits, PRs, and exercise progression.
+//  Stats dashboard — summary row, weekly progress, activity rings,
+//  health data, body weight trends, volume charts, PRs, exercise
+//  progression, and AI coach.
 //
 
 import SwiftUI
@@ -19,6 +20,7 @@ struct StatsFeedView: View {
     @Environment(\.modelContext) private var modelContext
 
     let profile: UserProfile
+    var inline: Bool = false
 
     @StateObject private var healthKit = HealthKitService.shared
     @State private var showingHealthDashboard = false
@@ -28,6 +30,12 @@ struct StatsFeedView: View {
     @State private var selectedExerciseName = ""
     @State private var showingExerciseTrend = false
     @State private var ringsAnimated = false
+
+    // Progress elements (from ProfileView)
+    @State private var weeklyProgress: (completed: Int, target: Int) = (0, 0)
+    @State private var readinessLevel: ReadinessLevel = .good
+    @State private var showingCoach = false
+    @State private var showingCalendarHistory = false
 
     // MARK: - Computed Properties
 
@@ -79,6 +87,16 @@ struct StatsFeedView: View {
         return "\(Int(vol))"
     }
 
+    private var homeTotalVolumeFormatted: String {
+        let volume = workouts.reduce(0.0) { $0 + $1.totalVolume }
+        if volume >= 1_000_000 {
+            return String(format: "%.1fM", volume / 1_000_000)
+        } else if volume >= 1_000 {
+            return String(format: "%.1fk", volume / 1_000)
+        }
+        return "\(Int(volume))"
+    }
+
     private var weightMeasurements: [BodyMeasurement] {
         Array(bodyMeasurements.filter { $0.type == .weight }.sorted { $0.date < $1.date }.suffix(30))
     }
@@ -105,26 +123,6 @@ struct StatsFeedView: View {
         return result
     }
 
-    private var workoutTypeSplit: [(type: String, count: Int, color: Color)] {
-        let recent = Array(validWorkouts.prefix(30))
-        var counts: [String: Int] = [:]
-        for w in recent { counts[w.type.rawValue, default: 0] += 1 }
-        return counts.map { (type: $0.key, count: $0.value, color: colorForWorkoutType($0.key)) }
-            .sorted { $0.count > $1.count }
-    }
-
-    private var donutSegments: [(type: String, count: Int, color: Color, start: Double, end: Double)] {
-        let total = workoutTypeSplit.reduce(0) { $0 + $1.count }
-        guard total > 0 else { return [] }
-        var current: Double = 0
-        return workoutTypeSplit.map { item in
-            let fraction = Double(item.count) / Double(total)
-            let start = current
-            current += fraction
-            return (item.type, item.count, item.color, start, current)
-        }
-    }
-
     private var recentPRs: [PREvent] {
         Array(prEvents.prefix(showAllPRs ? 20 : 5))
     }
@@ -138,26 +136,189 @@ struct StatsFeedView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 8) {
-                activityRingsCard
-                healthStatsCard
-                bodyWeightTrendCard
-                weeklyVolumeChart
-                workoutSplitDonut
-                recentPRsSection
-                exerciseTrendsSection
+        if inline {
+            statsContent
+        } else {
+            ScrollView {
+                statsContent
             }
-            .padding(.horizontal, 16)
-            .padding(.top, GQLayout.pageTop)
-            .padding(.bottom, GQLayout.pageBottom)
+            .scrollContentBackground(.hidden)
         }
-        .scrollContentBackground(.hidden)
+    }
+
+    @ViewBuilder
+    private var statsContent: some View {
+        VStack(spacing: 8) {
+            progressSummaryRow
+            profileWeeklyProgress
+            activityRingsCard
+            healthStatsCard
+            bodyWeightTrendCard
+            weeklyVolumeChart
+            recentPRsSection
+            exerciseTrendsSection
+            aiCoachCard
+        }
+        .padding(.horizontal, inline ? 0 : 16)
+        .padding(.top, inline ? 0 : GQLayout.pageTop)
+        .padding(.bottom, inline ? 0 : GQLayout.pageBottom)
         .onAppear {
             withAnimation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.3)) {
                 ringsAnimated = true
             }
+            loadProfileActivityData()
         }
+        .sheet(isPresented: $showingCoach) {
+            CoachView(profile: profile, workouts: Array(workouts), aiService: AIService())
+        }
+    }
+
+    // MARK: - Progress Summary Row
+
+    @ViewBuilder
+    private var progressSummaryRow: some View {
+        HStack(spacing: 0) {
+            summaryStatItem(value: "\(validWorkouts.count)", label: "Workouts")
+
+            Rectangle()
+                .fill(GQColors.borderSubtle)
+                .frame(width: 1, height: 32)
+
+            summaryStatItem(value: "\(currentStreak)", label: "Day Streak")
+
+            Rectangle()
+                .fill(GQColors.borderSubtle)
+                .frame(width: 1, height: 32)
+
+            summaryStatItem(value: homeTotalVolumeFormatted, label: "Volume")
+        }
+        .padding(.vertical, 14)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    private func summaryStatItem(value: String, label: String) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+            Text(label)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Weekly Progress Card
+
+    @ViewBuilder
+    private var profileWeeklyProgress: some View {
+        WeeklyProgressCard(
+            weeklyProgress: weeklyProgress,
+            readinessLevel: readinessLevel,
+            workouts: workouts,
+            targetDays: profile.daysPerWeek,
+            onTodayTap: nil,
+            onRestTap: {
+                logRestDay()
+            },
+            onTargetChanged: { newTarget in
+                profile.daysPerWeek = newTarget
+                try? modelContext.save()
+                loadProfileActivityData()
+            }
+        )
+        .onTapGesture {
+            showingCalendarHistory = true
+        }
+        .sheet(isPresented: $showingCalendarHistory) {
+            CalendarHistoryView(workouts: workouts)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    // MARK: - AI Coach Card
+
+    private var aiCoachCard: some View {
+        Button {
+            showingCoach = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(GQColors.cyanSpark.opacity(0.15))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(GQColors.cyanSpark)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("AI Coach")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("Chat, plans & form analysis")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(12)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(GQInteractiveStyle())
+    }
+
+    // MARK: - Activity Data Loading
+
+    private func loadProfileActivityData() {
+        let calendar = Calendar.current
+        let weekStart = calendar.startOfWeek(for: Date())
+        let weeklyWorkouts = workouts.filter { $0.date >= weekStart }
+        weeklyProgress = (weeklyWorkouts.count, profile.daysPerWeek)
+        readinessLevel = determineReadiness()
+    }
+
+    private func determineReadiness() -> ReadinessLevel {
+        let integration = IntegrationManager.shared
+        if integration.hasAnyConnection && integration.recoveryScore > 0 {
+            return integration.readinessLevel
+        }
+
+        let calendar = Calendar.current
+        let threeDaysAgo = calendar.date(byAdding: .day, value: -3, to: Date()) ?? Date()
+        let recentWorkouts = workouts.filter { $0.date >= threeDaysAgo }
+
+        if recentWorkouts.count >= 3 {
+            let avgRPE = Double(recentWorkouts.reduce(0) { $0 + $1.rpe }) / Double(recentWorkouts.count)
+            if avgRPE >= 8 { return .low }
+        }
+
+        if recentWorkouts.isEmpty { return .optimal }
+
+        return .good
+    }
+
+    private func logRestDay() {
+        let restWorkout = Workout(
+            date: Date(),
+            type: .rest,
+            duration: 0,
+            rpe: 1,
+            notes: "Rest day",
+            exercises: [],
+            title: "Rest Day",
+            source: .manual,
+            privacy: .privateOnly
+        )
+        modelContext.insert(restWorkout)
+        try? modelContext.save()
+        loadProfileActivityData()
     }
 
     // MARK: - 1. Activity Rings Card (compact)
@@ -440,75 +601,7 @@ struct StatsFeedView: View {
         .homeSocialCard(cornerRadius: 14)
     }
 
-    // MARK: - 5. Workout Split Donut (compact)
-
-    @ViewBuilder
-    private var workoutSplitDonut: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("WORKOUT SPLIT")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(GQColors.sectionLabel)
-                .tracking(0.6)
-
-            if donutSegments.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "chart.pie")
-                        .font(.system(size: 14))
-                        .foregroundColor(GQColors.textTertiary)
-                    Text("Complete workouts to see your split")
-                        .font(.system(size: 12))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-            } else {
-                donutContent
-            }
-        }
-        .padding(10)
-        .homeSocialCard(cornerRadius: 14)
-    }
-
-    @ViewBuilder
-    private var donutContent: some View {
-        let totalCount = donutSegments.reduce(0) { $0 + $1.count }
-
-        HStack(spacing: 16) {
-            ZStack {
-                ForEach(donutSegments.indices, id: \.self) { i in
-                    let seg = donutSegments[i]
-                    let gap: Double = 0.004
-                    Circle()
-                        .trim(from: seg.start + gap, to: seg.end - gap)
-                        .stroke(seg.color, style: StrokeStyle(lineWidth: 14, lineCap: .butt))
-                        .rotationEffect(.degrees(-90))
-                }
-                Text("\(totalCount)")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundColor(GQColors.textPrimary)
-            }
-            .frame(width: 80, height: 80)
-
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(donutSegments.indices, id: \.self) { i in
-                    let seg = donutSegments[i]
-                    HStack(spacing: 4) {
-                        Circle().fill(seg.color).frame(width: 6, height: 6)
-                        Text(seg.type)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(GQColors.textPrimary)
-                            .lineLimit(1)
-                        Spacer()
-                        Text("\(seg.count)")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(GQColors.textSecondary)
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - 6. Recent PRs Section (compact)
+    // MARK: - 5. Recent PRs Section (compact)
 
     @ViewBuilder
     private var recentPRsSection: some View {
@@ -598,7 +691,7 @@ struct StatsFeedView: View {
         .padding(.vertical, 4)
     }
 
-    // MARK: - 7. Exercise Trends Section (compact)
+    // MARK: - 6. Exercise Trends Section (compact)
 
     @ViewBuilder
     private var exerciseTrendsSection: some View {
@@ -660,25 +753,6 @@ struct StatsFeedView: View {
                 selectedExerciseName = first
                 showingExerciseTrend = true
             }
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func colorForWorkoutType(_ type: String) -> Color {
-        switch type {
-        case "Push": return GQColors.deepBlue
-        case "Pull": return GQColors.vividPurple
-        case "Legs": return GQColors.success
-        case "Upper Body": return GQColors.cyanSpark
-        case "Lower Body": return .orange
-        case "Full Body": return GQColors.coralRed
-        case "Cardio": return .yellow
-        case "HIIT": return GQColors.warning
-        case "Glutes": return .pink
-        case "Abs": return .mint
-        case "Yoga": return .teal
-        default: return GQColors.textTertiary
         }
     }
 }

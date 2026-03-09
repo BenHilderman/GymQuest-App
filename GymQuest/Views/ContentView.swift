@@ -114,11 +114,7 @@ struct ContentView: View {
         .sheet(item: $appState.selectedSession) { session in
             SessionDetailView(session: session)
         }
-        .sheet(isPresented: $appState.showingQuickActions) {
-            QuickActionSheet()
-                .presentationDetents([.height(260)])
-                .presentationDragIndicator(.visible)
-        }
+        // QuickActionSheet removed — center button now goes directly to workout start
         .sheet(isPresented: $appState.showingLogEntry) {
             LogView(profile: profile)
         }
@@ -143,7 +139,7 @@ struct FloatingTabBar: View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ZStack(alignment: .topTrailing) {
-                    FloatingTabButton(tab: .feed, icon: "house", selectedIcon: "house.fill", label: "Home")
+                    FloatingTabButton(tab: .feed, icon: "person.2", selectedIcon: "person.2.fill", label: "Feed")
 
                     if SocialActivityService.shared.hasLiveFriends {
                         SocialActivityBadge()
@@ -153,29 +149,35 @@ struct FloatingTabBar: View {
 
                 FloatingTabButton(tab: .today, icon: "chart.bar", selectedIcon: "chart.bar.fill", label: "Today")
 
-                // Center add button — matches app logo style
+                // Center add button
                 Button {
                     #if canImport(UIKit)
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     #endif
-                    appState.showingQuickActions = true
+                    appState.showingWorkoutStartOptions = true
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(GQGradients.primary)
-                            .frame(width: 46, height: 46)
-                            .shadow(color: GQColors.vividPurple.opacity(0.35), radius: 8, y: 2)
+                            .fill(
+                                LinearGradient(
+                                    colors: [GQColors.deepBlue, GQColors.vividPurple.opacity(0.85)],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .frame(width: 44, height: 44)
+                            .shadow(color: GQColors.deepBlue.opacity(0.25), radius: 4, y: 2)
 
                         Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
+                            .font(.system(size: 20, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white)
                     }
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity)
                 .offset(y: -6)
-                .accessibilityLabel("Quick actions")
-                .accessibilityHint("Double tap to start a workout, log entry, or create a post")
+                .accessibilityLabel("Start workout")
+                .accessibilityHint("Double tap to start a new workout")
 
                 FloatingTabButton(tab: .activity, icon: "heart", selectedIcon: "heart.fill", label: "Activity")
 

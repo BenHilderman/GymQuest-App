@@ -2,8 +2,8 @@
 //  SocialView.swift
 //  GymQuest
 //
-//  Social hub - discover new workouts, join communities, and stay motivated.
-//  Features: Discover feed, Community groups with challenges, and friends activity.
+//  Social hub - discover new workouts, join clubs, and stay motivated.
+//  Features: Discover feed, Club groups with challenges, and friends activity.
 //
 
 import SwiftUI
@@ -24,7 +24,7 @@ struct SocialView: View {
 
     enum SocialSection: String, CaseIterable {
         case discover = "Discover"
-        case community = "Community"
+        case club = "Club"
         case friends = "Friends"
     }
 
@@ -39,8 +39,8 @@ struct SocialView: View {
                     switch selectedSection {
                     case .discover:
                         discoverContent
-                    case .community:
-                        communityContent
+                    case .club:
+                        clubContent
                     case .friends:
                         friendsContent
                     }
@@ -155,9 +155,9 @@ struct SocialView: View {
         .padding(16)
     }
 
-    // MARK: - Community Content
+    // MARK: - Club Content
 
-    private var communityContent: some View {
+    private var clubContent: some View {
         LazyVStack(spacing: 20) {
             // Active Challenges Section
             VStack(alignment: .leading, spacing: 12) {
@@ -170,7 +170,7 @@ struct SocialView: View {
                         .tracking(1)
                 }
 
-                CommunityGoalCard(
+                ClubGoalCard(
                     title: "30-Day Consistency",
                     description: "Work out at least 4 days per week",
                     progress: 0.6,
@@ -179,7 +179,7 @@ struct SocialView: View {
                     color: GQColors.vividPurple
                 )
 
-                CommunityGoalCard(
+                ClubGoalCard(
                     title: "1000 Rep Challenge",
                     description: "Complete 1000 total reps this week",
                     progress: 0.35,
@@ -190,10 +190,10 @@ struct SocialView: View {
             }
             .padding(.top, 8)
 
-            // Your Communities
+            // Your Clubs
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("YOUR COMMUNITIES")
+                    Text("YOUR CLUBS")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundColor(GQColors.textTertiary)
                         .tracking(1)
@@ -209,7 +209,7 @@ struct SocialView: View {
                     }
                 }
 
-                CommunityGroupCard(
+                ClubGroupCard(
                     name: "Morning Lifters",
                     members: 156,
                     activeChallenge: "5AM Club",
@@ -217,7 +217,7 @@ struct SocialView: View {
                     color: .orange
                 )
 
-                CommunityGroupCard(
+                ClubGroupCard(
                     name: "Strength Squad",
                     members: 89,
                     activeChallenge: "PR Week",
@@ -226,14 +226,14 @@ struct SocialView: View {
                 )
             }
 
-            // Discover Communities
+            // Discover Clubs
             VStack(alignment: .leading, spacing: 12) {
-                Text("DISCOVER COMMUNITIES")
+                Text("DISCOVER CLUBS")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(GQColors.textTertiary)
                     .tracking(1)
 
-                DiscoverCommunityCard(
+                DiscoverClubCard(
                     name: "Cardio Crew",
                     members: 342,
                     description: "For runners, cyclists, and cardio lovers",
@@ -241,7 +241,7 @@ struct SocialView: View {
                     color: .red
                 )
 
-                DiscoverCommunityCard(
+                DiscoverClubCard(
                     name: "Home Gym Heroes",
                     members: 567,
                     description: "Making gains from home",
@@ -249,7 +249,7 @@ struct SocialView: View {
                     color: .green
                 )
 
-                DiscoverCommunityCard(
+                DiscoverClubCard(
                     name: "Yoga & Mobility",
                     members: 234,
                     description: "Flexibility and recovery focused",
@@ -616,9 +616,9 @@ struct DiscoverPostCard: View {
     }
 }
 
-// MARK: - Community Challenge Card
+// MARK: - Club Challenge Card
 
-struct CommunityGoalCard: View {
+struct ClubGoalCard: View {
     let title: String
     let description: String
     let progress: Double
@@ -699,9 +699,9 @@ struct CommunityGoalCard: View {
     }
 }
 
-// MARK: - Community Group Card
+// MARK: - Club Group Card
 
-struct CommunityGroupCard: View {
+struct ClubGroupCard: View {
     let name: String
     let members: Int
     let activeChallenge: String
@@ -754,9 +754,9 @@ struct CommunityGroupCard: View {
     }
 }
 
-// MARK: - Discover Community Card
+// MARK: - Discover Club Card
 
-struct DiscoverCommunityCard: View {
+struct DiscoverClubCard: View {
     let name: String
     let members: Int
     let description: String

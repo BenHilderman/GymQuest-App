@@ -24,6 +24,8 @@ final class NowPlayingService {
     #endif
 
     private var pollTimer: Timer?
+    private var consecutiveNilPolls = 0
+    private var currentInterval: TimeInterval = 3.0
 
     private init() {
         startPolling()
@@ -33,7 +35,9 @@ final class NowPlayingService {
 
     func startPolling() {
         pollTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+        consecutiveNilPolls = 0
+        currentInterval = 3.0
+        pollTimer = Timer.scheduledTimer(withTimeInterval: currentInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.pollNowPlaying()
             }
@@ -45,6 +49,17 @@ final class NowPlayingService {
     func stopPolling() {
         pollTimer?.invalidate()
         pollTimer = nil
+    }
+
+    private func rescheduleIfNeeded(newInterval: TimeInterval) {
+        guard newInterval != currentInterval else { return }
+        currentInterval = newInterval
+        pollTimer?.invalidate()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: currentInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.pollNowPlaying()
+            }
+        }
     }
 
     private func pollNowPlaying() {
@@ -59,7 +74,17 @@ final class NowPlayingService {
                 albumArtImage = nil
                 #endif
             }
+            consecutiveNilPolls += 1
+            if consecutiveNilPolls >= 3 {
+                rescheduleIfNeeded(newInterval: 10.0)
+            }
             return
+        }
+
+        // Music found — reset backoff
+        if consecutiveNilPolls > 0 {
+            consecutiveNilPolls = 0
+            rescheduleIfNeeded(newInterval: 3.0)
         }
 
         let artist = nowPlayingInfo?[MPMediaItemPropertyArtist] as? String ?? "Unknown Artist"

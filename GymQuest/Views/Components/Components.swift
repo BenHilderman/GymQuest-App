@@ -10,6 +10,8 @@
 
 import SwiftUI
 import SwiftData
+import MapKit
+import Charts
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -337,6 +339,622 @@ struct StatChip: View {
     }
 }
 
+// MARK: - Workout Route Map View
+
+struct WorkoutRouteMapView: View {
+    let workout: Workout
+
+    @State private var showRoute = false
+
+    private var coordinates: [CLLocationCoordinate2D] {
+        workout.routePoints.map {
+            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+        }
+    }
+
+    private var mapCameraPosition: MapCameraPosition {
+        let coords = coordinates
+        guard !coords.isEmpty else { return .automatic }
+        let lats = coords.map(\.latitude)
+        let lngs = coords.map(\.longitude)
+        let center = CLLocationCoordinate2D(
+            latitude: (lats.min()! + lats.max()!) / 2,
+            longitude: (lngs.min()! + lngs.max()!) / 2
+        )
+        let span = MKCoordinateSpan(
+            latitudeDelta: (lats.max()! - lats.min()!) * 1.6 + 0.005,
+            longitudeDelta: (lngs.max()! - lngs.min()!) * 1.6 + 0.005
+        )
+        return .region(MKCoordinateRegion(center: center, span: span))
+    }
+
+    private var distanceString: String {
+        guard let d = workout.totalDistance else { return "--" }
+        return String(format: "%.2f", d / 1000.0)
+    }
+
+    private var paceString: String {
+        guard let p = workout.averagePace, p > 0, p < 3600 else { return "--:--" }
+        let minutes = Int(p) / 60
+        let seconds = Int(p) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            let coords = coordinates
+
+            ZStack {
+                Map(initialPosition: mapCameraPosition, interactionModes: []) {
+                    if showRoute {
+                        MapPolyline(coordinates: coords)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [GQColors.success, GQColors.cyanSpark],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                ),
+                                lineWidth: 3
+                            )
+                    }
+
+                    // Start marker
+                    if let first = coords.first {
+                        Annotation("", coordinate: first) {
+                            Circle()
+                                .fill(GQColors.success)
+                                .frame(width: 14, height: 14)
+                                .overlay(
+                                    Text("S")
+                                        .font(.system(size: 7, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                        }
+                    }
+
+                    // Finish marker
+                    if let last = coords.last {
+                        Annotation("", coordinate: last) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 14, height: 14)
+                                .overlay(
+                                    Text("F")
+                                        .font(.system(size: 7, weight: .bold))
+                                        .foregroundColor(.white)
+                                )
+                        }
+                    }
+                }
+                .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+                .colorScheme(.dark)
+            }
+            .frame(height: 180)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            // Stats pills
+            HStack(spacing: 16) {
+                HStack(spacing: 4) {
+                    Image(systemName: "map")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.success)
+                    Text("\(distanceString) km")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+
+                HStack(spacing: 4) {
+                    Image(systemName: "speedometer")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.cyanSpark)
+                    Text("\(paceString) /km")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+            }
+            .foregroundColor(.white)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).delay(0.3)) {
+                showRoute = true
+            }
+        }
+    }
+}
+
+// MARK: - Post Route Map View (compact for feed cards)
+
+struct PostRouteMapView: View {
+    let routePoints: [RoutePoint]
+    var distance: String?
+    var pace: String?
+    var height: CGFloat = 120
+
+    @State private var showRoute = false
+
+    private var coordinates: [CLLocationCoordinate2D] {
+        routePoints.map {
+            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+        }
+    }
+
+    private var mapCameraPosition: MapCameraPosition {
+        let coords = coordinates
+        guard !coords.isEmpty else { return .automatic }
+        let lats = coords.map(\.latitude)
+        let lngs = coords.map(\.longitude)
+        let center = CLLocationCoordinate2D(
+            latitude: (lats.min()! + lats.max()!) / 2,
+            longitude: (lngs.min()! + lngs.max()!) / 2
+        )
+        let span = MKCoordinateSpan(
+            latitudeDelta: (lats.max()! - lats.min()!) * 1.6 + 0.005,
+            longitudeDelta: (lngs.max()! - lngs.min()!) * 1.6 + 0.005
+        )
+        return .region(MKCoordinateRegion(center: center, span: span))
+    }
+
+    var body: some View {
+        let coords = coordinates
+
+        ZStack(alignment: .bottomTrailing) {
+            Map(initialPosition: mapCameraPosition, interactionModes: []) {
+                if showRoute {
+                    MapPolyline(coordinates: coords)
+                        .stroke(
+                            LinearGradient(
+                                colors: [GQColors.success, GQColors.cyanSpark],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            ),
+                            lineWidth: 3
+                        )
+                }
+
+                if let first = coords.first {
+                    Annotation("", coordinate: first) {
+                        Circle()
+                            .fill(GQColors.success)
+                            .frame(width: 12, height: 12)
+                            .overlay(
+                                Text("S")
+                                    .font(.system(size: 6, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                    }
+                }
+
+                if let last = coords.last {
+                    Annotation("", coordinate: last) {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 12, height: 12)
+                            .overlay(
+                                Text("F")
+                                    .font(.system(size: 6, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                    }
+                }
+            }
+            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+            .colorScheme(.dark)
+
+            // Stats pills overlay
+            if distance != nil || pace != nil {
+                HStack(spacing: 8) {
+                    if let distance = distance {
+                        HStack(spacing: 3) {
+                            Image(systemName: "map")
+                                .font(.system(size: 9))
+                                .foregroundColor(GQColors.success)
+                            Text(distance)
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                    }
+                    if let pace = pace {
+                        HStack(spacing: 3) {
+                            Image(systemName: "speedometer")
+                                .font(.system(size: 9))
+                                .foregroundColor(GQColors.cyanSpark)
+                            Text(pace)
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                    }
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(.black.opacity(0.6)))
+                .padding(8)
+            }
+        }
+        .frame(height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.8).delay(0.3)) {
+                showRoute = true
+            }
+        }
+    }
+}
+
+// MARK: - Run Summary View (Strava-style)
+
+struct RunSummaryView: View {
+    let workout: Workout
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var splits: [KilometerSplit] = []
+    @State private var paceSegments: [PaceSegment] = []
+    @State private var elevationProfile: [ElevationPoint] = []
+    @State private var elevationGain: Double = 0
+    @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var analyzed = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    heroMapSection
+                    statsBarSection
+                    if !elevationProfile.isEmpty {
+                        elevationChartSection
+                    }
+                    if !splits.isEmpty {
+                        splitsTableSection
+                    }
+                    notesSection
+                    Spacer(minLength: 40)
+                }
+                .padding(.top, 12)
+            }
+            .scrollContentBackground(.hidden)
+            .gqPageBackground()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(GQColors.cyanSpark)
+                }
+            }
+        }
+        .onAppear { analyzeRoute() }
+    }
+
+    // MARK: - Hero Map
+
+    @ViewBuilder
+    private var heroMapSection: some View {
+        let coords = workout.routePoints.map {
+            CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+        }
+
+        ZStack(alignment: .bottomLeading) {
+            Map(initialPosition: cameraPosition, interactionModes: [.pan, .zoom]) {
+                ForEach(paceSegments) { segment in
+                    let segCoords = segment.points.map {
+                        CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude)
+                    }
+                    MapPolyline(coordinates: segCoords)
+                        .stroke(segment.paceCategory.color, lineWidth: 4)
+                }
+
+                // Start marker
+                if let first = coords.first {
+                    Annotation("", coordinate: first) {
+                        Circle()
+                            .fill(GQColors.success)
+                            .frame(width: 20, height: 20)
+                            .overlay(
+                                Text("S")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                    }
+                }
+
+                // Finish marker
+                if let last = coords.last {
+                    Annotation("", coordinate: last) {
+                        Circle()
+                            .fill(GQColors.coralRed)
+                            .frame(width: 20, height: 20)
+                            .overlay(
+                                Text("F")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                    }
+                }
+            }
+            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+            .colorScheme(.dark)
+
+            // Pace legend
+            paceLegend
+                .padding(8)
+        }
+        .frame(height: 280)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(.horizontal)
+        .staggeredAppear(index: 0)
+    }
+
+    @ViewBuilder
+    private var paceLegend: some View {
+        HStack(spacing: 10) {
+            legendDot(color: GQColors.success, label: "Fast")
+            legendDot(color: GQColors.warning, label: "Avg")
+            legendDot(color: GQColors.coralRed, label: "Slow")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func legendDot(color: Color, label: String) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white)
+        }
+    }
+
+    // MARK: - Stats Bar
+
+    @ViewBuilder
+    private var statsBarSection: some View {
+        HStack(spacing: 12) {
+            WorkoutStatBadge(
+                icon: "map.fill",
+                value: distanceString,
+                label: "km",
+                color: GQColors.success
+            )
+            WorkoutStatBadge(
+                icon: "clock.fill",
+                value: durationString,
+                label: "time",
+                color: GQColors.cyanSpark
+            )
+            WorkoutStatBadge(
+                icon: "speedometer",
+                value: paceString,
+                label: "/km",
+                color: GQColors.vividPurple
+            )
+            WorkoutStatBadge(
+                icon: "mountain.2.fill",
+                value: elevationString,
+                label: "m ↑",
+                color: GQColors.sunsetOrange
+            )
+        }
+        .padding(.horizontal)
+        .staggeredAppear(index: 1)
+    }
+
+    // MARK: - Elevation Chart
+
+    @ViewBuilder
+    private var elevationChartSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("ELEVATION")
+                .font(GQTypography.sectionHeader)
+                .foregroundColor(GQColors.sectionLabel)
+                .tracking(1)
+
+            Chart(elevationProfile) { point in
+                AreaMark(
+                    x: .value("Distance", point.distanceKm),
+                    y: .value("Altitude", point.altitude)
+                )
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [GQColors.cyanSpark.opacity(0.4), GQColors.cyanSpark.opacity(0.05)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .interpolationMethod(.catmullRom)
+
+                LineMark(
+                    x: .value("Distance", point.distanceKm),
+                    y: .value("Altitude", point.altitude)
+                )
+                .foregroundStyle(GQColors.cyanSpark)
+                .lineStyle(StrokeStyle(lineWidth: 2))
+                .interpolationMethod(.catmullRom)
+            }
+            .chartXAxisLabel("km", position: .trailing)
+            .chartYAxisLabel("m", position: .top)
+            .chartXAxis {
+                AxisMarks(values: .automatic) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Color.white.opacity(0.1))
+                    AxisValueLabel()
+                        .foregroundStyle(GQColors.textTertiary)
+                }
+            }
+            .chartYAxis {
+                AxisMarks(values: .automatic) { _ in
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
+                        .foregroundStyle(Color.white.opacity(0.1))
+                    AxisValueLabel()
+                        .foregroundStyle(GQColors.textTertiary)
+                }
+            }
+            .frame(height: 120)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(GQColors.surfaceBase)
+        )
+        .padding(.horizontal)
+        .staggeredAppear(index: 2)
+    }
+
+    // MARK: - Splits Table
+
+    @ViewBuilder
+    private var splitsTableSection: some View {
+        let paces = splits.map(\.paceSecondsPerKm)
+        let fastest = paces.min() ?? 1
+        let slowest = paces.max() ?? 1
+        let range = slowest - fastest
+
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SPLITS")
+                .font(GQTypography.sectionHeader)
+                .foregroundColor(GQColors.sectionLabel)
+                .tracking(1)
+
+            // Header
+            HStack {
+                Text("KM")
+                    .frame(width: 32, alignment: .leading)
+                Text("PACE")
+                    .frame(width: 52, alignment: .leading)
+                Text("ELEV")
+                    .frame(width: 44, alignment: .trailing)
+                Spacer()
+            }
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(GQColors.textTertiary)
+
+            ForEach(splits) { split in
+                splitRow(split: split, fastest: fastest, range: range)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(GQColors.surfaceBase)
+        )
+        .padding(.horizontal)
+        .staggeredAppear(index: 3)
+    }
+
+    @ViewBuilder
+    private func splitRow(split: KilometerSplit, fastest: Double, range: Double) -> some View {
+        let normalized = range > 0 ? 1.0 - ((split.paceSecondsPerKm - fastest) / range) : 0.5
+        let barColor: Color = normalized > 0.66 ? GQColors.success : (normalized > 0.33 ? GQColors.warning : GQColors.coralRed)
+        let barWidth = max(20.0, normalized * 80.0)
+
+        HStack {
+            Text("\(split.id)")
+                .frame(width: 32, alignment: .leading)
+                .foregroundColor(GQColors.textPrimary)
+
+            Text(split.paceString)
+                .frame(width: 52, alignment: .leading)
+                .monospacedDigit()
+                .foregroundColor(GQColors.textPrimary)
+
+            Text(elevChangeString(split.elevationChange))
+                .frame(width: 44, alignment: .trailing)
+                .foregroundColor(split.elevationChange >= 0 ? GQColors.success : GQColors.coralRed)
+
+            Spacer()
+
+            RoundedRectangle(cornerRadius: 3)
+                .fill(barColor)
+                .frame(width: barWidth, height: 12)
+        }
+        .font(.system(size: 13, weight: .medium))
+    }
+
+    // MARK: - Notes
+
+    @ViewBuilder
+    private var notesSection: some View {
+        if !workout.notes.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("NOTES")
+                    .font(GQTypography.sectionHeader)
+                    .foregroundColor(GQColors.sectionLabel)
+                    .tracking(1)
+
+                Text(workout.notes)
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+            .staggeredAppear(index: 4)
+        }
+    }
+
+    // MARK: - Helpers
+
+    private var distanceString: String {
+        guard let d = workout.totalDistance else { return "--" }
+        return String(format: "%.2f", d / 1000.0)
+    }
+
+    private var durationString: String {
+        let mins = workout.duration
+        if mins >= 60 {
+            return "\(mins / 60)h\(String(format: "%02d", mins % 60))"
+        }
+        return "\(mins)m"
+    }
+
+    private var paceString: String {
+        guard let p = workout.averagePace, p > 0, p < 3600 else { return "--:--" }
+        let minutes = Int(p) / 60
+        let seconds = Int(p) % 60
+        return "\(minutes):\(String(format: "%02d", seconds))"
+    }
+
+    private var elevationString: String {
+        let gain = elevationGain
+        if gain > 0 { return String(format: "%.0f", gain) }
+        return "--"
+    }
+
+    private func elevChangeString(_ change: Double) -> String {
+        let arrow = change >= 0 ? "↑" : "↓"
+        return "\(arrow)\(String(format: "%.0f", abs(change)))"
+    }
+
+    private func analyzeRoute() {
+        guard !analyzed else { return }
+        analyzed = true
+
+        let points = workout.routePoints
+        guard !points.isEmpty else { return }
+
+        splits = RunAnalysis.computeSplits(from: points)
+        paceSegments = RunAnalysis.computePaceSegments(
+            from: points,
+            averagePace: workout.averagePace ?? 0
+        )
+        elevationProfile = RunAnalysis.computeElevationProfile(from: points)
+        elevationGain = workout.elevationGain ?? RunAnalysis.computeElevationGain(from: points)
+
+        // Compute map camera
+        let coords = points.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+        let lats = coords.map(\.latitude)
+        let lngs = coords.map(\.longitude)
+        if let minLat = lats.min(), let maxLat = lats.max(),
+           let minLng = lngs.min(), let maxLng = lngs.max() {
+            let center = CLLocationCoordinate2D(
+                latitude: (minLat + maxLat) / 2,
+                longitude: (minLng + maxLng) / 2
+            )
+            let span = MKCoordinateSpan(
+                latitudeDelta: (maxLat - minLat) * 1.4 + 0.005,
+                longitudeDelta: (maxLng - minLng) * 1.4 + 0.005
+            )
+            cameraPosition = .region(MKCoordinateRegion(center: center, span: span))
+        }
+    }
+}
+
+// MARK: - Session Detail View
+
 struct SessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -363,6 +981,25 @@ struct SessionDetailView: View {
                         StatChip(value: "\(session.duration)", label: "min")
                         StatChip(value: "\(session.totalSets)", label: "sets")
                         StatChip(value: "\(session.exercises.count)", label: "exercises")
+                    }
+
+                    // Distance/pace stats for GPS workouts
+                    if session.hasRoute {
+                        HStack(spacing: 32) {
+                            if let dist = session.totalDistance {
+                                StatChip(value: String(format: "%.2f", dist / 1000.0), label: "km")
+                            }
+                            if let pace = session.averagePace, pace > 0, pace < 3600 {
+                                let min = Int(pace) / 60
+                                let sec = Int(pace) % 60
+                                StatChip(value: String(format: "%d:%02d", min, sec), label: "/km")
+                            }
+                        }
+                    }
+
+                    // Route map for GPS workouts
+                    if session.hasRoute {
+                        WorkoutRouteMapView(workout: session)
                     }
 
                     // exercises

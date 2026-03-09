@@ -2584,21 +2584,21 @@ final class SquadChallenge {
 // MARK: - Reaction System (Positive-only)
 
 enum ReactionType: String, Codable, CaseIterable {
-    case kudos = "Kudos"
+    case heart = "Love"
     case fire = "Fire"
+    case thumbsUp = "Nice"
     case strong = "Strong"
-    case nicePR = "Nice PR"
-    case inspired = "Inspired"
-    case respect = "Respect"
+    case clap = "Props"
+    case shocked = "Wow"
 
     var emoji: String {
         switch self {
-        case .kudos: return "👊"
+        case .heart: return "❤️"
         case .fire: return "🔥"
+        case .thumbsUp: return "👍"
         case .strong: return "💪"
-        case .nicePR: return "🏆"
-        case .inspired: return "✨"
-        case .respect: return "🙌"
+        case .clap: return "👏"
+        case .shocked: return "😮"
         }
     }
 }
@@ -2620,7 +2620,7 @@ final class Reaction {
         odUsername: String = "",
         targetType: String = "post",
         targetId: UUID = UUID(),
-        reactionType: ReactionType = .kudos,
+        reactionType: ReactionType = .heart,
         createdAt: Date = Date()
     ) {
         self.id = id

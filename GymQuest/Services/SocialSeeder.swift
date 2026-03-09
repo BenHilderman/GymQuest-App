@@ -70,6 +70,19 @@ struct SocialSeeder {
             ]
             p1.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        let p1Workout = SharedWorkoutData(
+            title: "Chest & Triceps",
+            workoutType: "Push",
+            estimatedDuration: 62,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Incline Bench Press", muscleGroup: "Chest", sets: [.init(reps: 8, weight: 185, restSeconds: 90), .init(reps: 8, weight: 185, restSeconds: 90), .init(reps: 6, weight: 205, restSeconds: 120)], demoTips: ["Arch back slightly", "Control the negative"]),
+                SharedWorkoutData.SharedExercise(name: "Tricep Pushdown", muscleGroup: "Triceps", sets: [.init(reps: 12, weight: 50, restSeconds: 60), .init(reps: 10, weight: 60, restSeconds: 60)], demoTips: ["Lock elbows at sides", "Squeeze at bottom"]),
+                SharedWorkoutData.SharedExercise(name: "Cable Fly", muscleGroup: "Chest", sets: [.init(reps: 12, weight: 30, restSeconds: 60), .init(reps: 12, weight: 30, restSeconds: 60)], demoTips: ["Slight bend in elbows", "Squeeze at center"]),
+            ],
+            authorName: fakeUsers[0].name,
+            authorUsername: fakeUsers[0].username
+        )
+        p1.sharedWorkoutData = try? JSONEncoder().encode(p1Workout)
         modelContext.insert(p1)
         postIds.append(p1.id)
 
@@ -128,6 +141,14 @@ struct SocialSeeder {
             commentCount: 3,
             workoutEmotion: "Strong"
         )
+        p2.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Barbell Row", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p2.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p2)
         postIds.append(p2.id)
 
@@ -159,10 +180,48 @@ struct SocialSeeder {
             ]
             p3.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        let p3Workout = SharedWorkoutData(
+            title: "Leg Day Destroyer",
+            workoutType: "Legs",
+            estimatedDuration: 70,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Squat", muscleGroup: "Quads", sets: [.init(reps: 3, weight: 345, restSeconds: 180), .init(reps: 5, weight: 315, restSeconds: 150), .init(reps: 5, weight: 315, restSeconds: 150)], demoTips: ["Break at hips first", "Drive knees out"]),
+                SharedWorkoutData.SharedExercise(name: "Romanian Deadlift", muscleGroup: "Hamstrings", sets: [.init(reps: 10, weight: 225, restSeconds: 90), .init(reps: 10, weight: 225, restSeconds: 90)], demoTips: ["Hinge at hips", "Feel hamstring stretch"]),
+                SharedWorkoutData.SharedExercise(name: "Leg Press", muscleGroup: "Quads", sets: [.init(reps: 12, weight: 450, restSeconds: 90), .init(reps: 10, weight: 500, restSeconds: 90)], demoTips: ["Full range of motion", "Don't lock knees"]),
+            ],
+            authorName: fakeUsers[2].name,
+            authorUsername: fakeUsers[2].username
+        )
+        p3.sharedWorkoutData = try? JSONEncoder().encode(p3Workout)
         modelContext.insert(p3)
         postIds.append(p3.id)
 
-        // 4. Cardio + motivation
+        // 4. Cardio + motivation (with route data)
+        let runRoute: [RoutePoint] = [
+            RoutePoint(latitude: 43.6532, longitude: -79.3832, altitude: 76, timestamp: 0, speed: 3.2, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6540, longitude: -79.3820, altitude: 77, timestamp: 60, speed: 3.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6555, longitude: -79.3805, altitude: 78, timestamp: 150, speed: 3.6, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6568, longitude: -79.3798, altitude: 79, timestamp: 240, speed: 3.4, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6580, longitude: -79.3810, altitude: 80, timestamp: 330, speed: 3.3, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6585, longitude: -79.3830, altitude: 81, timestamp: 420, speed: 3.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6578, longitude: -79.3850, altitude: 80, timestamp: 510, speed: 3.6, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6565, longitude: -79.3862, altitude: 79, timestamp: 600, speed: 3.4, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6550, longitude: -79.3868, altitude: 78, timestamp: 700, speed: 3.3, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6538, longitude: -79.3860, altitude: 77, timestamp: 800, speed: 3.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6528, longitude: -79.3848, altitude: 76, timestamp: 900, speed: 3.6, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6525, longitude: -79.3838, altitude: 76, timestamp: 1000, speed: 3.4, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6530, longitude: -79.3833, altitude: 76, timestamp: 1100, speed: 3.2, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6532, longitude: -79.3832, altitude: 76, timestamp: 1200, speed: 3.0, horizontalAccuracy: 5),
+        ]
+        let runWorkoutData = SharedWorkoutData(
+            title: "Outdoor Run",
+            workoutType: "Cardio",
+            estimatedDuration: 28,
+            authorName: fakeUsers[3].name,
+            authorUsername: fakeUsers[3].username,
+            routePoints: runRoute
+        )
+        let runData = try? JSONEncoder().encode(runWorkoutData)
         let p4 = Post(
             authorId: fakeUsers[3].id,
             authorName: fakeUsers[3].name,
@@ -175,11 +234,20 @@ struct SocialSeeder {
             songTitle: "Run This Town",
             artistName: "JAY-Z",
             musicSource: "Spotify",
+            sharedWorkoutData: runData,
             likeCount: 19,
             commentCount: 2,
             spotifyPlaylistURL: "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
             workoutEmotion: "Grinding"
         )
+        p4.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Outdoor Run", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p4.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p4)
         postIds.append(p4.id)
 
@@ -239,23 +307,122 @@ struct SocialSeeder {
             locationName: "GoodLife Downtown",
             workoutEmotion: "Strong"
         )
+        p5.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p5.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p5)
         postIds.append(p5.id)
 
         // 6. Caption-only motivation
+        let mealPrepWorkout = SharedWorkoutData(
+            title: "Quick Push + Meal Prep",
+            workoutType: "Push",
+            estimatedDuration: 35,
+            exercises: [
+                SharedWorkoutData.SharedExercise(
+                    name: "Bench Press",
+                    muscleGroup: "Chest",
+                    sets: [
+                        .init(reps: 10, weight: 135, restSeconds: 60),
+                        .init(reps: 8, weight: 155, restSeconds: 90),
+                        .init(reps: 6, weight: 175, restSeconds: 90),
+                    ],
+                    demoTips: ["Arch back slightly", "Touch chest each rep"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Dumbbell Shoulder Press",
+                    muscleGroup: "Shoulders",
+                    sets: [
+                        .init(reps: 10, weight: 40, restSeconds: 60),
+                        .init(reps: 8, weight: 45, restSeconds: 60),
+                    ],
+                    demoTips: ["Press overhead", "Control the negative"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Tricep Dips",
+                    muscleGroup: "Triceps",
+                    sets: [
+                        .init(reps: 12, weight: 0, restSeconds: 60),
+                        .init(reps: 10, weight: 0, restSeconds: 60),
+                    ],
+                    demoTips: ["Elbows back", "Full lockout"]
+                ),
+            ],
+            authorName: fakeUsers[5].name,
+            authorUsername: fakeUsers[5].username
+        )
+        let mealPrepData = try? JSONEncoder().encode(mealPrepWorkout)
         let p6 = Post(
             authorId: fakeUsers[5].id,
             authorName: fakeUsers[5].name,
             authorUsername: fakeUsers[5].username,
             timestamp: hoursAgo(6),
-            caption: "Rest days are growth days. Stretching, foam rolling, and meal prep. Tomorrow we attack legs.",
+            caption: "Post-workout meal prep done for the week. 180g protein daily, hitting macros consistently for 3 weeks straight.",
+            workoutType: "Push",
+            duration: 35,
+            setCount: 10,
+            exerciseHighlight: "Bench Press",
+            sharedWorkoutData: mealPrepData,
             likeCount: 12,
-            commentCount: 1
+            commentCount: 1,
+            workoutEmotion: "Dialed In"
         )
+        p6.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p6.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p6)
         postIds.append(p6.id)
 
         // 7. Leg workout with inspired-by
+        let legWorkout7 = SharedWorkoutData(
+            title: "Quad Destroyer",
+            workoutType: "Legs",
+            estimatedDuration: 65,
+            exercises: [
+                SharedWorkoutData.SharedExercise(
+                    name: "Bulgarian Split Squat",
+                    muscleGroup: "Quads",
+                    sets: [
+                        .init(reps: 10, weight: 50, restSeconds: 60),
+                        .init(reps: 10, weight: 50, restSeconds: 60),
+                        .init(reps: 8, weight: 60, restSeconds: 90),
+                    ],
+                    demoTips: ["Rear foot elevated", "Keep torso upright"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Squat",
+                    muscleGroup: "Quads",
+                    sets: [
+                        .init(reps: 8, weight: 185, restSeconds: 90),
+                        .init(reps: 8, weight: 205, restSeconds: 120),
+                        .init(reps: 6, weight: 225, restSeconds: 120),
+                    ],
+                    demoTips: ["Break at hips first", "Depth below parallel"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Leg Extension",
+                    muscleGroup: "Quads",
+                    sets: [
+                        .init(reps: 15, weight: 90, restSeconds: 60),
+                        .init(reps: 12, weight: 110, restSeconds: 60),
+                    ],
+                    demoTips: ["Squeeze at the top", "Slow negative"]
+                ),
+            ],
+            authorName: fakeUsers[6].name,
+            authorUsername: fakeUsers[6].username
+        )
+        let legData7 = try? JSONEncoder().encode(legWorkout7)
         let p7 = Post(
             authorId: fakeUsers[6].id,
             authorName: fakeUsers[6].name,
@@ -269,12 +436,21 @@ struct SocialSeeder {
             songTitle: "Sicko Mode",
             artistName: "Travis Scott",
             musicSource: "Spotify",
+            sharedWorkoutData: legData7,
             inspiredByUsername: fakeUsers[2].username,
             inspiredByName: fakeUsers[2].name,
             likeCount: 22,
             commentCount: 3,
             workoutEmotion: "Grinding"
         )
+        p7.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Bulgarian Split Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p7.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p7)
         postIds.append(p7.id)
 
@@ -306,6 +482,19 @@ struct SocialSeeder {
             ]
             p8.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        let p8Workout = SharedWorkoutData(
+            title: "Full Body Blitz",
+            workoutType: "Push",
+            estimatedDuration: 75,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Deadlift", muscleGroup: "Back", sets: [.init(reps: 5, weight: 315, restSeconds: 180), .init(reps: 5, weight: 315, restSeconds: 180)], demoTips: ["Neutral spine", "Drive through heels"]),
+                SharedWorkoutData.SharedExercise(name: "Bench Press", muscleGroup: "Chest", sets: [.init(reps: 8, weight: 185, restSeconds: 90), .init(reps: 8, weight: 185, restSeconds: 90)], demoTips: ["Retract scapula", "Touch chest"]),
+                SharedWorkoutData.SharedExercise(name: "Barbell Row", muscleGroup: "Back", sets: [.init(reps: 8, weight: 155, restSeconds: 90), .init(reps: 8, weight: 155, restSeconds: 90)], demoTips: ["Hinge at hips", "Pull to belly button"]),
+            ],
+            authorName: fakeUsers[7].name,
+            authorUsername: fakeUsers[7].username
+        )
+        p8.sharedWorkoutData = try? JSONEncoder().encode(p8Workout)
         modelContext.insert(p8)
         postIds.append(p8.id)
 
@@ -354,10 +543,56 @@ struct SocialSeeder {
             commentCount: 2,
             workoutEmotion: "Strong"
         )
+        p9.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Lat Pulldown", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p9.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p9)
         postIds.append(p9.id)
 
         // 10. Comeback story
+        let pushWorkout10 = SharedWorkoutData(
+            title: "Comeback Push",
+            workoutType: "Push",
+            estimatedDuration: 40,
+            exercises: [
+                SharedWorkoutData.SharedExercise(
+                    name: "Dumbbell Press",
+                    muscleGroup: "Chest",
+                    sets: [
+                        .init(reps: 10, weight: 45, restSeconds: 60),
+                        .init(reps: 8, weight: 50, restSeconds: 90),
+                        .init(reps: 8, weight: 50, restSeconds: 90),
+                    ],
+                    demoTips: ["Flat bench", "Control the descent"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Incline Bench Press",
+                    muscleGroup: "Chest",
+                    sets: [
+                        .init(reps: 8, weight: 115, restSeconds: 90),
+                        .init(reps: 6, weight: 135, restSeconds: 90),
+                    ],
+                    demoTips: ["30 degree incline", "Touch upper chest"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Lateral Raise",
+                    muscleGroup: "Shoulders",
+                    sets: [
+                        .init(reps: 15, weight: 15, restSeconds: 45),
+                        .init(reps: 12, weight: 20, restSeconds: 45),
+                    ],
+                    demoTips: ["Slight bend in elbows", "Raise to shoulder height"]
+                ),
+            ],
+            authorName: fakeUsers[9].name,
+            authorUsername: fakeUsers[9].username
+        )
+        let pushData10 = try? JSONEncoder().encode(pushWorkout10)
         let p10 = Post(
             authorId: fakeUsers[9].id,
             authorName: fakeUsers[9].name,
@@ -371,14 +606,61 @@ struct SocialSeeder {
             songTitle: "Stronger",
             artistName: "Kanye West",
             musicSource: "Spotify",
+            sharedWorkoutData: pushData10,
             likeCount: 42,
             commentCount: 5,
             workoutEmotion: "Comeback"
         )
+        p10.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Dumbbell Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p10.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p10)
         postIds.append(p10.id)
 
         // 11. Gym location post
+        let legWorkout11 = SharedWorkoutData(
+            title: "Morning Squat Session",
+            workoutType: "Legs",
+            estimatedDuration: 55,
+            exercises: [
+                SharedWorkoutData.SharedExercise(
+                    name: "Squat",
+                    muscleGroup: "Quads",
+                    sets: [
+                        .init(reps: 8, weight: 225, restSeconds: 120),
+                        .init(reps: 6, weight: 255, restSeconds: 120),
+                        .init(reps: 6, weight: 275, restSeconds: 150),
+                    ],
+                    demoTips: ["Brace core hard", "Drive through heels"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Leg Press",
+                    muscleGroup: "Quads",
+                    sets: [
+                        .init(reps: 12, weight: 360, restSeconds: 90),
+                        .init(reps: 10, weight: 410, restSeconds: 90),
+                    ],
+                    demoTips: ["Feet shoulder width", "Full range of motion"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Calf Raise",
+                    muscleGroup: "Calves",
+                    sets: [
+                        .init(reps: 15, weight: 180, restSeconds: 60),
+                        .init(reps: 15, weight: 180, restSeconds: 60),
+                    ],
+                    demoTips: ["Pause at the top", "Full stretch at bottom"]
+                ),
+            ],
+            authorName: fakeUsers[0].name,
+            authorUsername: fakeUsers[0].username
+        )
+        let legData11 = try? JSONEncoder().encode(legWorkout11)
         let p11 = Post(
             authorId: fakeUsers[0].id,
             authorName: fakeUsers[0].name,
@@ -389,15 +671,62 @@ struct SocialSeeder {
             duration: 55,
             setCount: 16,
             exerciseHighlight: "Squat",
+            sharedWorkoutData: legData11,
             likeCount: 26,
             commentCount: 3,
             locationName: "The ARC - Queen's",
             workoutEmotion: "Grateful"
         )
+        p11.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p11.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p11)
         postIds.append(p11.id)
 
         // 12. Music-focused post
+        let pushWorkout12 = SharedWorkoutData(
+            title: "OHP PR Day",
+            workoutType: "Push",
+            estimatedDuration: 48,
+            exercises: [
+                SharedWorkoutData.SharedExercise(
+                    name: "Overhead Press",
+                    muscleGroup: "Shoulders",
+                    sets: [
+                        .init(reps: 8, weight: 95, restSeconds: 90),
+                        .init(reps: 6, weight: 115, restSeconds: 90),
+                        .init(reps: 3, weight: 135, restSeconds: 120),
+                    ],
+                    demoTips: ["Brace core", "Lock out at the top"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Bench Press",
+                    muscleGroup: "Chest",
+                    sets: [
+                        .init(reps: 8, weight: 155, restSeconds: 90),
+                        .init(reps: 8, weight: 175, restSeconds: 90),
+                    ],
+                    demoTips: ["Retract scapula", "Leg drive"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Tricep Pushdown",
+                    muscleGroup: "Triceps",
+                    sets: [
+                        .init(reps: 12, weight: 50, restSeconds: 60),
+                        .init(reps: 12, weight: 60, restSeconds: 60),
+                    ],
+                    demoTips: ["Elbows pinned", "Full extension"]
+                ),
+            ],
+            authorName: fakeUsers[1].name,
+            authorUsername: fakeUsers[1].username
+        )
+        let pushData12 = try? JSONEncoder().encode(pushWorkout12)
         let p12 = Post(
             authorId: fakeUsers[1].id,
             authorName: fakeUsers[1].name,
@@ -411,15 +740,62 @@ struct SocialSeeder {
             songTitle: "HUMBLE.",
             artistName: "Kendrick Lamar",
             musicSource: "Spotify",
+            sharedWorkoutData: pushData12,
             likeCount: 23,
             commentCount: 2,
             spotifyPlaylistURL: "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
             workoutEmotion: "Strong"
         )
+        p12.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Overhead Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p12.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p12)
         postIds.append(p12.id)
 
         // 13. Dragging but got it done
+        let pullWorkout13 = SharedWorkoutData(
+            title: "Light Pull Session",
+            workoutType: "Pull",
+            estimatedDuration: 35,
+            exercises: [
+                SharedWorkoutData.SharedExercise(
+                    name: "Cable Row",
+                    muscleGroup: "Back",
+                    sets: [
+                        .init(reps: 12, weight: 100, restSeconds: 60),
+                        .init(reps: 10, weight: 120, restSeconds: 60),
+                        .init(reps: 10, weight: 120, restSeconds: 60),
+                    ],
+                    demoTips: ["Squeeze shoulder blades", "Controlled tempo"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Face Pull",
+                    muscleGroup: "Rear Delts",
+                    sets: [
+                        .init(reps: 15, weight: 30, restSeconds: 45),
+                        .init(reps: 15, weight: 35, restSeconds: 45),
+                    ],
+                    demoTips: ["Pull to forehead", "Externally rotate"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Hammer Curl",
+                    muscleGroup: "Biceps",
+                    sets: [
+                        .init(reps: 12, weight: 25, restSeconds: 45),
+                        .init(reps: 10, weight: 30, restSeconds: 45),
+                    ],
+                    demoTips: ["Neutral grip", "No swinging"]
+                ),
+            ],
+            authorName: fakeUsers[3].name,
+            authorUsername: fakeUsers[3].username
+        )
+        let pullData13 = try? JSONEncoder().encode(pullWorkout13)
         let p13 = Post(
             authorId: fakeUsers[3].id,
             authorName: fakeUsers[3].name,
@@ -430,14 +806,62 @@ struct SocialSeeder {
             duration: 35,
             setCount: 10,
             exerciseHighlight: "Cable Row",
+            sharedWorkoutData: pullData13,
             likeCount: 38,
             commentCount: 4,
             workoutEmotion: "Dragging"
         )
+        p13.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Cable Row", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p13.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p13)
         postIds.append(p13.id)
 
         // 14. Inspired-by chain
+        let pullWorkout14 = SharedWorkoutData(
+            title: "Pull Superset Program",
+            workoutType: "Pull",
+            estimatedDuration: 52,
+            exercises: [
+                SharedWorkoutData.SharedExercise(
+                    name: "Pull Up",
+                    muscleGroup: "Back",
+                    sets: [
+                        .init(reps: 10, weight: 0, restSeconds: 90),
+                        .init(reps: 8, weight: 0, restSeconds: 90),
+                        .init(reps: 6, weight: 25, restSeconds: 120),
+                    ],
+                    demoTips: ["Dead hang start", "Chin over bar"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Barbell Row",
+                    muscleGroup: "Back",
+                    sets: [
+                        .init(reps: 8, weight: 145, restSeconds: 90),
+                        .init(reps: 8, weight: 165, restSeconds: 90),
+                        .init(reps: 6, weight: 185, restSeconds: 90),
+                    ],
+                    demoTips: ["Hinge at hips", "Pull to belly button"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Bicep Curls",
+                    muscleGroup: "Biceps",
+                    sets: [
+                        .init(reps: 12, weight: 30, restSeconds: 60),
+                        .init(reps: 10, weight: 35, restSeconds: 60),
+                    ],
+                    demoTips: ["Squeeze at top", "Slow eccentric"]
+                ),
+            ],
+            authorName: fakeUsers[4].name,
+            authorUsername: fakeUsers[4].username
+        )
+        let pullData14 = try? JSONEncoder().encode(pullWorkout14)
         let p14 = Post(
             authorId: fakeUsers[4].id,
             authorName: fakeUsers[4].name,
@@ -448,12 +872,21 @@ struct SocialSeeder {
             duration: 52,
             setCount: 14,
             exerciseHighlight: "Pull Up",
+            sharedWorkoutData: pullData14,
             inspiredByUsername: fakeUsers[1].username,
             inspiredByName: fakeUsers[1].name,
             likeCount: 15,
             commentCount: 2,
             workoutEmotion: "Fired Up"
         )
+        p14.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Pull Up", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p14.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p14)
         postIds.append(p14.id)
 
@@ -512,19 +945,79 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Strong"
         )
+        p15.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p15.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p15)
         postIds.append(p15.id)
 
-        // 16. Caption only — motivation
+        // 16. Progress milestone workout
+        let legWorkout16 = SharedWorkoutData(
+            title: "Week 8 Leg Day",
+            workoutType: "Legs",
+            estimatedDuration: 50,
+            exercises: [
+                SharedWorkoutData.SharedExercise(
+                    name: "Squat",
+                    muscleGroup: "Quads",
+                    sets: [
+                        .init(reps: 8, weight: 185, restSeconds: 90),
+                        .init(reps: 6, weight: 205, restSeconds: 120),
+                        .init(reps: 4, weight: 225, restSeconds: 150),
+                    ],
+                    demoTips: ["Brace hard", "Below parallel"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Leg Curl",
+                    muscleGroup: "Hamstrings",
+                    sets: [
+                        .init(reps: 12, weight: 80, restSeconds: 60),
+                        .init(reps: 10, weight: 90, restSeconds: 60),
+                    ],
+                    demoTips: ["Squeeze at peak", "Control the eccentric"]
+                ),
+                SharedWorkoutData.SharedExercise(
+                    name: "Walking Lunge",
+                    muscleGroup: "Quads",
+                    sets: [
+                        .init(reps: 12, weight: 40, restSeconds: 60),
+                        .init(reps: 12, weight: 40, restSeconds: 60),
+                    ],
+                    demoTips: ["Long stride", "Knee tracks over toe"]
+                ),
+            ],
+            authorName: fakeUsers[5].name,
+            authorUsername: fakeUsers[5].username
+        )
+        let legData16 = try? JSONEncoder().encode(legWorkout16)
         let p16 = Post(
             authorId: fakeUsers[5].id,
             authorName: fakeUsers[5].name,
             authorUsername: fakeUsers[5].username,
             timestamp: hoursAgo(26),
-            caption: "Week 8 of consistent training. Down 4 lbs, lifts are going UP. Trust the process and eat your protein.",
+            caption: "Week 8 of consistent training. Down 4 lbs, squat went from 185 to 225. Trust the process.",
+            workoutType: "Legs",
+            duration: 50,
+            setCount: 15,
+            exerciseHighlight: "Squat",
+            sharedWorkoutData: legData16,
             likeCount: 29,
-            commentCount: 3
+            commentCount: 3,
+            workoutEmotion: "Grateful"
         )
+        p16.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p16.mediaItemsData = try? JSONEncoder().encode(items)
+        }
         modelContext.insert(p16)
         postIds.append(p16.id)
 
@@ -546,6 +1039,26 @@ struct SocialSeeder {
             locationName: "GoodLife Downtown",
             workoutEmotion: "Grinding"
         )
+        p17.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Treadmill", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p17.mediaItemsData = try? JSONEncoder().encode(items)
+        }
+        let p17Workout = SharedWorkoutData(
+            title: "Treadmill HIIT",
+            workoutType: "Cardio",
+            estimatedDuration: 20,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Treadmill Intervals", muscleGroup: "Cardio", sets: [.init(reps: 12, weight: 0, restSeconds: 60)], demoTips: ["30s sprint / 60s walk", "Increase incline each round"]),
+                SharedWorkoutData.SharedExercise(name: "Jump Rope", muscleGroup: "Cardio", sets: [.init(reps: 3, weight: 0, restSeconds: 30)], demoTips: ["Stay on balls of feet", "Keep wrists relaxed"]),
+            ],
+            authorName: fakeUsers[7].name,
+            authorUsername: fakeUsers[7].username
+        )
+        p17.sharedWorkoutData = try? JSONEncoder().encode(p17Workout)
         modelContext.insert(p17)
         postIds.append(p17.id)
 
@@ -564,6 +1077,27 @@ struct SocialSeeder {
             commentCount: 1,
             workoutEmotion: "Calm"
         )
+        p18.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Lateral Raise", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p18.mediaItemsData = try? JSONEncoder().encode(items)
+        }
+        let p18Workout = SharedWorkoutData(
+            title: "Shoulder Burner",
+            workoutType: "Push",
+            estimatedDuration: 42,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Lateral Raise", muscleGroup: "Shoulders", sets: [.init(reps: 15, weight: 20, restSeconds: 45), .init(reps: 12, weight: 25, restSeconds: 45), .init(reps: 10, weight: 25, restSeconds: 45)], demoTips: ["Slight bend in elbows", "Control the negative"]),
+                SharedWorkoutData.SharedExercise(name: "Arnold Press", muscleGroup: "Shoulders", sets: [.init(reps: 10, weight: 40, restSeconds: 90), .init(reps: 8, weight: 45, restSeconds: 90)], demoTips: ["Rotate palms outward", "Full range of motion"]),
+                SharedWorkoutData.SharedExercise(name: "Cable Fly", muscleGroup: "Chest", sets: [.init(reps: 12, weight: 25, restSeconds: 60), .init(reps: 12, weight: 25, restSeconds: 60)], demoTips: ["Slight bend in elbows", "Squeeze at center"]),
+            ],
+            authorName: fakeUsers[6].name,
+            authorUsername: fakeUsers[6].username
+        )
+        p18.sharedWorkoutData = try? JSONEncoder().encode(p18Workout)
         modelContext.insert(p18)
         postIds.append(p18.id)
 
@@ -591,6 +1125,19 @@ struct SocialSeeder {
             ]
             p19.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        let p19Workout = SharedWorkoutData(
+            title: "Early Bird Pull",
+            workoutType: "Pull",
+            estimatedDuration: 58,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Deadlift", muscleGroup: "Back", sets: [.init(reps: 1, weight: 365, restSeconds: 240), .init(reps: 3, weight: 335, restSeconds: 180)], demoTips: ["Neutral spine", "Brace core hard"]),
+                SharedWorkoutData.SharedExercise(name: "Barbell Row", muscleGroup: "Back", sets: [.init(reps: 8, weight: 185, restSeconds: 90), .init(reps: 8, weight: 185, restSeconds: 90)], demoTips: ["Hinge at hips", "Pull to belly button"]),
+                SharedWorkoutData.SharedExercise(name: "Pull Up", muscleGroup: "Back", sets: [.init(reps: 10, weight: 0, restSeconds: 90), .init(reps: 8, weight: 0, restSeconds: 90)], demoTips: ["Full hang at bottom", "Chin over bar"]),
+            ],
+            authorName: fakeUsers[8].name,
+            authorUsername: fakeUsers[8].username
+        )
+        p19.sharedWorkoutData = try? JSONEncoder().encode(p19Workout)
         modelContext.insert(p19)
         postIds.append(p19.id)
 
@@ -609,6 +1156,27 @@ struct SocialSeeder {
             commentCount: 2,
             workoutEmotion: "Grateful"
         )
+        p20.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Squat", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p20.mediaItemsData = try? JSONEncoder().encode(items)
+        }
+        let p20Workout = SharedWorkoutData(
+            title: "Recovery Legs",
+            workoutType: "Legs",
+            estimatedDuration: 30,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Squat", muscleGroup: "Quads", sets: [.init(reps: 10, weight: 135, restSeconds: 90), .init(reps: 10, weight: 135, restSeconds: 90)], demoTips: ["Light weight, focus form", "Full depth"]),
+                SharedWorkoutData.SharedExercise(name: "Hip Thrust", muscleGroup: "Glutes", sets: [.init(reps: 12, weight: 135, restSeconds: 60), .init(reps: 12, weight: 135, restSeconds: 60)], demoTips: ["Drive through heels", "Squeeze glutes at top"]),
+                SharedWorkoutData.SharedExercise(name: "Leg Extension", muscleGroup: "Quads", sets: [.init(reps: 15, weight: 70, restSeconds: 45), .init(reps: 15, weight: 70, restSeconds: 45)], demoTips: ["Slow and controlled", "Pause at top"]),
+            ],
+            authorName: fakeUsers[9].name,
+            authorUsername: fakeUsers[9].username
+        )
+        p20.sharedWorkoutData = try? JSONEncoder().encode(p20Workout)
         modelContext.insert(p20)
         postIds.append(p20.id)
 
@@ -631,6 +1199,26 @@ struct SocialSeeder {
             commentCount: 1,
             spotifyPlaylistURL: "https://open.spotify.com/playlist/37i9dQZF1DX8tZsk68tuoQ"
         )
+        p21.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Outdoor Run", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p21.mediaItemsData = try? JSONEncoder().encode(items)
+        }
+        let p21Workout = SharedWorkoutData(
+            title: "Outdoor Run",
+            workoutType: "Cardio",
+            estimatedDuration: 32,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Outdoor Run", muscleGroup: "Cardio", sets: [.init(reps: 1, weight: 0, restSeconds: 0)], demoTips: ["Steady pace", "Focus on breathing"]),
+                SharedWorkoutData.SharedExercise(name: "Walking Lunge", muscleGroup: "Legs", sets: [.init(reps: 20, weight: 0, restSeconds: 60), .init(reps: 20, weight: 0, restSeconds: 60)], demoTips: ["Long strides", "Keep torso upright"]),
+            ],
+            authorName: fakeUsers[0].name,
+            authorUsername: fakeUsers[0].username
+        )
+        p21.sharedWorkoutData = try? JSONEncoder().encode(p21Workout)
         modelContext.insert(p21)
         postIds.append(p21.id)
 
@@ -650,20 +1238,67 @@ struct SocialSeeder {
             locationName: "GoodLife Downtown",
             workoutEmotion: "Grinding"
         )
+        p22.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Dumbbell Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p22.mediaItemsData = try? JSONEncoder().encode(items)
+        }
+        let p22Workout = SharedWorkoutData(
+            title: "Late Night Push",
+            workoutType: "Push",
+            estimatedDuration: 38,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Dumbbell Press", muscleGroup: "Chest", sets: [.init(reps: 10, weight: 70, restSeconds: 90), .init(reps: 8, weight: 75, restSeconds: 90)], demoTips: ["Full stretch at bottom", "Press evenly"]),
+                SharedWorkoutData.SharedExercise(name: "Chest Fly", muscleGroup: "Chest", sets: [.init(reps: 12, weight: 30, restSeconds: 60), .init(reps: 12, weight: 30, restSeconds: 60)], demoTips: ["Slight bend in elbows", "Feel the stretch"]),
+                SharedWorkoutData.SharedExercise(name: "Tricep Extension", muscleGroup: "Triceps", sets: [.init(reps: 12, weight: 25, restSeconds: 60), .init(reps: 10, weight: 30, restSeconds: 60)], demoTips: ["Lock elbows overhead", "Full range of motion"]),
+            ],
+            authorName: fakeUsers[4].name,
+            authorUsername: fakeUsers[4].username
+        )
+        p22.sharedWorkoutData = try? JSONEncoder().encode(p22Workout)
         modelContext.insert(p22)
         postIds.append(p22.id)
 
-        // 23. Community shoutout
+        // 23. Club shoutout (converted to workout post)
         let p23 = Post(
             authorId: fakeUsers[6].id,
             authorName: fakeUsers[6].name,
             authorUsername: fakeUsers[6].username,
             timestamp: hoursAgo(44),
             caption: "Shoutout to the ARC morning crew. Nothing beats training with people who actually push you.",
+            workoutType: "Push",
+            duration: 50,
+            setCount: 15,
+            exerciseHighlight: "Bench Press",
             likeCount: 35,
             commentCount: 3,
-            locationName: "The ARC - Queen's"
+            locationName: "The ARC - Queen's",
+            workoutEmotion: "Fired Up"
         )
+        p23.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Bench Press", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p23.mediaItemsData = try? JSONEncoder().encode(items)
+        }
+        let p23Workout = SharedWorkoutData(
+            title: "Morning Push Session",
+            workoutType: "Push",
+            estimatedDuration: 50,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Bench Press", muscleGroup: "Chest", sets: [.init(reps: 8, weight: 185, restSeconds: 90), .init(reps: 8, weight: 185, restSeconds: 90), .init(reps: 6, weight: 205, restSeconds: 120)], demoTips: ["Retract scapula", "Touch chest"]),
+                SharedWorkoutData.SharedExercise(name: "Incline Dumbbell Press", muscleGroup: "Chest", sets: [.init(reps: 10, weight: 60, restSeconds: 90), .init(reps: 8, weight: 65, restSeconds: 90)], demoTips: ["30 degree incline", "Full stretch at bottom"]),
+                SharedWorkoutData.SharedExercise(name: "Tricep Dips", muscleGroup: "Triceps", sets: [.init(reps: 12, weight: 0, restSeconds: 60), .init(reps: 10, weight: 0, restSeconds: 60)], demoTips: ["Lean forward slightly", "Full lockout"]),
+            ],
+            authorName: fakeUsers[6].name,
+            authorUsername: fakeUsers[6].username
+        )
+        p23.sharedWorkoutData = try? JSONEncoder().encode(p23Workout)
         modelContext.insert(p23)
         postIds.append(p23.id)
 
@@ -691,6 +1326,19 @@ struct SocialSeeder {
             ]
             p24.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        let p24Workout = SharedWorkoutData(
+            title: "Bench PR Day",
+            workoutType: "Push",
+            estimatedDuration: 55,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Bench Press", muscleGroup: "Chest", sets: [.init(reps: 1, weight: 225, restSeconds: 300), .init(reps: 5, weight: 185, restSeconds: 120)], demoTips: ["Arch back", "Leg drive"]),
+                SharedWorkoutData.SharedExercise(name: "Incline Dumbbell Press", muscleGroup: "Chest", sets: [.init(reps: 10, weight: 65, restSeconds: 90), .init(reps: 8, weight: 70, restSeconds: 90)], demoTips: ["30 degree incline", "Full stretch"]),
+                SharedWorkoutData.SharedExercise(name: "Tricep Dips", muscleGroup: "Triceps", sets: [.init(reps: 15, weight: 0, restSeconds: 60), .init(reps: 12, weight: 0, restSeconds: 60)], demoTips: ["Lean forward for chest", "Full lockout"]),
+            ],
+            authorName: fakeUsers[8].name,
+            authorUsername: fakeUsers[8].username
+        )
+        p24.sharedWorkoutData = try? JSONEncoder().encode(p24Workout)
         modelContext.insert(p24)
         postIds.append(p24.id)
 
@@ -711,6 +1359,42 @@ struct SocialSeeder {
             commentCount: 2,
             workoutEmotion: "Calm"
         )
+        p25.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Cycling", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p25.mediaItemsData = try? JSONEncoder().encode(items)
+        }
+        let cycleRoute: [RoutePoint] = [
+            RoutePoint(latitude: 43.6426, longitude: -79.3871, altitude: 75, timestamp: 0, speed: 7.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6400, longitude: -79.3820, altitude: 75, timestamp: 120, speed: 8.0, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6380, longitude: -79.3760, altitude: 74, timestamp: 300, speed: 8.2, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6365, longitude: -79.3700, altitude: 74, timestamp: 480, speed: 7.8, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6358, longitude: -79.3640, altitude: 74, timestamp: 660, speed: 8.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6370, longitude: -79.3580, altitude: 75, timestamp: 840, speed: 8.0, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6395, longitude: -79.3530, altitude: 75, timestamp: 1020, speed: 7.6, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6420, longitude: -79.3500, altitude: 76, timestamp: 1200, speed: 8.1, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6450, longitude: -79.3520, altitude: 76, timestamp: 1400, speed: 7.9, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6460, longitude: -79.3570, altitude: 75, timestamp: 1600, speed: 8.3, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6450, longitude: -79.3630, altitude: 75, timestamp: 1800, speed: 7.7, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6440, longitude: -79.3700, altitude: 75, timestamp: 2000, speed: 8.0, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6430, longitude: -79.3780, altitude: 75, timestamp: 2200, speed: 7.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6426, longitude: -79.3871, altitude: 75, timestamp: 2400, speed: 7.0, horizontalAccuracy: 5),
+        ]
+        let p25Workout = SharedWorkoutData(
+            title: "Waterfront Ride",
+            workoutType: "Cardio",
+            estimatedDuration: 65,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Cycling Intervals", muscleGroup: "Cardio", sets: [.init(reps: 1, weight: 0, restSeconds: 0)], demoTips: ["Maintain cadence", "Stay in aero position"]),
+            ],
+            authorName: fakeUsers[5].name,
+            authorUsername: fakeUsers[5].username,
+            routePoints: cycleRoute
+        )
+        p25.sharedWorkoutData = try? JSONEncoder().encode(p25Workout)
         modelContext.insert(p25)
         postIds.append(p25.id)
 
@@ -729,14 +1413,95 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Grinding"
         )
+        p26.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Rowing", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p26.mediaItemsData = try? JSONEncoder().encode(items)
+        }
+        let rowRoute: [RoutePoint] = [
+            RoutePoint(latitude: 43.6510, longitude: -79.3700, altitude: 75, timestamp: 0, speed: 4.0, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6520, longitude: -79.3680, altitude: 75, timestamp: 60, speed: 4.2, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6535, longitude: -79.3665, altitude: 75, timestamp: 120, speed: 4.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6548, longitude: -79.3655, altitude: 75, timestamp: 200, speed: 4.3, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6560, longitude: -79.3660, altitude: 75, timestamp: 280, speed: 4.1, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6565, longitude: -79.3680, altitude: 75, timestamp: 350, speed: 4.4, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6555, longitude: -79.3695, altitude: 75, timestamp: 420, speed: 4.2, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6540, longitude: -79.3705, altitude: 75, timestamp: 500, speed: 4.0, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6525, longitude: -79.3710, altitude: 75, timestamp: 580, speed: 4.3, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6510, longitude: -79.3700, altitude: 75, timestamp: 660, speed: 3.8, horizontalAccuracy: 5),
+        ]
+        let p26Workout = SharedWorkoutData(
+            title: "Row Challenge",
+            workoutType: "Cardio",
+            estimatedDuration: 25,
+            exercises: [
+                SharedWorkoutData.SharedExercise(name: "Rowing Intervals", muscleGroup: "Cardio", sets: [.init(reps: 1, weight: 0, restSeconds: 0)], demoTips: ["Drive with legs first", "Keep core tight"]),
+            ],
+            authorName: fakeUsers[9].name,
+            authorUsername: fakeUsers[9].username,
+            routePoints: rowRoute
+        )
+        p26.sharedWorkoutData = try? JSONEncoder().encode(p26Workout)
         modelContext.insert(p26)
         postIds.append(p26.id)
+
+        // 27. Hiking cardio post with route
+        let hikeRoute: [RoutePoint] = [
+            RoutePoint(latitude: 43.6700, longitude: -79.4100, altitude: 85, timestamp: 0, speed: 1.4, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6715, longitude: -79.4085, altitude: 92, timestamp: 180, speed: 1.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6730, longitude: -79.4065, altitude: 105, timestamp: 400, speed: 1.3, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6748, longitude: -79.4050, altitude: 118, timestamp: 620, speed: 1.2, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6760, longitude: -79.4038, altitude: 130, timestamp: 850, speed: 1.1, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6775, longitude: -79.4045, altitude: 142, timestamp: 1080, speed: 1.0, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6782, longitude: -79.4060, altitude: 148, timestamp: 1300, speed: 1.2, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6778, longitude: -79.4080, altitude: 140, timestamp: 1520, speed: 1.4, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6760, longitude: -79.4092, altitude: 125, timestamp: 1740, speed: 1.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6740, longitude: -79.4098, altitude: 110, timestamp: 1960, speed: 1.6, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6720, longitude: -79.4100, altitude: 95, timestamp: 2180, speed: 1.5, horizontalAccuracy: 5),
+            RoutePoint(latitude: 43.6700, longitude: -79.4100, altitude: 85, timestamp: 2400, speed: 1.3, horizontalAccuracy: 5),
+        ]
+        let hikeWorkoutData = SharedWorkoutData(
+            title: "Morning Hike",
+            workoutType: "Cardio",
+            estimatedDuration: 48,
+            authorName: fakeUsers[6].name,
+            authorUsername: fakeUsers[6].username,
+            routePoints: hikeRoute
+        )
+        let hikeData = try? JSONEncoder().encode(hikeWorkoutData)
+        let p27 = Post(
+            authorId: fakeUsers[6].id,
+            authorName: fakeUsers[6].name,
+            authorUsername: fakeUsers[6].username,
+            timestamp: hoursAgo(38),
+            caption: "Sunrise hike through the ravine. 350m elevation gain. Nature is the best pre-workout.",
+            workoutType: "Cardio",
+            duration: 48,
+            exerciseHighlight: "Hiking",
+            likeCount: 29,
+            commentCount: 3,
+            workoutEmotion: "Grateful"
+        )
+        p27.photoData = demoPhotoData
+        if let photoData = demoPhotoData {
+            let items: [PostMedia] = [
+                PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                PostMedia(exerciseName: "Hiking", exerciseIndex: 0, mediaType: .photo, data: photoData),
+            ]
+            p27.mediaItemsData = try? JSONEncoder().encode(items)
+        }
+        p27.sharedWorkoutData = hikeData
+        modelContext.insert(p27)
+        postIds.append(p27.id)
 
         // MARK: - Engagement Metrics (batch update all social posts)
 
         let allSocialPosts = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10,
                               p11, p12, p13, p14, p15, p16, p17, p18, p19, p20,
-                              p21, p22, p23, p24, p25, p26]
+                              p21, p22, p23, p24, p25, p26, p27]
         for post in allSocialPosts {
             post.viewCount = post.likeCount * Int.random(in: 6...12)
             post.shareCount = max(post.likeCount / Int.random(in: 6...12), 0)
@@ -800,6 +1565,91 @@ struct SocialSeeder {
         seedComment(ctx: modelContext, postId: postIds[23], user: fakeUsers[3], content: "Next stop: 275!", hoursAgo: 42)
         seedComment(ctx: modelContext, postId: postIds[23], user: fakeUsers[5], content: "Months of work for one rep. That's dedication", hoursAgo: 41)
         seedComment(ctx: modelContext, postId: postIds[23], user: fakeUsers[9], content: "Inspiring. I'm chasing 185 rn", hoursAgo: 40)
+
+        // MARK: - Current User's Posts (for Activity tab demo data)
+
+        let profileDescriptorEarly = FetchDescriptor<UserProfile>()
+        let profilesEarly = (try? modelContext.fetch(profileDescriptorEarly)) ?? []
+        var myPostIds: [UUID] = []
+        if let myProfile = profilesEarly.first {
+            // Post A: bench press session
+            let myPost1 = Post(
+                authorId: myProfile.id,
+                authorName: myProfile.name,
+                authorUsername: myProfile.username,
+                timestamp: hoursAgo(3),
+                caption: "Hit 185 on bench for a clean triple. Slow grind but we're getting there.",
+                workoutType: "Push",
+                duration: 48,
+                setCount: 16,
+                exerciseHighlight: "Bench Press",
+                likeCount: 11,
+                commentCount: 5,
+                workoutEmotion: "Fired Up"
+            )
+            modelContext.insert(myPost1)
+            myPostIds.append(myPost1.id)
+
+            // Post B: leg day
+            let myPost2 = Post(
+                authorId: myProfile.id,
+                authorName: myProfile.name,
+                authorUsername: myProfile.username,
+                timestamp: hoursAgo(18),
+                caption: "Leg day done. Squats, RDLs, leg press. Walking is optional tomorrow.",
+                workoutType: "Legs",
+                duration: 55,
+                setCount: 20,
+                exerciseHighlight: "Squat",
+                likeCount: 7,
+                commentCount: 3,
+                workoutEmotion: "Grinding"
+            )
+            modelContext.insert(myPost2)
+            myPostIds.append(myPost2.id)
+
+            // Likes on user's posts (11 total)
+            let likeData: [(Int, Double)] = [
+                (0, 0.5), (1, 1.0), (2, 1.5), (3, 2.0), (4, 3.0),
+                (5, 4.0), (6, 5.0), (7, 8.0), (8, 10.0), (9, 14.0), (0, 16.0)
+            ]
+            for (idx, (userIdx, hrs)) in likeData.enumerated() {
+                let targetPost = idx < 6 ? myPostIds[0] : myPostIds[1]
+                let like = Like(
+                    postId: targetPost,
+                    userId: fakeUsers[userIdx].id,
+                    userName: fakeUsers[userIdx].name,
+                    timestamp: Date().addingTimeInterval(-hrs * 3600)
+                )
+                modelContext.insert(like)
+            }
+
+            // Comments on user's posts (5 total)
+            seedComment(ctx: modelContext, postId: myPostIds[0], user: fakeUsers[0], content: "185 triple is solid! Keep pushing", hoursAgo: 1.0)
+            seedComment(ctx: modelContext, postId: myPostIds[0], user: fakeUsers[1], content: "Clean reps > heavy reps every time", hoursAgo: 1.5)
+            seedComment(ctx: modelContext, postId: myPostIds[0], user: fakeUsers[3], content: "You'll be at 2 plates in no time", hoursAgo: 2.5)
+            seedComment(ctx: modelContext, postId: myPostIds[1], user: fakeUsers[2], content: "RDLs to finish? You're a warrior", hoursAgo: 12.0)
+            seedComment(ctx: modelContext, postId: myPostIds[1], user: fakeUsers[4], content: "Walking is overrated anyway", hoursAgo: 15.0)
+
+            // Reactions on user's posts (7 total)
+            let reactionData: [(Int, ReactionType, Double)] = [
+                (0, .fire, 0.8), (1, .strong, 1.2), (2, .heart, 2.0),
+                (5, .clap, 3.5), (6, .thumbsUp, 5.0),
+                (3, .shocked, 10.0), (4, .fire, 13.0)
+            ]
+            for (idx, (userIdx, rType, hrs)) in reactionData.enumerated() {
+                let targetPost = idx < 4 ? myPostIds[0] : myPostIds[1]
+                let reaction = Reaction(
+                    odId: fakeUsers[userIdx].id,
+                    odUsername: fakeUsers[userIdx].username,
+                    targetType: "post",
+                    targetId: targetPost,
+                    reactionType: rType,
+                    createdAt: Date().addingTimeInterval(-hrs * 3600)
+                )
+                modelContext.insert(reaction)
+            }
+        }
 
         // MARK: - Friend Records (Social Graph)
 

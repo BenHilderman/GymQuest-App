@@ -197,12 +197,25 @@ struct FeedView: View {
             }
             .padding(.bottom, 100)
         }
+        .refreshable {
+            await refreshSocialFeed()
+        }
+    }
+
+    private func refreshSocialFeed() async {
+        refreshSocialGraph()
+        refreshFriendsPosts()
+        loadActiveSquad()
     }
 
     // MARK: - Social Empty State
 
     private var socialEmptyState: some View {
-        EmptyFeedView(onCreatePost: { appState.showingLogWorkout = true })
+        EmptyFeedState(
+            icon: "person.2.fill",
+            title: "Your Feed is Empty",
+            subtitle: "Follow friends to see their workouts here"
+        )
     }
 
     // MARK: - Load Active Squad
@@ -312,7 +325,7 @@ struct PostCardV2: View {
     @State private var showingCopySheet = false
     @State private var copySheetWorkout: SharedWorkoutData?
     @State private var cachedTopComment: Comment?
-    @State private var showEmojiBurst = true
+    // Emoji reactions handled via action bar reaction picker
     @State private var showFullRouteMap = false
     @State private var profileUserId: IdentifiableUUID?
     @State private var cachedWorkout: SharedWorkoutData?
@@ -326,9 +339,9 @@ struct PostCardV2: View {
         cachedWorkout
     }
 
-    /// Compact post: no photo or video attached
+    /// Compact post: only truly non-workout posts (text shoutouts etc.)
     private var isCompactPost: Bool {
-        post.photoData == nil && post.videoData == nil
+        post.photoData == nil && post.videoData == nil && post.workoutType == nil && sharedWorkout == nil
     }
 
     private var topComment: Comment? {
@@ -370,11 +383,7 @@ struct PostCardV2: View {
             if post.songTitle != nil {
                 isPlayingMusic = true
             }
-            if post.emotion != nil {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                    showEmojiBurst = false
-                }
-            }
+            // No-op: emoji reactions are in the action bar
         }
         .onDisappear {
             if post.songTitle != nil {
@@ -626,36 +635,6 @@ struct PostCardV2: View {
     private var heroSection: some View {
         if post.photoData != nil || post.videoData != nil {
             photoHero
-        } else if sharedWorkout != nil {
-            WorkoutHeroCard(
-                workout: sharedWorkout,
-                workoutType: post.workoutType,
-                emotion: post.emotion,
-                duration: post.duration,
-                setCount: post.setCount,
-                exerciseHighlight: post.exerciseHighlight,
-                locationName: post.locationName,
-                onCopy: {
-                    if let workout = sharedWorkout {
-                        saveWorkout(workout)
-                    }
-                },
-                onTap: {
-                    showWorkoutDetail = true
-                }
-            )
-            .padding(.horizontal, 16)
-        } else if post.workoutType != nil {
-            WorkoutHeroCard(
-                workout: nil,
-                workoutType: post.workoutType,
-                emotion: post.emotion,
-                duration: post.duration,
-                setCount: post.setCount,
-                exerciseHighlight: post.exerciseHighlight,
-                locationName: post.locationName
-            )
-            .padding(.horizontal, 16)
         }
     }
 
@@ -668,41 +647,33 @@ struct PostCardV2: View {
                 PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
             }
 
-            // Emoji burst overlay
-            if let emotion = post.emotion, showEmojiBurst {
-                EmojiBurstOverlay(emoji: emotion.emoji, isActive: true)
-            }
-
-            // Music bar top-center
-            if let song = post.songTitle, let artist = post.artistName {
-                VStack {
-                    photoMusicBar(song: song, artist: artist)
-                        .padding(.top, 12)
-                    Spacer()
-                }
-            }
-
-            // Activity badge top-right
-            if let activity = detectedActivityType,
-               post.photoData != nil || post.videoData != nil || !post.mediaItems.isEmpty {
-                VStack {
-                    HStack {
-                        Spacer()
+            // Top overlays: music bar + activity badge
+            VStack {
+                HStack(alignment: .top) {
+                    if let activity = detectedActivityType {
                         ActivityBadge(activityType: activity)
                     }
+
+                    Spacer()
+
+                    if let song = post.songTitle, let artist = post.artistName {
+                        photoMusicBar(song: song, artist: artist)
+                    }
+
                     Spacer()
                 }
-                .padding(12)
+                .padding(.horizontal, 12)
+                .padding(.top, 10)
+                Spacer()
             }
 
             // Workout overlay at bottom
             VStack(spacing: 0) {
                 Spacer()
                 mediaWorkoutOverlay
-                    .padding(.bottom, post.mediaItems.count > 1 ? 30 : 0)
             }
         }
-        .clipped()
+        .clipShape(Rectangle())
     }
 
     @ViewBuilder
@@ -756,14 +727,30 @@ struct PostCardV2: View {
         }
     }
 
-    @ViewBuilder
     private var isCardioWithRoute: Bool {
         guard let workout = sharedWorkout,
               let points = workout.routePoints, !points.isEmpty else { return false }
-        let cardioKeywords = ["Cardio", "Run", "Cycling", "Walking", "Hiking"]
+        let cardioKeywords = ["Cardio", "Run", "Cycling", "Walking", "Hiking", "Rowing"]
         let type = post.workoutType ?? ""
         let highlight = post.exerciseHighlight ?? ""
         return cardioKeywords.contains(where: { type.contains($0) || highlight.contains($0) })
+    }
+
+    private var cardioActivityIcon: String {
+        if let highlight = post.exerciseHighlight, let subType = CardioSubType.from(highlight) {
+            return subType.icon
+        }
+        return "figure.run"
+    }
+
+    /// Maps cardio exercise highlights to GIF-capable exercise names from the ExerciseDB.
+    private var cardioGifName: String? {
+        guard let highlight = post.exerciseHighlight else { return nil }
+        let lower = highlight.lowercased()
+        if lower.contains("run") || lower.contains("jog") { return "Treadmill Run" }
+        if lower.contains("row") { return "Rowing Machine" }
+        if lower.contains("walk") || lower.contains("hik") { return "Walking" }
+        return nil
     }
 
     @ViewBuilder
@@ -772,26 +759,51 @@ struct PostCardV2: View {
         let hasExercises = sharedWorkout != nil && !(sharedWorkout?.exercises.isEmpty ?? true)
 
         if isCardioWithRoute, let points = sharedWorkout?.routePoints {
-            // Route map for cardio posts
-            VStack(spacing: 0) {
-                PostRouteMapView(
-                    routePoints: points,
-                    distance: post.duration.map { _ in "5.00 km" },
-                    pace: "4:31 /km"
-                )
-                .onTapGesture { showFullRouteMap = true }
+            // Compact bottom-left map card for cardio posts
+            HStack {
+                HStack(spacing: 8) {
+                    PostRouteMapView(
+                        routePoints: points,
+                        distance: post.duration.map { _ in "5.00 km" },
+                        pace: "4:31 /km",
+                        height: 90
+                    )
+                    .frame(width: 140, height: 90)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .shadow(color: .black.opacity(0.4), radius: 6, x: 0, y: 2)
+                    .onTapGesture { showFullRouteMap = true }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let gifName = cardioGifName {
+                            ExerciseGifView(exerciseName: gifName, size: .thumbnail, showFallback: false)
+                        }
+                        if cardioGifName == nil {
+                            Image(systemName: cardioActivityIcon)
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+
+                        if let highlight = post.exerciseHighlight {
+                            Text(highlight)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.9))
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                Spacer()
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
             .background(
                 LinearGradient(
-                    colors: [.clear, .black.opacity(0.65)],
+                    colors: [.clear, .black.opacity(0.5)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
             )
         } else if hasStats || hasExercises {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 if hasStats {
                     HStack(spacing: 12) {
                         if let type = post.workoutType {
@@ -817,13 +829,24 @@ struct PostCardV2: View {
                         totalCount: workout.exercises.count,
                         onTapMore: { showWorkoutDetail = true }
                     )
+                } else if let highlight = post.exerciseHighlight, !highlight.isEmpty {
+                    HStack(spacing: 10) {
+                        ExerciseGifView(exerciseName: highlight, size: .thumbnail)
+                        Text(highlight)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
                 }
             }
             .foregroundColor(.white)
-            .padding(.vertical, 10)
+            .padding(.bottom, 6)
+            .padding(.top, 24)
             .background(
                 LinearGradient(
-                    colors: [.clear, .black.opacity(0.65)],
+                    colors: [.clear, .black.opacity(0.55)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -1015,12 +1038,6 @@ struct WorkoutHeroCard: View {
     var onTap: (() -> Void)? = nil
 
     @State private var showCopied = false
-    @State private var shimmerOffset: CGFloat = -1
-    @State private var iconAnimating = false
-    @State private var displayedDuration: Int = 0
-    @State private var displayedSetCount: Int = 0
-    @State private var statsAppeared = false
-    @State private var volumeBarAppeared = false
 
     private var cardioSubType: CardioSubType? {
         guard workoutType == "Cardio" else { return nil }
@@ -1039,98 +1056,13 @@ struct WorkoutHeroCard: View {
         return !w.exercises.isEmpty
     }
 
-    // MARK: - Watermark Icons
-
-    private var watermarkIcons: (String, String) {
-        guard let type = workoutType, let wt = WorkoutType(rawValue: type) else {
-            return ("dumbbell.fill", "figure.strengthtraining.traditional")
-        }
-        switch wt {
-        case .push: return ("dumbbell.fill", "figure.strengthtraining.traditional")
-        case .pull: return ("figure.strengthtraining.traditional", "arrow.down.circle.fill")
-        case .legs: return ("figure.walk", "figure.stand")
-        case .upper: return ("figure.arms.open", "dumbbell.fill")
-        case .lower: return ("figure.stand", "figure.walk")
-        case .fullBody: return ("figure.strengthtraining.traditional", "dumbbell.fill")
-        case .cardio: return ("figure.run", "heart.fill")
-        case .rest: return ("leaf.fill", "moon.fill")
-        case .glutes: return ("figure.walk", "figure.stand")
-        case .abs: return ("figure.core.training", "dumbbell.fill")
-        case .hiit: return ("figure.highintensity.intervaltraining", "bolt.fill")
-        case .yoga: return ("figure.yoga", "leaf.fill")
-        case .custom: return ("slider.horizontal.3", "dumbbell.fill")
-        }
-    }
-
-    // MARK: - Muscle Group Data
-
-    private var muscleGroups: [MuscleGroup] {
-        if let exercises = workout?.exercises, !exercises.isEmpty {
-            let groups = exercises.compactMap { MuscleGroup(rawValue: $0.muscleGroup) }
-            var seen = Set<MuscleGroup>()
-            return groups.filter { seen.insert($0).inserted }
-        }
-        guard let type = workoutType, let wt = WorkoutType(rawValue: type) else { return [] }
-        switch wt {
-        case .push: return [.chest, .triceps, .shoulders]
-        case .pull: return [.back, .biceps]
-        case .legs: return [.quads, .hamstrings, .glutes]
-        case .upper: return [.chest, .back, .shoulders]
-        case .lower: return [.quads, .hamstrings, .glutes, .calves]
-        case .fullBody: return [.chest, .back, .shoulders, .quads]
-        case .cardio: return [.cardio]
-        case .rest: return []
-        case .glutes: return [.glutes, .hamstrings]
-        case .abs: return [.core]
-        case .hiit: return [.cardio]
-        case .yoga: return []
-        case .custom: return []
-        }
-    }
-
-    private func muscleGroupColor(_ group: MuscleGroup) -> Color {
-        switch group.color {
-        case "red": return .red
-        case "blue": return .blue
-        case "orange": return .orange
-        case "purple": return .purple
-        case "pink": return .pink
-        case "green": return .green
-        case "teal": return .teal
-        case "indigo": return .indigo
-        case "mint": return .mint
-        case "yellow": return .yellow
-        default: return .gray
-        }
-    }
-
-    private func exerciseVolume(_ ex: SharedWorkoutData.SharedExercise) -> Double {
-        ex.sets.reduce(0) { $0 + $1.weight * Double($1.reps) }
+    private var workoutTypeIcon: String {
+        if let type = workoutType, let wt = WorkoutType(rawValue: type) { return wt.icon }
+        return "dumbbell.fill"
     }
 
     private func equipmentIcon(for exerciseName: String) -> String {
         ExtendedExerciseDatabase.find(exerciseName)?.equipment.icon ?? "dumbbell.fill"
-    }
-
-    // MARK: - Shimmer Overlay
-
-    @ViewBuilder
-    private var shimmerOverlay: some View {
-        LinearGradient(
-            stops: [
-                .init(color: .clear, location: 0),
-                .init(color: .white.opacity(0.12), location: 0.45),
-                .init(color: .white.opacity(0.2), location: 0.5),
-                .init(color: .white.opacity(0.12), location: 0.55),
-                .init(color: .clear, location: 1),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        .frame(maxWidth: .infinity)
-        .scaleEffect(x: 1.5, anchor: .leading)
-        .offset(x: shimmerOffset * 300)
-        .allowsHitTesting(false)
     }
 
     var body: some View {
@@ -1151,248 +1083,146 @@ struct WorkoutHeroCard: View {
 
     @ViewBuilder
     private var exerciseHeroContent: some View {
-        ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: gradientColors.map { $0.opacity(0.3) },
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+        VStack(alignment: .leading, spacing: 0) {
+            // Header row
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(gradientColors.first ?? GQColors.deepBlue)
+                    .frame(width: 3, height: 36)
 
-            // Animated decorative watermark icons
-            VStack {
+                Image(systemName: workoutTypeIcon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(gradientColors.first ?? GQColors.deepBlue)
+
+                if let type = workoutType {
+                    Text(type)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                }
+
                 Spacer()
-                HStack {
-                    Spacer()
-                    ZStack {
-                        Image(systemName: watermarkIcons.0)
-                            .font(.system(size: 70, weight: .thin))
-                            .foregroundColor(.white.opacity(0.07))
-                            .rotationEffect(.degrees(-17))
-                            .offset(x: -30, y: -10)
 
-                        Image(systemName: watermarkIcons.1)
-                            .font(.system(size: 55, weight: .thin))
-                            .foregroundColor(.white.opacity(0.06))
-                            .rotationEffect(.degrees(10))
-                            .offset(x: 10, y: 15)
+                HStack(spacing: 6) {
+                    if let d = duration, d > 0 {
+                        Text("\(d) min")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
                     }
-                    .padding(.trailing, 10)
-                    .padding(.bottom, 40)
-                }
-            }
-
-            // Floating energy particles
-            floatingParticles
-
-            VStack(alignment: .leading, spacing: 0) {
-                if let emotion = emotion {
-                    heroEmotionPill(emotion)
-                        .padding(.top, 14)
-                        .padding(.leading, 14)
+                    if let s = setCount, s > 0 {
+                        Text("\u{00B7}")
+                            .foregroundColor(GQColors.textSecondary)
+                        Text("\(s) sets")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                    }
                 }
 
-                Spacer().frame(height: emotion != nil ? 10 : 14)
-
-                muscleGroupIndicators
-                    .padding(.horizontal, 14)
-
-                Spacer().frame(height: 10)
-
-                exerciseTable
-
-                Spacer(minLength: 8)
-
-                heroStatsBar
+                copyButton
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
 
-            shimmerOverlay
+            Divider()
+                .padding(.horizontal, 16)
+
+            // Exercise list
+            exerciseTable
+                .padding(.top, 10)
+                .padding(.bottom, 14)
         }
-        .frame(minHeight: 260)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).delay(0.3)) {
-                shimmerOffset = 1.5
-            }
-            volumeBarAppeared = true
-        }
+        .gqCard(cornerRadius: 16)
     }
 
-    // MARK: - Stats Only Content (Enhanced)
+    // MARK: - Stats Only Content
 
     @ViewBuilder
     private var statsOnlyContent: some View {
         let isCardioWithRoute = cardioSubType?.isOutdoor == true
-        ZStack {
-            // Dark base ensures white text is always readable
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(hex: "1C1C1E"))
-            RoundedRectangle(cornerRadius: 16)
-                .fill(
-                    LinearGradient(
-                        colors: gradientColors.map { $0.opacity(0.3) },
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
 
-            // Static decorative shapes
-            ZStack {
-                Circle()
-                    .fill(.white.opacity(0.06))
-                    .frame(width: 80, height: 80)
-                    .offset(x: -90, y: -40)
+        VStack(alignment: .leading, spacing: 0) {
+            if isCardioWithRoute, let subType = cardioSubType {
+                // Cardio header + route
+                HStack(spacing: 10) {
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(subType.color)
+                        .frame(width: 3, height: 36)
 
-                Circle()
-                    .fill(.white.opacity(0.04))
-                    .frame(width: 50, height: 50)
-                    .offset(x: 100, y: 50)
+                    Image(systemName: subType.icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(subType.color)
 
-                Capsule()
-                    .fill(.white.opacity(0.05))
-                    .frame(width: 60, height: 20)
-                    .rotationEffect(.degrees(-25))
-                    .offset(x: 80, y: -60)
+                    Text(subType.rawValue)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
 
-                Circle()
-                    .fill(.white.opacity(0.07))
-                    .frame(width: 30, height: 30)
-                    .offset(x: -70, y: 60)
-            }
+                    Spacer()
 
-            // Floating energy particles
-            floatingParticles
-
-            VStack(spacing: 8) {
-                if let emotion = emotion {
-                    heroEmotionPill(emotion)
-                }
-
-                if !muscleGroups.isEmpty {
-                    muscleGroupIndicators
-                        .padding(.horizontal, 14)
-                        .padding(.top, 4)
-                }
-
-                Spacer()
-
-                if let subType = cardioSubType {
-                    // Cardio-specific content
-                    if subType.isOutdoor {
-                        // Route visualization for outdoor cardio
-                        CardioRouteView(
-                            postId: exerciseHighlight ?? "route",
-                            distance: cardioDistanceKm,
-                            pace: cardioPace,
-                            gradientColors: [subType.color, GQColors.cyanSpark],
-                            locationName: locationName
-                        )
-                        .padding(.horizontal, 14)
-                    } else {
-                        // Indoor cardio icon + machine label
-                        cardioIconContent(subType)
-                    }
-                } else if let type = workoutType, let wt = WorkoutType(rawValue: type) {
-                    ZStack {
-                        Circle()
-                            .fill(gradientColors.first?.opacity(0.3) ?? .clear)
-                            .frame(width: 90, height: 90)
-                            .blur(radius: 15)
-
-                        Image(systemName: wt.icon)
-                            .font(.system(size: 60, weight: .medium))
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: gradientColors,
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .scaleEffect(1.0)
-                            .symbolEffect(.bounce, options: .repeating.speed(0.3), value: iconAnimating)
-                    }
-
-                    Text(type)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.white)
-                } else if let type = workoutType {
-                    Text(type)
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.white)
-                }
-
-                // Count-up stat numbers
-                HStack(spacing: 6) {
                     if let d = duration, d > 0 {
-                        Text("\(statsAppeared ? d : 0) min")
-                            .font(.system(size: 15, weight: .medium))
-                            .contentTransition(.numericText())
-                    }
-                    if let s = setCount, s > 0 {
-                        Text("\u{00B7}")
-                        Text("\(statsAppeared ? s : 0) sets")
-                            .font(.system(size: 15, weight: .medium))
-                            .contentTransition(.numericText())
+                        Text("\(d) min")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
                     }
                 }
-                .foregroundColor(.white.opacity(0.8))
+                .padding(.horizontal, 16)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
 
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
-
-            shimmerOverlay
-        }
-        .frame(height: isCardioWithRoute ? 280 : 220)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.2).delay(0.3)) {
-                shimmerOffset = 1.5
-            }
-            iconAnimating = true
-            withAnimation(.easeOut(duration: 0.8).delay(0.3)) {
-                statsAppeared = true
-            }
-        }
-    }
-
-    // MARK: - Cardio Icon Content (Indoor)
-
-    @ViewBuilder
-    private func cardioIconContent(_ subType: CardioSubType) -> some View {
-        ZStack {
-            Circle()
-                .fill(subType.color.opacity(0.3))
-                .frame(width: 90, height: 90)
-                .blur(radius: 15)
-
-            Image(systemName: subType.icon)
-                .font(.system(size: 55, weight: .medium))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [subType.color, GQColors.cyanSpark],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                CardioRouteView(
+                    postId: exerciseHighlight ?? "route",
+                    distance: cardioDistanceKm,
+                    pace: cardioPace,
+                    gradientColors: [subType.color, GQColors.cyanSpark],
+                    locationName: locationName
                 )
-                .scaleEffect(1.0)
-                .symbolEffect(.bounce, options: .repeating.speed(0.3), value: iconAnimating)
-        }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 14)
+            } else {
+                // Non-cardio or indoor cardio: horizontal card
+                HStack(spacing: 14) {
+                    Circle()
+                        .fill((gradientColors.first ?? GQColors.deepBlue).opacity(0.12))
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            Image(systemName: workoutTypeIcon)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(gradientColors.first ?? GQColors.deepBlue)
+                        )
 
-        VStack(spacing: 2) {
-            Text(subType.rawValue)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(.white)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(workoutType ?? "Workout")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
 
-            if let machine = subType.machineLabel {
-                Text("on \(machine)")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
+                        HStack(spacing: 6) {
+                            if let d = duration, d > 0 {
+                                Text("\(d) min")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                            if let s = setCount, s > 0 {
+                                Text("\u{00B7}")
+                                    .foregroundColor(GQColors.textSecondary)
+                                Text("\(s) sets")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                            if let subType = cardioSubType, let machine = subType.machineLabel {
+                                Text("\u{00B7}")
+                                    .foregroundColor(GQColors.textSecondary)
+                                Text(machine)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding(16)
             }
         }
+        .gqCard(cornerRadius: 16)
     }
 
     // MARK: - Cardio Helpers
@@ -1412,63 +1242,27 @@ struct WorkoutHeroCard: View {
         return "\(mins):\(String(format: "%02d", secs))"
     }
 
-    // MARK: - Floating Energy Particles
-
-    @ViewBuilder
-    private var floatingParticles: some View {
-        EmptyView()
-    }
-
-    // MARK: - Muscle Group Indicators
-
-    @ViewBuilder
-    private var muscleGroupIndicators: some View {
-        let groups = muscleGroups
-        if !groups.isEmpty {
-            HStack(spacing: 6) {
-                ForEach(groups.prefix(5), id: \.self) { group in
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(muscleGroupColor(group))
-                            .frame(width: 7, height: 7)
-                        Text(group.rawValue)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.white.opacity(0.85))
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(.white.opacity(0.12))
-                    .clipShape(Capsule())
-                }
-            }
-        }
-    }
-
-    // MARK: - Exercise Table (with equipment icons + volume bars)
+    // MARK: - Exercise Table
 
     @ViewBuilder
     private var exerciseTable: some View {
         if let exercises = workout?.exercises {
             let displayExercises = Array(exercises.prefix(4))
             let remaining = exercises.count - 4
-            let maxVol = displayExercises.map { exerciseVolume($0) }.max() ?? 1
 
             VStack(spacing: 6) {
                 ForEach(displayExercises) { ex in
-                    let vol = exerciseVolume(ex)
-                    let proportion = maxVol > 0 ? vol / maxVol : 0
-
-                    exerciseRow(ex, proportion: proportion)
+                    exerciseRow(ex)
                 }
 
                 if remaining > 0 {
                     Text("+\(remaining) more")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(GQColors.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
         }
     }
 
@@ -1494,7 +1288,7 @@ struct WorkoutHeroCard: View {
     }
 
     @ViewBuilder
-    private func exerciseRow(_ ex: SharedWorkoutData.SharedExercise, proportion: Double) -> some View {
+    private func exerciseRow(_ ex: SharedWorkoutData.SharedExercise) -> some View {
         let uniform = setsAreUniform(ex.sets)
 
         HStack(spacing: 6) {
@@ -1505,13 +1299,13 @@ struct WorkoutHeroCard: View {
             } else {
                 Image(systemName: equipmentIcon(for: ex.name))
                     .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(GQColors.textSecondary)
                     .frame(width: 16)
             }
 
             Text(ex.name)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textPrimary)
                 .lineLimit(1)
 
             Spacer()
@@ -1523,149 +1317,58 @@ struct WorkoutHeroCard: View {
 
                 Text("\(setCount)\u{00D7}\(reps)")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(GQColors.textSecondary)
 
                 if weight > 0 {
                     Text("\(Int(weight)) lbs")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(GQColors.textSecondary)
                         .frame(width: 60, alignment: .trailing)
                 } else {
                     Text("BW")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(GQColors.textSecondary)
                         .frame(width: 60, alignment: .trailing)
                 }
             } else {
                 Text(setsSummary(ex.sets))
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(GQColors.textSecondary)
                     .lineLimit(1)
             }
         }
         .padding(.vertical, 4)
-        .background(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(
-                    LinearGradient(
-                        colors: gradientColors.map { $0.opacity(0.15) },
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(height: 24)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .scaleEffect(x: volumeBarAppeared ? max(proportion, 0.05) : 0, anchor: .leading)
-                .animation(.easeOut(duration: 0.6).delay(0.2), value: volumeBarAppeared)
-        }
     }
+
+    // MARK: - Copy Button
 
     @ViewBuilder
-    private var heroStatsBar: some View {
-        HStack(spacing: 12) {
-            if let type = workoutType {
-                Text(type)
-                    .font(.system(size: 13, weight: .semibold))
-            }
-            if let d = duration, d > 0 {
-                Text("\(d) min")
-                    .font(.system(size: 13, weight: .medium))
-            }
-            if let s = setCount, s > 0 {
-                Text("\(s) sets")
-                    .font(.system(size: 13, weight: .medium))
-            }
-            Spacer()
-
-            if let onCopy {
-                Button {
-                    onCopy()
-                    withAnimation(.spring(response: 0.3)) {
-                        showCopied = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        withAnimation { showCopied = false }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(showCopied ? "Saved" : "Copy")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(14)
+    private var copyButton: some View {
+        if let onCopy {
+            Button {
+                onCopy()
+                withAnimation(.spring(response: 0.3)) {
+                    showCopied = true
                 }
-                .buttonStyle(.plain)
-                .disabled(showCopied)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    withAnimation { showCopied = false }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: showCopied ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text(showCopied ? "Saved" : "Copy")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundColor(gradientColors.first ?? GQColors.deepBlue)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background((gradientColors.first ?? GQColors.deepBlue).opacity(0.1))
+                .cornerRadius(14)
             }
+            .buttonStyle(.plain)
+            .disabled(showCopied)
         }
-        .foregroundColor(.white)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.5)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
-    }
-
-    @ViewBuilder
-    private func heroEmotionPill(_ emotion: WorkoutEmotion) -> some View {
-        HStack(spacing: 4) {
-            Text(emotion.emoji)
-                .font(.system(size: 14))
-            Text(emotion.encouragement)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(.white)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(.ultraThinMaterial)
-        .cornerRadius(16)
-    }
-}
-
-// MARK: - Floating Particle
-
-struct FloatingParticle: View {
-    let index: Int
-    let color: Color
-
-    @State private var offsetY: CGFloat = 0
-    @State private var opacity: Double = 0
-
-    private var size: CGFloat { CGFloat.random(in: 3...6) }
-    private var startX: CGFloat { CGFloat(index * 47 + 20) }
-    private var speed: Double { Double.random(in: 3...5) }
-
-    var body: some View {
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [color.opacity(0.6), color.opacity(0.1)],
-                    center: .center,
-                    startRadius: 0,
-                    endRadius: size
-                )
-            )
-            .frame(width: size, height: size)
-            .offset(x: startX - 160, y: offsetY)
-            .opacity(opacity)
-            .onAppear {
-                withAnimation(.easeInOut(duration: speed).repeatForever(autoreverses: false).delay(Double(index) * 0.4)) {
-                    offsetY = -120
-                    opacity = 0
-                }
-                withAnimation(.easeIn(duration: 0.5).delay(Double(index) * 0.4)) {
-                    opacity = 0.7
-                }
-            }
     }
 }
 
@@ -1848,23 +1551,23 @@ struct PostActionsRowCompact: View {
     @State private var showSentReaction = false
 
     var body: some View {
-        HStack(spacing: 16) {
-            compactLikeButton
-            compactCommentButton
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                // Inline reaction emojis
+                reactionEmojiRow
 
-            if hasWorkout, let onFollow = onFollowWorkout {
-                compactFollowButton(onFollow)
+                compactCommentButton
+
+                Spacer()
+
+                if hasWorkout {
+                    compactSaveButton
+                }
+
+                compactShareButton
             }
-
-            Spacer()
-
-            if hasWorkout {
-                compactSaveButton
-            }
-
-            compactShareButton
+            .padding(.top, 4)
         }
-        .padding(.top, 4)
         .onAppear {
             displayedLikeCount = post.likeCount
             displayedCommentCount = post.commentCount
@@ -1872,70 +1575,40 @@ struct PostActionsRowCompact: View {
         }
     }
 
+    @State private var tappedReaction: ReactionType? = nil
+
     @ViewBuilder
-    private var compactLikeButton: some View {
-        ZStack(alignment: .top) {
-            if showReactionPicker {
-                HStack(spacing: 8) {
-                    ForEach(ReactionType.allCases, id: \.self) { reaction in
-                        Button {
-                            addReaction(reaction)
-                            withAnimation(.spring(response: 0.2)) { showReactionPicker = false }
-                        } label: {
-                            Text(reaction.emoji)
-                                .font(.system(size: 24))
-                        }
-                        .buttonStyle(.plain)
+    private var reactionEmojiRow: some View {
+        HStack(spacing: 6) {
+            ForEach(ReactionType.allCases, id: \.self) { reaction in
+                Button {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                        tappedReaction = reaction
                     }
+                    addReaction(reaction)
+                    if !isLiked { performLikeAnimation() }
+                    sentReactionEmoji = reaction.emoji
+                    withAnimation(.spring(response: 0.3)) { showSentReaction = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                        withAnimation(.easeOut(duration: 0.2)) { tappedReaction = nil }
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        withAnimation { showSentReaction = false }
+                    }
+                } label: {
+                    Text(reaction.emoji)
+                        .font(.system(size: 22))
+                        .scaleEffect(tappedReaction == reaction ? 1.3 : 1.0)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                        .overlay(Capsule().stroke(Color.white.opacity(0.15), lineWidth: 0.5))
-                )
-                .offset(y: -44)
-                .transition(.scale(scale: 0.5, anchor: .bottom).combined(with: .opacity))
-                .zIndex(10)
+                .buttonStyle(.plain)
             }
 
-            if showSentReaction, let emoji = sentReactionEmoji {
-                SentReactionOverlay(emoji: emoji)
-                    .zIndex(11)
+            if displayedLikeCount > 0 {
+                AnimatedCounter(value: displayedLikeCount)
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textTertiary)
+                    .padding(.leading, 2)
             }
-
-            Button {
-                performLikeAnimation()
-            } label: {
-                HStack(spacing: 6) {
-                    ZStack {
-                        Image(systemName: isLiked ? "heart.fill" : "heart")
-                            .font(.system(size: 20))
-                            .foregroundColor(isLiked ? .red : GQColors.textPrimary)
-                            .scaleEffect(heartScale)
-
-                        if showParticles {
-                            HeartBurstOverlay(isActive: showParticles)
-                        }
-                    }
-
-                    if displayedLikeCount > 0 {
-                        AnimatedCounter(value: displayedLikeCount)
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.4)
-                    .onEnded { _ in
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                            showReactionPicker.toggle()
-                        }
-                    }
-            )
         }
     }
 
@@ -4220,24 +3893,24 @@ struct PostMediaView: View {
                 #if canImport(UIKit)
                 if let uiImage = cachedImage {
                     Color.clear
-                        .aspectRatio(4.0/5.0, contentMode: .fit)
+                        .aspectRatio(4.0/4.5, contentMode: .fit)
                         .overlay(
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                         )
-                        .clipped()
+                        .clipShape(Rectangle())
                 }
                 #elseif canImport(AppKit)
                 if let nsImage = cachedImage {
                     Color.clear
-                        .aspectRatio(4.0/5.0, contentMode: .fit)
+                        .aspectRatio(4.0/4.5, contentMode: .fit)
                         .overlay(
                             Image(nsImage: nsImage)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                         )
-                        .clipped()
+                        .clipShape(Rectangle())
                 }
                 #endif
             } else if post.videoData != nil {
@@ -4264,7 +3937,7 @@ struct InlineFeedVideoPlayer: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             Color.clear
-                .aspectRatio(4.0/5.0, contentMode: .fit)
+                .aspectRatio(4.0/4.5, contentMode: .fit)
                 .overlay(
                     VideoPlayer(player: player)
                         .aspectRatio(contentMode: .fill)
@@ -5366,6 +5039,38 @@ extension LearningItemType {
     }
 }
 
+struct EmptyFeedState: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer().frame(height: 80)
+
+            Image(systemName: icon)
+                .font(.system(size: 48))
+                .foregroundStyle(GQGradients.primary)
+
+            VStack(spacing: 8) {
+                Text(title)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+
+                Text(subtitle)
+                    .font(.system(size: 15))
+                    .foregroundColor(GQColors.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .padding()
+    }
+}
+
 struct EmptyFeedView: View {
     let onCreatePost: () -> Void
 
@@ -5458,7 +5163,7 @@ struct PostCard: View {
                 #if canImport(UIKit)
                 if let uiImage = UIImage(data: photoData) {
                     Color.clear
-                        .aspectRatio(4.0/5.0, contentMode: .fit)
+                        .aspectRatio(4.0/4.5, contentMode: .fit)
                         .overlay(
                             Image(uiImage: uiImage)
                                 .resizable()
@@ -5470,7 +5175,7 @@ struct PostCard: View {
                 #elseif canImport(AppKit)
                 if let nsImage = NSImage(data: photoData) {
                     Color.clear
-                        .aspectRatio(4.0/5.0, contentMode: .fit)
+                        .aspectRatio(4.0/4.5, contentMode: .fit)
                         .overlay(
                             Image(nsImage: nsImage)
                                 .resizable()
@@ -6179,6 +5884,10 @@ struct ClubFeedView: View {
         }
         .scrollContentBackground(.hidden)
         .background(GQColors.background.ignoresSafeArea())
+        .refreshable {
+            // Pull-to-refresh triggers SwiftData @Query re-evaluation
+            try? await Task.sleep(for: .milliseconds(300))
+        }
         .onAppear {
             ClubSeeder.seedIfNeeded(modelContext: modelContext, userId: profile.id)
         }
@@ -6313,13 +6022,14 @@ struct ClubFeedView: View {
         VStack(spacing: 12) {
             Image(systemName: "person.3.fill")
                 .font(.system(size: 30))
-                .foregroundColor(GQColors.textTertiary)
-            Text("No clubs yet")
+                .foregroundStyle(GQGradients.primary)
+            Text("No Clubs Yet")
                 .font(.system(size: 15, weight: .medium))
-                .foregroundColor(GQColors.textSecondary)
-            Text("Join a club to connect with others")
+                .foregroundColor(GQColors.textPrimary)
+            Text("Join a club to connect with your gym community")
                 .font(.system(size: 13))
-                .foregroundColor(GQColors.textTertiary)
+                .foregroundColor(GQColors.textSecondary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
@@ -8370,7 +8080,7 @@ struct ExerciseMediaCarousel: View {
                                 Image(uiImage: image)
                                     .resizable()
                                     .aspectRatio(contentMode: .fill)
-                                    .clipped()
+                                    .clipShape(Rectangle())
                             }
 
                             // Video indicator
@@ -8392,33 +8102,8 @@ struct ExerciseMediaCarousel: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .automatic))
-                .aspectRatio(4.0/5.0, contentMode: .fit)
+                .aspectRatio(4.0/4.5, contentMode: .fit)
 
-                // Exercise indicator pills
-                if mediaItems.count > 1 {
-                    HStack(spacing: 6) {
-                        ForEach(Array(mediaItems.enumerated()), id: \.element.id) { index, media in
-                            Button {
-                                withAnimation {
-                                    selectedIndex = index
-                                }
-                            } label: {
-                                Text(media.exerciseName ?? "General")
-                                    .font(.system(size: 11, weight: selectedIndex == index ? .semibold : .regular))
-                                    .foregroundColor(selectedIndex == index ? .white : GQColors.textSecondary)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 5)
-                                    .background(
-                                        selectedIndex == index
-                                            ? GQColors.vividPurple
-                                            : GQColors.adaptiveOverlay(0.1)
-                                    )
-                                    .cornerRadius(12)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                }
             }
         }
     }
@@ -8789,34 +8474,32 @@ struct EmojiBurstOverlay: View {
     let emoji: String
     let isActive: Bool
 
-    private struct EmojiParticle: Identifiable {
+    private struct FloatingEmoji: Identifiable {
         let id = UUID()
-        let xFraction: CGFloat
-        let yFraction: CGFloat
-        let scale: CGFloat
-        let rotation: Double
+        let xPosition: CGFloat
+        let startY: CGFloat
+        let size: CGFloat
         let delay: Double
+        let driftX: CGFloat
     }
 
-    @State private var particles: [EmojiParticle] = []
-    @State private var animateOut = false
+    @State private var emojis: [FloatingEmoji] = []
+    @State private var appeared = false
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                ForEach(particles) { p in
+                ForEach(emojis) { e in
                     Text(emoji)
-                        .font(.system(size: 28))
-                        .scaleEffect(animateOut ? 0.65 : p.scale)
-                        .rotationEffect(.degrees(p.rotation))
-                        .opacity(animateOut ? 0 : 1)
+                        .font(.system(size: e.size))
+                        .opacity(appeared ? 0.35 : 0)
                         .offset(
-                            x: p.xFraction * geo.size.width - geo.size.width / 2,
-                            y: (p.yFraction * geo.size.height - geo.size.height / 2) + (animateOut ? -15 : 0)
+                            x: e.xPosition * geo.size.width - geo.size.width / 2 + (appeared ? e.driftX : 0),
+                            y: e.startY * geo.size.height - geo.size.height / 2 + (appeared ? -20 : 0)
                         )
                         .animation(
-                            .easeOut(duration: 2.0).delay(p.delay),
-                            value: animateOut
+                            .easeOut(duration: 2.5).delay(e.delay),
+                            value: appeared
                         )
                 }
             }
@@ -8824,17 +8507,17 @@ struct EmojiBurstOverlay: View {
         }
         .onAppear {
             guard isActive else { return }
-            particles = (0..<5).map { _ in
-                EmojiParticle(
-                    xFraction: CGFloat.random(in: 0.1...0.9),
-                    yFraction: CGFloat.random(in: 0.1...0.8),
-                    scale: CGFloat.random(in: 0.7...1.1),
-                    rotation: Double.random(in: -25...25),
-                    delay: Double.random(in: 0...0.3)
+            emojis = (0..<3).map { _ in
+                FloatingEmoji(
+                    xPosition: CGFloat.random(in: 0.15...0.85),
+                    startY: CGFloat.random(in: 0.3...0.7),
+                    size: CGFloat.random(in: 18...24),
+                    delay: Double.random(in: 0...0.6),
+                    driftX: CGFloat.random(in: -8...8)
                 )
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                animateOut = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                appeared = true
             }
         }
         .allowsHitTesting(false)

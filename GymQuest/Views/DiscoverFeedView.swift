@@ -86,6 +86,9 @@ struct DiscoverFeedView: View {
                     }
                     .scrollTargetBehavior(.paging)
                     .scrollPosition(id: $scrolledIndex)
+                    .refreshable {
+                        await refreshDiscoverFeed()
+                    }
                 }
 
                 // Category pills pinned at top
@@ -138,6 +141,12 @@ struct DiscoverFeedView: View {
         .sheet(isPresented: $showCreatePost) {
             CreatePostView(profile: profile)
         }
+    }
+
+    private func refreshDiscoverFeed() async {
+        EngagementTrackingService.shared.refreshPostScores()
+        computeMutualFriends()
+        refreshRankedPosts()
     }
 
     // MARK: - Data Logic
@@ -252,6 +261,9 @@ struct DiscoverFeedCard: View {
     @State private var isBookmarked = false
     @State private var isFollowing = false
     @State private var commentCount = 0
+    @State private var showWorkoutDetail = false
+    @State private var showFullRouteMap = false
+    @State private var profileUserId: IdentifiableUUID?
 
     var body: some View {
         ZStack {
@@ -265,6 +277,9 @@ struct DiscoverFeedCard: View {
                     lastTapLocation = location
                     triggerLike()
                 }
+
+            // Layer 3: Workout overlay (GIF strip or route map)
+            discoverWorkoutOverlay
 
             // Layer 4: Content overlay
             PostContentOverlay(
@@ -284,7 +299,8 @@ struct DiscoverFeedCard: View {
                 onBookmarkTap: toggleBookmark,
                 onFollowTap: toggleFollow,
                 onReaction: { type in handleReaction(type) },
-                onNotInterested: handleNotInterested
+                onNotInterested: handleNotInterested,
+                onTapUsername: { profileUserId = IdentifiableUUID(id: post.authorId) }
             )
 
             // Floating heart animation
@@ -333,6 +349,91 @@ struct DiscoverFeedCard: View {
                 }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $showWorkoutDetail) {
+            if let workout = post.getSharedWorkout() {
+                WorkoutDetailSheet(
+                    workoutData: workout,
+                    onFollow: {
+                        showWorkoutDetail = false
+                    }
+                )
+            }
+        }
+        .fullScreenCover(isPresented: $showFullRouteMap) {
+            if let workout = post.getSharedWorkout(), let points = workout.routePoints, !points.isEmpty {
+                NavigationStack {
+                    PostRouteMapView(
+                        routePoints: points,
+                        distance: "5.00 km",
+                        pace: "4:31 /km",
+                        height: .infinity
+                    )
+                    .ignoresSafeArea()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button { showFullRouteMap = false } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.white.opacity(0.8))
+                            }
+                        }
+                    }
+                    .toolbarBackground(.hidden, for: .navigationBar)
+                }
+            }
+        }
+        .sheet(item: $profileUserId) { wrapped in
+            UserProfileSheet(userId: wrapped.id, currentProfile: profile)
+        }
+    }
+
+    // MARK: - Workout Overlay
+
+    @ViewBuilder
+    private var discoverWorkoutOverlay: some View {
+        let workout = post.getSharedWorkout()
+        let hasExercises = workout != nil && !(workout?.exercises.isEmpty ?? true)
+        let hasRoute: Bool = {
+            guard let w = workout, let pts = w.routePoints, !pts.isEmpty else { return false }
+            let cardioKeywords = ["Cardio", "Run", "Cycling", "Walking", "Hiking"]
+            let type = post.workoutType ?? ""
+            let highlight = post.exerciseHighlight ?? ""
+            return cardioKeywords.contains(where: { type.contains($0) || highlight.contains($0) })
+        }()
+
+        if hasRoute, let points = workout?.routePoints {
+            VStack {
+                Spacer()
+                PostRouteMapView(
+                    routePoints: points,
+                    distance: "5.00 km",
+                    pace: "4:31 /km"
+                )
+                .onTapGesture { showFullRouteMap = true }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 80)
+            }
+        } else if hasExercises, let w = workout {
+            VStack {
+                Spacer()
+                VStack(spacing: 0) {
+                    OverlayExerciseGifStrip(
+                        exercises: w.exercises,
+                        totalCount: w.exercises.count,
+                        onTapMore: { showWorkoutDetail = true }
+                    )
+                }
+                .padding(.vertical, 8)
+                .background(
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.6)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .padding(.bottom, 70)
+            }
         }
     }
 
@@ -656,6 +757,7 @@ struct PostContentOverlay: View {
     var onFollowTap: () -> Void
     var onReaction: (ReactionType) -> Void
     var onNotInterested: () -> Void
+    var onTapUsername: (() -> Void)? = nil
 
     var body: some View {
         VStack {
@@ -667,7 +769,8 @@ struct PostContentOverlay: View {
                     isFollowing: $isFollowing,
                     showPlaylistPreview: $showPlaylistPreview,
                     showMusicActions: $showMusicActions,
-                    onFollowTap: onFollowTap
+                    onFollowTap: onFollowTap,
+                    onTapUsername: onTapUsername
                 )
 
                 ActionButtonColumn(
@@ -701,14 +804,20 @@ struct PostInfoSection: View {
     @Binding var showPlaylistPreview: Bool
     @Binding var showMusicActions: Bool
     var onFollowTap: () -> Void
+    var onTapUsername: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Author row
             HStack(spacing: 8) {
-                Text("@\(post.authorUsername)")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
+                Button {
+                    onTapUsername?()
+                } label: {
+                    Text("@\(post.authorUsername)")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .buttonStyle(.plain)
 
                 if post.authorId != profile.id {
                     Button {
@@ -730,11 +839,6 @@ struct PostInfoSection: View {
             // Caption with hashtags
             if !post.caption.isEmpty {
                 captionWithHashtags
-            }
-
-            // Workout data card
-            if let workout = post.getSharedWorkout() {
-                workoutDataCard(workout)
             }
 
             // Music ticker
@@ -768,44 +872,6 @@ struct PostInfoSection: View {
             .lineLimit(3)
     }
 
-    @ViewBuilder
-    private func workoutDataCard(_ workout: SharedWorkoutData) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 11))
-                    .foregroundColor(GQColors.cyanSpark)
-                Text(workout.title)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
-                Spacer()
-                if let duration = post.duration {
-                    Text("\(duration)min")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(.white.opacity(0.6))
-                }
-            }
-
-            ForEach(Array(workout.exercises.prefix(3).enumerated()), id: \.element.id) { _, exercise in
-                HStack(spacing: 4) {
-                    Text(exercise.name)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.white.opacity(0.85))
-                    Spacer()
-                    if let firstSet = exercise.sets.first {
-                        Text("\(exercise.sets.count)×\(firstSet.reps) @ \(Int(firstSet.weight))lbs")
-                            .font(.system(size: 11, weight: .regular, design: .rounded))
-                            .foregroundColor(.white.opacity(0.6))
-                    }
-                }
-            }
-        }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.ultraThinMaterial)
-        )
-    }
 }
 
 // MARK: - ActionButtonColumn
@@ -978,8 +1044,8 @@ struct ReactionPickerBubble: View {
     var onSelect: (ReactionType) -> Void
 
     private let reactions: [(ReactionType, String)] = [
-        (.kudos, "👊"), (.fire, "🔥"), (.strong, "💪"),
-        (.nicePR, "🏆"), (.inspired, "✨"), (.respect, "🙌")
+        (.heart, "❤️"), (.fire, "🔥"), (.thumbsUp, "👍"),
+        (.strong, "💪"), (.clap, "👏"), (.shocked, "😮")
     ]
 
     var body: some View {
@@ -1429,19 +1495,21 @@ struct EmptyDiscoverFeed: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "sparkles")
+            Image(systemName: "dumbbell.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(GQGradients.primary)
 
-            Text("Discover Feed")
+            Text("Nothing to Discover Yet")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(GQColors.textPrimary)
 
-            Text("Be the first to share a workout!")
+            Text("Complete a workout to get personalized recommendations")
                 .font(.system(size: 15))
                 .foregroundColor(GQColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
 
-            Button("Create Post") {
+            Button("Log a Workout") {
                 showCreatePost = true
             }
             .buttonStyle(PrimaryButtonStyle())

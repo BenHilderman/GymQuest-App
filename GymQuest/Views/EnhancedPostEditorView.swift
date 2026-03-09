@@ -92,6 +92,17 @@ struct EnhancedPostEditorView: View {
                         }
                     )
 
+                    if mediaItems.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.circle")
+                                .font(.caption)
+                            Text("At least one photo or video is required to post")
+                                .font(.caption)
+                        }
+                        .foregroundColor(GQColors.textTertiary)
+                        .padding(.horizontal, 16)
+                    }
+
                     // Tagging section
                     VStack(spacing: 16) {
                         // Tag people
@@ -182,7 +193,8 @@ struct EnhancedPostEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Post") { createPost() }
                         .fontWeight(.semibold)
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(mediaItems.isEmpty ? GQColors.textSecondary : GQColors.cyanSpark)
+                        .disabled(mediaItems.isEmpty)
                 }
             }
             .sheet(isPresented: $showMediaPicker) {
@@ -250,7 +262,7 @@ struct EnhancedPostEditorView: View {
             taggedUsernames: taggedUsernames,
             mediaItemsData: try? JSONEncoder().encode(mediaItems),
             locationName: selectedLocation?.name,
-            locationId: selectedLocation?.communityId,
+            locationId: selectedLocation?.clubId,
             taggedSquadIds: taggedSquads.map { $0.id },
             taggedSquadNames: taggedSquads.map { $0.name },
             spotifyPlaylistURL: spotifyPlaylistURL.isEmpty ? nil : spotifyPlaylistURL,
@@ -809,10 +821,10 @@ struct LocationSuggestion: Identifiable {
     let id: UUID
     let name: String
     let type: LocationType
-    let communityId: UUID?
+    let clubId: UUID?
 
     enum LocationType {
-        case community
+        case club
         case recent
         case custom
     }
@@ -935,7 +947,7 @@ struct FriendTagRow: View {
 struct LocationTaggingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Query private var communities: [Community]
+    @Query private var clubs: [Club]
 
     @Binding var selectedLocation: LocationSuggestion?
     let userId: UUID
@@ -943,13 +955,13 @@ struct LocationTaggingView: View {
     @State private var searchText: String = ""
     @State private var customLocation: String = ""
 
-    var userCommunities: [Community] {
-        communities.filter { $0.memberIds.contains(userId) }
+    var userClubs: [Club] {
+        clubs.filter { $0.memberIds.contains(userId) }
     }
 
-    var otherCommunities: [Community] {
+    var otherClubs: [Club] {
         if searchText.isEmpty { return [] }
-        return communities.filter {
+        return clubs.filter {
             !$0.memberIds.contains(userId) &&
             $0.name.localizedCaseInsensitiveContains(searchText)
         }
@@ -979,7 +991,7 @@ struct LocationTaggingView: View {
                                     id: UUID(),
                                     name: searchText,
                                     type: .custom,
-                                    communityId: nil
+                                    clubId: nil
                                 )
                                 dismiss()
                             } label: {
@@ -997,19 +1009,19 @@ struct LocationTaggingView: View {
                         }
                     }
 
-                    // User's gyms/communities
-                    if !userCommunities.isEmpty {
+                    // User's gyms/clubs
+                    if !userClubs.isEmpty {
                         Section {
-                            ForEach(userCommunities) { community in
-                                CommunityLocationRow(
-                                    community: community,
-                                    isSelected: selectedLocation?.communityId == community.id
+                            ForEach(userClubs) { club in
+                                ClubLocationRow(
+                                    club: club,
+                                    isSelected: selectedLocation?.clubId == club.id
                                 ) {
                                     selectedLocation = LocationSuggestion(
                                         id: UUID(),
-                                        name: community.name,
-                                        type: .community,
-                                        communityId: community.id
+                                        name: club.name,
+                                        type: .club,
+                                        clubId: club.id
                                     )
                                     dismiss()
                                 }
@@ -1021,19 +1033,19 @@ struct LocationTaggingView: View {
                         }
                     }
 
-                    // Other communities
-                    if !otherCommunities.isEmpty {
+                    // Other clubs
+                    if !otherClubs.isEmpty {
                         Section {
-                            ForEach(otherCommunities) { community in
-                                CommunityLocationRow(
-                                    community: community,
-                                    isSelected: selectedLocation?.communityId == community.id
+                            ForEach(otherClubs) { club in
+                                ClubLocationRow(
+                                    club: club,
+                                    isSelected: selectedLocation?.clubId == club.id
                                 ) {
                                     selectedLocation = LocationSuggestion(
                                         id: UUID(),
-                                        name: community.name,
-                                        type: .community,
-                                        communityId: community.id
+                                        name: club.name,
+                                        type: .club,
+                                        clubId: club.id
                                     )
                                     dismiss()
                                 }
@@ -1060,10 +1072,10 @@ struct LocationTaggingView: View {
     }
 }
 
-// MARK: - Community Location Row
+// MARK: - Club Location Row
 
-struct CommunityLocationRow: View {
-    let community: Community
+struct ClubLocationRow: View {
+    let club: Club
     let isSelected: Bool
     let onSelect: () -> Void
 
@@ -1075,11 +1087,11 @@ struct CommunityLocationRow: View {
                     .frame(width: 30)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(community.name)
+                    Text(club.name)
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(GQColors.textPrimary)
 
-                    if let location = community.location {
+                    if let location = club.location {
                         Text(location)
                             .font(.system(size: 13))
                             .foregroundColor(GQColors.textSecondary)

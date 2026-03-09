@@ -10,6 +10,99 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Workout Draft (Crash Recovery)
+
+struct WorkoutDraft: Codable {
+    let workoutTypeRaw: String
+    let customTitle: String?
+    let startTime: Date
+    let exercises: [DraftExercise]
+
+    struct DraftExercise: Codable {
+        let name: String
+        let muscleGroupRaw: String
+        let notes: String
+        let sets: [DraftSet]
+    }
+
+    struct DraftSet: Codable {
+        let reps: Int
+        let weight: Double
+        let isCompleted: Bool
+        let rpe: Int?
+    }
+
+    private static let storageKey = "workoutDraft"
+
+    // MARK: - Static API
+
+    static func hasDraft() -> Bool {
+        UserDefaults.standard.data(forKey: storageKey) != nil
+    }
+
+    static func load() -> WorkoutDraft? {
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else { return nil }
+        return try? JSONDecoder().decode(WorkoutDraft.self, from: data)
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: storageKey)
+    }
+
+    static func save(
+        workoutType: WorkoutType,
+        customTitle: String?,
+        startTime: Date,
+        exercises: [ActiveExercise]
+    ) {
+        let draft = WorkoutDraft(
+            workoutTypeRaw: workoutType.rawValue,
+            customTitle: customTitle,
+            startTime: startTime,
+            exercises: exercises.map { ex in
+                DraftExercise(
+                    name: ex.name,
+                    muscleGroupRaw: ex.muscleGroup.rawValue,
+                    notes: ex.notes,
+                    sets: ex.sets.map { s in
+                        DraftSet(
+                            reps: s.reps,
+                            weight: s.weight,
+                            isCompleted: s.isCompleted,
+                            rpe: s.rpe
+                        )
+                    }
+                )
+            }
+        )
+        if let data = try? JSONEncoder().encode(draft) {
+            UserDefaults.standard.set(data, forKey: storageKey)
+        }
+    }
+
+    // MARK: - Restore Helpers
+
+    var workoutType: WorkoutType? {
+        WorkoutType(rawValue: workoutTypeRaw)
+    }
+
+    func toActiveExercises() -> [ActiveExercise] {
+        exercises.map { ex in
+            ActiveExercise(
+                name: ex.name,
+                muscleGroup: MuscleGroup(rawValue: ex.muscleGroupRaw) ?? .fullBody,
+                sets: ex.sets.map { s in
+                    var activeSet = ActiveSet(reps: s.reps, weight: s.weight)
+                    activeSet.isCompleted = s.isCompleted
+                    activeSet.rpe = s.rpe
+                    return activeSet
+                },
+                notes: ex.notes
+            )
+        }
+    }
+}
+
 // MARK: - Set Effort Rating
 
 enum SetEffort: String, CaseIterable {

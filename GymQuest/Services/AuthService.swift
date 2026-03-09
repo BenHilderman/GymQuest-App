@@ -70,6 +70,22 @@ class AuthService: ObservableObject {
         return nil
     }
 
+    func usernameExists(_ username: String) -> Bool {
+        guard let modelContext else { return false }
+
+        let lower = username.lowercased()
+        let descriptor = FetchDescriptor<UserProfile>(
+            predicate: #Predicate { $0.username == lower }
+        )
+
+        do {
+            return try !modelContext.fetch(descriptor).isEmpty
+        } catch {
+            print("Error checking username: \(error)")
+            return false
+        }
+    }
+
     func emailExists(_ email: String) -> Bool {
         guard let modelContext else { return false }
 

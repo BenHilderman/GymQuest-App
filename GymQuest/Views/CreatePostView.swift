@@ -221,7 +221,7 @@ struct CreatePostView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Post") { createPost() }
                         .fontWeight(.semibold)
-                        .disabled(caption.isEmpty && photoData == nil && videoData == nil)
+                        .disabled(photoData == nil && videoData == nil)
                 }
             }
             .onChange(of: selectedItem) { _, newValue in
@@ -1233,7 +1233,7 @@ struct MediaPicker: View {
                         }
                     }
 
-                    Text("Add a photo or video to your post")
+                    Text("A photo or video is required to post")
                         .font(.caption)
                         .foregroundColor(GQColors.textTertiary)
                 }

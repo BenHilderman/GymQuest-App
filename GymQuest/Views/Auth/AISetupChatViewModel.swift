@@ -4,7 +4,7 @@
 //
 //  Created by Benjamin Hilderman
 //
-//  State machine driving the 13-step AI setup chat flow.
+//  State machine driving the 14-step AI setup chat flow.
 //  Collects identity + fitness profile data in a conversational UI.
 //
 
@@ -19,19 +19,22 @@ struct SetupMessage: Identifiable {
     let isUser: Bool
     let options: [OptionButton]?
     var isTyping: Bool
+    var showChart: Bool
 
     init(
         id: UUID = UUID(),
         content: String,
         isUser: Bool,
         options: [OptionButton]? = nil,
-        isTyping: Bool = false
+        isTyping: Bool = false,
+        showChart: Bool = false
     ) {
         self.id = id
         self.content = content
         self.isUser = isUser
         self.options = options
         self.isTyping = isTyping
+        self.showChart = showChart
     }
 }
 
@@ -54,14 +57,14 @@ enum SetupStep: Int, CaseIterable {
     case name
     case username
     case gender
-    case heightUnit
     case height
-    case weightUnit
     case weight
+    case distanceUnit
     case experience
     case goal
     case environment
     case equipment
+    case referralCode
     case daysPerWeek
     case completion
 }
@@ -84,14 +87,19 @@ final class AISetupChatViewModel {
     var collectedHeightCm: Double?
     var collectedWeightUnit: WeightUnit = .lbs
     var collectedWeightKg: Double?
+    var collectedDistanceUnit: DistanceUnit = .km
     var collectedExperience: ExperienceLevel?
     var collectedGoal: FitnessGoal = .hypertrophy
     var collectedEnvironment: WorkoutEnvironment?
     var collectedEquipment: Set<EquipmentType> = []
     var collectedDaysPerWeek: Int = 4
+    var collectedReferralCode: String = ""
 
     // Equipment multi-select state
     var isEquipmentSelecting: Bool = false
+
+    // AuthService reference for username uniqueness checks
+    var authService: AuthService?
 
     // Pre-filled from Google sign-in
     var prefillName: String?
@@ -103,26 +111,36 @@ final class AISetupChatViewModel {
     var pickerWeightLbs: Int = 160
     var pickerWeightKg: Int = 73
 
+    // Set to true after the AI message lands (typing indicator resolved)
+    var readyForInput = false
+
     // Whether current step expects text input
     var isTextInputStep: Bool {
+        guard readyForInput else { return false }
         switch currentStep {
-        case .name, .username: return true
+        case .name, .username, .referralCode: return true
         default: return false
         }
     }
 
     // Whether current step uses a wheel picker
     var isPickerStep: Bool {
+        guard readyForInput else { return false }
         switch currentStep {
         case .height, .weight: return true
         default: return false
         }
     }
 
+    var completedAnswerSteps: Int {
+        max(0, min(currentStep.rawValue - 1, 12))
+    }
+
     var textFieldPlaceholder: String {
         switch currentStep {
         case .name: return "Your name"
         case .username: return "@username"
+        case .referralCode: return "Referral code (optional)"
         default: return ""
         }
     }
@@ -135,7 +153,7 @@ final class AISetupChatViewModel {
                 "Welcome to Lift AI. Let's set up your profile.",
                 options: nil
             )
-            try? await Task.sleep(for: .milliseconds(600))
+            try? await Task.sleep(for: .milliseconds(300))
             advanceToStep(.name)
         }
     }
@@ -148,7 +166,7 @@ final class AISetupChatViewModel {
         storeValue(option.value, for: currentStep)
 
         Task {
-            try? await Task.sleep(for: .milliseconds(300))
+            try? await Task.sleep(for: .milliseconds(600))
             advanceToNextStep()
             isProcessing = false
         }
@@ -156,6 +174,20 @@ final class AISetupChatViewModel {
 
     func submitTextInput() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Allow empty submission for referral code (skip)
+        if currentStep == .referralCode && text.isEmpty {
+            isProcessing = true
+            addUserMessage("Skipped")
+            inputText = ""
+            Task {
+                try? await Task.sleep(for: .milliseconds(400))
+                advanceToNextStep()
+                isProcessing = false
+            }
+            return
+        }
+
         guard !text.isEmpty, !isProcessing else { return }
         isProcessing = true
 
@@ -163,8 +195,20 @@ final class AISetupChatViewModel {
         storeTextValue(text, for: currentStep)
         inputText = ""
 
+        // Username uniqueness check
+        if currentStep == .username,
+           let authService,
+           authService.usernameExists(collectedUsername) {
+            Task {
+                try? await Task.sleep(for: .milliseconds(400))
+                await sendAIMessage("That username is already taken. Try another one.")
+                isProcessing = false
+            }
+            return
+        }
+
         Task {
-            try? await Task.sleep(for: .milliseconds(300))
+            try? await Task.sleep(for: .milliseconds(600))
             advanceToNextStep()
             isProcessing = false
         }
@@ -202,7 +246,7 @@ final class AISetupChatViewModel {
         }
 
         Task {
-            try? await Task.sleep(for: .milliseconds(300))
+            try? await Task.sleep(for: .milliseconds(600))
             advanceToNextStep()
             isProcessing = false
         }
@@ -219,10 +263,21 @@ final class AISetupChatViewModel {
         addUserMessage(names)
 
         Task {
-            try? await Task.sleep(for: .milliseconds(300))
+            try? await Task.sleep(for: .milliseconds(600))
             advanceToNextStep()
             isProcessing = false
         }
+    }
+
+    func goBack() {
+        guard currentStep.rawValue > SetupStep.name.rawValue,
+              currentStep != .completion,
+              !isProcessing,
+              let previousStep = SetupStep(rawValue: currentStep.rawValue - 1)
+        else { return }
+
+        isEquipmentSelecting = false
+        advanceToStep(previousStep)
     }
 
     func skipSetup() {
@@ -248,12 +303,17 @@ final class AISetupChatViewModel {
         profile.heightCm = collectedHeightCm
         profile.weightUnit = collectedWeightUnit
         profile.weightKg = collectedWeightKg
+        profile.distanceUnit = collectedDistanceUnit
         profile.experienceLevel = collectedExperience
         profile.goal = collectedGoal
         profile.workoutEnvironment = collectedEnvironment
         profile.availableEquipment = Array(collectedEquipment)
         profile.daysPerWeek = collectedDaysPerWeek
         profile.fitnessProfileCompleted = currentStep == .completion
+        if !collectedReferralCode.isEmpty {
+            profile.referredByCode = collectedReferralCode
+        }
+        profile.referralCode = UserProfile.generateReferralCode()
     }
 
     // MARK: - Private Helpers
@@ -291,67 +351,69 @@ final class AISetupChatViewModel {
 
         case .gender:
             let options = Gender.allCases.map { OptionButton(label: $0.rawValue) }
-            Task { await sendAIMessage("How should we personalize your training?", options: options) }
-
-        case .heightUnit:
-            let options = [
-                OptionButton(label: "ft/in", value: HeightUnit.ftIn.rawValue),
-                OptionButton(label: "cm", value: HeightUnit.cm.rawValue)
-            ]
-            Task { await sendAIMessage("Preferred height units?", options: options) }
+            Task { await sendAIMessage("What's your gender?", options: options) }
 
         case .height:
             Task { await sendAIMessage("What's your height?") }
 
-        case .weightUnit:
-            let options = [
-                OptionButton(label: "lbs", value: WeightUnit.lbs.rawValue),
-                OptionButton(label: "kg", value: WeightUnit.kg.rawValue)
-            ]
-            Task { await sendAIMessage("Preferred weight units?", options: options) }
-
         case .weight:
             Task { await sendAIMessage("What's your weight?") }
 
+        case .distanceUnit:
+            let options = [
+                OptionButton(label: "km", value: DistanceUnit.km.rawValue),
+                OptionButton(label: "miles", value: DistanceUnit.miles.rawValue)
+            ]
+            Task { await sendAIMessage("Preferred distance units?", options: options) }
+
         case .experience:
             let options = ExperienceLevel.allCases.map { OptionButton(label: $0.rawValue) }
-            Task { await sendAIMessage("Experience level?", options: options) }
+            Task { await sendAIMessage("Experience level? Join 50,000+ lifters.", options: options) }
 
         case .goal:
             let options = FitnessGoal.allCases.map { OptionButton(label: $0.rawValue) }
-            Task { await sendAIMessage("What's your primary goal?", options: options) }
+            Task { await sendAIMessage("What's your primary goal? 90% of users see results in 4 weeks.", options: options) }
 
         case .environment:
             let options = WorkoutEnvironment.allCases.map { OptionButton(label: $0.rawValue) }
             Task { await sendAIMessage("Where do you train?", options: options) }
 
         case .equipment:
-            isEquipmentSelecting = true
-            Task { await sendAIMessage("Select your equipment.") }
+            Task {
+                await sendAIMessage("Select your equipment.")
+                isEquipmentSelecting = true
+            }
+
+        case .referralCode:
+            Task { await sendAIMessage("Got a referral code? Enter it below or skip.") }
 
         case .daysPerWeek:
             let options = (2...6).map { OptionButton(label: "\($0) days", value: "\($0)") }
             Task { await sendAIMessage("Days per week?", options: options) }
 
         case .completion:
-            Task { await sendAIMessage("You're all set.") }
+            Task { await sendAIMessage("Welcome to the Lift AI community. You're all set.") }
         }
     }
 
-    private func sendAIMessage(_ content: String, options: [OptionButton]? = nil) async {
+    private func sendAIMessage(_ content: String, options: [OptionButton]? = nil, showChart: Bool = false) async {
+        readyForInput = false
+
         // Add typing indicator
         let typingId = UUID()
         let typingMsg = SetupMessage(id: typingId, content: "", isUser: false, isTyping: true)
         messages.append(typingMsg)
 
         // Simulate typing delay
-        let delay = Int.random(in: 400...800)
+        let delay = Int.random(in: 400...600)
         try? await Task.sleep(for: .milliseconds(delay))
 
         // Replace typing indicator with actual message
         if let idx = messages.firstIndex(where: { $0.id == typingId }) {
-            messages[idx] = SetupMessage(content: content, isUser: false, options: options)
+            messages[idx] = SetupMessage(content: content, isUser: false, options: options, showChart: showChart)
         }
+
+        readyForInput = true
     }
 
     private func addUserMessage(_ content: String) {
@@ -362,10 +424,8 @@ final class AISetupChatViewModel {
         switch step {
         case .gender:
             collectedGender = Gender(rawValue: value)
-        case .heightUnit:
-            collectedHeightUnit = HeightUnit(rawValue: value) ?? .ftIn
-        case .weightUnit:
-            collectedWeightUnit = WeightUnit(rawValue: value) ?? .lbs
+        case .distanceUnit:
+            collectedDistanceUnit = DistanceUnit(rawValue: value) ?? .km
         case .experience:
             collectedExperience = ExperienceLevel(rawValue: value)
         case .goal:
@@ -386,6 +446,8 @@ final class AISetupChatViewModel {
         case .username:
             let clean = text.hasPrefix("@") ? String(text.dropFirst()) : text
             collectedUsername = clean.lowercased().replacingOccurrences(of: " ", with: "")
+        case .referralCode:
+            collectedReferralCode = text.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
         default:
             break
         }

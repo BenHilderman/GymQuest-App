@@ -266,10 +266,10 @@ class AppState: ObservableObject {
 
     // 4-tab layout: Home + Today + Activity + You with center action hub
     enum Tab: String {
-        case feed = "Home"
+        case feed = "Feed"
         case today = "Today"
         case home = "Workout"    // hidden — only used during active workouts
-        case activity = "Activity"
+        case activity = "Stats"
         case profile = "You"
 
         var icon: String {
@@ -277,7 +277,7 @@ class AppState: ObservableObject {
             case .feed: return "person.2.fill"
             case .today: return "chart.bar.fill"
             case .home: return "house.fill"
-            case .activity: return "heart.fill"
+            case .activity: return "chart.line.uptrend.xyaxis"
             case .profile: return "person.fill"
             }
         }

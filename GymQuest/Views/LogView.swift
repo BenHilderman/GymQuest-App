@@ -134,7 +134,7 @@ struct LogView: View {
                 MealLogView(profile: profile)
             }
             .sheet(isPresented: $showingAddMeasurement) {
-                AddMeasurementSheet(profile: profile)
+                AddMeasurementSheet(profile: profile, measurementType: .weight)
             }
             .sheet(isPresented: $showingBodyMeasurements) {
                 NavigationStack {
