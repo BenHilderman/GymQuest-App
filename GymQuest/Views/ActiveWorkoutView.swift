@@ -2395,11 +2395,16 @@ struct WorkoutCompletionExperience: View {
                 withAnimation(.easeInOut(duration: 0.5)) {
                     checkmarkTrim = 1.0
                 }
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                #endif
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { phase = 2 }
-                // Animate stat numbers
-                withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                #endif
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                     animatedDuration = duration / 60
                     animatedSets = totalSets
                     animatedExercises = exerciseCount
@@ -2407,18 +2412,20 @@ struct WorkoutCompletionExperience: View {
                     animatedXP = xpEarned
                 }
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { phase = 3 }
-                // Confetti fires with PRs, not at start
                 if hasPRs {
                     showConfetti = true
                 }
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { phase = 4 }
                 if !hasPRs {
                     showConfetti = true
                 }
+                #if canImport(UIKit)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                #endif
             }
         }
     }
@@ -2518,7 +2525,7 @@ struct WorkoutCompletionExperience: View {
                 .foregroundColor(GQColors.vividPurple)
             HStack(spacing: 2) {
                 Text("\(animatedValue)")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(GQColors.textPrimary)
                     .contentTransition(.numericText())
                 if !unit.isEmpty {

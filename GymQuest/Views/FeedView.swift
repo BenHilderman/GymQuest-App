@@ -320,7 +320,6 @@ struct PostCardV2: View {
     @State private var hasAppeared = false
     @State private var isPlayingMusic = false
     @State private var showWorkoutDetail = false
-    @State private var isSaved = false
     @State private var showFullCaption = false
     @State private var showingCopySheet = false
     @State private var copySheetWorkout: SharedWorkoutData?
@@ -517,11 +516,20 @@ struct PostCardV2: View {
                         .foregroundColor(GQColors.textTertiary)
                 }
 
-                Text(post.caption)
-                    .font(.system(size: 14))
-                    .foregroundColor(GQColors.textPrimary)
-                    .lineSpacing(2)
-                    .lineLimit(3)
+                if !post.caption.isEmpty {
+                    Text(post.caption)
+                        .font(.system(size: 14))
+                        .foregroundColor(.white)
+                        .lineSpacing(2)
+                        .lineLimit(3)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            ChatBubbleShape(isFromCurrentUser: true)
+                                .fill(GQGradients.primary)
+                                .shadow(color: GQColors.deepBlue.opacity(0.4), radius: 8, x: 0, y: 4)
+                        )
+                }
 
                 // Inline workout stats pill
                 if post.workoutType != nil || post.duration != nil {
@@ -759,49 +767,23 @@ struct PostCardV2: View {
         let hasExercises = sharedWorkout != nil && !(sharedWorkout?.exercises.isEmpty ?? true)
 
         if isCardioWithRoute, let points = sharedWorkout?.routePoints {
-            // Compact bottom-left map card for cardio posts
+            // Clean bottom-left map card for cardio posts
             HStack {
-                HStack(spacing: 8) {
-                    PostRouteMapView(
-                        routePoints: points,
-                        distance: post.duration.map { _ in "5.00 km" },
-                        pace: "4:31 /km",
-                        height: 90
-                    )
-                    .frame(width: 140, height: 90)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .shadow(color: .black.opacity(0.4), radius: 6, x: 0, y: 2)
-                    .onTapGesture { showFullRouteMap = true }
+                PostRouteMapView(
+                    routePoints: points,
+                    distance: post.duration.map { _ in "5.00 km" },
+                    pace: "4:31 /km",
+                    height: 90
+                )
+                .frame(width: 140, height: 90)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .shadow(color: .black.opacity(0.4), radius: 6, x: 0, y: 2)
+                .onTapGesture { showFullRouteMap = true }
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        if let gifName = cardioGifName {
-                            ExerciseGifView(exerciseName: gifName, size: .thumbnail, showFallback: false)
-                        }
-                        if cardioGifName == nil {
-                            Image(systemName: cardioActivityIcon)
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundColor(.white)
-                        }
-
-                        if let highlight = post.exerciseHighlight {
-                            Text(highlight)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.9))
-                                .lineLimit(1)
-                        }
-                    }
-                }
                 Spacer()
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
-            .background(
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.5)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
         } else if hasStats || hasExercises {
             VStack(alignment: .leading, spacing: 6) {
                 if hasStats {
@@ -842,37 +824,41 @@ struct PostCardV2: View {
                 }
             }
             .foregroundColor(.white)
-            .padding(.bottom, 6)
-            .padding(.top, 24)
-            .background(
-                LinearGradient(
-                    colors: [.clear, .black.opacity(0.55)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
+            .padding(.bottom, 8)
+            .padding(.top, 8)
         }
     }
 
     @ViewBuilder
     private var captionSection: some View {
         if !post.caption.isEmpty {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(post.caption)
-                    .font(.system(size: 15))
-                    .foregroundColor(GQColors.textPrimary)
-                    .lineSpacing(2)
-                    .lineLimit(showFullCaption ? nil : 2)
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(post.caption)
+                        .font(.system(size: 15))
+                        .foregroundColor(.white)
+                        .lineSpacing(2)
+                        .lineLimit(showFullCaption ? nil : 2)
 
-                if !showFullCaption && post.caption.count > 80 {
-                    Button("more") {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showFullCaption = true
+                    if !showFullCaption && post.caption.count > 140 {
+                        Button("more") {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                showFullCaption = true
+                            }
                         }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white.opacity(0.6))
                     }
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(GQColors.textTertiary)
                 }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    ChatBubbleShape(isFromCurrentUser: true)
+                        .fill(GQGradients.primary)
+                        .shadow(color: GQColors.deepBlue.opacity(0.4), radius: 8, x: 0, y: 4)
+                )
+
+                Spacer(minLength: 40)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -922,15 +908,9 @@ struct PostCardV2: View {
                 post: post,
                 isLiked: $isLiked,
                 showComments: $showComments,
-                isSaved: $isSaved,
                 hasWorkout: sharedWorkout != nil,
                 onFollowWorkout: sharedWorkout != nil ? {
                     showWorkoutDetail = true
-                } : nil,
-                onSave: sharedWorkout != nil ? {
-                    if let workout = sharedWorkout {
-                        saveWorkout(workout)
-                    }
                 } : nil,
                 currentUserId: currentUserId,
                 currentUserName: currentUserName
@@ -943,28 +923,38 @@ struct PostCardV2: View {
     @ViewBuilder
     private var inlineCommentPreview: some View {
         if post.commentCount > 0, let comment = topComment {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Button {
                     showComments = true
                 } label: {
-                    HStack(spacing: 8) {
+                    HStack(alignment: .bottom, spacing: 6) {
                         Circle()
                             .fill(GQGradients.primary)
-                            .frame(width: 24, height: 24)
+                            .frame(width: 22, height: 22)
                             .overlay(
                                 Text(String(comment.authorName.prefix(1)).uppercased())
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(.system(size: 9, weight: .bold))
                                     .foregroundColor(.white)
                             )
 
-                        Text(comment.authorName)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(GQColors.textPrimary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(comment.authorName)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(GQColors.textSecondary)
 
-                        Text(comment.content)
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textSecondary)
-                            .lineLimit(1)
+                            Text(comment.content)
+                                .font(.system(size: 13))
+                                .foregroundColor(Color(hex: "1C1C1E"))
+                                .lineLimit(1)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(
+                                    ChatBubbleShape(isFromCurrentUser: false)
+                                        .fill(LinearGradient(colors: [Color(hex: "F5F5F7"), Color(hex: "E8E8ED")], startPoint: .top, endPoint: .bottom))
+                                )
+                        }
+
+                        Spacer(minLength: 60)
                     }
                 }
                 .buttonStyle(.plain)
@@ -976,6 +966,7 @@ struct PostCardV2: View {
                         Text("View all \(post.commentCount) comments")
                             .font(.system(size: 13))
                             .foregroundColor(GQColors.textTertiary)
+                            .padding(.leading, 28)
                     }
                     .buttonStyle(.plain)
                 }
@@ -986,11 +977,6 @@ struct PostCardV2: View {
     }
 
     // MARK: - Helpers
-
-    private func saveWorkout(_ workout: SharedWorkoutData) {
-        copySheetWorkout = workout
-        showingCopySheet = true
-    }
 
     private func launchFollowWorkout(_ workout: SharedWorkoutData) {
         copySheetWorkout = workout
@@ -1534,10 +1520,8 @@ struct PostActionsRowCompact: View {
     let post: Post
     @Binding var isLiked: Bool
     @Binding var showComments: Bool
-    @Binding var isSaved: Bool
     var hasWorkout: Bool = false
     var onFollowWorkout: (() -> Void)?
-    var onSave: (() -> Void)?
     var currentUserId: UUID = UUID()
     var currentUserName: String = ""
 
@@ -1560,10 +1544,6 @@ struct PostActionsRowCompact: View {
 
                 Spacer()
 
-                if hasWorkout {
-                    compactSaveButton
-                }
-
                 compactShareButton
             }
             .padding(.top, 4)
@@ -1576,29 +1556,49 @@ struct PostActionsRowCompact: View {
     }
 
     @State private var tappedReaction: ReactionType? = nil
+    @State private var rippleReaction: ReactionType? = nil
 
     @ViewBuilder
     private var reactionEmojiRow: some View {
         HStack(spacing: 6) {
             ForEach(ReactionType.allCases, id: \.self) { reaction in
                 Button {
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
                         tappedReaction = reaction
                     }
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    #endif
+                    rippleReaction = reaction
                     addReaction(reaction)
                     if !isLiked { performLikeAnimation() }
                     sentReactionEmoji = reaction.emoji
                     withAnimation(.spring(response: 0.3)) { showSentReaction = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                        withAnimation(.easeOut(duration: 0.2)) { tappedReaction = nil }
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            tappedReaction = nil
+                            rippleReaction = nil
+                        }
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         withAnimation { showSentReaction = false }
                     }
                 } label: {
-                    Text(reaction.emoji)
-                        .font(.system(size: 22))
-                        .scaleEffect(tappedReaction == reaction ? 1.3 : 1.0)
+                    ZStack {
+                        // Ripple glow
+                        if rippleReaction == reaction {
+                            Circle()
+                                .fill(Color.white.opacity(0.25))
+                                .frame(width: 36, height: 36)
+                                .scaleEffect(rippleReaction == reaction ? 1.4 : 0.5)
+                                .opacity(rippleReaction == reaction ? 0 : 0.6)
+                                .animation(.easeOut(duration: 0.4), value: rippleReaction)
+                        }
+
+                        Text(reaction.emoji)
+                            .font(.system(size: 22))
+                            .scaleEffect(tappedReaction == reaction ? 1.5 : 1.0)
+                    }
                 }
                 .buttonStyle(.plain)
             }
@@ -1651,24 +1651,6 @@ struct PostActionsRowCompact: View {
     }
 
     @ViewBuilder
-    private var compactSaveButton: some View {
-        Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                isSaved.toggle()
-            }
-            if isSaved { onSave?() }
-            #if canImport(UIKit)
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            #endif
-        } label: {
-            Image(systemName: isSaved ? "bookmark.fill" : "bookmark")
-                .font(.system(size: 18))
-                .foregroundColor(isSaved ? GQColors.cyanSpark : GQColors.textTertiary)
-        }
-        .buttonStyle(.plain)
-    }
-
-    @ViewBuilder
     private var compactShareButton: some View {
         Button {
             // Share action
@@ -1677,7 +1659,7 @@ struct PostActionsRowCompact: View {
                 .font(.system(size: 18))
         }
         .buttonStyle(.plain)
-        .foregroundColor(GQColors.textPrimary)
+        .foregroundColor(GQColors.textTertiary)
     }
 
     // MARK: - Like Logic
@@ -2034,30 +2016,32 @@ struct WeeklyHeroSection: View {
     private var weekDayDots: some View {
         let cal = Calendar.current
         let symbols = cal.veryShortWeekdaySymbols
-        // Mon=2 through Sun=1
         let mondayFirst = [2, 3, 4, 5, 6, 7, 1]
         let labelsReordered = [symbols[1], symbols[2], symbols[3],
                                symbols[4], symbols[5], symbols[6],
                                symbols[0]]
+        let todayWeekday = cal.component(.weekday, from: Date())
 
         HStack(spacing: 0) {
             ForEach(Array(zip(mondayFirst, labelsReordered).enumerated()), id: \.offset) { _, pair in
                 let (weekday, label) = pair
                 let count = workoutCountsByWeekday[weekday] ?? 0
+                let isToday = weekday == todayWeekday
                 VStack(spacing: 2) {
                     Text(label)
                         .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
+                        .foregroundColor(isToday ? GQColors.textPrimary : GQColors.textTertiary)
                     HStack(spacing: 1.5) {
                         if count == 0 {
                             Circle()
                                 .fill(GQColors.adaptiveOverlay(0.08))
-                                .frame(width: 6, height: 6)
+                                .frame(width: 8, height: 8)
                         } else {
                             ForEach(0..<min(count, 3), id: \.self) { _ in
                                 Circle()
-                                    .fill(GQColors.textSecondary)
-                                    .frame(width: 6, height: 6)
+                                    .fill(GQGradients.primary)
+                                    .frame(width: 10, height: 10)
+                                    .shadow(color: isToday ? GQColors.deepBlue.opacity(0.5) : .clear, radius: isToday ? 4 : 0)
                             }
                         }
                     }
@@ -4075,7 +4059,7 @@ struct PostActionsRow: View {
                     .font(.system(size: 20))
             }
             .buttonStyle(.plain)
-            .foregroundColor(GQColors.textPrimary)
+            .foregroundColor(GQColors.textTertiary)
         }
         .padding(.top, 4)
     }
@@ -4225,7 +4209,7 @@ struct PostActionsRowAnimated: View {
                     .font(.system(size: 20))
             }
             .buttonStyle(.plain)
-            .foregroundColor(GQColors.textPrimary)
+            .foregroundColor(GQColors.textTertiary)
         }
         .padding(.top, 4)
         .onAppear {
@@ -4909,7 +4893,7 @@ struct CommentsSheet: View {
                                 .padding(.top, 40)
                         } else {
                             ForEach(postComments) { comment in
-                                CommentRow(comment: comment)
+                                CommentRow(comment: comment, currentUserId: currentUserId)
                             }
                         }
                     }
@@ -4919,20 +4903,30 @@ struct CommentsSheet: View {
                 Divider()
                     .background(Color.white.opacity(0.1))
 
-                // Comment input
-                HStack(spacing: 12) {
-                    TextField("Add a comment...", text: $newComment)
-                        .textFieldStyle(LiftAITextFieldStyle())
+                // iMessage-style comment input
+                HStack(spacing: 10) {
+                    TextField("Message...", text: $newComment)
+                        .font(.system(size: 15))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(Color.white.opacity(0.08))
+                                .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.5))
+                        )
 
                     Button {
                         addComment()
                     } label: {
-                        Image(systemName: "paperplane.fill")
-                            .font(.title3)
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 30))
+                            .foregroundStyle(newComment.isEmpty ? AnyShapeStyle(GQColors.textTertiary) : AnyShapeStyle(GQGradients.primary))
                     }
                     .disabled(newComment.isEmpty)
+                    .buttonStyle(.plain)
                 }
-                .padding(16)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
             .gqPageBackground()
             .navigationTitle("Comments")
@@ -4968,31 +4962,58 @@ struct CommentsSheet: View {
 
 struct CommentRow: View {
     let comment: Comment
+    var currentUserId: UUID = UUID()
+
+    private var isOwnComment: Bool {
+        comment.authorId == currentUserId
+    }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Circle()
-                .fill(GQGradients.primary)
-                .frame(width: 32, height: 32)
-                .overlay(
-                    Text(String(comment.authorName.prefix(1)).uppercased())
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
-                )
+        HStack(alignment: .bottom, spacing: 8) {
+            if isOwnComment {
+                Spacer(minLength: 48)
+            } else {
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Text(String(comment.authorName.prefix(1)).uppercased())
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                    )
+            }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(comment.authorName)
-                        .font(.system(size: 13, weight: .semibold))
-
-                    Text(comment.timestamp.timeAgoDisplay())
-                        .font(.system(size: 11))
-                        .foregroundColor(GQColors.textTertiary)
+            VStack(alignment: isOwnComment ? .trailing : .leading, spacing: 2) {
+                if !isOwnComment {
+                    HStack(spacing: 4) {
+                        Text(comment.authorName)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(GQColors.textSecondary)
+                        Text(comment.timestamp.timeAgoDisplay())
+                            .font(.system(size: 10))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
                 }
 
                 Text(comment.content)
                     .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(isOwnComment ? .white : Color(hex: "1C1C1E"))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        ChatBubbleShape(isFromCurrentUser: isOwnComment)
+                            .fill(isOwnComment ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(LinearGradient(colors: [Color(hex: "F5F5F7"), Color(hex: "E8E8ED")], startPoint: .top, endPoint: .bottom)))
+                    )
+
+                if isOwnComment {
+                    Text(comment.timestamp.timeAgoDisplay())
+                        .font(.system(size: 10))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+
+            if !isOwnComment {
+                Spacer(minLength: 48)
             }
         }
     }
@@ -8448,19 +8469,19 @@ struct SentReactionOverlay: View {
     var body: some View {
         ZStack {
             Text(emoji)
-                .font(.system(size: 26))
-                .scaleEffect(animate ? 0.75 : 1.1)
+                .font(.system(size: 36))
+                .scaleEffect(animate ? 0.5 : 1.4)
                 .opacity(animate ? 0 : 1)
-                .offset(y: animate ? -50 : 0)
+                .offset(y: animate ? -80 : 0)
 
             Text(emoji)
-                .font(.system(size: 18))
-                .scaleEffect(animate ? 0.6 : 0.8)
+                .font(.system(size: 24))
+                .scaleEffect(animate ? 0.4 : 0.9)
                 .opacity(animate ? 0 : 0.6)
-                .offset(x: 14, y: animate ? -40 : 5)
-                .animation(.easeOut(duration: 2.0).delay(0.5), value: animate)
+                .offset(x: 16, y: animate ? -60 : 5)
+                .animation(.easeOut(duration: 1.2).delay(0.15), value: animate)
         }
-        .animation(.easeOut(duration: 2.0), value: animate)
+        .animation(.easeOut(duration: 1.2), value: animate)
         .allowsHitTesting(false)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -8521,6 +8542,26 @@ struct EmojiBurstOverlay: View {
             }
         }
         .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Chat Bubble Shape
+
+struct ChatBubbleShape: InsettableShape {
+    let isFromCurrentUser: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let corners: RectangleCornerRadii
+        if isFromCurrentUser {
+            corners = RectangleCornerRadii(topLeading: 18, bottomLeading: 18, bottomTrailing: 4, topTrailing: 18)
+        } else {
+            corners = RectangleCornerRadii(topLeading: 18, bottomLeading: 4, bottomTrailing: 18, topTrailing: 18)
+        }
+        return UnevenRoundedRectangle(cornerRadii: corners).path(in: rect)
+    }
+
+    func inset(by amount: CGFloat) -> some InsettableShape {
+        self
     }
 }
 

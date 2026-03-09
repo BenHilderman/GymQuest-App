@@ -538,33 +538,32 @@ struct PostRouteMapView: View {
             .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
             .colorScheme(.dark)
 
-            // Stats pills overlay
+            // Clean stats pill
             if distance != nil || pace != nil {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     if let distance = distance {
-                        HStack(spacing: 3) {
-                            Image(systemName: "map")
-                                .font(.system(size: 9))
-                                .foregroundColor(GQColors.success)
-                            Text(distance)
-                                .font(.system(size: 11, weight: .semibold))
-                        }
+                        Text(distance)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                    }
+                    if distance != nil && pace != nil {
+                        Text("·")
+                            .font(.system(size: 10, weight: .bold))
+                            .opacity(0.5)
                     }
                     if let pace = pace {
-                        HStack(spacing: 3) {
-                            Image(systemName: "speedometer")
-                                .font(.system(size: 9))
-                                .foregroundColor(GQColors.cyanSpark)
-                            Text(pace)
-                                .font(.system(size: 11, weight: .semibold))
-                        }
+                        Text(pace)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
                     }
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(.black.opacity(0.6)))
-                .padding(8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .environment(\.colorScheme, .dark)
+                )
+                .padding(6)
             }
         }
         .frame(height: height)
