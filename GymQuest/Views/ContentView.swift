@@ -158,15 +158,9 @@ struct FloatingTabBar: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [GQColors.deepBlue, GQColors.vividPurple.opacity(0.85)],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
+                            .fill(GQGradients.primary)
                             .frame(width: 44, height: 44)
-                            .shadow(color: GQColors.deepBlue.opacity(0.25), radius: 4, y: 2)
+                            .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 6, y: 2)
 
                         Image(systemName: "plus")
                             .font(.system(size: 20, weight: .medium, design: .rounded))
@@ -239,14 +233,14 @@ struct ActiveWorkoutMiniBar: View {
 
                 Text(formatTime(elapsedTime))
                     .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
 
                 Text("Return")
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(GQColors.vividPurple)
+                    .background(GQColors.deepBlue)
                     .cornerRadius(14)
             }
             .padding(.horizontal, 16)
@@ -356,7 +350,7 @@ struct MiniWorkoutBar: View {
         Button(action: onTap) {
             HStack(spacing: 10) {
                 Circle()
-                    .fill(GQColors.vividPurple)
+                    .fill(GQColors.deepBlue)
                     .frame(width: 8, height: 8)
                     .scaleEffect(pulse ? 1.3 : 1.0)
                     .animation(.easeInOut(duration: 1).repeatForever(autoreverses: true), value: pulse)
@@ -383,7 +377,7 @@ struct MiniWorkoutBar: View {
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
                             .stroke(
-                                GQColors.vividPurple.opacity(0.4),
+                                GQColors.deepBlue.opacity(0.4),
                                 lineWidth: 1
                             )
                     )
@@ -448,7 +442,7 @@ struct QuickActionSheet: View {
                 quickActionCircle(
                     icon: "figure.strengthtraining.traditional",
                     label: "Start Workout",
-                    accent: GQColors.vividPurple
+                    accent: GQColors.deepBlue
                 ) {
                     dismiss()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
@@ -459,7 +453,7 @@ struct QuickActionSheet: View {
                 quickActionCircle(
                     icon: "fork.knife",
                     label: "Log Food",
-                    accent: GQColors.sunsetOrange
+                    accent: GQColors.textSecondary
                 ) {
                     dismiss()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {

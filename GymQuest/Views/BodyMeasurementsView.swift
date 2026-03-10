@@ -137,7 +137,7 @@ struct QuickStatCard: View {
         VStack(spacing: 8) {
             Image(systemName: type.icon)
                 .font(.title2)
-                .foregroundColor(GQColors.cyanSpark)
+                .foregroundColor(GQColors.textSecondary)
 
             if let m = measurement {
                 Text(String(format: "%.1f", m.value))
@@ -195,14 +195,14 @@ struct MeasurementChartCard: View {
                     x: .value("Date", m.date),
                     y: .value("Value", m.value)
                 )
-                .foregroundStyle(GQColors.cyanSpark.gradient)
+                .foregroundStyle(GQColors.textSecondary.gradient)
                 .lineStyle(StrokeStyle(lineWidth: 2))
 
                 PointMark(
                     x: .value("Date", m.date),
                     y: .value("Value", m.value)
                 )
-                .foregroundStyle(GQColors.cyanSpark)
+                .foregroundStyle(GQColors.textSecondary)
             }
             .chartYAxis {
                 AxisMarks(position: .leading) { _ in
@@ -246,12 +246,12 @@ struct MeasurementTypeRow: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(GQColors.vividPurple.opacity(0.2))
+                    .fill(GQColors.deepBlue.opacity(0.2))
                     .frame(width: 40, height: 40)
 
                 Image(systemName: type.icon)
                     .font(.system(size: 16))
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundColor(GQColors.deepBlue)
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -348,6 +348,7 @@ struct AddMeasurementSheet: View {
                 Spacer()
             }
             .gqPageBackground()
+            .tint(GQColors.textPrimary)
             .navigationTitle("Log \(measurementType.rawValue)")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -355,6 +356,7 @@ struct AddMeasurementSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
         }

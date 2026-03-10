@@ -4,7 +4,7 @@
 //
 //  Created by Benjamin Hilderman
 //
-//  Hero home screen — progress ring, start workout CTA, streak,
+//  Hero home screen — week calendar, start workout CTA,
 //  daily dashboard stats, and last workout quick-repeat.
 //
 
@@ -12,15 +12,24 @@ import SwiftUI
 import SwiftData
 
 struct TodayView: View {
-    let profile: UserProfile
+    @Bindable var profile: UserProfile
 
     @EnvironmentObject var appState: AppState
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Workout.date, order: .reverse) private var allWorkouts: [Workout]
 
+    @Query(filter: #Predicate<TrainingPlan> { $0.isActive }) private var activePlans: [TrainingPlan]
+
     @State private var showDraftBanner = false
     @State private var draftWorkoutType: String = ""
     @State private var draftStartTime: Date = Date()
+    @State private var showingPlanOptions = false
+    @State private var selectedSubTab: TodaySubTab = .today
+
+    private enum TodaySubTab: String, CaseIterable {
+        case today = "Today"
+        case progress = "Progress"
+    }
 
     private var nonRestWorkouts: [Workout] {
         allWorkouts.filter { $0.type != .rest }
@@ -33,26 +42,11 @@ struct TodayView: View {
         return nonRestWorkouts.filter { $0.date >= startOfWeek }.count
     }
 
-    private var streakDays: Int {
+    private var thisWeekWorkoutDates: [Date] {
         let calendar = Calendar.current
-        var streak = 0
-        var checkDate = calendar.startOfDay(for: Date())
-
-        let todayWorkouts = nonRestWorkouts.filter { calendar.isDate($0.date, inSameDayAs: checkDate) }
-        if todayWorkouts.isEmpty {
-            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: checkDate) else { return 0 }
-            checkDate = yesterday
-        }
-
-        while true {
-            let dayWorkouts = nonRestWorkouts.filter { calendar.isDate($0.date, inSameDayAs: checkDate) }
-            if dayWorkouts.isEmpty { break }
-            streak += 1
-            guard let prev = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
-            checkDate = prev
-        }
-
-        return streak
+        let now = Date()
+        guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return [] }
+        return nonRestWorkouts.filter { $0.date >= startOfWeek }.map(\.date)
     }
 
     private var lastNonRestWorkout: Workout? {
@@ -61,45 +55,56 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    dateHeader
+            VStack(spacing: 0) {
+                // Tab bar matching Feed style
+                todayTabBar
 
-                    if showDraftBanner {
-                        resumeDraftBanner
-                    }
-
-                    WeeklyProgressRing(
-                        completed: workoutsThisWeek,
-                        target: profile.daysPerWeek
-                    )
-
-                    startWorkoutHeroButton
-
-                    if streakDays > 0 {
-                        streakBanner
-                    }
-
-                    TodayDashboardSection(
-                        profile: profile,
-                        workoutsThisWeek: workoutsThisWeek,
-                        allWorkouts: allWorkouts
-                    )
-                    .environment(\.modelContext, modelContext)
-
-                    if let workout = lastNonRestWorkout {
-                        lastWorkoutQuickRepeatCard(workout)
+                ScrollView {
+                    switch selectedSubTab {
+                    case .today:
+                        todayContent
+                    case .progress:
+                        ProgressAnalyticsView(profile: profile, inline: true)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 100)
+                .scrollContentBackground(.hidden)
             }
-            .scrollContentBackground(.hidden)
             .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { checkForDraft() }
         }
+    }
+
+    private var todayContent: some View {
+        VStack(spacing: 16) {
+            dateHeader
+
+            if showDraftBanner {
+                resumeDraftBanner
+            }
+
+            WeeklyProgressRing(
+                completed: workoutsThisWeek,
+                target: $profile.daysPerWeek,
+                workoutDates: thisWeekWorkoutDates
+            )
+
+            startWorkoutHeroButton
+
+            TodayDashboardSection(
+                profile: profile,
+                workoutsThisWeek: workoutsThisWeek,
+                allWorkouts: allWorkouts
+            )
+            .environment(\.modelContext, modelContext)
+
+            if let todayPlan = todaysPlanDay {
+                plannedWorkoutCard(todayPlan)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 100)
     }
 
     // MARK: - Draft Recovery
@@ -140,7 +145,7 @@ struct TodayView: View {
             HStack(spacing: 10) {
                 Image(systemName: "arrow.counterclockwise.circle.fill")
                     .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(GQColors.sunsetOrange)
+                    .foregroundStyle(GQColors.textSecondary)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Resume last workout?")
@@ -220,18 +225,18 @@ struct TodayView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "fork.knife")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(GQColors.sunsetOrange)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("Log Food")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(GQColors.sunsetOrange.opacity(0.1))
+                .background(GQColors.textSecondary.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(GQColors.sunsetOrange.opacity(0.3), lineWidth: 1)
+                        .stroke(GQColors.textSecondary.opacity(0.3), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -250,6 +255,51 @@ struct TodayView: View {
         .padding(.top, 4)
     }
 
+    // MARK: - Tab Bar (Feed-style)
+
+    private var subTabIndex: Int {
+        TodaySubTab.allCases.firstIndex(of: selectedSubTab) ?? 0
+    }
+
+    private var todayTabBar: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(TodaySubTab.allCases, id: \.self) { tab in
+                    Text(tab.rawValue)
+                        .font(.system(size: 13, weight: selectedSubTab == tab ? .semibold : .regular))
+                        .foregroundColor(selectedSubTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                selectedSubTab = tab
+                            }
+                        }
+                }
+            }
+            .padding(.bottom, 6)
+
+            GeometryReader { geometry in
+                let tabWidth = geometry.size.width / CGFloat(TodaySubTab.allCases.count)
+                let underlineWidth: CGFloat = 40
+                Rectangle()
+                    .fill(GQGradients.primary)
+                    .frame(width: underlineWidth, height: 1.5)
+                    .clipShape(RoundedRectangle(cornerRadius: 0.75))
+                    .offset(x: tabWidth * CGFloat(subTabIndex) + (tabWidth - underlineWidth) / 2)
+                    .animation(.easeInOut(duration: 0.3), value: subTabIndex)
+            }
+            .frame(height: 1.5)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .background(
+            GQColors.background
+                .ignoresSafeArea(edges: .top)
+        )
+    }
+
     // MARK: - Start Workout Hero Button
 
     private var startWorkoutHeroButton: some View {
@@ -266,107 +316,116 @@ struct TodayView: View {
         .buttonStyle(PrimaryButtonStyle())
     }
 
-    // MARK: - Streak Banner
+    // MARK: - Planned Workout Card
 
-    @State private var flameScale: CGFloat = 1.0
-
-    private var streakBanner: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.orange, .red],
-                            startPoint: .bottom,
-                            endPoint: .top
-                        )
-                    )
-                    .scaleEffect(flameScale)
-                    .onAppear {
-                        withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                            flameScale = 1.15
-                        }
-                    }
-            }
-            .frame(width: 40, height: 40)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(streakDays) day streak!")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundStyle(GQColors.textPrimary)
-                Text("Keep it going!")
-                    .font(.system(size: 13))
-                    .foregroundStyle(GQColors.textSecondary)
-            }
-
-            Spacer()
-
-            Text("\(streakDays)")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.orange, .red],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .homeSocialCard(cornerRadius: 14)
+    private var todaysPlanDay: TrainingPlanDay? {
+        guard let plan = activePlans.first else { return nil }
+        guard let day = plan.currentDayPlan, !day.isRestDay else { return nil }
+        return day
     }
 
-    // MARK: - Last Workout Quick Repeat
+    private var plannedWorkoutType: WorkoutType? {
+        guard let day = todaysPlanDay else { return nil }
+        return WorkoutType(rawValue: day.workoutType)
+    }
 
     @ViewBuilder
-    private func lastWorkoutQuickRepeatCard(_ workout: Workout) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: workout.type.icon)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 40, height: 40)
-                .background(GQGradients.workoutGradient(for: workout.type))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+    private func plannedWorkoutCard(_ day: TrainingPlanDay) -> some View {
+        let wType = WorkoutType(rawValue: day.workoutType) ?? .push
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(workout.title ?? workout.type.rawValue)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                Text("\(workout.exercises.count) exercises \u{00B7} \(workout.date.formatted(.dateTime.month(.abbreviated).day()))")
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textSecondary)
-            }
-
-            Spacer()
-
-            Button {
-                repeatWorkout(workout)
-            } label: {
-                Text("Repeat")
-                    .font(.system(size: 14, weight: .semibold))
+        VStack(spacing: 0) {
+            // Header
+            HStack(spacing: 12) {
+                Image(systemName: wType.icon)
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(GQGradients.primary)
-                    .clipShape(Capsule())
+                    .frame(width: 40, height: 40)
+                    .background(GQGradients.workoutGradient(for: wType))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Today's Plan")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                    Text(day.label)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                }
+
+                Spacer()
+
+                Text("\(day.exercises.count) exercises")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textTertiary)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 12)
+
+            Divider()
+                .overlay(GQColors.borderDefault)
+
+            // Options
+            HStack(spacing: 8) {
+                planOptionButton(label: "Same as Last", icon: "clock.arrow.circlepath") {
+                    startPlannedFromLast(wType)
+                }
+                planOptionButton(label: "AI", icon: "brain.head.profile") {
+                    startPlannedAI(wType)
+                }
+                planOptionButton(label: "Fresh", icon: "plus") {
+                    startPlannedFresh(wType)
+                }
+            }
+            .padding(14)
         }
-        .padding(14)
         .homeSocialCard(cornerRadius: 14)
     }
 
-    private func repeatWorkout(_ workout: Workout) {
-        let exercises = workout.exercises.sorted(by: { $0.order < $1.order }).map { exercise in
-            ActiveExercise(
-                name: exercise.name,
-                muscleGroup: exercise.muscleGroup,
-                sets: exercise.sets.sorted(by: { $0.order < $1.order }).map { set in
-                    ActiveSet(reps: set.reps, weight: set.weight)
-                }
-            )
+    private func planOptionButton(label: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(GQColors.deepBlue)
+                Text(label)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(GQColors.adaptiveOverlay(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
         }
-        appState.startWorkout(type: workout.type, exercises: exercises)
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Plan Start Actions
+
+    private func startPlannedFromLast(_ type: WorkoutType) {
+        if let last = nonRestWorkouts.first(where: { $0.type == type }) {
+            let exercises = last.exercises.sorted(by: { $0.order < $1.order }).map { exercise in
+                ActiveExercise(
+                    name: exercise.name,
+                    muscleGroup: exercise.muscleGroup,
+                    sets: exercise.sets.sorted(by: { $0.order < $1.order }).map { set in
+                        ActiveSet(reps: set.reps, weight: set.weight)
+                    }
+                )
+            }
+            appState.startWorkout(type: type, exercises: exercises)
+        } else {
+            // No previous workout of this type, start fresh
+            appState.startWorkout(type: type, exercises: [])
+        }
+    }
+
+    private func startPlannedAI(_ type: WorkoutType) {
+        // Opens the workout start flow which has AI option
+        appState.showingWorkoutStartOptions = true
+    }
+
+    private func startPlannedFresh(_ type: WorkoutType) {
+        appState.startWorkout(type: type, exercises: [])
     }
 }

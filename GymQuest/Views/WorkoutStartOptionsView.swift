@@ -38,7 +38,7 @@ struct WorkoutStartOptionsView: View {
                                 icon: "figure.strengthtraining.traditional",
                                 title: "Custom Workout",
                                 subtitle: "Choose your split and build your session",
-                                accent: GQColors.vividPurple,
+                                accent: GQColors.deepBlue,
                                 emphasized: true
                             ) {
                                 showingTypePicker = true
@@ -48,7 +48,7 @@ struct WorkoutStartOptionsView: View {
                                 icon: "brain.head.profile",
                                 title: "AI Generated",
                                 subtitle: "Start from a smart recommendation",
-                                accent: GQColors.cyanSpark,
+                                accent: GQColors.textSecondary,
                                 badgeText: "AI"
                             ) {
                                 showingTypePicker = true
@@ -184,29 +184,38 @@ struct WorkoutStartOptionsView: View {
     }
 
     private var motivationalStats: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                WorkoutFlowMetricChip(
-                    icon: "flame.fill",
-                    value: "\(streakDays)",
-                    label: "Streak",
-                    color: GQColors.success
-                )
-                WorkoutFlowMetricChip(
-                    icon: "dumbbell.fill",
-                    value: "\(workoutsThisWeek)",
-                    label: "This Week",
-                    color: GQColors.vividPurple
-                )
-                WorkoutFlowMetricChip(
-                    icon: "star.fill",
-                    value: "Lv \(profile.level)",
-                    label: "Level",
-                    color: GQColors.cyanSpark
-                )
-            }
-            .padding(.vertical, 6)
+        HStack(spacing: 0) {
+            statItem(value: "\(streakDays)", label: "Day Streak")
+            Divider()
+                .frame(height: 28)
+                .overlay(GQColors.borderDefault)
+            statItem(value: "\(workoutsThisWeek)", label: "This Week")
+            Divider()
+                .frame(height: 28)
+                .overlay(GQColors.borderDefault)
+            statItem(value: "Lv \(profile.level)", label: "Level")
         }
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(GQColors.surfaceBase)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(GQColors.borderDefault, lineWidth: 1)
+        )
+    }
+
+    private func statItem(value: String, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Computed Properties
@@ -322,7 +331,7 @@ struct PreviousWorkoutsSheet: View {
                                 } label: {
                                     Image(systemName: "play.circle.fill")
                                         .font(.system(size: 24))
-                                        .foregroundColor(GQColors.vividPurple)
+                                        .foregroundColor(GQColors.deepBlue)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -338,7 +347,7 @@ struct PreviousWorkoutsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
         }
@@ -427,7 +436,7 @@ struct SavedWorkoutsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
         }
@@ -480,7 +489,7 @@ struct WorkoutFavoriteButton: View {
         } label: {
             Image(systemName: workout.isFavorite ? "heart.fill" : "heart")
                 .font(.system(size: 20))
-                .foregroundColor(workout.isFavorite ? GQColors.coralRed : GQColors.textTertiary)
+                .foregroundColor(workout.isFavorite ? GQColors.textSecondary : GQColors.textTertiary)
                 .scaleEffect(heartScale)
         }
         .buttonStyle(.plain)
