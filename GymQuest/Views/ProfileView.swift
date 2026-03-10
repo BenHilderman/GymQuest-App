@@ -14,7 +14,7 @@ import AVKit
 
 private let profileNeutralAccent = GQColors.overlayMedium
 private let profilePrimaryAccent = GQColors.adaptiveOverlay(0.42)
-private let profileFireAccent = GQColors.sunsetOrange
+private let profileFireAccent = GQColors.textSecondary
 
 struct ProfileView: View {
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
@@ -153,11 +153,11 @@ struct ProfileView: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(GQColors.cyanSpark.opacity(0.15))
+                        .fill(GQColors.textSecondary.opacity(0.15))
                         .frame(width: 44, height: 44)
                     Image(systemName: "sparkles")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -185,24 +185,36 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var profileWeeklyProgress: some View {
-        WeeklyProgressCard(
-            weeklyProgress: weeklyProgress,
-            readinessLevel: readinessLevel,
-            workouts: workouts,
-            targetDays: profile.daysPerWeek,
-            onTodayTap: nil,
-            onRestTap: {
-                logRestDay()
-            },
-            onTargetChanged: { newTarget in
-                profile.daysPerWeek = newTarget
-                try? modelContext.save()
-                loadProfileActivityData()
-            }
-        )
-        .onTapGesture {
+        Button {
             showingCalendarHistory = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(GQColors.deepBlue)
+                    .frame(width: 36, height: 36)
+                    .background(GQColors.deepBlue.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Workout Calendar")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("\(weeklyProgress.completed) of \(weeklyProgress.target) this week")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
         }
+        .buttonStyle(GQInteractiveStyle())
         .sheet(isPresented: $showingCalendarHistory) {
             CalendarHistoryView(workouts: workouts)
                 .presentationDetents([.large])
@@ -219,13 +231,13 @@ struct ProfileView: View {
                 .fill(GQColors.borderSubtle)
                 .frame(width: 1, height: 32)
 
-            summaryStatItem(value: "\(cachedStreak)", label: "Day Streak")
+            summaryStatItem(value: cachedVolume, label: "Volume")
 
             Rectangle()
                 .fill(GQColors.borderSubtle)
                 .frame(width: 1, height: 32)
 
-            summaryStatItem(value: cachedVolume, label: "Volume")
+            summaryStatItem(value: cachedDuration, label: "Duration")
         }
         .padding(.vertical, 14)
         .homeSocialCard(cornerRadius: 14)
@@ -399,12 +411,12 @@ struct ProfileView: View {
                             .frame(width: 38, height: 38)
                         Circle()
                             .trim(from: 0, to: Double(profileCompletionPercent) / 100.0)
-                            .stroke(GQColors.vividPurple, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                            .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                             .frame(width: 38, height: 38)
                             .rotationEffect(.degrees(-90))
                         Text("\(profileCompletionPercent)%")
                             .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundColor(GQColors.vividPurple)
+                            .foregroundColor(GQColors.textSecondary)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -425,7 +437,7 @@ struct ProfileView: View {
                         .foregroundColor(GQColors.textTertiary)
                 }
                 .padding(12)
-                .homeSocialCard(accent: GQColors.vividPurple, subtle: true)
+                .homeSocialCard(accent: GQColors.deepBlue, subtle: true)
             }
             .buttonStyle(GQInteractiveStyle())
         }
@@ -452,15 +464,15 @@ struct ProfileView: View {
                     } label: {
                         Text("See All")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
                     }
                 }
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    healthStatPill(icon: "figure.walk", value: "\(healthKit.steps)", label: "Steps", color: .green)
-                    healthStatPill(icon: "flame.fill", value: "\(healthKit.activeCalories)", label: "Active Cal", color: .orange)
-                    healthStatPill(icon: "bed.double.fill", value: String(format: "%.1fh", healthKit.sleepHours), label: "Sleep", color: .indigo)
-                    healthStatPill(icon: "figure.run", value: "\(healthKit.exerciseMinutes)m", label: "Exercise", color: GQColors.cyanSpark)
+                    healthStatPill(icon: "figure.walk", value: "\(healthKit.steps)", label: "Steps", color: GQColors.textSecondary)
+                    healthStatPill(icon: "flame.fill", value: "\(healthKit.activeCalories)", label: "Active Cal", color: GQColors.textSecondary)
+                    healthStatPill(icon: "bed.double.fill", value: String(format: "%.1fh", healthKit.sleepHours), label: "Sleep", color: GQColors.textSecondary)
+                    healthStatPill(icon: "figure.run", value: "\(healthKit.exerciseMinutes)m", label: "Exercise", color: GQColors.textSecondary)
                 }
             }
             .padding(12)
@@ -477,7 +489,7 @@ struct ProfileView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "heart.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(GQColors.error)
+                        .foregroundColor(GQColors.textSecondary)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Connect Apple Health")
                             .font(.system(size: 14, weight: .semibold))
@@ -555,18 +567,13 @@ struct ProfileView: View {
                         .foregroundColor(GQColors.textTertiary)
 
                     if healthKit.isAuthorized {
-                        HStack(spacing: 3) {
-                            Circle()
-                                .fill(readinessLevel.color)
-                                .frame(width: 6, height: 6)
-                            Text(readinessLevel.rawValue)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(readinessLevel.color)
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(readinessLevel.color.opacity(0.12))
-                        .clipShape(Capsule())
+                        Text(readinessLevel.rawValue)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(GQColors.textTertiary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(GQColors.adaptiveOverlay(0.05))
+                            .clipShape(Capsule())
                     }
                 }
             }
@@ -578,10 +585,10 @@ struct ProfileView: View {
                         ForEach(profile.availableEquipment, id: \.self) { eq in
                             Text(eq.rawValue)
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(GQColors.vividPurple)
+                                .foregroundColor(GQColors.deepBlue)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(GQColors.vividPurple.opacity(0.1))
+                                .background(GQColors.deepBlue.opacity(0.1))
                                 .clipShape(Capsule())
                         }
                     }
@@ -617,7 +624,7 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("ACHIEVEMENTS")
                 .font(.system(size: 11, weight: .bold))
-                .foregroundColor(GQColors.sectionLabel)
+                .foregroundColor(GQColors.textSecondary)
                 .tracking(0.6)
                 .padding(.horizontal, 4)
 
@@ -640,11 +647,11 @@ struct ProfileView: View {
         VStack(spacing: 6) {
             ZStack {
                 Circle()
-                    .fill(unlocked ? GQColors.vividPurple.opacity(0.15) : GQColors.surfaceSecondary)
+                    .fill(unlocked ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
                     .frame(width: 48, height: 48)
                 Image(systemName: icon)
                     .font(.system(size: 20))
-                    .foregroundColor(unlocked ? GQColors.vividPurple : GQColors.textTertiary.opacity(0.5))
+                    .foregroundStyle(unlocked ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary.opacity(0.5)))
             }
             Text(title)
                 .font(.system(size: 10, weight: .medium))
@@ -671,12 +678,9 @@ struct ProfileView: View {
 
     private var profileAvatar: some View {
         ZStack {
-            AnimatedGradientCircle(
-                size: 84,
-                lineWidth: 2,
-                colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
-                duration: 6.0
-            )
+            Circle()
+                .stroke(GQGradients.primary, lineWidth: 2.5)
+                .frame(width: 86, height: 86)
 
             Group {
                 #if canImport(UIKit)
@@ -725,7 +729,7 @@ struct ProfileView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "heart.text.square.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(GQColors.error)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("EMOTION JOURNEY")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(GQColors.textTertiary)
@@ -757,7 +761,7 @@ struct ProfileView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 14))
-                                .foregroundColor(GQColors.sunsetOrange)
+                                .foregroundColor(GQColors.textSecondary)
                             Text("\(insights.resilienceStreak) workouts showing up when it's hard")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(GQColors.textPrimary)
@@ -884,11 +888,11 @@ struct ProfileView: View {
                         HStack(spacing: 10) {
                             ZStack {
                                 Circle()
-                                    .fill(GQColors.electricGold.opacity(0.15))
+                                    .fill(GQColors.textSecondary.opacity(0.15))
                                     .frame(width: 42, height: 42)
                                 Image(systemName: "trophy.fill")
                                     .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(GQColors.electricGold)
+                                    .foregroundColor(GQColors.textSecondary)
                             }
 
                             VStack(alignment: .leading, spacing: 3) {
@@ -899,7 +903,7 @@ struct ProfileView: View {
                                 HStack(spacing: 8) {
                                     Text(prValueFormatted(pr))
                                         .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(GQColors.electricGold)
+                                        .foregroundColor(GQColors.textSecondary)
                                     Text(pr.prType.rawValue)
                                         .font(.system(size: 11))
                                         .foregroundColor(GQColors.textTertiary)
@@ -913,20 +917,11 @@ struct ProfileView: View {
                                 .foregroundColor(GQColors.textTertiary)
                         }
                         .padding(12)
-                        .homeSocialCard(accent: GQColors.electricGold, subtle: true)
+                        .homeSocialCard(accent: GQColors.textSecondary, subtle: true)
                     }
                 }
             }
 
-        case .progress:
-            VStack(spacing: 12) {
-                progressSummaryRow
-                profileWeeklyProgress
-
-                ProgressAnalyticsView(profile: profile, inline: true)
-
-                aiCoachCard
-            }
         }
     }
 }
@@ -935,14 +930,12 @@ private enum ProfileContentTab: String, CaseIterable {
     case posts = "Posts"
     case workouts = "Workouts"
     case prs = "PRs"
-    case progress = "Progress"
 
     var icon: String {
         switch self {
         case .posts: return "square.grid.3x3.fill"
         case .workouts: return "list.bullet.rectangle"
         case .prs: return "trophy.fill"
-        case .progress: return "chart.line.uptrend.xyaxis"
         }
     }
 }
@@ -1033,7 +1026,7 @@ struct WorkoutHistoryRowV2: View {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 11))
-                                .foregroundColor(GQColors.sunsetOrange)
+                                .foregroundColor(GQColors.textSecondary)
                             Text("\(workout.totalSets) sets")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -1093,7 +1086,7 @@ struct WorkoutHistoryRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "flame.fill")
                                 .font(.system(size: 11))
-                                .foregroundColor(GQColors.sunsetOrange)
+                                .foregroundColor(GQColors.textSecondary)
                             Text("\(sets) sets")
                                 .font(.system(size: 13))
                                 .foregroundColor(GQColors.textSecondary)
@@ -1318,7 +1311,7 @@ struct ProfilePostCard: View {
                     HStack(spacing: 4) {
                         Image(systemName: "clock")
                             .font(.system(size: 11))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
                         Text("\(duration)m")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(GQColors.textPrimary)
@@ -1377,7 +1370,7 @@ struct WorkoutStatsCard: View {
                     VStack(spacing: 4) {
                         Text("\(duration)")
                             .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
                         Text("min")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(GQColors.textTertiary)
@@ -1500,7 +1493,7 @@ struct PostDetailView: View {
                                     VStack(spacing: 4) {
                                         Text("\(duration)")
                                             .font(.system(size: 28, weight: .bold))
-                                            .foregroundColor(GQColors.cyanSpark)
+                                            .foregroundColor(GQColors.textSecondary)
                                         Text("minutes")
                                             .font(.system(size: 12, weight: .medium))
                                             .foregroundColor(GQColors.textTertiary)
@@ -1546,6 +1539,7 @@ struct PostDetailView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
             #if canImport(UIKit)
@@ -1698,7 +1692,7 @@ struct SettingsView: View {
                             Spacer()
                             Toggle("", isOn: $hapticEnabled)
                                 .labelsHidden()
-                                .tint(GQColors.vividPurple)
+                                .tint(GQColors.deepBlue)
                         }
                         #endif
                     }
@@ -1758,12 +1752,12 @@ struct SettingsView: View {
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 8)
                                             .frame(maxWidth: .infinity)
-                                            .background(isSelected ? GQColors.vividPurple.opacity(0.15) : GQColors.overlaySubtle)
-                                            .foregroundColor(isSelected ? GQColors.vividPurple : GQColors.textPrimary)
+                                            .background(isSelected ? GQColors.deepBlue.opacity(0.15) : GQColors.overlaySubtle)
+                                            .foregroundColor(isSelected ? GQColors.deepBlue : GQColors.textPrimary)
                                             .cornerRadius(8)
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 8)
-                                                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.5) : Color.clear, lineWidth: 1)
+                                                    .stroke(isSelected ? GQColors.deepBlue.opacity(0.5) : Color.clear, lineWidth: 1)
                                             )
                                     }
                                     .buttonStyle(.plain)
@@ -1778,7 +1772,7 @@ struct SettingsView: View {
                                 icon: "ruler",
                                 title: "Body Measurements",
                                 subtitle: "Track physical changes over time",
-                                color: GQColors.electricGold
+                                color: GQColors.textSecondary
                             )
                         }
                         .buttonStyle(.plain)
@@ -1798,7 +1792,7 @@ struct SettingsView: View {
                                 icon: "link.circle.fill",
                                 title: "Connected Services",
                                 subtitle: "Apple Health, WHOOP, Strava",
-                                color: GQColors.cyanSpark
+                                color: GQColors.textSecondary
                             )
                         }
                         .buttonStyle(.plain)
@@ -1830,7 +1824,7 @@ struct SettingsView: View {
                                 icon: "bell.fill",
                                 title: "Notification Preferences",
                                 subtitle: "Reminders and updates",
-                                color: GQColors.sunsetOrange
+                                color: GQColors.textSecondary
                             )
                         }
                         .buttonStyle(.plain)
@@ -1861,7 +1855,7 @@ struct SettingsView: View {
                                 }
                             ))
                             .labelsHidden()
-                            .tint(GQColors.vividPurple)
+                            .tint(GQColors.deepBlue)
                         }
                     }
                     .padding(16)
@@ -1925,7 +1919,7 @@ struct SettingsView: View {
                                     Text(isTestingConnection ? "Testing..." : "Test Connection")
                                 }
                             }
-                            .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
+                            .buttonStyle(PrimaryButtonStyle())
                             .disabled(isTestingConnection)
                         } else if aiProvider != .demo {
                             settingsSecureField(title: "API Key", text: $apiKey)
@@ -1944,13 +1938,13 @@ struct SettingsView: View {
                                 icon: "star.fill",
                                 value: "Lv \(profile.level)",
                                 label: "Current Level",
-                                color: GQColors.electricGold
+                                color: GQColors.textSecondary
                             )
                             WorkoutFlowMetricChip(
                                 icon: "bolt.fill",
                                 value: "\(profile.xp)",
                                 label: "XP",
-                                color: GQColors.success
+                                color: GQColors.textSecondary
                             )
                         }
 

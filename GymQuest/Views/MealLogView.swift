@@ -72,6 +72,7 @@ struct MealLogView: View {
                 .padding(.bottom, 80)
             }
             .gqPageBackground()
+            .tint(GQColors.textPrimary)
             .navigationTitle("Log Food")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -79,6 +80,7 @@ struct MealLogView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
             .onChange(of: photoItem) { _, newItem in
@@ -99,7 +101,7 @@ struct MealLogView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 48))
-                            .foregroundColor(GQColors.success)
+                            .foregroundColor(GQColors.textSecondary)
                         Text("Logged!")
                             .font(.headline)
                             .foregroundColor(GQColors.textPrimary)
@@ -215,10 +217,10 @@ struct MealLogView: View {
     private var nutritionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                nutritionPill(label: "Cal", value: calories, color: .orange, editing: $editingCalories, manualValue: $manualCalories)
-                nutritionPill(label: "Protein", value: protein, color: GQColors.cyanSpark, editing: $editingProtein, manualValue: $manualProtein)
-                nutritionPill(label: "Carbs", value: carbs, color: GQColors.vividPurple, editing: $editingCarbs, manualValue: $manualCarbs)
-                nutritionPill(label: "Fat", value: fat, color: GQColors.sunsetOrange, editing: $editingFat, manualValue: $manualFat)
+                nutritionPill(label: "Cal", value: calories, color: GQColors.textSecondary, editing: $editingCalories, manualValue: $manualCalories)
+                nutritionPill(label: "Protein", value: protein, color: GQColors.textSecondary, editing: $editingProtein, manualValue: $manualProtein)
+                nutritionPill(label: "Carbs", value: carbs, color: GQColors.textSecondary, editing: $editingCarbs, manualValue: $manualCarbs)
+                nutritionPill(label: "Fat", value: fat, color: GQColors.textSecondary, editing: $editingFat, manualValue: $manualFat)
             }
 
             Text("Tap a value to edit manually")
@@ -401,12 +403,12 @@ struct MealLogCard: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(GQColors.cyanSpark.opacity(0.2))
+                        .fill(GQColors.textSecondary.opacity(0.2))
                         .frame(width: 44, height: 44)
 
                     Image(systemName: "fork.knife")
                         .font(.title3)
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -424,14 +426,14 @@ struct MealLogCard: View {
 
                 Image(systemName: "camera.fill")
                     .font(.title3)
-                    .foregroundColor(GQColors.cyanSpark.opacity(0.6))
+                    .foregroundColor(GQColors.textSecondary.opacity(0.6))
             }
             .padding(16)
-            .background(GQColors.cyanSpark.opacity(0.08))
+            .background(GQColors.textSecondary.opacity(0.08))
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(GQColors.cyanSpark.opacity(0.2), lineWidth: 1)
+                    .strokeBorder(GQColors.textSecondary.opacity(0.2), lineWidth: 1)
             )
         }
         .buttonStyle(GQInteractiveStyle())
@@ -512,7 +514,7 @@ struct MealSummaryRow: View {
                 if let cal = meal.estimatedCalories, cal > 0 {
                     Text("\(cal) cal")
                         .font(.system(size: 11))
-                        .foregroundColor(.orange)
+                        .foregroundColor(GQColors.textSecondary)
                 } else {
                     Text(meal.mealType.rawValue)
                         .font(.system(size: 11))
@@ -558,11 +560,11 @@ struct MealDictationButton: View {
         } label: {
             Image(systemName: service.isTranscribing ? "mic.fill" : "mic")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(service.isTranscribing ? .white : GQColors.cyanSpark)
+                .foregroundColor(service.isTranscribing ? .white : GQColors.textSecondary)
                 .frame(width: 36, height: 36)
                 .background(
                     Circle()
-                        .fill(service.isTranscribing ? GQColors.coralRed : GQColors.cyanSpark.opacity(0.15))
+                        .fill(service.isTranscribing ? GQColors.textSecondary : GQColors.textSecondary.opacity(0.15))
                 )
                 .scaleEffect(service.isTranscribing ? pulseScale : 1.0)
                 .onAppear {

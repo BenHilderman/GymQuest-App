@@ -2,8 +2,7 @@
 //  ProgressView.swift
 //  GymQuest
 //
-//  Analytics hub — PR history, exercise trends, volume analytics,
-//  and body composition at a glance.
+//  Visual analytics — rings, charts, and trends.
 //
 
 import SwiftUI
@@ -13,227 +12,253 @@ import Charts
 struct ProgressAnalyticsView: View {
     @Query(sort: \PREvent.date, order: .reverse) private var prEvents: [PREvent]
     @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
+    @Query(sort: \BodyMeasurement.date, order: .reverse) private var measurements: [BodyMeasurement]
 
     let profile: UserProfile
     var inline: Bool = false
 
     @State private var selectedExerciseName: String = ""
     @State private var showingExerciseTrend = false
-    @State private var showingPaywall = false
-    @State private var showAllPRs = false
-
-    private var recentPRs: [PREvent] {
-        Array(prEvents.prefix(showAllPRs ? 20 : 5))
-    }
 
     private var validWorkouts: [Workout] {
         workouts.filter { $0.type != .rest }
     }
 
-    // Volume per week for last 8 weeks
+    private var recentPRs: [PREvent] { Array(prEvents.prefix(5)) }
+
     private var weeklyVolumes: [(weekLabel: String, volume: Double)] {
         let calendar = Calendar.current
         let now = Date()
         var result: [(String, Double)] = []
-
-        for weeksAgo in (0..<8).reversed() {
+        for weeksAgo in (0..<6).reversed() {
             guard let weekStart = calendar.date(byAdding: .weekOfYear, value: -weeksAgo, to: now) else { continue }
             let weekEnd = calendar.date(byAdding: .weekOfYear, value: 1, to: weekStart) ?? now
-
             let weekWorkouts = validWorkouts.filter { $0.date >= weekStart && $0.date < weekEnd }
-            var totalVolume: Double = 0
-            for w in weekWorkouts {
-                for ex in w.exercises {
-                    for s in ex.sets {
-                        totalVolume += Double(s.weight) * Double(s.reps)
-                    }
-                }
-            }
-
-            let label = weekStart.formatted(.dateTime.month(.abbreviated).day())
-            result.append((label, totalVolume))
+            var vol: Double = 0
+            for w in weekWorkouts { for ex in w.exercises { for s in ex.sets { vol += Double(s.weight) * Double(s.reps) } } }
+            result.append((weekStart.formatted(.dateTime.month(.abbreviated).day()), vol))
         }
         return result
     }
 
-    // Muscle group distribution from recent workouts
-    private var muscleGroupSplit: [(name: String, count: Int)] {
+    private var workoutSplit: [(name: String, count: Int)] {
         var counts: [String: Int] = [:]
-        for w in Array(validWorkouts.prefix(30)) {
-            let name = w.type.rawValue
-            counts[name, default: 0] += 1
-        }
-        return counts.map { (name: $0.key, count: $0.value) }
-            .sorted { $0.count > $1.count }
+        for w in Array(validWorkouts.prefix(30)) { counts[w.type.rawValue, default: 0] += 1 }
+        return counts.map { (name: $0.key, count: $0.value) }.sorted { $0.count > $1.count }
     }
 
-    // Exercise names for picker
     private var allExerciseNames: [String] {
         var names = Set<String>()
-        for w in workouts {
-            for ex in w.exercises {
-                names.insert(ex.name)
-            }
-        }
+        for w in workouts { for ex in w.exercises { names.insert(ex.name) } }
         return names.sorted()
+    }
+
+    private var totalWorkouts: Int { validWorkouts.count }
+    private var totalPRs: Int { prEvents.count }
+
+    private var thisWeekWorkouts: Int {
+        let calendar = Calendar.current
+        guard let start = calendar.dateInterval(of: .weekOfYear, for: Date())?.start else { return 0 }
+        return validWorkouts.filter { $0.date >= start }.count
+    }
+
+    private var volumeTrend: Double {
+        guard weeklyVolumes.count >= 2 else { return 0 }
+        let last = weeklyVolumes.last?.volume ?? 0
+        let prev = weeklyVolumes[weeklyVolumes.count - 2].volume
+        guard prev > 0 else { return 0 }
+        return ((last - prev) / prev) * 100
+    }
+
+    // Body measurement helpers
+    private var weightMeasurements: [BodyMeasurement] {
+        measurements.filter { $0.type == .weight }.sorted { $0.date < $1.date }
+    }
+
+    private var latestWeight: Double? { weightMeasurements.last?.value }
+
+    private var weightChange: Double? {
+        guard weightMeasurements.count >= 2 else { return nil }
+        return weightMeasurements.last!.value - weightMeasurements[weightMeasurements.count - 2].value
     }
 
     var body: some View {
         if inline {
             analyticsContent
-                .sheet(isPresented: $showingPaywall) {
-                    PaywallView()
-                        .environmentObject(SubscriptionService.shared)
-                }
         } else {
-            ScrollView {
-                analyticsContent
-            }
-            .gqPageBackground()
-            .navigationTitle("Progress")
-            .sheet(isPresented: $showingPaywall) {
-                PaywallView()
-                    .environmentObject(SubscriptionService.shared)
-            }
+            ScrollView { analyticsContent }
+                .gqPageBackground()
+                .navigationTitle("Progress")
         }
     }
 
-    @ViewBuilder
     private var analyticsContent: some View {
-        VStack(spacing: GQLayout.sectionSpacing) {
-            // MARK: - Personal Records
-            prHistorySection
+        VStack(spacing: 16) {
+            // Ring stats row
+            ringStatsRow
 
-            // MARK: - Weekly Volume Chart
-            weeklyVolumeSection
+            // Volume trend chart
+            volumeCard
 
-            // MARK: - Workout Type Distribution
-            workoutSplitSection
+            // Workout split donut
+            splitCard
 
-            // MARK: - Exercise Trends
-            exerciseTrendSection
+            // Body progress
+            bodyProgressCard
 
-            // MARK: - Body Composition Mini
-            bodyCompositionMini
+            // PRs
+            if !recentPRs.isEmpty { prsCard }
+
+            // Exercise trends
+            exerciseTrendCard
         }
-        .padding(.horizontal, GQLayout.screenHorizontal)
-        .padding(.top, GQLayout.pageTop)
-        .padding(.bottom, GQLayout.pageBottom)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 100)
     }
 
-    // MARK: - PR History
+    // MARK: - Ring Stats
 
-    @ViewBuilder
-    private var prHistorySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("PERSONAL RECORDS")
-                .font(GQTypography.sectionHeader)
-                .foregroundColor(GQColors.sectionLabel)
-                .tracking(1)
+    private var ringStatsRow: some View {
+        HStack(spacing: 12) {
+            ringStatCard(
+                icon: "flame.fill",
+                value: thisWeekWorkouts,
+                target: profile.daysPerWeek,
+                title: "This Week",
+                detail: "\(thisWeekWorkouts) of \(profile.daysPerWeek) days",
+                gradient: GQGradients.primary
+            )
 
-            if recentPRs.isEmpty {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        Image(systemName: "trophy")
-                            .font(.system(size: 28))
-                            .foregroundColor(GQColors.textTertiary)
-                        Text("No PRs yet")
-                            .font(.system(size: 14))
-                            .foregroundColor(GQColors.textTertiary)
-                        Text("Complete workouts to start tracking records")
-                            .font(.system(size: 12))
-                            .foregroundColor(GQColors.textTertiary.opacity(0.7))
+            ringStatCard(
+                icon: "trophy.fill",
+                value: min(totalPRs, 10),
+                target: 10,
+                title: "PRs Hit",
+                detail: "\(totalPRs) total",
+                gradient: GQGradients.primary
+            )
+
+            // Volume trend card
+            VStack(spacing: 8) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+
+                ZStack {
+                    Circle()
+                        .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 4.5)
+                        .frame(width: 52, height: 52)
+                    Circle()
+                        .trim(from: 0, to: min(abs(volumeTrend) / 100, 1.0))
+                        .stroke(
+                            volumeTrend >= 0 ? GQGradients.primary : LinearGradient(colors: [GQColors.textSecondary, GQColors.textTertiary], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            style: StrokeStyle(lineWidth: 4.5, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 52, height: 52)
+
+                    HStack(spacing: 1) {
+                        Image(systemName: volumeTrend >= 0 ? "arrow.up" : "arrow.down")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(String(format: "%.0f%%", abs(volumeTrend)))
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
                     }
-                    Spacer()
-                }
-                .padding(.vertical, 20)
-            } else {
-                ForEach(recentPRs, id: \.id) { pr in
-                    HStack(spacing: 12) {
-                        Image(systemName: "trophy.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(GQColors.prGold)
-
-                        if FeatureFlags.shared.exerciseGifsEnabled {
-                            ExerciseGifView(exerciseName: pr.exerciseName, size: .thumbnail, showFallback: false)
-                                .scaleEffect(0.8)
-                                .frame(width: 32, height: 32)
-                        }
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(pr.exerciseName)
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(GQColors.textPrimary)
-                            Text(pr.prType.rawValue)
-                                .font(.system(size: 11))
-                                .foregroundColor(GQColors.textTertiary)
-                        }
-
-                        Spacer()
-
-                        VStack(alignment: .trailing, spacing: 2) {
-                            Text(String(format: "%.0f", pr.newValue))
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(GQColors.textPrimary)
-                            if let delta = pr.deltaDisplay {
-                                Text(delta)
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(GQColors.success)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 6)
-
-                    if pr.id != recentPRs.last?.id {
-                        Divider()
-                    }
+                    .foregroundColor(GQColors.textPrimary)
                 }
 
-                if !showAllPRs && prEvents.count > 5 {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showAllPRs = true
-                        }
-                    } label: {
-                        Text("See All")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(GQColors.vividPurple)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 8)
-                    }
-                    .buttonStyle(.plain)
+                VStack(spacing: 1) {
+                    Text("Volume")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("vs last week")
+                        .font(.system(size: 9))
+                        .foregroundColor(GQColors.textTertiary)
                 }
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .homeSocialCard(cornerRadius: 14)
         }
-        .padding(GQLayout.cardHorizontal)
-        .homeSocialCard()
     }
 
-    // MARK: - Weekly Volume Chart
+    private func ringStatCard(icon: String, value: Int, target: Int, title: String, detail: String, gradient: LinearGradient) -> some View {
+        VStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(gradient)
 
-    @ViewBuilder
-    private var weeklyVolumeSection: some View {
+            ZStack {
+                Circle()
+                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 4.5)
+                    .frame(width: 52, height: 52)
+                Circle()
+                    .trim(from: 0, to: target > 0 ? min(CGFloat(value) / CGFloat(target), 1.0) : 0)
+                    .stroke(gradient, style: StrokeStyle(lineWidth: 4.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 52, height: 52)
+                Text("\(value)")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+
+            VStack(spacing: 1) {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(detail)
+                    .font(.system(size: 9))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    // MARK: - Volume Card
+
+    private var volumeCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("WEEKLY VOLUME")
-                .font(GQTypography.sectionHeader)
-                .foregroundColor(GQColors.sectionLabel)
-                .tracking(1)
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Weekly Volume")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("Total weight lifted per week")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                Spacer()
+                if let lastVol = weeklyVolumes.last?.volume, lastVol > 0 {
+                    Text(lastVol >= 1000 ? String(format: "%.1fk lbs", lastVol / 1000) : "\(Int(lastVol)) lbs")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(GQGradients.primary)
+                }
+            }
 
             if weeklyVolumes.allSatisfy({ $0.volume == 0 }) {
                 Text("Log workouts to see volume trends")
                     .font(.system(size: 13))
                     .foregroundColor(GQColors.textTertiary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 30)
+                    .padding(.vertical, 24)
             } else {
                 Chart(weeklyVolumes, id: \.weekLabel) { item in
-                    BarMark(
+                    AreaMark(
+                        x: .value("Week", item.weekLabel),
+                        y: .value("Volume", item.volume)
+                    )
+                    .foregroundStyle(GQGradients.primary.opacity(0.12))
+                    .interpolationMethod(.catmullRom)
+
+                    LineMark(
                         x: .value("Week", item.weekLabel),
                         y: .value("Volume", item.volume)
                     )
                     .foregroundStyle(GQGradients.primary)
-                    .cornerRadius(4)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                    .interpolationMethod(.catmullRom)
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading) { value in
@@ -257,79 +282,267 @@ struct ProgressAnalyticsView: View {
                         }
                     }
                 }
-                .frame(height: 220)
+                .frame(height: 130)
             }
         }
-        .padding(GQLayout.cardHorizontal)
-        .homeSocialCard()
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
     }
 
-    // MARK: - Workout Split
+    // MARK: - Split Card (Visual)
 
-    @ViewBuilder
-    private var workoutSplitSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("WORKOUT SPLIT")
-                .font(GQTypography.sectionHeader)
-                .foregroundColor(GQColors.sectionLabel)
-                .tracking(1)
+    private var splitCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Workout Split")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
 
-            if muscleGroupSplit.isEmpty {
+            if workoutSplit.isEmpty {
                 Text("No workout data yet")
                     .font(.system(size: 13))
                     .foregroundColor(GQColors.textTertiary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
             } else {
-                let total = muscleGroupSplit.reduce(0) { $0 + $1.count }
+                let total = workoutSplit.reduce(0) { $0 + $1.count }
 
-                VStack(spacing: 8) {
-                    ForEach(muscleGroupSplit, id: \.name) { item in
-                        HStack(spacing: 10) {
-                            Text(item.name)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(GQColors.textPrimary)
-                                .frame(width: 80, alignment: .leading)
+                HStack(alignment: .center, spacing: 20) {
+                    // Donut with gradient strokes
+                    ZStack {
+                        // Background track
+                        Circle()
+                            .stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 12)
+                            .frame(width: 90, height: 90)
 
-                            GeometryReader { geo in
-                                let fraction = total > 0 ? CGFloat(item.count) / CGFloat(total) : 0
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(GQGradients.primary)
-                                    .frame(width: geo.size.width * fraction)
+                        ForEach(Array(workoutSplit.enumerated()), id: \.element.name) { index, item in
+                            let fraction = total > 0 ? CGFloat(item.count) / CGFloat(total) : 0
+                            let startAngle = workoutSplit.prefix(index).reduce(0.0) { acc, s in
+                                acc + (total > 0 ? CGFloat(s.count) / CGFloat(total) : 0)
                             }
-                            .frame(height: 8)
+                            Circle()
+                                .trim(from: startAngle + 0.005, to: startAngle + fraction - 0.005)
+                                .stroke(
+                                    splitGradient(for: index),
+                                    style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                        }
 
-                            Text("\(item.count)")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(GQColors.textSecondary)
-                                .frame(width: 24, alignment: .trailing)
+                        VStack(spacing: 0) {
+                            Text("\(total)")
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .foregroundColor(GQColors.textPrimary)
+                            Text("workouts")
+                                .font(.system(size: 9))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                    }
+                    .frame(width: 90, height: 90)
+
+                    // Legend
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(Array(workoutSplit.enumerated()), id: \.element.name) { index, item in
+                            let pct = total > 0 ? Int(round(Double(item.count) / Double(total) * 100)) : 0
+                            HStack(spacing: 8) {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(splitGradient(for: index))
+                                    .frame(width: 12, height: 12)
+                                Text(item.name.capitalized)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(GQColors.textPrimary)
+                                Spacer()
+                                Text("\(pct)%")
+                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    private func splitGradient(for index: Int) -> LinearGradient {
+        let gradients: [LinearGradient] = [
+            LinearGradient(colors: [GQColors.deepBlue, GQColors.vividPurple], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: [GQColors.vividPurple, GQColors.coralRed], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: [GQColors.cyanSpark, GQColors.deepBlue], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: [GQColors.sunsetOrange, GQColors.coralRed], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: [GQColors.success, GQColors.cyanSpark], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: [GQColors.deepBlue, GQColors.cyanSpark], startPoint: .topLeading, endPoint: .bottomTrailing),
+        ]
+        return gradients[index % gradients.count]
+    }
+
+    // MARK: - Body Progress
+
+    private var bodyProgressCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Body Progress")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                if latestWeight != nil {
+                    NavigationLink {
+                        BodyMeasurementsView(profile: profile)
+                    } label: {
+                        Text("All")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.textTertiary)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+            }
+
+            if weightMeasurements.isEmpty {
+                HStack {
+                    Spacer()
+                    VStack(spacing: 6) {
+                        Image(systemName: "scalemass")
+                            .font(.system(size: 24))
+                            .foregroundColor(GQColors.textTertiary)
+                        Text("No measurements logged")
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                    Spacer()
+                }
+                .padding(.vertical, 16)
+            } else {
+                HStack(spacing: 16) {
+                    // Current weight ring
+                    VStack(spacing: 4) {
+                        ZStack {
+                            Circle()
+                                .stroke(GQColors.adaptiveOverlay(0.08), lineWidth: 5)
+                                .frame(width: 64, height: 64)
+                            Circle()
+                                .trim(from: 0, to: 0.75)
+                                .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                                .rotationEffect(.degrees(-90))
+                                .frame(width: 64, height: 64)
+
+                            VStack(spacing: 0) {
+                                if let w = latestWeight {
+                                    Text(String(format: "%.0f", w))
+                                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                                        .foregroundColor(GQColors.textPrimary)
+                                    Text("lbs")
+                                        .font(.system(size: 9))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+                            }
+                        }
+
+                        if let change = weightChange {
+                            HStack(spacing: 2) {
+                                Image(systemName: change >= 0 ? "arrow.up" : "arrow.down")
+                                    .font(.system(size: 9, weight: .bold))
+                                Text(String(format: "%.1f", abs(change)))
+                                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            }
+                            .foregroundColor(GQColors.textSecondary)
+                        }
+                    }
+
+                    // Weight sparkline
+                    if weightMeasurements.count >= 2 {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Weight Trend")
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.textTertiary)
+
+                            Chart(weightMeasurements.suffix(10), id: \.id) { m in
+                                AreaMark(
+                                    x: .value("Date", m.date),
+                                    y: .value("Weight", m.value)
+                                )
+                                .foregroundStyle(GQGradients.primary.opacity(0.1))
+                                .interpolationMethod(.catmullRom)
+
+                                LineMark(
+                                    x: .value("Date", m.date),
+                                    y: .value("Weight", m.value)
+                                )
+                                .foregroundStyle(GQGradients.primary)
+                                .lineStyle(StrokeStyle(lineWidth: 2))
+                                .interpolationMethod(.catmullRom)
+                            }
+                            .chartXAxis(.hidden)
+                            .chartYAxis(.hidden)
+                            .frame(height: 50)
                         }
                     }
                 }
             }
         }
-        .padding(GQLayout.cardHorizontal)
-        .homeSocialCard()
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
     }
 
-    // MARK: - Exercise Trend
+    // MARK: - PRs Card
 
-    @ViewBuilder
-    private var exerciseTrendSection: some View {
+    private var prsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("EXERCISE TRENDS")
-                .font(GQTypography.sectionHeader)
-                .foregroundColor(GQColors.sectionLabel)
-                .tracking(1)
+            Text("Recent PRs")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+
+            ForEach(recentPRs, id: \.id) { pr in
+                HStack(spacing: 10) {
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(GQGradients.primary)
+
+                    Text(pr.exerciseName)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text(String(format: "%.0f", pr.newValue))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundColor(GQColors.textPrimary)
+
+                    if let delta = pr.deltaDisplay {
+                        Text(delta)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(GQColors.success)
+                    }
+                }
+                .padding(.vertical, 4)
+
+                if pr.id != recentPRs.last?.id {
+                    Divider().overlay(GQColors.borderDefault)
+                }
+            }
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    // MARK: - Exercise Trend Card
+
+    private var exerciseTrendCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Exercise Trends")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
 
             if allExerciseNames.isEmpty {
-                Text("Log exercises to see progression charts")
+                Text("Log exercises to see progression")
                     .font(.system(size: 13))
                     .foregroundColor(GQColors.textTertiary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
             } else {
-                // Exercise picker
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(allExerciseNames.prefix(8), id: \.self) { name in
@@ -342,11 +555,19 @@ struct ProgressAnalyticsView: View {
                             } label: {
                                 Text(name)
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(isSelected ? .white : GQColors.vividPurple)
+                                    .foregroundColor(isSelected ? .white : GQColors.textPrimary)
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
-                                    .background(isSelected ? GQColors.vividPurple : GQColors.vividPurple.opacity(0.1))
+                                    .background(
+                                        isSelected ?
+                                        AnyShapeStyle(GQGradients.primary) :
+                                        AnyShapeStyle(GQColors.adaptiveOverlay(0.06))
+                                    )
                                     .clipShape(Capsule())
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(isSelected ? AnyShapeStyle(Color.clear) : AnyShapeStyle(GQColors.borderDefault), lineWidth: 1)
+                                    )
                             }
                             .buttonStyle(.plain)
                         }
@@ -365,41 +586,8 @@ struct ProgressAnalyticsView: View {
                 }
             }
         }
-        .padding(GQLayout.cardHorizontal)
-        .homeSocialCard()
-    }
-
-    // MARK: - Body Composition Mini
-
-    @ViewBuilder
-    private var bodyCompositionMini: some View {
-        NavigationLink {
-            BodyMeasurementsView(profile: profile)
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "figure.stand")
-                    .font(.system(size: 20))
-                    .foregroundColor(GQColors.cyanSpark)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Body Measurements")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    Text("Track weight, body fat & measurements")
-                        .font(.system(size: 12))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(GQColors.textTertiary)
-            }
-            .padding(GQLayout.cardHorizontal)
-        }
-        .buttonStyle(.plain)
-        .homeSocialCard()
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
     }
 }
 
@@ -414,55 +602,54 @@ struct ExerciseTrendChart: View {
         for w in workouts.reversed() {
             for ex in w.exercises where ex.name == exerciseName {
                 let maxWeight = ex.sets.map { $0.weight }.max() ?? 0
-                if maxWeight > 0 {
-                    points.append((w.date, maxWeight))
-                }
+                if maxWeight > 0 { points.append((w.date, maxWeight)) }
             }
         }
         return points
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(exerciseName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(GQColors.textPrimary)
+        if dataPoints.count < 2 {
+            Text("Need at least 2 sessions to show trend")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.vertical, 10)
+        } else {
+            Chart(dataPoints, id: \.date) { point in
+                AreaMark(
+                    x: .value("Date", point.date),
+                    y: .value("Weight", point.weight)
+                )
+                .foregroundStyle(GQGradients.primary.opacity(0.1))
+                .interpolationMethod(.catmullRom)
 
-            if dataPoints.count < 2 {
-                Text("Need at least 2 sessions to show trend")
-                    .font(.system(size: 12))
-                    .foregroundColor(GQColors.textTertiary)
-                    .padding(.vertical, 10)
-            } else {
-                Chart(dataPoints, id: \.date) { point in
-                    LineMark(
-                        x: .value("Date", point.date),
-                        y: .value("Weight", point.weight)
-                    )
-                    .foregroundStyle(GQColors.vividPurple)
-                    .interpolationMethod(.catmullRom)
+                LineMark(
+                    x: .value("Date", point.date),
+                    y: .value("Weight", point.weight)
+                )
+                .foregroundStyle(GQGradients.primary)
+                .lineStyle(StrokeStyle(lineWidth: 2.5))
+                .interpolationMethod(.catmullRom)
 
-                    PointMark(
-                        x: .value("Date", point.date),
-                        y: .value("Weight", point.weight)
-                    )
-                    .foregroundStyle(GQColors.vividPurple)
-                    .symbolSize(30)
-                }
-                .chartYAxis {
-                    AxisMarks(position: .leading) { value in
-                        AxisValueLabel {
-                            if let v = value.as(Double.self) {
-                                Text("\(Int(v))")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
+                PointMark(
+                    x: .value("Date", point.date),
+                    y: .value("Weight", point.weight)
+                )
+                .foregroundStyle(GQGradients.primary)
+                .symbolSize(20)
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading) { value in
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text("\(Int(v))")
+                                .font(.system(size: 10))
+                                .foregroundColor(GQColors.textTertiary)
                         }
                     }
                 }
-                .frame(height: 200)
             }
+            .frame(height: 130)
         }
-        .padding(.top, 8)
     }
 }

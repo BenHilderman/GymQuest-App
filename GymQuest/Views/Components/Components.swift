@@ -58,9 +58,9 @@ struct ChipBadge: View {
         switch style {
         case .normal: return GQColors.textTertiary
         case .accent: return .white
-        case .good: return .green
-        case .warn: return .yellow
-        case .bad: return .red
+        case .good: return GQColors.textSecondary
+        case .warn: return GQColors.textSecondary
+        case .bad: return GQColors.textSecondary
         }
     }
 
@@ -144,7 +144,7 @@ struct AnimatedGradientButtonStyle: ButtonStyle {
                         .animatedGradientBorder(
                             cornerRadius: 25,
                             lineWidth: 1.6,
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                            colors: [GQColors.deepBlue, GQColors.deepBlue.opacity(0.7), GQColors.deepBlue],
                             duration: 4.0
                         )
                 }
@@ -186,8 +186,8 @@ struct OnboardingButtonStyle: ButtonStyle {
                             cornerRadius: 25,
                             lineWidth: 1.6,
                             colors: isLastStep
-                                ? [GQColors.cyanSpark, GQColors.success, GQColors.cyanSpark]
-                                : [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                                ? [GQColors.deepBlue, GQColors.deepBlue.opacity(0.7), GQColors.deepBlue]
+                                : [GQColors.deepBlue, GQColors.deepBlue.opacity(0.7), GQColors.deepBlue],
                             duration: 4.0
                         )
                 }
@@ -273,7 +273,7 @@ struct DangerButtonStyle: ButtonStyle {
         configuration.label
             .font(.subheadline)
             .fontWeight(.semibold)
-            .foregroundColor(GQColors.error)
+            .foregroundColor(GQColors.textSecondary)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .background(
@@ -284,7 +284,7 @@ struct DangerButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: 24)
                     .stroke(
                         LinearGradient(
-                            colors: [GQColors.error.opacity(configuration.isPressed ? 0.26 : 0.34), GQColors.error.opacity(configuration.isPressed ? 0.12 : 0.18)],
+                            colors: [GQColors.textSecondary.opacity(configuration.isPressed ? 0.26 : 0.34), GQColors.textSecondary.opacity(configuration.isPressed ? 0.12 : 0.18)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
@@ -390,7 +390,7 @@ struct WorkoutRouteMapView: View {
                         MapPolyline(coordinates: coords)
                             .stroke(
                                 LinearGradient(
-                                    colors: [GQColors.success, GQColors.cyanSpark],
+                                    colors: [GQColors.textSecondary, GQColors.textSecondary],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 ),
@@ -402,7 +402,7 @@ struct WorkoutRouteMapView: View {
                     if let first = coords.first {
                         Annotation("", coordinate: first) {
                             Circle()
-                                .fill(GQColors.success)
+                                .fill(GQColors.textSecondary)
                                 .frame(width: 14, height: 14)
                                 .overlay(
                                     Text("S")
@@ -416,7 +416,7 @@ struct WorkoutRouteMapView: View {
                     if let last = coords.last {
                         Annotation("", coordinate: last) {
                             Circle()
-                                .fill(Color.red)
+                                .fill(GQColors.textSecondary)
                                 .frame(width: 14, height: 14)
                                 .overlay(
                                     Text("F")
@@ -437,7 +437,7 @@ struct WorkoutRouteMapView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "map")
                         .font(.system(size: 11))
-                        .foregroundColor(GQColors.success)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("\(distanceString) km")
                         .font(.system(size: 13, weight: .semibold))
                 }
@@ -445,7 +445,7 @@ struct WorkoutRouteMapView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "speedometer")
                         .font(.system(size: 11))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("\(paceString) /km")
                         .font(.system(size: 13, weight: .semibold))
                 }
@@ -501,7 +501,7 @@ struct PostRouteMapView: View {
                     MapPolyline(coordinates: coords)
                         .stroke(
                             LinearGradient(
-                                colors: [GQColors.success, GQColors.cyanSpark],
+                                colors: [GQColors.textSecondary, GQColors.textSecondary],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ),
@@ -512,7 +512,7 @@ struct PostRouteMapView: View {
                 if let first = coords.first {
                     Annotation("", coordinate: first) {
                         Circle()
-                            .fill(GQColors.success)
+                            .fill(GQColors.textSecondary)
                             .frame(width: 12, height: 12)
                             .overlay(
                                 Text("S")
@@ -525,7 +525,7 @@ struct PostRouteMapView: View {
                 if let last = coords.last {
                     Annotation("", coordinate: last) {
                         Circle()
-                            .fill(Color.red)
+                            .fill(GQColors.textSecondary)
                             .frame(width: 12, height: 12)
                             .overlay(
                                 Text("F")
@@ -612,7 +612,7 @@ struct RunSummaryView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
         }
@@ -641,7 +641,7 @@ struct RunSummaryView: View {
                 if let first = coords.first {
                     Annotation("", coordinate: first) {
                         Circle()
-                            .fill(GQColors.success)
+                            .fill(GQColors.textSecondary)
                             .frame(width: 20, height: 20)
                             .overlay(
                                 Text("S")
@@ -655,7 +655,7 @@ struct RunSummaryView: View {
                 if let last = coords.last {
                     Annotation("", coordinate: last) {
                         Circle()
-                            .fill(GQColors.coralRed)
+                            .fill(GQColors.textSecondary)
                             .frame(width: 20, height: 20)
                             .overlay(
                                 Text("F")
@@ -681,9 +681,9 @@ struct RunSummaryView: View {
     @ViewBuilder
     private var paceLegend: some View {
         HStack(spacing: 10) {
-            legendDot(color: GQColors.success, label: "Fast")
-            legendDot(color: GQColors.warning, label: "Avg")
-            legendDot(color: GQColors.coralRed, label: "Slow")
+            legendDot(color: GQColors.textSecondary, label: "Fast")
+            legendDot(color: GQColors.textSecondary, label: "Avg")
+            legendDot(color: GQColors.textSecondary, label: "Slow")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
@@ -708,25 +708,25 @@ struct RunSummaryView: View {
                 icon: "map.fill",
                 value: distanceString,
                 label: "km",
-                color: GQColors.success
+                color: GQColors.textSecondary
             )
             WorkoutStatBadge(
                 icon: "clock.fill",
                 value: durationString,
                 label: "time",
-                color: GQColors.cyanSpark
+                color: GQColors.textSecondary
             )
             WorkoutStatBadge(
                 icon: "speedometer",
                 value: paceString,
                 label: "/km",
-                color: GQColors.vividPurple
+                color: GQColors.deepBlue
             )
             WorkoutStatBadge(
                 icon: "mountain.2.fill",
                 value: elevationString,
                 label: "m ↑",
-                color: GQColors.sunsetOrange
+                color: GQColors.textSecondary
             )
         }
         .padding(.horizontal)
@@ -750,7 +750,7 @@ struct RunSummaryView: View {
                 )
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [GQColors.cyanSpark.opacity(0.4), GQColors.cyanSpark.opacity(0.05)],
+                        colors: [GQColors.textSecondary.opacity(0.4), GQColors.textSecondary.opacity(0.05)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -761,7 +761,7 @@ struct RunSummaryView: View {
                     x: .value("Distance", point.distanceKm),
                     y: .value("Altitude", point.altitude)
                 )
-                .foregroundStyle(GQColors.cyanSpark)
+                .foregroundStyle(GQColors.textSecondary)
                 .lineStyle(StrokeStyle(lineWidth: 2))
                 .interpolationMethod(.catmullRom)
             }
@@ -838,7 +838,7 @@ struct RunSummaryView: View {
     @ViewBuilder
     private func splitRow(split: KilometerSplit, fastest: Double, range: Double) -> some View {
         let normalized = range > 0 ? 1.0 - ((split.paceSecondsPerKm - fastest) / range) : 0.5
-        let barColor: Color = normalized > 0.66 ? GQColors.success : (normalized > 0.33 ? GQColors.warning : GQColors.coralRed)
+        let barColor: Color = normalized > 0.66 ? GQColors.textSecondary : (normalized > 0.33 ? GQColors.textSecondary : GQColors.textSecondary)
         let barWidth = max(20.0, normalized * 80.0)
 
         HStack {
@@ -853,7 +853,7 @@ struct RunSummaryView: View {
 
             Text(elevChangeString(split.elevationChange))
                 .frame(width: 44, alignment: .trailing)
-                .foregroundColor(split.elevationChange >= 0 ? GQColors.success : GQColors.coralRed)
+                .foregroundColor(split.elevationChange >= 0 ? GQColors.textSecondary : GQColors.textSecondary)
 
             Spacer()
 
@@ -1190,7 +1190,7 @@ struct WorkoutCompletionView: View {
                                 Text("Share to \(selectedVisibility.rawValue)")
                             }
                         }
-                        .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
+                        .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.textSecondary))
 
                         // Keep Private button (secondary action)
                         Button {
@@ -1407,12 +1407,12 @@ struct PRCelebrationBanner: View {
             HStack {
                 Image(systemName: "trophy.fill")
                     .font(.title2)
-                    .foregroundColor(.yellow)
+                    .foregroundColor(GQColors.textSecondary)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("NEW PR\(prMoments.count > 1 ? "s" : "")!")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.yellow)
+                        .foregroundColor(GQColors.textSecondary)
 
                     Text("You hit \(prMoments.count) personal record\(prMoments.count > 1 ? "s" : "") today")
                         .font(.system(size: 13))
@@ -1443,10 +1443,10 @@ struct PRCelebrationBanner: View {
 
                         Text("Share")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.yellow)
+                            .foregroundColor(GQColors.textSecondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
-                            .background(Color.yellow.opacity(0.2))
+                            .background(GQColors.textSecondary.opacity(0.2))
                             .cornerRadius(8)
                     }
                     .padding(10)
@@ -1459,7 +1459,7 @@ struct PRCelebrationBanner: View {
         .padding(16)
         .background(
             LinearGradient(
-                colors: [GQColors.cyanSpark.opacity(0.15), GQColors.vividPurple.opacity(0.08)],
+                colors: [GQColors.textSecondary.opacity(0.15), GQColors.deepBlue.opacity(0.08)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -1467,7 +1467,7 @@ struct PRCelebrationBanner: View {
         .cornerRadius(14)
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(GQColors.cyanSpark.opacity(0.3), lineWidth: 1)
+                .strokeBorder(GQColors.textSecondary.opacity(0.3), lineWidth: 1)
         )
     }
 }
@@ -1489,10 +1489,10 @@ struct QuickStatsSummary: View {
                 HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 12))
-                        .foregroundColor(GQColors.success)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("\(summary.streak)")
                         .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(GQColors.success)
+                        .foregroundColor(GQColors.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -1555,7 +1555,7 @@ struct PRShareSheet: View {
                         Text("Export PR Card")
                     }
                 }
-                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
+                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.textSecondary))
                 .padding(.horizontal, 24)
 
                 Button("Cancel") {
@@ -1600,18 +1600,18 @@ struct LevelUpBanner: View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(GQColors.cyanSpark.opacity(0.2))
+                    .fill(GQColors.textSecondary.opacity(0.2))
                     .frame(width: 48, height: 48)
 
                 Image(systemName: "star.fill")
                     .font(.title2)
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("LEVEL UP!")
                     .font(GQTypography.sectionHeader)
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
                     .tracking(1)
 
                 Text("Level \(newLevel) - \(UserProfile.levelTitle(for: newLevel))")
@@ -1629,7 +1629,7 @@ struct LevelUpBanner: View {
                     RoundedRectangle(cornerRadius: 16)
                         .fill(
                             LinearGradient(
-                                colors: [GQColors.cyanSpark.opacity(0.15), GQColors.sunsetOrange.opacity(0.1)],
+                                colors: [GQColors.textSecondary.opacity(0.15), GQColors.textSecondary.opacity(0.1)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -1638,9 +1638,9 @@ struct LevelUpBanner: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(GQColors.cyanSpark.opacity(0.4), lineWidth: 1)
+                .stroke(GQColors.textSecondary.opacity(0.4), lineWidth: 1)
         )
-        .shadow(color: GQColors.cyanSpark.opacity(0.06), radius: 12, y: 4)
+        .shadow(color: GQColors.textSecondary.opacity(0.06), radius: 12, y: 4)
     }
 }
 
@@ -1651,7 +1651,7 @@ struct CardLoadingPlaceholder: View {
         VStack(spacing: 16) {
             ProgressView()
                 .scaleEffect(1.2)
-                .tint(GQColors.vividPurple)
+                .tint(GQColors.deepBlue)
 
             Text("Generating your workout card...")
                 .font(.subheadline)
@@ -1669,7 +1669,7 @@ struct CardLoadingPlaceholder: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 20)
-                .stroke(GQColors.vividPurple.opacity(pulseOpacity), lineWidth: 1)
+                .stroke(GQColors.deepBlue.opacity(pulseOpacity), lineWidth: 1)
         )
         .shimmer()
         .onAppear {
@@ -1708,11 +1708,11 @@ struct ShareOptionButton: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
                     .stroke(
-                        isSelected ? GQColors.vividPurple.opacity(0.5) : Color.black.opacity(0.06),
+                        isSelected ? GQColors.deepBlue.opacity(0.5) : Color.black.opacity(0.06),
                         lineWidth: 1
                     )
             )
-            .shadow(color: isSelected ? GQColors.vividPurple.opacity(0.06) : .clear, radius: 8, y: 2)
+            .shadow(color: isSelected ? GQColors.deepBlue.opacity(0.06) : .clear, radius: 8, y: 2)
         }
         .buttonStyle(GQInteractiveStyle())
     }

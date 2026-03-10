@@ -39,10 +39,10 @@ struct ActivityItem: Identifiable {
 
         var iconColor: Color {
             switch self {
-            case .like: return .red
-            case .comment: return GQColors.cyanSpark
+            case .like: return GQColors.textSecondary
+            case .comment: return GQColors.textSecondary
             case .follow: return GQColors.vividPurple
-            case .reaction: return .orange
+            case .reaction: return GQColors.textSecondary
             }
         }
     }
@@ -137,9 +137,16 @@ struct SocialActivityView: View {
                     ForEach(grouped, id: \.title) { section in
                         sectionHeader(section.title)
                         ForEach(section.items) { item in
-                            ActivityRow(item: item) {
-                                profileUserId = IdentifiableUUID(id: item.userId)
-                            }
+                            ActivityRow(
+                                item: item,
+                                isFollowingBack: followedIds.contains(item.userId),
+                                onTap: {
+                                    profileUserId = IdentifiableUUID(id: item.userId)
+                                },
+                                onFollowBack: {
+                                    followUser(item.userId, name: item.userName, username: item.username)
+                                }
+                            )
                         }
                     }
                 }
@@ -156,6 +163,25 @@ struct SocialActivityView: View {
             .padding(.horizontal, 16)
             .padding(.top, 20)
             .padding(.bottom, 8)
+    }
+
+    private var followedIds: Set<UUID> {
+        Set(friends.filter { $0.userId == profile.id }.map { $0.odId })
+    }
+
+    private func followUser(_ userId: UUID, name: String, username: String) {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        let friend = Friend(userId: profile.id, odId: userId, odName: name, odUsername: username)
+        modelContext.insert(friend)
+        profile.followingCount += 1
+
+        let descriptor = FetchDescriptor<UserProfile>(predicate: #Predicate { $0.id == userId })
+        if let targetProfile = try? modelContext.fetch(descriptor).first {
+            targetProfile.followerCount += 1
+        }
+        try? modelContext.save()
     }
 
     // MARK: - Grouping
@@ -273,7 +299,11 @@ struct SocialActivityView: View {
 
 struct ActivityRow: View {
     let item: ActivityItem
+    var isFollowingBack: Bool = false
     var onTap: () -> Void
+    var onFollowBack: (() -> Void)? = nil
+
+    @State private var didFollowBack = false
 
     var body: some View {
         Button(action: onTap) {
@@ -306,13 +336,35 @@ struct ActivityRow: View {
 
                 Spacer()
 
-                // Post thumbnail or action icon
-                if let post = item.post {
+                // Follow back button for follow actions
+                if case .follow = item.action, !isFollowingBack, !didFollowBack, let followBack = onFollowBack {
+                    Button {
+                        didFollowBack = true
+                        followBack()
+                    } label: {
+                        Text("Follow")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(GQGradients.primary)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                } else if case .follow = item.action, isFollowingBack || didFollowBack {
+                    Text("Following")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(GQColors.adaptiveOverlay(0.06))
+                        .clipShape(Capsule())
+                } else if let post = item.post {
                     activityPostThumbnail(post: post)
                 } else {
                     Image(systemName: item.action.icon)
                         .font(.system(size: 14))
-                        .foregroundColor(item.action.iconColor)
+                        .foregroundStyle(GQGradients.primary)
                 }
             }
             .padding(.horizontal, 16)
@@ -456,6 +508,7 @@ struct UserSearchRow: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var following: Bool = false
+    @State private var showingUnfollowConfirm = false
 
     var body: some View {
         Button(action: onTap) {
@@ -483,7 +536,11 @@ struct UserSearchRow: View {
 
                 // Follow button
                 Button {
-                    toggleFollow()
+                    if following {
+                        showingUnfollowConfirm = true
+                    } else {
+                        toggleFollow()
+                    }
                 } label: {
                     Text(following ? "Following" : "Follow")
                         .font(.system(size: 13, weight: .semibold))
@@ -511,6 +568,12 @@ struct UserSearchRow: View {
         }
         .buttonStyle(.plain)
         .onAppear { following = isFollowing }
+        .confirmationDialog("Unfollow @\(userProfile.username)?", isPresented: $showingUnfollowConfirm, titleVisibility: .visible) {
+            Button("Unfollow", role: .destructive) {
+                toggleFollow()
+            }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
     private func toggleFollow() {

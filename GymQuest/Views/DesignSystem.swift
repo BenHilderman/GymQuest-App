@@ -1009,12 +1009,16 @@ struct GQGradients {
     }
 
     static func workoutColor(for type: WorkoutType) -> Color {
-        GQColors.deepBlue
+        switch type {
+        case .rest: return GQColors.textTertiary
+        default: return GQColors.deepBlue
+        }
     }
 
     /// Returns raw color array for a workout type — useful for theming rings, progress bars, checkmarks, etc.
     static func workoutGradientColors(for type: WorkoutType) -> [Color] {
-        [GQColors.deepBlue, GQColors.vividPurple]
+        let base = workoutColor(for: type)
+        return [base, base.opacity(0.7)]
     }
 }
 
@@ -1032,7 +1036,7 @@ struct AnimatedGradientCircle: View {
     init(
         size: CGFloat = 40,
         lineWidth: CGFloat = 2,
-        colors: [Color] = [GQColors.deepBlue, GQColors.vividPurple, GQColors.deepBlue],
+        colors: [Color] = [GQColors.deepBlue, GQColors.deepBlue.opacity(0.5), GQColors.deepBlue],
         duration: Double = 8.0
     ) {
         self.size = size
@@ -1079,7 +1083,7 @@ struct AnimatedGradientBorder: ViewModifier {
     init(
         cornerRadius: CGFloat = 16,
         lineWidth: CGFloat = 2,
-        colors: [Color] = [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+        colors: [Color] = [GQColors.deepBlue, GQColors.deepBlue.opacity(0.5), GQColors.deepBlue],
         duration: Double = 8.0
     ) {
         self.cornerRadius = cornerRadius
@@ -1908,11 +1912,11 @@ struct WorkoutTypeBadge: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(GQGradients.workoutGradient(for: type))
+                .fill(GQColors.adaptiveOverlay(0.06))
                 .frame(width: size, height: size)
             Image(systemName: type.icon)
                 .font(.system(size: size * 0.4, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(GQColors.textSecondary)
         }
     }
 }
@@ -2087,6 +2091,46 @@ enum CardioSubType: String, CaseIterable {
     static func from(_ highlight: String?) -> CardioSubType? {
         guard let highlight else { return nil }
         return CardioSubType.allCases.first { $0.rawValue.lowercased() == highlight.lowercased() }
+    }
+}
+
+// MARK: - Music Waveform
+
+struct MusicWaveform: View {
+    var color: Color = .white
+    var isPlaying: Bool = true
+
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
+            Canvas { context, size in
+                let midY = size.height / 2
+                let barCount = 5
+                let barWidth: CGFloat = 2.5
+                let spacing: CGFloat = (size.width - barWidth * CGFloat(barCount)) / CGFloat(barCount - 1)
+                let time = timeline.date.timeIntervalSinceReferenceDate
+
+                for i in 0..<barCount {
+                    let x = CGFloat(i) * (barWidth + spacing)
+                    let frequency = 2.0 + Double(i) * 0.7
+                    let phaseOffset = Double(i) * 0.8
+                    let amplitude = isPlaying
+                        ? (0.3 + 0.7 * abs(sin(time * frequency + phaseOffset)))
+                        : 0.15
+                    let barHeight = size.height * amplitude
+
+                    let rect = CGRect(
+                        x: x,
+                        y: midY - barHeight / 2,
+                        width: barWidth,
+                        height: barHeight
+                    )
+                    let path = Path(roundedRect: rect, cornerRadius: barWidth / 2)
+                    context.fill(path, with: .color(color.opacity(0.8)))
+                }
+            }
+        }
     }
 }
 
@@ -2452,6 +2496,149 @@ struct AnimatedGradientView: View {
 }
 
 // MARK: - Heart Burst Overlay
+
+// MARK: - PR Photo Badge
+
+struct PRPhotoBadge: View {
+    let pr: FeedPR
+
+    @State private var shimmerOffset: CGFloat = -100
+    @State private var appeared = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "trophy.fill")
+                .font(.system(size: 10, weight: .bold))
+            Text("PR")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+            if let improvement = pr.improvement {
+                Text(improvement)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+            }
+        }
+        .foregroundColor(GQColors.prGold)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(
+            Capsule()
+                .fill(Color.black.opacity(0.5))
+                .overlay(
+                    Capsule()
+                        .stroke(GQColors.prGold.opacity(0.4), lineWidth: 0.5)
+                )
+        )
+        .overlay(
+            // Shimmer sweep
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [.clear, GQColors.prGold.opacity(0.3), .clear],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .offset(x: shimmerOffset)
+                .clipShape(Capsule())
+        )
+        .scaleEffect(appeared ? 1.0 : 0.6)
+        .opacity(appeared ? 1 : 0)
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.65).delay(0.3)) {
+                appeared = true
+            }
+            // Shimmer sweep
+            withAnimation(.easeInOut(duration: 1.2).delay(0.8)) {
+                shimmerOffset = 100
+            }
+        }
+    }
+}
+
+// MARK: - Double-Tap Heart Burst (Photo Overlay)
+
+struct DoubleTapHeartBurst: View {
+    let isActive: Bool
+    var location: CGPoint = .zero
+
+    @State private var showHeart = false
+    @State private var particles: [BurstParticle] = []
+    @State private var particlesOut = false
+
+    private struct BurstParticle: Identifiable {
+        let id = UUID()
+        let angle: Double
+        let distance: CGFloat
+        let scale: CGFloat
+        let symbol: String
+    }
+
+    var body: some View {
+        ZStack {
+            // Central heart
+            Image(systemName: "heart.fill")
+                .font(.system(size: 70, weight: .bold))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [Color(hex: "FF6B6B"), GQColors.vividPurple],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .scaleEffect(showHeart ? 1.0 : 0.2)
+                .opacity(showHeart ? 1 : 0)
+                .shadow(color: GQColors.vividPurple.opacity(0.5), radius: 20, x: 0, y: 0)
+
+            // Radiating particles
+            ForEach(particles) { p in
+                let rad = p.angle * .pi / 180
+                let dx = particlesOut ? cos(rad) * p.distance : 0
+                let dy = particlesOut ? sin(rad) * p.distance : 0
+
+                Image(systemName: p.symbol)
+                    .font(.system(size: 14 * p.scale))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color(hex: "FF6B6B"), GQColors.vividPurple],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .scaleEffect(particlesOut ? 0.3 : p.scale)
+                    .opacity(particlesOut ? 0 : 1)
+                    .offset(x: dx, y: dy)
+            }
+        }
+        .position(location)
+        .allowsHitTesting(false)
+        .onAppear {
+            guard isActive else { return }
+            // Spawn particles
+            let symbols = ["heart.fill", "heart.fill", "sparkle", "star.fill", "heart.fill"]
+            particles = (0..<10).map { i in
+                BurstParticle(
+                    angle: Double(i) * 36.0 + Double.random(in: -12...12),
+                    distance: CGFloat.random(in: 40...80),
+                    scale: CGFloat.random(in: 0.5...1.0),
+                    symbol: symbols[i % symbols.count]
+                )
+            }
+            // Animate heart in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) {
+                showHeart = true
+            }
+            // Particles radiate out
+            withAnimation(.easeOut(duration: 0.6).delay(0.1)) {
+                particlesOut = true
+            }
+            // Heart scale down and fade
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(.easeOut(duration: 0.3)) {
+                    showHeart = false
+                }
+            }
+        }
+    }
+}
 
 struct HeartBurstOverlay: View {
     let isActive: Bool
