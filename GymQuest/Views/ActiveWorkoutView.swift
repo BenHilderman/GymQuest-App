@@ -52,7 +52,7 @@ struct WorkoutInsightEngine {
             return CoachInsight(
                 message: "You're lifting \(delta) lbs more than last session on \(exerciseName)!",
                 icon: "flame.fill",
-                tintColor: GQColors.success
+                tintColor: GQColors.deepBlue
             )
         }
 
@@ -66,7 +66,7 @@ struct WorkoutInsightEngine {
                     return CoachInsight(
                         message: "Set volume up \(pctIncrease)% vs last session. Keep pushing!",
                         icon: "chart.line.uptrend.xyaxis",
-                        tintColor: GQColors.success
+                        tintColor: GQColors.deepBlue
                     )
                 }
             }
@@ -177,11 +177,11 @@ struct ActiveWorkoutView: View {
     }
 
     private var workoutTypeColors: [Color] {
-        GQGradients.workoutGradientColors(for: workoutType)
+        [GQColors.deepBlue, GQColors.deepBlue]
     }
 
     private var workoutAccentColor: Color {
-        GQGradients.workoutColor(for: workoutType)
+        GQColors.deepBlue
     }
 
     private var workoutProgress: Double {
@@ -502,11 +502,11 @@ struct ActiveWorkoutView: View {
                             Text("\(SocialActivityService.shared.liveCount)")
                                 .font(.system(size: 11, weight: .medium))
                         }
-                        .foregroundColor(GQColors.success)
+                        .foregroundColor(GQColors.deepBlue)
                         .frame(height: 32)
                         .padding(.horizontal, 10)
-                        .background(Capsule().fill(GQColors.success.opacity(0.15)))
-                        .overlay(Capsule().stroke(GQColors.success.opacity(0.4), lineWidth: 1))
+                        .background(Capsule().fill(GQColors.deepBlue.opacity(0.12)))
+                        .overlay(Capsule().stroke(GQColors.deepBlue.opacity(0.3), lineWidth: 1))
                     } else {
                         Image(systemName: "antenna.radiowaves.left.and.right.slash")
                             .font(.system(size: 12, weight: .medium))
@@ -518,27 +518,21 @@ struct ActiveWorkoutView: View {
 
                 Spacer()
 
-                // End button (long-press to activate)
+                // End button
                 Button {
-                    // no-op: long press required
+                    showingCancelConfirmation = true
                 } label: {
                     Text("End")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(GQColors.coralRed)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(GQColors.textSecondary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(
                             RoundedRectangle(cornerRadius: 10)
-                                .fill(GQColors.coralRed.opacity(0.12))
+                                .fill(GQColors.adaptiveOverlay(0.05))
                         )
                 }
                 .buttonStyle(.plain)
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.5)
-                        .onEnded { _ in
-                            showingCancelConfirmation = true
-                        }
-                )
             }
 
             // Hero circular progress ring with timer
@@ -607,9 +601,9 @@ struct ActiveWorkoutView: View {
         HStack(spacing: 6) {
             Image(systemName: workoutType.icon)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(workoutAccentColor)
+                .foregroundStyle(GQGradients.primary)
             Text(displayTitle)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundColor(GQColors.textPrimary)
         }
         .padding(.horizontal, 14)
@@ -618,7 +612,7 @@ struct ActiveWorkoutView: View {
             Capsule().fill(GQColors.surfaceOverlay)
         )
         .overlay(
-            Capsule().stroke(GQColors.borderDefault, lineWidth: 1)
+            Capsule().stroke(GQColors.borderDefault, lineWidth: 0.5)
         )
         .contextMenu {
             ForEach(WorkoutType.allCases, id: \.self) { type in
@@ -698,18 +692,16 @@ struct ActiveWorkoutView: View {
             showingAddExercise = true
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(workoutAccentColor)
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .semibold))
                 Text("Add Exercise")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
             }
-            .foregroundColor(GQColors.textPrimary)
+            .foregroundColor(GQColors.textSecondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(RoundedRectangle(cornerRadius: 16).fill(GQColors.cardBackground))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(GQColors.borderDefault, lineWidth: 1))
-            .shadow(color: .black.opacity(0.05), radius: 4, y: 2)
+            .padding(.vertical, 14)
+            .background(RoundedRectangle(cornerRadius: 14).fill(GQColors.cardBackground))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 0.5))
         }
         .buttonStyle(GQInteractiveStyle())
     }
@@ -727,15 +719,16 @@ struct ActiveWorkoutView: View {
             }
 
             Button { finishWorkout() } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(GQGradients.primary)
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
                     Text("Finish Workout")
-                        .foregroundColor(GQColors.textPrimary)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
                 }
-                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 44)
+                .frame(height: 50)
+                .background(RoundedRectangle(cornerRadius: 14).fill(GQGradients.primary))
             }
             .buttonStyle(GQInteractiveStyle())
         }
@@ -1072,10 +1065,10 @@ struct ExerciseNotesField: View {
                 HStack(spacing: 6) {
                     Image(systemName: "note.text")
                         .font(.system(size: 12))
-                        .foregroundColor(notes.isEmpty ? GQColors.textTertiary : GQColors.vividPurple)
+                        .foregroundColor(notes.isEmpty ? GQColors.textTertiary : GQColors.deepBlue)
                     Text(notes.isEmpty ? "Add note" : "Note")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(notes.isEmpty ? GQColors.textTertiary : GQColors.vividPurple)
+                        .foregroundColor(notes.isEmpty ? GQColors.textTertiary : GQColors.deepBlue)
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .medium))
@@ -1148,7 +1141,7 @@ struct PlateCalculatorView: View {
                                 .padding(.vertical, 4)
                                 .background(
                                     RoundedRectangle(cornerRadius: 6)
-                                        .fill(GQColors.vividPurple.opacity(0.12))
+                                        .fill(GQColors.deepBlue.opacity(0.12))
                                 )
                         }
                     }
@@ -1192,121 +1185,66 @@ struct ActiveExerciseCard: View {
         completedCount == exercise.sets.count && completedCount > 0
     }
 
-    private var workoutAccent: Color {
-        workoutTypeColors.first ?? GQColors.vividPurple
-    }
-
-    private var isBarbellExercise: Bool {
-        let name = exercise.name.lowercased()
-        let barbellKeywords = ["barbell", "bench press", "squat", "deadlift", "overhead press", "ohp", "row"]
-        return barbellKeywords.contains(where: { name.contains($0) })
-    }
-
-    private var topSetWeight: Double {
-        exercise.sets.compactMap { $0.weight }.max() ?? 0
-    }
+    private var workoutAccent: Color { GQColors.deepBlue }
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(alignment: .center) {
+        VStack(spacing: 0) {
+            // Exercise header
+            HStack(alignment: .center, spacing: 12) {
                 if FeatureFlags.shared.exerciseGifsEnabled {
-                    ExerciseGifView(exerciseName: exercise.name, size: .thumbnail, showFallback: true)
+                    ExerciseGifView(exerciseName: exercise.name, size: .detail, showFallback: true)
                 }
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.name)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
 
-                    Text(exercise.muscleGroup.rawValue)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
+                    HStack(spacing: 6) {
+                        Text(exercise.muscleGroup.rawValue)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.textTertiary)
+
+                        if let pw = previousWeight, pw > 0 {
+                            Text("·")
+                                .foregroundColor(GQColors.textTertiary)
+                            Text("Last: \(Int(pw)) lbs")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                    }
                 }
 
                 Spacer()
 
-                Button(action: onShowDemo) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "play.circle.fill").foregroundColor(workoutAccent)
-                        Text("Form").foregroundColor(GQColors.textSecondary)
-                    }
-                    .font(.system(size: 13, weight: .semibold))
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Capsule().fill(GQColors.surfaceOverlay))
-                    .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-
-                // Plate calculator button (for barbell exercises)
-                if isBarbellExercise {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showPlateCalculator.toggle()
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "scalemass").foregroundColor(workoutAccent)
-                            Text("Plates").foregroundColor(GQColors.textSecondary)
-                        }
-                        .font(.system(size: 13, weight: .semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(showPlateCalculator ? workoutAccent.opacity(0.15) : GQColors.surfaceOverlay))
-                        .overlay(Capsule().stroke(showPlateCalculator ? workoutAccent.opacity(0.4) : GQColors.borderDefault, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-
                 Text("\(completedCount)/\(exercise.sets.count)")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(allSetsComplete ? GQColors.success : GQColors.textSecondary)
-                    .padding(.leading, 4)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(allSetsComplete ? GQColors.deepBlue : GQColors.textTertiary)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
 
-            // AI suggestion + last performance hint
-            if let pw = previousWeight, pw > 0 {
+            // Sets
+            VStack(spacing: 0) {
+                // Column headers
                 HStack(spacing: 0) {
-                    Text("Last: \(Int(pw)) lbs")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
-                    if let pr = previousReps, pr > 0 {
-                        Text(" \u{00D7} \(pr) reps")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-                    Spacer()
-                    // AI suggestion badge
-                    HStack(spacing: 4) {
-                        Image(systemName: "brain")
-                            .font(.system(size: 11, weight: .medium))
-                        Text("AI: \(Int(pw)) lbs")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundColor(GQColors.vividPurple)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule().fill(GQColors.vividPurple.opacity(0.12))
-                    )
+                    Text("SET")
+                        .frame(width: 28)
+                    Text("WEIGHT")
+                        .frame(maxWidth: .infinity)
+                    Text("REPS")
+                        .frame(maxWidth: .infinity)
+                    Text("")
+                        .frame(width: 40)
                 }
-            }
+                .font(.system(size: 10, weight: .bold))
+                .foregroundColor(GQColors.textTertiary.opacity(0.5))
+                .tracking(0.5)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 4)
 
-            // Progressive overload suggestion pill
-            if FeatureFlags.shared.progressiveOverloadEnabled,
-               let suggestion = overloadSuggestion {
-                OverloadSuggestionPill(suggestion: suggestion)
-            }
-
-            // Plate calculator (barbell exercises)
-            if showPlateCalculator && isBarbellExercise && topSetWeight > 0 {
-                PlateCalculatorView(targetWeight: topSetWeight)
-            }
-
-            // Exercise notes (expandable)
-            ExerciseNotesField(notes: $exercise.notes)
-
-            VStack(spacing: 8) {
                 ForEach($exercise.sets) { $set in
                     ActiveSetRow(
                         set: $set,
@@ -1319,40 +1257,41 @@ struct ActiveExerciseCard: View {
                             checkExerciseCompletion()
                         }
                     )
+
+                    if exercise.sets.firstIndex(where: { $0.id == set.id }) != exercise.sets.count - 1 {
+                        Divider().padding(.leading, 28).padding(.trailing, 40).opacity(0.5)
+                    }
                 }
+
+                Divider().opacity(0.5).padding(.horizontal, 16)
 
                 Button {
                     let lastSet = exercise.sets.last
                     exercise.sets.append(
                         ActiveSet(
-                            reps: lastSet?.reps ?? 10,
-                            weight: lastSet?.weight ?? 0
+                            reps: lastSet?.reps ?? previousReps ?? 10,
+                            weight: lastSet?.weight ?? previousWeight ?? 0
                         )
                     )
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "plus").foregroundColor(workoutAccent)
-                        Text("Add Set").foregroundColor(GQColors.textSecondary)
-                    }
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(GQColors.surfaceOverlay))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(GQColors.borderDefault, lineWidth: 1))
+                    Text("Add Set")
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundColor(GQColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                 }
+                .buttonStyle(.plain)
             }
-            .padding(.horizontal, 4).padding(.top, 8)
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 16).fill(GQColors.cardBackground))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(GQColors.borderDefault, lineWidth: 1))
-        .shadow(color: .black.opacity(allSetsComplete ? 0.08 : 0.05), radius: allSetsComplete ? 8 : 4, y: allSetsComplete ? 3 : 2)
+        .background(RoundedRectangle(cornerRadius: 14).fill(GQColors.cardBackground))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(GQColors.borderDefault, lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
         .overlay(alignment: .topTrailing) {
             if allSetsComplete {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(workoutAccent)
-                    .padding(10)
+                    .font(.system(size: 16))
+                    .foregroundStyle(GQGradients.primary)
+                    .padding(12)
             }
         }
         .onAppear {
@@ -1402,6 +1341,18 @@ struct ActiveExerciseCard: View {
             bestWeight = overallBestWeight
             bestReps = overallBestReps
             best1RM = overallBest1RM > 0 ? overallBest1RM : nil
+        }
+
+        // Auto-populate empty sets with previous weight/reps
+        if let pw = previousWeight, pw > 0 {
+            for i in exercise.sets.indices {
+                if exercise.sets[i].weight == 0 {
+                    exercise.sets[i].weight = pw
+                }
+                if exercise.sets[i].reps == 0, let pr = previousReps, pr > 0 {
+                    exercise.sets[i].reps = pr
+                }
+            }
         }
     }
 
@@ -1490,74 +1441,24 @@ extension View {
 
 struct StepperField: View {
     @Binding var value: Double
-    var unit: String = "lb"
+    var unit: String = "lbs"
     var hint: String? = nil
-    var accentColor: Color = GQColors.vividPurple
+    var accentColor: Color = GQColors.deepBlue
 
     var body: some View {
         VStack(spacing: 2) {
-            HStack(spacing: 4) {
-                Button {
-                    value = max(0, value - 5)
-                    HapticManager.shared.tap()
-                } label: {
-                    Image(systemName: "minus")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(GQColors.textSecondary)
-                        .frame(width: 28, height: 28)
-                        .background(GQColors.surfaceOverlay)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.4)
-                        .onEnded { _ in
-                            value = max(0, value - 2.5)
-                            HapticManager.shared.impact(.medium)
-                        }
-                )
+            TextField("0", value: $value, format: .number)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .frame(height: 32)
 
-                TextField("0", value: $value, format: .number)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.center)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                    .frame(width: 56)
-                    .padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(GQColors.surfaceOverlay))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(GQColors.borderDefault, lineWidth: 1))
-
-                Button {
-                    value += 5
-                    HapticManager.shared.tap()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(GQColors.textSecondary)
-                        .frame(width: 28, height: 28)
-                        .background(GQColors.surfaceOverlay)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.4)
-                        .onEnded { _ in
-                            value += 2.5
-                            HapticManager.shared.impact(.medium)
-                        }
-                )
-
-                Text(unit)
-                    .font(.system(size: 11))
-                    .foregroundColor(GQColors.textTertiary)
-            }
-
-            if let hint {
-                Text(hint)
-                    .font(.system(size: 9))
-                    .foregroundColor(GQColors.textTertiary)
-            }
+            Text(unit)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -1567,72 +1468,22 @@ struct IntStepperField: View {
     @Binding var value: Int
     var unit: String = "reps"
     var hint: String? = nil
-    var accentColor: Color = GQColors.vividPurple
+    var accentColor: Color = GQColors.deepBlue
 
     var body: some View {
         VStack(spacing: 2) {
-            HStack(spacing: 4) {
-                Button {
-                    value = max(0, value - 1)
-                    HapticManager.shared.tap()
-                } label: {
-                    Image(systemName: "minus")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(GQColors.textSecondary)
-                        .frame(width: 28, height: 28)
-                        .background(GQColors.surfaceOverlay)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.4)
-                        .onEnded { _ in
-                            value = max(0, value - 5)
-                            HapticManager.shared.impact(.medium)
-                        }
-                )
+            TextField("0", value: $value, format: .number)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.center)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .frame(height: 32)
 
-                TextField("0", value: $value, format: .number)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.center)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                    .frame(width: 56)
-                    .padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(GQColors.surfaceOverlay))
-                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(GQColors.borderDefault, lineWidth: 1))
-
-                Button {
-                    value += 1
-                    HapticManager.shared.tap()
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(GQColors.textSecondary)
-                        .frame(width: 28, height: 28)
-                        .background(GQColors.surfaceOverlay)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.4)
-                        .onEnded { _ in
-                            value += 5
-                            HapticManager.shared.impact(.medium)
-                        }
-                )
-
-                Text(unit)
-                    .font(.system(size: 11))
-                    .foregroundColor(GQColors.textTertiary)
-            }
-
-            if let hint {
-                Text(hint)
-                    .font(.system(size: 9))
-                    .foregroundColor(GQColors.textTertiary)
-            }
+            Text(unit)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
         }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -1648,80 +1499,55 @@ struct ActiveSetRow: View {
     var onComplete: (() -> Void)? = nil
 
     @State private var checkScale: CGFloat = 1.0
-    @State private var justCompleted = false
-    @State private var showCheckParticles = false
-
-    private var workoutColor: Color {
-        workoutTypeColors.first ?? GQColors.vividPurple
-    }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 0) {
+            // Set number
             Text("\(setNumber)")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundColor(set.isCompleted ? workoutColor : GQColors.textSecondary)
-                .frame(width: 22)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(set.isCompleted ? GQColors.deepBlue : GQColors.textTertiary)
+                .frame(width: 28)
 
-            StepperField(
-                value: $set.weight,
-                unit: "lb",
-                hint: (previousWeight ?? 0) > 0 && set.weight == 0 ? "prev \(Int(previousWeight!))" : nil,
-                accentColor: workoutColor
-            )
+            // Weight input
+            StepperField(value: $set.weight)
 
-            IntStepperField(
-                value: $set.reps,
-                unit: "reps",
-                hint: (previousReps ?? 0) > 0 && set.reps == 0 ? "prev \(previousReps!)" : nil,
-                accentColor: workoutColor
-            )
+            // Divider
+            Rectangle()
+                .fill(GQColors.borderDefault)
+                .frame(width: 0.5, height: 28)
 
-            Spacer()
+            // Reps input
+            IntStepperField(value: $set.reps)
 
+            // Completion button
             Button {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     set.isCompleted.toggle()
                     if set.isCompleted {
-                        justCompleted = true
-                        showCheckParticles = true
                         #if canImport(UIKit)
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         #endif
                         onComplete?()
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(600))
-                            justCompleted = false
-                            showCheckParticles = false
+                        withAnimation(.spring(response: 0.2, dampingFraction: 0.45)) {
+                            checkScale = 1.25
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.6)) {
+                                checkScale = 1.0
+                            }
                         }
                     }
-                }
-
-                if set.isCompleted {
-                    HapticManager.shared.setComplete(setNumber: setNumber, totalSets: totalSets)
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.45)) {
-                        checkScale = 1.28
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.6)) {
-                            checkScale = 1.0
-                        }
-                    }
-                    onComplete?()
                 }
             } label: {
                 Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 27))
-                    .foregroundColor(set.isCompleted ? workoutColor : GQColors.textTertiary)
+                    .font(.system(size: 26))
+                    .foregroundStyle(set.isCompleted ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary.opacity(0.3)))
                     .scaleEffect(checkScale)
+                    .frame(width: 40)
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(RoundedRectangle(cornerRadius: 10).fill(set.isCompleted ? GQColors.surfaceElevated : GQColors.surfaceBase))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(GQColors.borderDefault, lineWidth: 1))
-        .shadow(color: .black.opacity(0.03), radius: 2, y: 1)
-        .opacity(set.isCompleted ? 0.75 : 1.0)
+        .padding(.vertical, 6)
     }
 }
 
@@ -1924,7 +1750,7 @@ struct AddExerciseToSessionSheet: View {
                                     exerciseSection(
                                         title: "Suggested for \(workoutType.rawValue)",
                                         icon: "sparkles",
-                                        accentColor: GQColors.cyanSpark,
+                                        accentColor: GQColors.textSecondary,
                                         exercises: suggestedExercises,
                                         startIndex: 0
                                     )
@@ -1935,7 +1761,7 @@ struct AddExerciseToSessionSheet: View {
                                     exerciseSection(
                                         title: "Favorites",
                                         icon: "heart.fill",
-                                        accentColor: GQColors.coralRed,
+                                        accentColor: GQColors.textSecondary,
                                         exercises: favoriteExercises,
                                         startIndex: 0
                                     )
@@ -1946,7 +1772,7 @@ struct AddExerciseToSessionSheet: View {
                                     exerciseSection(
                                         title: "Recently Used",
                                         icon: "clock.fill",
-                                        accentColor: GQColors.cyanSpark,
+                                        accentColor: GQColors.textSecondary,
                                         exercises: recentFiltered,
                                         startIndex: favoriteExercises.count
                                     )
@@ -1980,7 +1806,7 @@ struct AddExerciseToSessionSheet: View {
                                             } else {
                                                 Image(systemName: exercise.equipment.icon)
                                                     .font(.system(size: 14))
-                                                    .foregroundColor(GQColors.cyanSpark)
+                                                    .foregroundColor(GQColors.textSecondary)
                                                     .frame(width: 24)
                                             }
                                             VStack(alignment: .leading, spacing: 1) {
@@ -1994,7 +1820,7 @@ struct AddExerciseToSessionSheet: View {
                                             Spacer()
                                             Image(systemName: "plus.circle.fill")
                                                 .font(.system(size: 18))
-                                                .foregroundColor(GQColors.vividPurple)
+                                                .foregroundColor(GQColors.textSecondary)
                                         }
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 10)
@@ -2123,31 +1949,8 @@ struct ExercisePickerCard: View {
         historyService.personalBest(exercise.name)
     }
 
-    private var muscleColor: Color {
-        switch exercise.muscleGroup {
-        case .chest: return GQColors.coralRed
-        case .back: return GQColors.deepBlue
-        case .shoulders: return GQColors.sunsetOrange
-        case .biceps: return GQColors.vividPurple
-        case .triceps: return GQColors.coralRed
-        case .quads: return GQColors.success
-        case .hamstrings: return GQColors.cyanSpark
-        case .glutes: return GQColors.deepBlue
-        case .calves: return GQColors.mint
-        case .core: return GQColors.electricGold
-        case .cardio: return GQColors.coralRed
-        case .fullBody: return GQColors.cyanSpark
-        case .flexibility: return GQColors.deepBlue
-        }
-    }
-
-    private var difficultyColor: Color {
-        switch exercise.difficulty {
-        case .beginner: return GQColors.success
-        case .intermediate: return GQColors.electricGold
-        case .advanced: return GQColors.sunsetOrange
-        }
-    }
+    private var muscleColor: Color { GQColors.textSecondary }
+    private var difficultyColor: Color { GQColors.textTertiary }
 
     var body: some View {
         Button(action: onTap) {
@@ -2179,7 +1982,7 @@ struct ExercisePickerCard: View {
                     Button(action: onToggleFavorite) {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
                             .font(.system(size: 18))
-                            .foregroundColor(isFavorite ? GQColors.coralRed : GQColors.textTertiary)
+                            .foregroundColor(isFavorite ? GQColors.deepBlue : GQColors.textTertiary)
                             .scaleEffect(heartScale)
                     }
                     .buttonStyle(.plain)
@@ -2211,7 +2014,7 @@ struct ExercisePickerCard: View {
                         if let pr = prData, pr.weight > 0 {
                             Text("PR: \(Int(pr.weight)) lbs")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(GQColors.electricGold)
+                                .foregroundColor(GQColors.textSecondary)
                         }
                     }
                 }
@@ -2273,14 +2076,8 @@ struct FilterChip: View {
                     Group {
                         if isSelected {
                             Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [GQColors.primary, GQColors.primary.opacity(0.8)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .shadow(color: GQColors.primary.opacity(0.09), radius: 6, y: 2)
+                                .fill(GQGradients.primary)
+                                .shadow(color: GQColors.deepBlue.opacity(0.09), radius: 6, y: 2)
                         } else {
                             Capsule()
                                 .fill(GQColors.surfaceOverlay)
@@ -2437,18 +2234,18 @@ struct WorkoutCompletionExperience: View {
         VStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(GQColors.success.opacity(0.15))
+                    .fill(GQColors.deepBlue.opacity(0.12))
                     .frame(width: 80, height: 80)
                 AnimatedGradientCircle(
                     size: 80,
                     lineWidth: 3,
-                    colors: [GQColors.success, GQColors.cyanSpark, GQColors.success],
+                    colors: [GQColors.deepBlue, GQColors.deepBlue, GQColors.deepBlue],
                     duration: 4
                 )
                 .opacity(checkmarkTrim)
                 Image(systemName: "checkmark")
                     .font(.system(size: 36, weight: .bold))
-                    .foregroundColor(GQColors.success)
+                    .foregroundStyle(GQGradients.primary)
             }
             .scaleEffect(phase >= 1 ? 1.0 : 0.3)
             .opacity(phase >= 1 ? 1.0 : 0)
@@ -2502,15 +2299,15 @@ struct WorkoutCompletionExperience: View {
                 HStack(spacing: 8) {
                     Image(systemName: "bolt.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(GQColors.electricGold)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("+\(animatedXP) XP")
                         .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(GQColors.electricGold)
+                        .foregroundColor(GQColors.textSecondary)
                         .contentTransition(.numericText())
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 16)
-                .background(Capsule().fill(GQColors.electricGold.opacity(0.12)))
+                .background(Capsule().fill(GQColors.textSecondary.opacity(0.12)))
                 .staggeredAppear(index: 4, stagger: 0.3)
             }
             .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -2522,7 +2319,7 @@ struct WorkoutCompletionExperience: View {
         VStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 16))
-                .foregroundColor(GQColors.vividPurple)
+                .foregroundColor(GQColors.deepBlue)
             HStack(spacing: 2) {
                 Text("\(animatedValue)")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -2550,7 +2347,7 @@ struct WorkoutCompletionExperience: View {
         VStack(spacing: 6) {
             Image(systemName: "scalemass.fill")
                 .font(.system(size: 16))
-                .foregroundColor(GQColors.vividPurple)
+                .foregroundColor(GQColors.deepBlue)
             HStack(spacing: 2) {
                 Text(animatedVolume >= 1000 ? String(format: "%.1fk", Double(animatedVolume) / 1000) : "\(animatedVolume)")
                     .font(GQTypography.heroNumber)
@@ -2579,7 +2376,7 @@ struct WorkoutCompletionExperience: View {
             VStack(spacing: 12) {
                 Text("PERSONAL RECORDS")
                     .font(.system(size: 12, weight: .heavy))
-                    .foregroundColor(GQColors.prGold)
+                    .foregroundColor(GQColors.deepBlue)
                     .tracking(1)
 
                 ForEach(allPRs) { pr in
@@ -2644,7 +2441,7 @@ struct WorkoutCompletionExperience: View {
                     .background(
                         RoundedRectangle(cornerRadius: 12)
                             .fill(LinearGradient(
-                                colors: hasPRs ? [GQColors.prGold, .orange] : [GQColors.deepBlue, GQColors.vividPurple],
+                                colors: [GQColors.deepBlue, GQColors.deepBlue],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             ))
@@ -2655,8 +2452,8 @@ struct WorkoutCompletionExperience: View {
                     cornerRadius: 12,
                     lineWidth: 1.5,
                     colors: hasPRs
-                        ? [GQColors.prGold, .white.opacity(0.6), GQColors.prGold]
-                        : [GQColors.deepBlue, GQColors.vividPurple, GQColors.deepBlue],
+                        ? [GQColors.deepBlue, .white.opacity(0.6), GQColors.deepBlue]
+                        : [GQColors.deepBlue, GQColors.deepBlue, GQColors.deepBlue],
                     duration: 4
                 )
                 .onAppear {
@@ -2748,7 +2545,7 @@ struct ExerciseFormDemoSheet: View {
                                         HStack(alignment: .top, spacing: 12) {
                                             Image(systemName: "xmark.circle.fill")
                                                 .font(.system(size: 16))
-                                                .foregroundColor(.red)
+                                                .foregroundColor(GQColors.textTertiary)
                                             Text(mistake)
                                                 .font(.system(size: 15))
                                                 .foregroundColor(GQColors.textPrimary)
@@ -2826,7 +2623,7 @@ struct WorkoutSessionCompletionSheet: View {
     @State private var videoData: Data?
 
     private var workoutTypeColors: [Color] {
-        GQGradients.workoutGradientColors(for: workoutType)
+        [GQColors.deepBlue, GQColors.deepBlue]
     }
 
     private var workoutGradient: LinearGradient {
@@ -2922,19 +2719,19 @@ struct WorkoutSessionCompletionSheet: View {
                     ZStack {
                         // Glow behind icon
                         Circle()
-                            .fill(GQColors.vividPurple.opacity(0.15))
+                            .fill(GQColors.deepBlue.opacity(0.15))
                             .frame(width: 120, height: 120)
                             .blur(radius: 30)
 
                         AnimatedGradientCircle(
                             size: 90,
                             lineWidth: 3,
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple]
+                            colors: [GQColors.deepBlue, GQColors.deepBlue, GQColors.deepBlue]
                         )
 
                         Image(systemName: workoutType.icon)
                             .font(.system(size: 36, weight: .medium))
-                            .foregroundColor(GQColors.vividPurple)
+                            .foregroundColor(GQColors.deepBlue)
                     }
                     .breathingFloat(intensity: 0.5)
 
@@ -2967,7 +2764,7 @@ struct WorkoutSessionCompletionSheet: View {
                 } label: {
                     Image(systemName: isFavoriteWorkout ? "heart.fill" : "heart")
                         .font(.system(size: 22))
-                        .foregroundColor(isFavoriteWorkout ? GQColors.coralRed : GQColors.textTertiary)
+                        .foregroundColor(isFavoriteWorkout ? GQColors.deepBlue : GQColors.textTertiary)
                         .scaleEffect(heartScale)
                         .frame(width: 44, height: 44)
                 }
@@ -2987,24 +2784,24 @@ struct WorkoutSessionCompletionSheet: View {
                 Spacer()
             }
 
-            GlassCard(accentColor: GQColors.vividPurple) {
+            GlassCard(accentColor: GQColors.deepBlue) {
                 VStack(spacing: 16) {
                     HStack(spacing: 24) {
                         CompletionStatItem(
                             icon: "clock.fill",
-                            iconColor: GQColors.cyanSpark,
+                            iconColor: GQColors.deepBlue,
                             value: "\(duration)",
                             label: "min"
                         )
                         CompletionStatItem(
                             icon: "checkmark.circle.fill",
-                            iconColor: GQColors.success,
+                            iconColor: GQColors.deepBlue,
                             value: "\(totalSets)",
                             label: "sets"
                         )
                         CompletionStatItem(
                             icon: "figure.strengthtraining.traditional",
-                            iconColor: GQColors.vividPurple,
+                            iconColor: GQColors.deepBlue,
                             value: "\(exercises.count)",
                             label: "exercises"
                         )
@@ -3014,7 +2811,7 @@ struct WorkoutSessionCompletionSheet: View {
                     HStack(spacing: 24) {
                         CompletionStatItem(
                             icon: "scalemass.fill",
-                            iconColor: GQColors.sunsetOrange,
+                            iconColor: GQColors.deepBlue,
                             value: totalVolume >= 1000 ? String(format: "%.1fk", totalVolume / 1000) : "\(Int(totalVolume))",
                             label: "lbs vol"
                         )
@@ -3022,13 +2819,13 @@ struct WorkoutSessionCompletionSheet: View {
                             VStack(spacing: 4) {
                                 Image(systemName: "trophy.fill")
                                     .font(.system(size: 14))
-                                    .foregroundColor(GQColors.electricGold)
+                                    .foregroundColor(GQColors.textSecondary)
                                 Text("Top Set")
                                     .font(.caption)
                                     .foregroundColor(GQColors.textSecondary)
                                 Text(top)
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(GQColors.electricGold)
+                                    .foregroundColor(GQColors.textSecondary)
                                     .lineLimit(1)
                             }
                         }
@@ -3058,7 +2855,7 @@ struct WorkoutSessionCompletionSheet: View {
                 }
             }
             .padding(16)
-            .homeSocialCard(accent: GQColors.vividPurple)
+            .homeSocialCard(accent: GQColors.deepBlue)
         }
     }
 
@@ -3128,11 +2925,11 @@ struct WorkoutSessionCompletionSheet: View {
                 // Icon in circle
                 ZStack {
                     Circle()
-                        .fill(GQColors.cyanSpark.opacity(0.15))
+                        .fill(GQColors.deepBlue.opacity(0.15))
                         .frame(width: 32, height: 32)
                     Image(systemName: "slider.horizontal.3")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.deepBlue)
                 }
 
                 Text("Customize Post")
@@ -3147,7 +2944,7 @@ struct WorkoutSessionCompletionSheet: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .homeSocialCard(accent: GQColors.cyanSpark, cornerRadius: 12)
+            .homeSocialCard(accent: GQColors.deepBlue, cornerRadius: 12)
         }
         .buttonStyle(GQInteractiveStyle())
     }
@@ -3163,7 +2960,7 @@ struct WorkoutSessionCompletionSheet: View {
             .font(.system(size: 16, weight: .bold))
         }
         .disabled(hasCompleted)
-        .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.vividPurple, cornerRadius: 18))
+        .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.deepBlue, cornerRadius: 18))
         .gqScreenHorizontalPadding()
     }
 
@@ -3232,7 +3029,7 @@ struct WorkoutSessionCompletionSheet: View {
                     HStack(spacing: 12) {
                         Image(systemName: "photo.on.rectangle.angled")
                             .font(.system(size: 20))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.deepBlue)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Add Photo or Video")
                                 .font(.system(size: 14, weight: .medium))
@@ -3315,7 +3112,7 @@ struct WorkoutSessionCompletionSheet: View {
                 HStack(spacing: 10) {
                     Image(systemName: "music.note")
                         .font(.system(size: 14))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.deepBlue)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(song.title)
                             .font(.system(size: 13, weight: .semibold))
@@ -3330,7 +3127,7 @@ struct WorkoutSessionCompletionSheet: View {
                     } label: {
                         Text("Change")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.deepBlue)
                     }
                     .buttonStyle(.plain)
                     Button {
@@ -3343,14 +3140,14 @@ struct WorkoutSessionCompletionSheet: View {
                     .buttonStyle(.plain)
                 }
                 .padding(12)
-                .background(GQColors.cyanSpark.opacity(0.08))
+                .background(GQColors.deepBlue.opacity(0.08))
                 .cornerRadius(12)
             } else {
                 Button { showMusicPicker = true } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "music.note.list")
                             .font(.system(size: 20))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.deepBlue)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Add a Song or Playlist")
                                 .font(.system(size: 14, weight: .medium))
@@ -3413,11 +3210,11 @@ struct WorkoutSessionCompletionSheet: View {
 
                                     if isTagged {
                                         Circle()
-                                            .stroke(GQColors.cyanSpark, lineWidth: 2)
+                                            .stroke(GQColors.deepBlue, lineWidth: 2)
                                             .frame(width: 52, height: 52)
                                         Image(systemName: "checkmark.circle.fill")
                                             .font(.system(size: 14))
-                                            .foregroundColor(GQColors.cyanSpark)
+                                            .foregroundColor(GQColors.deepBlue)
                                             .background(Circle().fill(Color.black).frame(width: 12, height: 12))
                                             .offset(x: 18, y: 18)
                                     }
@@ -3452,7 +3249,7 @@ struct WorkoutSessionCompletionSheet: View {
             HStack(spacing: 10) {
                 Image(systemName: "building.2.fill")
                     .font(.system(size: 16))
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundColor(GQColors.deepBlue)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Post to Club")
                         .font(.system(size: 14, weight: .medium))
@@ -3462,7 +3259,7 @@ struct WorkoutSessionCompletionSheet: View {
                 }
             }
         }
-        .tint(GQColors.vividPurple)
+        .tint(GQColors.deepBlue)
         .padding(14)
         .background(GQColors.surfaceOverlay)
         .cornerRadius(12)
@@ -3485,7 +3282,7 @@ struct WorkoutSessionCompletionSheet: View {
                 .padding(.vertical, 16)
                 .background(
                     LinearGradient(
-                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                        colors: [GQColors.deepBlue, GQColors.deepBlue],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -3748,7 +3545,7 @@ struct LiveGPSStatsBar: View {
             HStack(spacing: 6) {
                 Image(systemName: "map")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(GQColors.success)
+                    .foregroundColor(GQColors.deepBlue)
                 Text("\(distanceKm) km")
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
@@ -3761,7 +3558,7 @@ struct LiveGPSStatsBar: View {
             HStack(spacing: 6) {
                 Image(systemName: "speedometer")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.deepBlue)
                 Text("\(paceString) /km")
                     .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
@@ -3772,7 +3569,7 @@ struct LiveGPSStatsBar: View {
             // Live indicator
             HStack(spacing: 4) {
                 Circle()
-                    .fill(GQColors.success)
+                    .fill(GQColors.deepBlue)
                     .frame(width: 6, height: 6)
                 Text("GPS")
                     .font(.system(size: 11, weight: .semibold))
@@ -3864,7 +3661,7 @@ struct CompactRestTimerBar: View {
                     if showCheckmark {
                         Image(systemName: "checkmark")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(GQColors.success)
+                            .foregroundColor(GQColors.deepBlue)
                             .transition(.scale.combined(with: .opacity))
                     }
                 }
@@ -3875,12 +3672,12 @@ struct CompactRestTimerBar: View {
                     if showCheckmark {
                         Text("Go!")
                             .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(GQColors.success)
+                            .foregroundColor(GQColors.deepBlue)
                             .contentTransition(.symbolEffect(.replace))
                     } else {
                         Text("\(restTimeRemaining)s")
                             .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundColor(isUrgent ? GQColors.coralRed : GQColors.textPrimary)
+                            .foregroundColor(isUrgent ? GQColors.deepBlue : GQColors.textPrimary)
                             .contentTransition(.numericText())
                             .monospacedDigit()
                             .scaleEffect(heartbeatScale)
@@ -4071,9 +3868,9 @@ struct OverloadSuggestionPill: View {
 
     private var directionColor: Color {
         switch suggestion.direction {
-        case .increase: return GQColors.success
-        case .hold: return GQColors.electricGold
-        case .decrease: return GQColors.sunsetOrange
+        case .increase: return GQColors.deepBlue
+        case .hold: return GQColors.textSecondary
+        case .decrease: return GQColors.deepBlue
         }
     }
 }

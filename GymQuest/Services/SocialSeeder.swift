@@ -193,6 +193,9 @@ struct SocialSeeder {
             authorUsername: fakeUsers[2].username
         )
         p3.sharedWorkoutData = try? JSONEncoder().encode(p3Workout)
+        // PR: Jake hit a squat PR
+        let p3PR = [FeedPR(exerciseName: "Squat", value: "345×3", previousValue: "335×3", improvement: "+10 lbs", prType: "Weight PR")]
+        p3.prMomentsData = try? JSONEncoder().encode(p3PR)
         modelContext.insert(p3)
         postIds.append(p3.id)
 
@@ -315,6 +318,9 @@ struct SocialSeeder {
             ]
             p5.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        // PR: Tyler hit a bench PR
+        let p5PR = [FeedPR(exerciseName: "Bench Press", value: "205 lbs", previousValue: "195 lbs", improvement: "+10 lbs", prType: "Weight PR")]
+        p5.prMomentsData = try? JSONEncoder().encode(p5PR)
         modelContext.insert(p5)
         postIds.append(p5.id)
 
@@ -754,6 +760,9 @@ struct SocialSeeder {
             ]
             p12.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        // PR: Olivia hit an OHP PR
+        let p12PR = [FeedPR(exerciseName: "Overhead Press", value: "135 lbs", previousValue: "125 lbs", improvement: "+10 lbs", prType: "Weight PR")]
+        p12.prMomentsData = try? JSONEncoder().encode(p12PR)
         modelContext.insert(p12)
         postIds.append(p12.id)
 
@@ -1339,6 +1348,9 @@ struct SocialSeeder {
             authorUsername: fakeUsers[8].username
         )
         p24.sharedWorkoutData = try? JSONEncoder().encode(p24Workout)
+        // PR: Liam hit 2 plates on bench
+        let p24PR = [FeedPR(exerciseName: "Bench Press", value: "225×1", previousValue: "215×1", improvement: "+10 lbs", prType: "Weight PR")]
+        p24.prMomentsData = try? JSONEncoder().encode(p24PR)
         modelContext.insert(p24)
         postIds.append(p24.id)
 

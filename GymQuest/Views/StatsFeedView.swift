@@ -246,11 +246,11 @@ struct StatsFeedView: View {
             HStack(spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(GQColors.cyanSpark.opacity(0.15))
+                        .fill(GQColors.textSecondary.opacity(0.15))
                         .frame(width: 44, height: 44)
                     Image(systemName: "sparkles")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -330,8 +330,8 @@ struct StatsFeedView: View {
                 .frame(width: 80, height: 80)
 
             VStack(alignment: .leading, spacing: 6) {
-                ringLabel(color: GQColors.vividPurple, value: "\(weeklyWorkoutCount)/\(profile.daysPerWeek)", label: "Workouts")
-                ringLabel(color: GQColors.cyanSpark, value: weeklyVolumeFormatted, label: "Volume")
+                ringLabel(color: GQColors.deepBlue, value: "\(weeklyWorkoutCount)/\(profile.daysPerWeek)", label: "Workouts")
+                ringLabel(color: GQColors.textSecondary, value: weeklyVolumeFormatted, label: "Volume")
                 ringLabel(color: GQColors.success, value: "\(currentStreak)d", label: "Streak")
             }
             Spacer()
@@ -348,9 +348,9 @@ struct StatsFeedView: View {
         let streakProgress = min(Double(currentStreak) / 7.0, 1.0)
 
         ZStack {
-            Circle().stroke(GQColors.vividPurple.opacity(0.15), style: StrokeStyle(lineWidth: 8, lineCap: .round))
+            Circle().stroke(GQColors.deepBlue.opacity(0.15), style: StrokeStyle(lineWidth: 8, lineCap: .round))
                 .frame(width: 72, height: 72)
-            Circle().stroke(GQColors.cyanSpark.opacity(0.15), style: StrokeStyle(lineWidth: 7, lineCap: .round))
+            Circle().stroke(GQColors.textSecondary.opacity(0.15), style: StrokeStyle(lineWidth: 7, lineCap: .round))
                 .frame(width: 54, height: 54)
             Circle().stroke(GQColors.success.opacity(0.15), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .frame(width: 38, height: 38)
@@ -358,7 +358,7 @@ struct StatsFeedView: View {
             Circle()
                 .trim(from: 0, to: ringsAnimated ? workoutProgress : 0)
                 .stroke(
-                    AngularGradient(colors: [GQColors.deepBlue, GQColors.vividPurple], center: .center),
+                    AngularGradient(colors: [GQColors.deepBlue, GQColors.deepBlue], center: .center),
                     style: StrokeStyle(lineWidth: 8, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
@@ -366,7 +366,7 @@ struct StatsFeedView: View {
 
             Circle()
                 .trim(from: 0, to: ringsAnimated ? volumeProgress : 0)
-                .stroke(GQColors.cyanSpark, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                .stroke(GQColors.textSecondary, style: StrokeStyle(lineWidth: 7, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: 54, height: 54)
 
@@ -405,7 +405,7 @@ struct StatsFeedView: View {
                     Button { showingHealthDashboard = true } label: {
                         Text("See All")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
                     }
                 }
 
@@ -413,7 +413,7 @@ struct StatsFeedView: View {
                     healthStatPill(icon: "figure.walk", value: "\(healthKit.steps)", label: "Steps", color: .green)
                     healthStatPill(icon: "flame.fill", value: "\(healthKit.activeCalories)", label: "Active Cal", color: .orange)
                     healthStatPill(icon: "bed.double.fill", value: String(format: "%.1fh", healthKit.sleepHours), label: "Sleep", color: .indigo)
-                    healthStatPill(icon: "figure.run", value: "\(healthKit.exerciseMinutes)m", label: "Exercise", color: GQColors.cyanSpark)
+                    healthStatPill(icon: "figure.run", value: "\(healthKit.exerciseMinutes)m", label: "Exercise", color: GQColors.textSecondary)
                 }
             }
             .padding(10)
@@ -502,7 +502,7 @@ struct StatsFeedView: View {
                 Button { showingBodyMeasurements = true } label: {
                     Text("See All")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
             bodyWeightChart
@@ -519,11 +519,11 @@ struct StatsFeedView: View {
         if weightMeasurements.count >= 2 {
             Chart(weightMeasurements, id: \.id) { m in
                 LineMark(x: .value("Date", m.date), y: .value("Weight", m.value))
-                    .foregroundStyle(GQColors.vividPurple)
+                    .foregroundStyle(GQColors.deepBlue)
                     .interpolationMethod(.catmullRom)
                 AreaMark(x: .value("Date", m.date), y: .value("Weight", m.value))
                     .foregroundStyle(
-                        LinearGradient(colors: [GQColors.vividPurple.opacity(0.3), .clear],
+                        LinearGradient(colors: [GQColors.deepBlue.opacity(0.3), .clear],
                                        startPoint: .top, endPoint: .bottom)
                     )
                     .interpolationMethod(.catmullRom)
@@ -645,7 +645,7 @@ struct StatsFeedView: View {
             } label: {
                 Text("See All")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundColor(GQColors.deepBlue)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 4)
             }
@@ -657,7 +657,7 @@ struct StatsFeedView: View {
         HStack(spacing: 8) {
             Image(systemName: "trophy.fill")
                 .font(.system(size: 12))
-                .foregroundColor(GQColors.prGold)
+                .foregroundColor(GQColors.textSecondary)
 
             if FeatureFlags.shared.exerciseGifsEnabled {
                 ExerciseGifView(exerciseName: pr.exerciseName, size: .thumbnail, showFallback: false)
@@ -738,10 +738,10 @@ struct StatsFeedView: View {
                     } label: {
                         Text(name)
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(isSelected ? .white : GQColors.vividPurple)
+                            .foregroundColor(isSelected ? .white : GQColors.deepBlue)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
-                            .background(isSelected ? GQColors.vividPurple : GQColors.vividPurple.opacity(0.1))
+                            .background(isSelected ? GQColors.deepBlue : GQColors.deepBlue.opacity(0.1))
                             .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)

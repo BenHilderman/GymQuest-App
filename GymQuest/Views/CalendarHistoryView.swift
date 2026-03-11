@@ -38,7 +38,7 @@ struct CalendarHistoryView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .foregroundStyle(GQColors.vividPurple)
+                        .foregroundStyle(GQColors.deepBlue)
                 }
             }
             .sheet(isPresented: $showingWorkoutReview) {
@@ -63,7 +63,7 @@ struct CalendarHistoryView: View {
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(GQColors.vividPurple)
+                    .foregroundStyle(GQColors.deepBlue)
                     .frame(width: 40, height: 40)
             }
 
@@ -82,7 +82,7 @@ struct CalendarHistoryView: View {
             } label: {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(GQColors.vividPurple)
+                    .foregroundStyle(GQColors.deepBlue)
                     .frame(width: 40, height: 40)
             }
         }
@@ -159,7 +159,7 @@ struct CalendarHistoryView: View {
                 Group {
                     if isToday {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(GQColors.vividPurple.opacity(0.5), lineWidth: 2)
+                            .stroke(GQColors.deepBlue.opacity(0.5), lineWidth: 2)
                     }
                 }
             )
@@ -176,7 +176,7 @@ struct CalendarHistoryView: View {
             }
             return AnyShapeStyle(
                 LinearGradient(
-                    colors: [GQColors.deepBlue.opacity(0.8), GQColors.vividPurple.opacity(0.8)],
+                    colors: [GQColors.deepBlue.opacity(0.8), GQColors.deepBlue.opacity(0.8)],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

@@ -135,10 +135,10 @@ private struct StrainGaugeCard: View {
     let source: String
 
     private var strainColor: Color {
-        if strain >= 18 { return GQColors.coralRed }
-        if strain >= 14 { return GQColors.sunsetOrange }
-        if strain >= 10 { return GQColors.electricGold }
-        if strain >= 6 { return GQColors.cyanSpark }
+        if strain >= 18 { return GQColors.textSecondary }
+        if strain >= 14 { return GQColors.textSecondary }
+        if strain >= 10 { return GQColors.textSecondary }
+        if strain >= 6 { return GQColors.textSecondary }
         return GQColors.success
     }
 
@@ -265,7 +265,7 @@ private struct SleepBreakdownCard: View {
                     HStack(spacing: 2) {
                         if stages.lightPercentage > 0 {
                             Rectangle()
-                                .fill(GQColors.cyanSpark.opacity(0.6))
+                                .fill(GQColors.textSecondary.opacity(0.6))
                                 .frame(width: geo.size.width * stages.lightPercentage / 100)
                         }
                         if stages.deepPercentage > 0 {
@@ -275,7 +275,7 @@ private struct SleepBreakdownCard: View {
                         }
                         if stages.remPercentage > 0 {
                             Rectangle()
-                                .fill(GQColors.coralRed.opacity(0.72))
+                                .fill(GQColors.textSecondary.opacity(0.72))
                                 .frame(width: geo.size.width * stages.remPercentage / 100)
                         }
                     }
@@ -287,9 +287,9 @@ private struct SleepBreakdownCard: View {
             // Expanded detail
             if isExpanded && totalHours > 0 {
                 VStack(spacing: 8) {
-                    SleepStageRow(label: "Light", hours: stages.lightHours, pct: stages.lightPercentage, color: GQColors.cyanSpark.opacity(0.6))
+                    SleepStageRow(label: "Light", hours: stages.lightHours, pct: stages.lightPercentage, color: GQColors.textSecondary.opacity(0.6))
                     SleepStageRow(label: "Deep", hours: stages.deepHours, pct: stages.deepPercentage, color: GQColors.deepBlue)
-                    SleepStageRow(label: "REM", hours: stages.remHours, pct: stages.remPercentage, color: GQColors.coralRed.opacity(0.72))
+                    SleepStageRow(label: "REM", hours: stages.remHours, pct: stages.remPercentage, color: GQColors.textSecondary.opacity(0.72))
                     SleepStageRow(label: "Awake", hours: stages.awakeHours, pct: 0, color: GQColors.textTertiary)
 
                     if efficiency > 0 {
@@ -300,7 +300,7 @@ private struct SleepBreakdownCard: View {
                             Spacer()
                             Text("\(Int(efficiency))%")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(efficiency >= 85 ? GQColors.success : GQColors.electricGold)
+                                .foregroundColor(efficiency >= 85 ? GQColors.success : GQColors.textSecondary)
                         }
                     }
 
@@ -313,7 +313,7 @@ private struct SleepBreakdownCard: View {
                                 Spacer()
                                 Text("\(Int(perf))%")
                                     .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(perf >= 85 ? GQColors.success : GQColors.electricGold)
+                                    .foregroundColor(perf >= 85 ? GQColors.success : GQColors.textSecondary)
                             }
                         }
                     }
@@ -396,7 +396,7 @@ private struct VitalsGridCard: View {
                 HStack {
                     Image(systemName: "heart.text.square.fill")
                         .font(.system(size: 14))
-                        .foregroundColor(GQColors.coralRed)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("Health Monitor")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
@@ -415,7 +415,7 @@ private struct VitalsGridCard: View {
                     VitalItem(icon: "heart.fill", value: "\(Int(displayRHR))", unit: "bpm", label: "RHR", color: .red)
                 }
                 if displayHRV > 0 {
-                    VitalItem(icon: "waveform.path.ecg", value: "\(Int(displayHRV))", unit: "ms", label: "HRV", color: GQColors.cyanSpark)
+                    VitalItem(icon: "waveform.path.ecg", value: "\(Int(displayHRV))", unit: "ms", label: "HRV", color: GQColors.textSecondary)
                 }
                 if displaySpO2 > 0 {
                     VitalItem(icon: "lungs.fill", value: "\(Int(displaySpO2))", unit: "%", label: "SpO2", color: GQColors.deepBlue)
@@ -432,11 +432,11 @@ private struct VitalsGridCard: View {
                             VitalItem(icon: "wind", value: String(format: "%.1f", respRate), unit: "/min", label: "Resp", color: GQColors.success)
                         }
                         if vo2Max > 0 {
-                            VitalItem(icon: "figure.run", value: String(format: "%.1f", vo2Max), unit: "ml", label: "VO2", color: GQColors.sunsetOrange)
+                            VitalItem(icon: "figure.run", value: String(format: "%.1f", vo2Max), unit: "ml", label: "VO2", color: GQColors.textSecondary)
                         }
                         if wristTemp != 0 {
                             let sign = wristTemp >= 0 ? "+" : ""
-                            VitalItem(icon: "thermometer.medium", value: "\(sign)\(String(format: "%.1f", wristTemp))", unit: "°C", label: "Temp", color: GQColors.electricGold)
+                            VitalItem(icon: "thermometer.medium", value: "\(sign)\(String(format: "%.1f", wristTemp))", unit: "°C", label: "Temp", color: GQColors.textSecondary)
                         }
                     }
                 }
@@ -491,9 +491,9 @@ private struct StrengthScoreCard: View {
 
     private var scoreColor: Color {
         if score >= 80 { return GQColors.success }
-        if score >= 60 { return GQColors.cyanSpark }
-        if score >= 40 { return GQColors.electricGold }
-        return GQColors.sunsetOrange
+        if score >= 60 { return GQColors.textSecondary }
+        if score >= 40 { return GQColors.textSecondary }
+        return GQColors.textSecondary
     }
 
     private var scoreLabel: String {
@@ -608,13 +608,13 @@ struct ActivitySummaryCard: View {
         HStack(spacing: 8) {
             Image(systemName: "dumbbell.fill")
                 .font(.system(size: 12))
-                .foregroundColor(GQColors.vividPurple)
+                .foregroundColor(GQColors.deepBlue)
             Text("Next up: ")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(GQColors.textPrimary.opacity(0.7))
             + Text(suggestion.rawValue)
                 .font(.system(size: 13, weight: .bold))
-                .foregroundColor(GQColors.vividPurple)
+                .foregroundColor(GQColors.deepBlue)
             Spacer()
         }
     }

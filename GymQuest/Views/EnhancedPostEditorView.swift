@@ -69,10 +69,6 @@ struct EnhancedPostEditorView: View {
                         WorkoutSummaryHeader(workout: workout, duration: duration)
                     }
 
-                    // Emotion picker
-                    WorkoutEmotionPicker(selectedEmotion: $selectedEmotion, compact: true)
-                        .padding(.horizontal, 16)
-
                     // Caption editor
                     CaptionEditor(caption: $caption)
 
@@ -110,7 +106,7 @@ struct EnhancedPostEditorView: View {
                             icon: "at",
                             title: "Tag People",
                             selectedCount: taggedUsernames.count,
-                            color: GQColors.cyanSpark
+                            color: GQColors.textSecondary
                         ) {
                             showUserTagger = true
                         }
@@ -130,7 +126,7 @@ struct EnhancedPostEditorView: View {
                             icon: "person.3.fill",
                             title: "Share with Squads",
                             selectedCount: taggedSquads.count,
-                            color: GQColors.vividPurple
+                            color: GQColors.deepBlue
                         ) {
                             showSquadPicker = true
                         }
@@ -170,12 +166,12 @@ struct EnhancedPostEditorView: View {
                     Toggle(isOn: $includeStats) {
                         HStack {
                             Image(systemName: "chart.bar.fill")
-                                .foregroundColor(GQColors.cyanSpark)
+                                .foregroundColor(GQColors.textSecondary)
                             Text("Include workout stats")
                                 .font(.subheadline)
                         }
                     }
-                    .tint(GQColors.cyanSpark)
+                    .tint(GQColors.textSecondary)
                     .padding(.horizontal)
 
                     Spacer(minLength: 100)
@@ -193,7 +189,7 @@ struct EnhancedPostEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Post") { createPost() }
                         .fontWeight(.semibold)
-                        .foregroundColor(mediaItems.isEmpty ? GQColors.textSecondary : GQColors.cyanSpark)
+                        .foregroundColor(mediaItems.isEmpty ? GQColors.textSecondary : GQColors.textSecondary)
                         .disabled(mediaItems.isEmpty)
                 }
             }
@@ -480,7 +476,7 @@ struct MediaSlot: View {
                                 .font(.system(size: 24))
                                 .foregroundStyle(
                                     LinearGradient(
-                                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                        colors: [GQColors.deepBlue, GQColors.textSecondary],
                                         startPoint: .topLeading,
                                         endPoint: .bottomTrailing
                                     )
@@ -503,7 +499,7 @@ struct MediaSlot: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(GQColors.vividPurple)
+                                .background(GQColors.deepBlue)
                                 .cornerRadius(8)
                         }
                     }
@@ -586,7 +582,7 @@ struct TaggedItemsPreview: View {
                         PostTagChip(
                             icon: "at",
                             text: username,
-                            color: GQColors.cyanSpark
+                            color: GQColors.textSecondary
                         ) {
                             onRemoveUser(username)
                         }
@@ -608,7 +604,7 @@ struct TaggedItemsPreview: View {
                         PostTagChip(
                             icon: "person.3.fill",
                             text: squad.name,
-                            color: GQColors.vividPurple
+                            color: GQColors.deepBlue
                         ) {
                             onRemoveSquad(squad)
                         }
@@ -728,7 +724,7 @@ struct MediaPickerSheet: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                 }
-                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.vividPurple))
+                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.deepBlue))
                 .padding(.horizontal)
 
                 // Camera button
@@ -886,7 +882,7 @@ struct UserTaggingView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
         }
@@ -912,7 +908,7 @@ struct FriendTagRow: View {
         Button(action: onToggle) {
             HStack {
                 Circle()
-                    .fill(GQColors.vividPurple.opacity(0.3))
+                    .fill(GQColors.deepBlue.opacity(0.3))
                     .frame(width: 40, height: 40)
                     .overlay(
                         Text(String(friend.odName.prefix(1)).uppercased())
@@ -934,7 +930,7 @@ struct FriendTagRow: View {
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
-                    .foregroundColor(isSelected ? GQColors.cyanSpark : GQColors.textTertiary)
+                    .foregroundColor(isSelected ? GQColors.textSecondary : GQColors.textTertiary)
             }
             .padding(.vertical, 8)
         }
@@ -1167,7 +1163,7 @@ struct SquadTaggingView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
         }
@@ -1217,16 +1213,16 @@ struct SquadTagRow: View {
                 if squad.streakWeeks > 0 {
                     HStack(spacing: 3) {
                         Image(systemName: "flame.fill")
-                            .foregroundColor(GQColors.sunsetOrange)
+                            .foregroundColor(GQColors.textSecondary)
                         Text("\(squad.streakWeeks)w")
-                            .foregroundColor(GQColors.sunsetOrange)
+                            .foregroundColor(GQColors.textSecondary)
                     }
                     .font(.system(size: 11, weight: .semibold))
                 }
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
-                    .foregroundColor(isSelected ? GQColors.vividPurple : GQColors.textTertiary)
+                    .foregroundColor(isSelected ? GQColors.deepBlue : GQColors.textTertiary)
             }
             .padding(.vertical, 8)
         }

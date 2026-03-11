@@ -553,7 +553,7 @@ struct PlaybackControls: View {
                             .padding(.vertical, 6)
                             .background(
                                 playbackSpeed == speed
-                                    ? GQColors.vividPurple.opacity(0.3)
+                                    ? GQColors.deepBlue.opacity(0.3)
                                     : Color.black.opacity(0.03)
                             )
                             .cornerRadius(6)
@@ -575,11 +575,11 @@ struct PlaybackControls: View {
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(GQColors.vividPurple.opacity(0.3))
+                        .fill(GQColors.deepBlue.opacity(0.3))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(GQColors.vividPurple.opacity(0.5), lineWidth: 1)
+                        .stroke(GQColors.deepBlue.opacity(0.5), lineWidth: 1)
                 )
             }
         }
@@ -613,14 +613,14 @@ struct AngleButton: View {
                 .padding(.vertical, 10)
                 .background(
                     isSelected
-                        ? GQColors.vividPurple.opacity(0.3)
+                        ? GQColors.deepBlue.opacity(0.3)
                         : Color.black.opacity(0.03)
                 )
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(
-                            isSelected ? GQColors.vividPurple.opacity(0.5) : Color.clear,
+                            isSelected ? GQColors.deepBlue.opacity(0.5) : Color.clear,
                             lineWidth: 1
                         )
                 )

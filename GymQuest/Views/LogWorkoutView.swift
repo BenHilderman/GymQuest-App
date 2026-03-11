@@ -146,7 +146,7 @@ struct LogWorkoutView: View {
 
                 Image(systemName: includeWorkout ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
-                    .foregroundColor(includeWorkout ? GQColors.cyanSpark : .gray.opacity(0.5))
+                    .foregroundColor(includeWorkout ? GQColors.textSecondary : .gray.opacity(0.5))
             }
             .padding(16)
             .background(includeWorkout ? GQColors.overlayLight : GQColors.overlaySubtle)
@@ -696,7 +696,7 @@ struct AddExerciseSheet: View {
                     exercises.append(newExercise)
                     dismiss()
                 }
-                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.cyanSpark))
+                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.textSecondary))
 
                 Spacer()
             }

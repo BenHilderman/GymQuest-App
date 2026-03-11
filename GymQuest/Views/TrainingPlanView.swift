@@ -72,7 +72,7 @@ struct TrainingPlanView: View {
                     Text(currentWeekData.focus.uppercased())
                         .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundColor(GQColors.vividPurple)
+                        .foregroundColor(GQColors.deepBlue)
 
                     ForEach(currentWeekData.days) { day in
                         dayRow(day, plan: plan)
@@ -242,7 +242,7 @@ struct TrainingPlanView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(isGenerating ? Color.gray : GQColors.vividPurple)
+                .background(isGenerating ? Color.gray : GQColors.deepBlue)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .disabled(isGenerating)
             }

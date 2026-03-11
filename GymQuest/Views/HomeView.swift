@@ -100,7 +100,7 @@ struct ActivityView: View {
                             icon: "figure.strengthtraining.traditional",
                             title: "Start Workout",
                             subtitle: todayWorkout != nil ? "Completed today" : "Begin a live session",
-                            accentColor: GQColors.vividPurple,
+                            accentColor: GQColors.deepBlue,
                             isPrimary: true
                         ) {
                             showingWorkoutTypePicker = true
@@ -111,7 +111,7 @@ struct ActivityView: View {
                             icon: "fork.knife",
                             title: "Log Food",
                             subtitle: "Track nutrition",
-                            accentColor: GQColors.coralRed,
+                            accentColor: GQColors.textSecondary,
                             isPrimary: false
                         ) {
                             showingMealLog = true
@@ -122,7 +122,7 @@ struct ActivityView: View {
                             icon: "chart.line.uptrend.xyaxis",
                             title: "View Progress",
                             subtitle: "\(streak) day streak",
-                            accentColor: GQColors.success,
+                            accentColor: GQColors.textSecondary,
                             isPrimary: false
                         ) {
                             appState.showingLogEntry = true
@@ -195,7 +195,7 @@ struct ActivityView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 28))
-                        .foregroundStyle(GQColors.sunsetOrange)
+                        .foregroundStyle(GQColors.textSecondary)
                     Text("\(streak)")
                         .font(GQTypography.heroMetric)
                         .foregroundStyle(GQColors.textPrimary)
@@ -237,19 +237,19 @@ struct ActivityView: View {
                         icon: "flame.fill",
                         value: "\(streak)",
                         label: "Streak",
-                        color: GQColors.success
+                        color: GQColors.textSecondary
                     )
                     WorkoutFlowMetricChip(
                         icon: "dumbbell.fill",
                         value: "\(workoutsThisWeek)",
                         label: "This Week",
-                        color: GQColors.vividPurple
+                        color: GQColors.deepBlue
                     )
                     WorkoutFlowMetricChip(
                         icon: "star.fill",
                         value: "Lv \(profile.level)",
                         label: "Level",
-                        color: GQColors.cyanSpark
+                        color: GQColors.textSecondary
                     )
                 }
                 .padding(.vertical, 6)
@@ -316,7 +316,7 @@ struct ActivityView: View {
                         HStack(spacing: 12) {
                             Image(systemName: "trophy.fill")
                                 .font(.system(size: 16))
-                                .foregroundColor(GQColors.electricGold)
+                                .foregroundColor(GQColors.textSecondary)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(pr.exerciseName)
@@ -338,7 +338,7 @@ struct ActivityView: View {
                                 if let delta = pr.delta, delta > 0 {
                                     Text("+\(Int(delta)) lbs")
                                         .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(GQColors.success)
+                                        .foregroundColor(GQColors.textSecondary)
                                 }
                             }
                         }
@@ -585,7 +585,7 @@ struct HomeActionCard: View {
                             .animatedGradientBorder(
                                 cornerRadius: 16,
                                 lineWidth: 1.5,
-                                colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                                colors: [GQColors.deepBlue, GQColors.textSecondary, GQColors.deepBlue],
                                 duration: 4.0
                             )
                     } else {
@@ -636,7 +636,7 @@ struct DayTileView: View {
                         .animatedGradientBorder(
                             cornerRadius: 10,
                             lineWidth: 2,
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark, GQColors.vividPurple],
+                            colors: [GQColors.deepBlue, GQColors.textSecondary, GQColors.deepBlue],
                             duration: 4.0
                         )
                 }
@@ -664,7 +664,7 @@ struct DayTileView: View {
                                         .frame(width: 14, height: 14)
                                     Image(systemName: "checkmark.circle.fill")
                                         .font(.system(size: 12))
-                                        .foregroundColor(GQColors.success)
+                                        .foregroundColor(GQColors.textSecondary)
                                 }
                                 .offset(x: 10, y: -8)
                             }
@@ -683,7 +683,7 @@ struct DayTileView: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                colors: [GQColors.deepBlue, GQColors.textSecondary],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -804,23 +804,23 @@ struct WeeklyProgressCard: View {
             HStack(spacing: 8) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 12))
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundColor(GQColors.deepBlue)
                 Text("Start your first workout!")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundColor(GQColors.deepBlue)
                 Spacer()
             }
         } else {
             HStack(spacing: 8) {
                 Image(systemName: "dumbbell.fill")
                     .font(.system(size: 12))
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundColor(GQColors.deepBlue)
                 Text("Next up: ")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(GQColors.textPrimary.opacity(0.7))
                 + Text(suggestedNextWorkout.rawValue)
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundColor(GQColors.deepBlue)
                 Spacer()
             }
         }
@@ -845,7 +845,7 @@ struct WeeklyProgressCard: View {
 
                             Image(systemName: "pencil.circle.fill")
                                 .font(.system(size: 14))
-                                .foregroundColor(GQColors.vividPurple.opacity(0.6))
+                                .foregroundColor(GQColors.deepBlue.opacity(0.6))
                         }
                     }
                     .buttonStyle(.plain)
@@ -862,7 +862,7 @@ struct WeeklyProgressCard: View {
                         .trim(from: 0, to: circleAnimated ? progressPercentage : 0)
                         .stroke(
                             LinearGradient(
-                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                colors: [GQColors.deepBlue, GQColors.textSecondary],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
@@ -993,10 +993,10 @@ struct WorkoutReviewSheet: View {
                     .padding(.horizontal)
 
                     HStack(spacing: 12) {
-                        WorkoutStatBadge(icon: "clock.fill", value: "\(workout.duration)", label: "min", color: GQColors.cyanSpark)
-                        WorkoutStatBadge(icon: "number", value: "\(workout.totalSets)", label: "sets", color: GQColors.vividPurple)
-                        WorkoutStatBadge(icon: "scalemass.fill", value: formatVolume(workout.totalVolume), label: "lbs", color: GQColors.sunsetOrange)
-                        WorkoutStatBadge(icon: "gauge.high", value: "\(workout.rpe)", label: "RPE", color: workout.rpe >= 8 ? GQColors.coralRed : GQColors.success)
+                        WorkoutStatBadge(icon: "clock.fill", value: "\(workout.duration)", label: "min", color: GQColors.textSecondary)
+                        WorkoutStatBadge(icon: "number", value: "\(workout.totalSets)", label: "sets", color: GQColors.deepBlue)
+                        WorkoutStatBadge(icon: "scalemass.fill", value: formatVolume(workout.totalVolume), label: "lbs", color: GQColors.textSecondary)
+                        WorkoutStatBadge(icon: "gauge.high", value: "\(workout.rpe)", label: "RPE", color: workout.rpe >= 8 ? GQColors.textSecondary : GQColors.textSecondary)
                     }
                     .padding(.horizontal)
 
@@ -1042,7 +1042,7 @@ struct WorkoutReviewSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
         }
@@ -1171,10 +1171,10 @@ struct ActiveQuestCard: View {
                     Text("+\(quest.xpReward)")
                 }
                 .font(.system(size: 12, weight: .bold))
-                .foregroundColor(GQColors.cyanSpark)
+                .foregroundColor(GQColors.textSecondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(GQColors.cyanSpark.opacity(0.15))
+                .background(GQColors.textSecondary.opacity(0.15))
                 .cornerRadius(8)
             }
 
@@ -1182,7 +1182,7 @@ struct ActiveQuestCard: View {
                 AnimatedProgressBar(
                     progress: progress.progressPercentage,
                     height: 8,
-                    colors: [GQColors.vividPurple, GQColors.deepBlue]
+                    colors: [GQColors.deepBlue, GQColors.deepBlue]
                 )
 
                 HStack {
@@ -1198,7 +1198,7 @@ struct ActiveQuestCard: View {
                             Text("Complete!")
                         }
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(GQColors.success)
+                        .foregroundColor(GQColors.textSecondary)
                     }
                 }
             }
@@ -1353,7 +1353,7 @@ struct StartWorkoutSheet: View {
                     .padding(.vertical, 16)
                     .background(
                         LinearGradient(
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            colors: [GQColors.deepBlue, GQColors.textSecondary],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -1464,7 +1464,7 @@ struct StartWorkoutSheet: View {
                     .foregroundColor(isSelected ? .white : GQColors.textSecondary)
                     .frame(width: 32, height: 32)
                     .background(
-                        (isSelected ? GQColors.vividPurple : GQColors.adaptiveOverlay(0.05))
+                        (isSelected ? GQColors.deepBlue : GQColors.adaptiveOverlay(0.05))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                     )
 
@@ -1481,12 +1481,12 @@ struct StartWorkoutSheet: View {
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(GQColors.vividPurple)
+                        .foregroundColor(GQColors.deepBlue)
                 }
             }
             .padding(12)
             .background(RoundedRectangle(cornerRadius: 12).fill(GQColors.adaptiveOverlay(isSelected ? 0.05 : 0.02)))
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? GQColors.vividPurple.opacity(0.6) : GQColors.adaptiveOverlay(0.04), lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(isSelected ? GQColors.deepBlue.opacity(0.6) : GQColors.adaptiveOverlay(0.04), lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -1513,13 +1513,13 @@ struct StartWorkoutSheet: View {
                     Spacer()
                     Text("\(last.totalSets) sets")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(GQColors.adaptiveOverlay(0.02))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(GQColors.cyanSpark.opacity(0.3), lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(GQColors.textSecondary.opacity(0.3), lineWidth: 1))
                 )
             }
             .padding(.horizontal)
@@ -1546,7 +1546,7 @@ struct StartWorkoutSheet: View {
             .padding(.vertical, 16)
             .background(
                 LinearGradient(
-                    colors: startButtonEnabled ? [GQColors.vividPurple, GQColors.cyanSpark] : [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
+                    colors: startButtonEnabled ? [GQColors.deepBlue, GQColors.textSecondary] : [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
@@ -1746,13 +1746,13 @@ struct LaunchModeCard: View {
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .fill(isSelected ?
-                        LinearGradient(colors: [GQColors.vividPurple.opacity(0.4), GQColors.cyanSpark.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                        LinearGradient(colors: [GQColors.deepBlue.opacity(0.4), GQColors.textSecondary.opacity(0.2)], startPoint: .topLeading, endPoint: .bottomTrailing) :
                         LinearGradient(colors: [GQColors.adaptiveOverlay(0.04), GQColors.adaptiveOverlay(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing)
                     )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.8) : GQColors.adaptiveOverlay(isAvailable ? 0.05 : 0.02), lineWidth: isSelected ? 1.5 : 1)
+                    .stroke(isSelected ? GQColors.deepBlue.opacity(0.8) : GQColors.adaptiveOverlay(isAvailable ? 0.05 : 0.02), lineWidth: isSelected ? 1.5 : 1)
             )
             .opacity(isAvailable ? 1 : 0.5)
         }
@@ -1781,7 +1781,7 @@ struct WorkoutTypeCard: View {
             .padding(.vertical, 20)
             .background(
                 isSelected ?
-                    LinearGradient(colors: [GQColors.vividPurple, GQColors.cyanSpark], startPoint: .topLeading, endPoint: .bottomTrailing) :
+                    LinearGradient(colors: [GQColors.deepBlue, GQColors.textSecondary], startPoint: .topLeading, endPoint: .bottomTrailing) :
                     LinearGradient(colors: [GQColors.adaptiveOverlay(0.05), GQColors.adaptiveOverlay(0.03)], startPoint: .topLeading, endPoint: .bottomTrailing)
             )
             .cornerRadius(16)
@@ -1814,7 +1814,7 @@ struct SquadChallengeCard: View {
             HStack(spacing: 8) {
                 Image(systemName: "trophy.fill")
                     .font(.system(size: 14))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
                 Text(squad.name)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary.opacity(0.7))
@@ -1836,7 +1836,7 @@ struct SquadChallengeCard: View {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(
                             LinearGradient(
-                                colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                                colors: [GQColors.deepBlue, GQColors.textSecondary],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -1854,15 +1854,15 @@ struct SquadChallengeCard: View {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
                         .font(.system(size: 10))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                     Text("+\(challenge.xpReward) XP")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
         }
         .padding(14)
-        .homeSocialCard(accent: GQColors.vividPurple, emphasized: false, sweepDelay: 2.5)
+        .homeSocialCard(accent: GQColors.deepBlue, emphasized: false, sweepDelay: 2.5)
     }
 }
 

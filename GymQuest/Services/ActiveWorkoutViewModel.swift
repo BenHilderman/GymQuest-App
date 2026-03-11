@@ -131,10 +131,10 @@ enum SetEffort: String, CaseIterable {
 
     var color: Color {
         switch self {
-        case .easy: return GQColors.cyanSpark
+        case .easy: return GQColors.textSecondary
         case .justRight: return GQColors.success
-        case .hard: return GQColors.sunsetOrange
-        case .failed: return GQColors.coralRed
+        case .hard: return GQColors.textSecondary
+        case .failed: return GQColors.textSecondary
         }
     }
 }

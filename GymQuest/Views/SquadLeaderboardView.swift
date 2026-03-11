@@ -63,7 +63,7 @@ struct SquadLeaderboardView: View {
         HStack(spacing: 12) {
             Image(systemName: "flame.fill")
                 .font(.title2)
-                .foregroundColor(GQColors.sunsetOrange)
+                .foregroundColor(GQColors.textSecondary)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(squad.streakWeeks) Week Streak")
@@ -71,7 +71,7 @@ struct SquadLeaderboardView: View {
                     .foregroundColor(GQColors.textPrimary)
                 Text("XP Multiplier: \(String(format: "%.1f", squad.xpMultiplier))x")
                     .font(.caption)
-                    .foregroundColor(GQColors.electricGold)
+                    .foregroundColor(GQColors.textSecondary)
             }
 
             Spacer()
@@ -104,7 +104,7 @@ struct SquadLeaderboardView: View {
                     Text("#\(index + 1)")
                         .font(.subheadline)
                         .fontWeight(.bold)
-                        .foregroundColor(index < 3 ? GQColors.vividPurple : GQColors.textSecondary)
+                        .foregroundColor(index < 3 ? GQColors.deepBlue : GQColors.textSecondary)
                         .frame(width: 32)
 
                     // Avatar placeholder
@@ -173,7 +173,7 @@ struct SquadLeaderboardView: View {
 
                 Image(systemName: "bolt.fill")
                     .font(.title2)
-                    .foregroundColor(GQColors.electricGold)
+                    .foregroundColor(GQColors.textSecondary)
 
                 Spacer()
 
@@ -216,7 +216,7 @@ struct SquadLeaderboardView: View {
                         .foregroundColor(GQColors.textPrimary)
 
                     ProgressView(value: Double(challenge.currentValue), total: Double(challenge.targetValue))
-                        .tint(GQColors.vividPurple)
+                        .tint(GQColors.deepBlue)
 
                     HStack {
                         Text("\(challenge.currentValue)/\(challenge.targetValue)")
@@ -226,7 +226,7 @@ struct SquadLeaderboardView: View {
                         Text("\(challenge.xpReward) XP")
                             .font(.caption)
                             .fontWeight(.semibold)
-                            .foregroundColor(GQColors.electricGold)
+                            .foregroundColor(GQColors.textSecondary)
                     }
                 }
                 .padding()

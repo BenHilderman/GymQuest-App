@@ -52,7 +52,7 @@ enum PaceCategory {
         switch self {
         case .fast: return GQColors.success
         case .medium: return GQColors.warning
-        case .slow: return GQColors.coralRed
+        case .slow: return GQColors.textSecondary
         }
     }
 }
@@ -306,6 +306,44 @@ struct SharedWorkoutData: Codable, Identifiable {
     /// Encode to Data for storage
     func encode() -> Data? {
         try? JSONEncoder().encode(self)
+    }
+}
+
+// MARK: - Feed PR Data (lightweight, for feed display)
+
+struct FeedPR: Codable, Identifiable {
+    var id: UUID = UUID()
+    var exerciseName: String
+    var value: String           // e.g., "205 lbs" or "345×3"
+    var previousValue: String?  // e.g., "185 lbs"
+    var improvement: String?    // e.g., "+20 lbs"
+    var prType: String          // "Weight PR", "Rep PR", "Volume PR"
+}
+
+// MARK: - Feed Motivation Types
+
+enum MotivationType: String, CaseIterable {
+    case streak
+    case comeback
+    case milestone
+    case general
+
+    var icon: String {
+        switch self {
+        case .streak: return "flame.fill"
+        case .comeback: return "arrow.counterclockwise"
+        case .milestone: return "star.fill"
+        case .general: return "quote.opening"
+        }
+    }
+
+    var accentColor: Color {
+        switch self {
+        case .streak: return GQColors.success
+        case .comeback: return Color(hex: "FF8C42")
+        case .milestone: return GQColors.textSecondary
+        case .general: return GQColors.primary
+        }
     }
 }
 
@@ -1411,6 +1449,9 @@ final class Post {
     // Workout emotion
     var workoutEmotion: String?         // WorkoutEmotion rawValue
 
+    // PR moments (inline feed display)
+    var prMomentsData: Data?            // JSON-encoded [FeedPR]
+
     // Voice note (audio clip attached to post)
     @Attribute(.externalStorage) var voiceNoteData: Data?
     var voiceNoteDuration: Double?
@@ -1458,6 +1499,7 @@ final class Post {
         spotifyPlaylistURL: String? = nil,
         appleMusicPlaylistURL: String? = nil,
         workoutEmotion: String? = nil,
+        prMomentsData: Data? = nil,
         voiceNoteData: Data? = nil,
         voiceNoteDuration: Double? = nil,
         isPremiumAuthor: Bool = false,
@@ -1501,6 +1543,7 @@ final class Post {
         self.spotifyPlaylistURL = spotifyPlaylistURL
         self.appleMusicPlaylistURL = appleMusicPlaylistURL
         self.workoutEmotion = workoutEmotion
+        self.prMomentsData = prMomentsData
         self.voiceNoteData = voiceNoteData
         self.voiceNoteDuration = voiceNoteDuration
         self.isPremiumAuthor = isPremiumAuthor
@@ -1511,6 +1554,12 @@ final class Post {
     func getSharedWorkout() -> SharedWorkoutData? {
         guard let data = sharedWorkoutData else { return nil }
         return try? JSONDecoder().decode(SharedWorkoutData.self, from: data)
+    }
+
+    /// Decode inline PR moments for feed display
+    func getFeedPRs() -> [FeedPR] {
+        guard let data = prMomentsData else { return [] }
+        return (try? JSONDecoder().decode([FeedPR].self, from: data)) ?? []
     }
 
     /// Get/set decoded media items for exercise-aligned media
@@ -1602,6 +1651,9 @@ final class Comment {
     var authorUsername: String
     var content: String
     var timestamp: Date
+    var parentCommentId: UUID?
+    var replyToAuthorName: String?
+    var likeCount: Int
 
     init(
         id: UUID = UUID(),
@@ -1610,7 +1662,10 @@ final class Comment {
         authorName: String = "",
         authorUsername: String = "",
         content: String = "",
-        timestamp: Date = Date()
+        timestamp: Date = Date(),
+        parentCommentId: UUID? = nil,
+        replyToAuthorName: String? = nil,
+        likeCount: Int = 0
     ) {
         self.id = id
         self.postId = postId
@@ -1619,6 +1674,9 @@ final class Comment {
         self.authorUsername = authorUsername
         self.content = content
         self.timestamp = timestamp
+        self.parentCommentId = parentCommentId
+        self.replyToAuthorName = replyToAuthorName
+        self.likeCount = likeCount
     }
 }
 
@@ -2066,21 +2124,21 @@ enum ClubCategory: String, Codable, CaseIterable {
 
     var color: Color {
         switch self {
-        case .running: return GQColors.cyanSpark
+        case .running: return GQColors.textSecondary
         case .cycling: return GQColors.deepBlue
-        case .weightlifting: return GQColors.vividPurple
-        case .crossfit: return GQColors.sunsetOrange
+        case .weightlifting: return GQColors.deepBlue
+        case .crossfit: return GQColors.textSecondary
         case .yoga: return GQColors.mint
-        case .hiit: return GQColors.coralRed
-        case .swimming: return GQColors.cyanSpark
+        case .hiit: return GQColors.textSecondary
+        case .swimming: return GQColors.textSecondary
         case .basketball: return GQColors.terracotta
         case .soccer: return GQColors.mint
-        case .tennis: return GQColors.electricGold
-        case .volleyball: return GQColors.sunsetOrange
+        case .tennis: return GQColors.textSecondary
+        case .volleyball: return GQColors.textSecondary
         case .hockey: return GQColors.deepBlue
-        case .generalFitness: return GQColors.cyanSpark
-        case .martialArts: return GQColors.coralRed
-        case .dance: return GQColors.vividPurple
+        case .generalFitness: return GQColors.textSecondary
+        case .martialArts: return GQColors.textSecondary
+        case .dance: return GQColors.deepBlue
         case .climbing: return GQColors.terracotta
         }
     }
@@ -2305,15 +2363,15 @@ enum ClubEventType: String, Codable, CaseIterable {
 
     var color: Color {
         switch self {
-        case .workout: return GQColors.cyanSpark
-        case .meetup: return GQColors.vividPurple
-        case .competition: return GQColors.electricGold
-        case .social: return GQColors.sunsetOrange
-        case .groupRun: return GQColors.cyanSpark
+        case .workout: return GQColors.textSecondary
+        case .meetup: return GQColors.deepBlue
+        case .competition: return GQColors.textSecondary
+        case .social: return GQColors.textSecondary
+        case .groupRun: return GQColors.textSecondary
         case .groupRide: return GQColors.deepBlue
         case .practice: return GQColors.mint
         case .pickupGame: return GQColors.terracotta
-        case .tournament: return GQColors.electricGold
+        case .tournament: return GQColors.textSecondary
         case .scrimmage: return GQColors.mint
         }
     }
@@ -2827,11 +2885,11 @@ enum WorkoutEmotion: String, Codable, CaseIterable {
 
     var color: Color {
         switch self {
-        case .fired: return GQColors.coralRed
-        case .strong: return GQColors.vividPurple
-        case .grateful: return GQColors.electricGold
-        case .calm: return GQColors.cyanSpark
-        case .grinding: return GQColors.sunsetOrange
+        case .fired: return GQColors.textSecondary
+        case .strong: return GQColors.deepBlue
+        case .grateful: return GQColors.textSecondary
+        case .calm: return GQColors.textSecondary
+        case .grinding: return GQColors.textSecondary
         case .dragging: return Color.gray
         case .anxious: return GQColors.deepBlue
         case .comeback: return GQColors.success
@@ -3912,6 +3970,35 @@ struct SquadMemberVolume: Codable, Identifiable {
     var totalSets: Int
     var workoutCount: Int
     var weekStart: Date
+}
+
+// MARK: - User Goals
+
+@Model
+final class UserGoal {
+    var id: UUID
+    var userId: UUID
+    var type: String          // "exercise" or "bodyweight"
+    var exerciseName: String? // nil for bodyweight goals
+    var targetWeight: Double
+    var targetReps: Int?      // nil for bodyweight goals
+    var createdAt: Date
+    var achievedAt: Date?
+
+    init(userId: UUID, type: String, exerciseName: String? = nil, targetWeight: Double, targetReps: Int? = nil) {
+        self.id = UUID()
+        self.userId = userId
+        self.type = type
+        self.exerciseName = exerciseName
+        self.targetWeight = targetWeight
+        self.targetReps = targetReps
+        self.createdAt = Date()
+        self.achievedAt = nil
+    }
+
+    var isExerciseGoal: Bool { type == "exercise" }
+    var isBodyweightGoal: Bool { type == "bodyweight" }
+    var isAchieved: Bool { achievedAt != nil }
 }
 
 // ExtendedExerciseDatabase and ExerciseMetadata are now in ExerciseDatabase.swift

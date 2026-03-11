@@ -16,7 +16,7 @@ private struct WorkoutTypeOption: Identifiable {
     var id: WorkoutType { type }
 
     var accent: Color {
-        GQGradients.workoutGradientColors(for: type).first ?? GQColors.vividPurple
+        GQGradients.workoutGradientColors(for: type).first ?? GQColors.deepBlue
     }
 }
 
@@ -49,8 +49,8 @@ struct WorkoutTypeSelectionView: View {
     ]
 
     private var selectedAccent: Color {
-        guard let selectedType else { return GQColors.vividPurple }
-        return GQGradients.workoutGradientColors(for: selectedType).first ?? GQColors.vividPurple
+        guard let selectedType else { return GQColors.deepBlue }
+        return GQGradients.workoutGradientColors(for: selectedType).first ?? GQColors.deepBlue
     }
 
     @State private var tapScale: WorkoutType? = nil
@@ -118,7 +118,7 @@ struct WorkoutTypeSelectionView: View {
                                     )
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
-                                            .stroke(GQColors.vividPurple.opacity(0.3), lineWidth: 1)
+                                            .stroke(GQColors.deepBlue.opacity(0.3), lineWidth: 1)
                                     )
 
                                 Button {
@@ -126,7 +126,7 @@ struct WorkoutTypeSelectionView: View {
                                 } label: {
                                     Text("Go")
                                 }
-                                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.vividPurple))
+                                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.deepBlue))
                             }
                             .padding(.horizontal, 20)
                             .transition(.opacity.combined(with: .move(edge: .top)))
@@ -220,7 +220,7 @@ private struct CompactWorkoutTypeCard: View {
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(
                         LinearGradient(
-                            colors: [GQColors.deepBlue.opacity(0.15), GQColors.vividPurple.opacity(0.15)],
+                            colors: [GQColors.deepBlue.opacity(0.15), GQColors.deepBlue.opacity(0.15)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),

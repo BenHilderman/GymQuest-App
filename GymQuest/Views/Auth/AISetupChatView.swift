@@ -30,17 +30,17 @@ private enum OBColors {
         endPoint: .bottomTrailing
     )
     static let userBubbleGradient = LinearGradient(
-        colors: [GQColors.deepBlue.opacity(0.9), GQColors.vividPurple.opacity(0.9)],
+        colors: [GQColors.deepBlue.opacity(0.9), GQColors.deepBlue.opacity(0.9)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
     static let sendGradient = LinearGradient(
-        colors: [GQColors.deepBlue, GQColors.vividPurple],
+        colors: [GQColors.deepBlue, GQColors.deepBlue],
         startPoint: .top,
         endPoint: .bottom
     )
     static let ctaGradient = LinearGradient(
-        colors: [GQColors.deepBlue.opacity(0.9), GQColors.vividPurple.opacity(0.9)],
+        colors: [GQColors.deepBlue.opacity(0.9), GQColors.deepBlue.opacity(0.9)],
         startPoint: .leading,
         endPoint: .trailing
     )
@@ -706,7 +706,7 @@ struct AISetupChatView: View {
                 Circle()
                     .fill(OBColors.ctaGradient)
                     .frame(width: 72, height: 72)
-                    .shadow(color: GQColors.vividPurple.opacity(0.4), radius: 16, y: 0)
+                    .shadow(color: GQColors.deepBlue.opacity(0.4), radius: 16, y: 0)
                     .shadow(color: GQColors.deepBlue.opacity(0.2), radius: 24, y: 0)
                 Image(systemName: "checkmark")
                     .font(.system(size: 32, weight: .bold))

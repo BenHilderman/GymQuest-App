@@ -59,7 +59,7 @@ struct ProgressPredictionChart: View {
                     }
                     .fill(
                         LinearGradient(
-                            colors: [GQColors.deepBlue.opacity(0.25), GQColors.vividPurple.opacity(0.05)],
+                            colors: [GQColors.deepBlue.opacity(0.25), GQColors.deepBlue.opacity(0.05)],
                             startPoint: .top,
                             endPoint: .bottom
                         )

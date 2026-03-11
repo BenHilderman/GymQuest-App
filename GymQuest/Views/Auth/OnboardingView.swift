@@ -330,11 +330,11 @@ struct GoalStepView: View {
                             }
                         }
                         .padding(14)
-                        .background(selectedGoal == goal ? GQColors.vividPurple.opacity(0.1) : Color.black.opacity(0.03))
+                        .background(selectedGoal == goal ? GQColors.deepBlue.opacity(0.1) : Color.black.opacity(0.03))
                         .cornerRadius(12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(selectedGoal == goal ? GQColors.vividPurple.opacity(0.4) : Color.clear, lineWidth: 1.5)
+                                .stroke(selectedGoal == goal ? GQColors.deepBlue.opacity(0.4) : Color.clear, lineWidth: 1.5)
                         )
                     }
                     .buttonStyle(.plain)
@@ -402,11 +402,11 @@ struct ExperienceStepView: View {
                                 .foregroundColor(GQColors.textSecondary)
                         }
                         .padding(14)
-                        .background(selectedExperience == level ? GQColors.vividPurple.opacity(0.1) : Color.black.opacity(0.03))
+                        .background(selectedExperience == level ? GQColors.deepBlue.opacity(0.1) : Color.black.opacity(0.03))
                         .cornerRadius(12)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .stroke(selectedExperience == level ? GQColors.vividPurple.opacity(0.4) : Color.clear, lineWidth: 1.5)
+                                .stroke(selectedExperience == level ? GQColors.deepBlue.opacity(0.4) : Color.clear, lineWidth: 1.5)
                         )
                     }
                     .buttonStyle(.plain)
@@ -455,12 +455,12 @@ struct EquipmentStepView: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
                             .frame(maxWidth: .infinity)
-                            .background(isSelected ? GQColors.vividPurple.opacity(0.15) : Color.black.opacity(0.03))
-                            .foregroundColor(isSelected ? GQColors.vividPurple : GQColors.textPrimary)
+                            .background(isSelected ? GQColors.deepBlue.opacity(0.15) : Color.black.opacity(0.03))
+                            .foregroundColor(isSelected ? GQColors.deepBlue : GQColors.textPrimary)
                             .cornerRadius(10)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10)
-                                    .stroke(isSelected ? GQColors.vividPurple.opacity(0.5) : Color.clear, lineWidth: 1.5)
+                                    .stroke(isSelected ? GQColors.deepBlue.opacity(0.5) : Color.clear, lineWidth: 1.5)
                             )
                     }
                     .buttonStyle(.plain)

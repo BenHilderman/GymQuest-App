@@ -43,7 +43,7 @@ struct FormDemo3DView: View {
                     RoundedRectangle(cornerRadius: 20)
                         .fill(
                             LinearGradient(
-                                colors: [GQColors.vividPurple.opacity(0.3), GQColors.cyanSpark.opacity(0.2)],
+                                colors: [GQColors.deepBlue.opacity(0.3), GQColors.textSecondary.opacity(0.2)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -110,7 +110,7 @@ struct FormDemo3DView: View {
 
                 Text("Tempo: \(demo.tempo)")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
             }
         }
         .onAppear {
@@ -173,8 +173,8 @@ struct PhaseIndicator: View {
 
     var phaseColor: Color {
         switch phase {
-        case .start: return GQColors.cyanSpark
-        case .mid: return GQColors.vividPurple
+        case .start: return GQColors.textSecondary
+        case .mid: return GQColors.deepBlue
         case .end: return GQColors.success
         }
     }

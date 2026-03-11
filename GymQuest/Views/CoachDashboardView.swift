@@ -72,7 +72,7 @@ struct CoachDashboardView: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 2)
-                                    .background(GQColors.vividPurple)
+                                    .background(GQColors.deepBlue)
                                     .clipShape(Capsule())
                             }
 
@@ -105,7 +105,7 @@ struct CoachDashboardView: View {
                                 if let exercise = note.exerciseName {
                                     Text(exercise)
                                         .font(.caption2)
-                                        .foregroundColor(GQColors.vividPurple)
+                                        .foregroundColor(GQColors.deepBlue)
                                 }
                                 Spacer()
                                 Text(note.createdAt.formatted(date: .abbreviated, time: .shortened))
@@ -140,11 +140,11 @@ struct CoachDashboardView: View {
         case .important:
             Image(systemName: "exclamationmark.circle.fill")
                 .font(.caption2)
-                .foregroundColor(GQColors.electricGold)
+                .foregroundColor(GQColors.textSecondary)
         case .urgent:
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.caption2)
-                .foregroundColor(GQColors.coralRed)
+                .foregroundColor(GQColors.textSecondary)
         }
     }
 }
@@ -216,7 +216,7 @@ struct MemberDetailView: View {
                             if let exercise = note.exerciseName {
                                 Text("· \(exercise)")
                                     .font(.caption2)
-                                    .foregroundColor(GQColors.vividPurple)
+                                    .foregroundColor(GQColors.deepBlue)
                             }
                             Spacer()
                             Text(note.createdAt.formatted(date: .abbreviated, time: .omitted))
@@ -231,7 +231,7 @@ struct MemberDetailView: View {
                     showingAddNote = true
                 } label: {
                     Label("Add Note", systemImage: "plus.circle.fill")
-                        .foregroundColor(GQColors.vividPurple)
+                        .foregroundColor(GQColors.deepBlue)
                 }
             }
         }

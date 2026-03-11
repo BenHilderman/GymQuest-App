@@ -13,7 +13,7 @@ struct NowPlayingBar: View {
     @State private var dragOffset: CGFloat = 0
 
     private var accentColor: Color {
-        nowPlaying.currentSong?.source.color ?? GQColors.vividPurple
+        nowPlaying.currentSong?.source.color ?? GQColors.deepBlue
     }
 
     var body: some View {

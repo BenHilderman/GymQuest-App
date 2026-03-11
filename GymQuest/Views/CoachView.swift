@@ -151,7 +151,7 @@ struct FormStudioLauncher: View {
                 GQScreenTitleBlock(
                     title: "Form Studio",
                     subtitle: "Interactive movement demos and setup cues.",
-                    accent: GQColors.cyanSpark
+                    accent: GQColors.textSecondary
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
@@ -159,12 +159,12 @@ struct FormStudioLauncher: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 10) {
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(GQColors.cyanSpark.opacity(0.18))
+                            .fill(GQColors.textSecondary.opacity(0.18))
                             .frame(width: 42, height: 42)
                             .overlay(
                                 Image(systemName: "play.rectangle.on.rectangle")
                                     .font(.system(size: 18, weight: .semibold))
-                                    .foregroundColor(GQColors.cyanSpark)
+                                    .foregroundColor(GQColors.textSecondary)
                             )
 
                         VStack(alignment: .leading, spacing: 2) {
@@ -187,7 +187,7 @@ struct FormStudioLauncher: View {
                     .foregroundColor(GQColors.textSecondary)
                 }
                 .padding(16)
-                .workoutFlowCard(accent: GQColors.cyanSpark, emphasized: true)
+                .workoutFlowCard(accent: GQColors.textSecondary, emphasized: true)
                 .padding(.horizontal, 16)
 
                 Button {
@@ -200,7 +200,7 @@ struct FormStudioLauncher: View {
                             .font(.system(size: 16, weight: .semibold))
                     }
                 }
-                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.cyanSpark))
+                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.textSecondary))
                 .padding(.horizontal, 16)
 
                 Spacer(minLength: 100)
@@ -245,8 +245,8 @@ struct ChatSection: View {
     // preset prompts for common questions
     let quickPrompts = [
         ("Warm-up tips", GQColors.primary),
-        ("Form check", GQColors.cyanSpark),
-        ("Push or rest?", GQColors.vividPurple),
+        ("Form check", GQColors.textSecondary),
+        ("Push or rest?", GQColors.deepBlue),
         ("Volume check", GQColors.secondary)
     ]
 
@@ -259,7 +259,7 @@ struct ChatSection: View {
                             VStack(spacing: 12) {
                                 Image(systemName: "brain.head.profile")
                                     .font(.system(size: 30, weight: .semibold))
-                                    .foregroundColor(GQColors.vividPurple)
+                                    .foregroundColor(GQColors.deepBlue)
 
                                 Text("Ask your AI coach anything")
                                     .font(.system(size: 18, weight: .semibold))
@@ -273,7 +273,7 @@ struct ChatSection: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 28)
                             .padding(.horizontal, 20)
-                            .workoutFlowCard(accent: GQColors.vividPurple)
+                            .workoutFlowCard(accent: GQColors.deepBlue)
                             .padding(.horizontal, 16)
                             .padding(.top, 24)
                         }
@@ -287,7 +287,7 @@ struct ChatSection: View {
                             HStack(spacing: 10) {
                                 ProgressView()
                                     .scaleEffect(0.8)
-                                    .tint(GQColors.vividPurple)
+                                    .tint(GQColors.deepBlue)
                                 Text("Thinking...")
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(GQColors.textSecondary)
@@ -387,7 +387,7 @@ struct ChatSection: View {
                         .frame(width: 40, height: 40)
                         .background(
                             Circle()
-                                .fill(inputText.isEmpty ? Color.black.opacity(0.04) : GQColors.vividPurple)
+                                .fill(inputText.isEmpty ? Color.black.opacity(0.04) : GQColors.deepBlue)
                         )
                         .overlay(
                             Circle()
@@ -522,7 +522,7 @@ struct MessageBubble: View {
     let message: ChatMessage
 
     var isUser: Bool { message.role == .user }
-    var accent: Color { isUser ? GQColors.vividPurple : GQColors.cyanSpark }
+    var accent: Color { isUser ? GQColors.deepBlue : GQColors.textSecondary }
 
     var body: some View {
         HStack {
@@ -565,7 +565,7 @@ struct PlanSection: View {
                 GQScreenTitleBlock(
                     title: "Plan Builder",
                     subtitle: "Generate a focused split based on your weekly availability.",
-                    accent: GQColors.cyanSpark
+                    accent: GQColors.textSecondary
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
@@ -602,7 +602,7 @@ struct PlanSection: View {
                     }
                 }
                 .padding(16)
-                .workoutFlowCard(accent: GQColors.vividPurple)
+                .workoutFlowCard(accent: GQColors.deepBlue)
                 .padding(.horizontal, 16)
 
                 Button {
@@ -620,7 +620,7 @@ struct PlanSection: View {
                             .fontWeight(.semibold)
                     }
                 }
-                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.vividPurple))
+                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.deepBlue))
                 .disabled(isGenerating)
                 .padding(.horizontal, 16)
 
@@ -643,7 +643,7 @@ struct PlanSection: View {
                                     Text("Copy")
                                 }
                                 .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(GQColors.cyanSpark)
+                                .foregroundColor(GQColors.textSecondary)
                             }
                         }
 
@@ -656,7 +656,7 @@ struct PlanSection: View {
                             .lineSpacing(4)
                     }
                     .padding(16)
-                    .workoutFlowCard(accent: GQColors.cyanSpark, emphasized: true)
+                    .workoutFlowCard(accent: GQColors.textSecondary, emphasized: true)
                     .padding(.horizontal, 16)
                 }
 

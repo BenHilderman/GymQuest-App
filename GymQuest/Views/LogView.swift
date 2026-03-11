@@ -177,12 +177,12 @@ struct LogView: View {
                 .foregroundColor(isSelected ? GQColors.textPrimary : GQColors.textTertiary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(isSelected ? GQColors.cyanSpark.opacity(0.1) : Color.clear)
+                .background(isSelected ? GQColors.textSecondary.opacity(0.1) : Color.clear)
                 .overlay(alignment: .bottom) {
                     if isSelected {
                         Rectangle()
                             .frame(height: 2)
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
                     }
                 }
         }
@@ -217,7 +217,7 @@ struct LogView: View {
                     HStack(spacing: 3) {
                         Text("\(thisWeekWorkouts.count)/\(profile.daysPerWeek)")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(thisWeekWorkouts.count >= profile.daysPerWeek ? .green : GQColors.cyanSpark)
+                            .foregroundColor(thisWeekWorkouts.count >= profile.daysPerWeek ? .green : GQColors.textSecondary)
                         Text("days")
                             .font(.system(size: 11))
                             .foregroundColor(GQColors.textTertiary)
@@ -298,7 +298,7 @@ struct LogView: View {
                             .font(.system(size: 10, weight: .medium))
                             .foregroundColor(GQColors.textTertiary)
                         Circle()
-                            .fill(didWorkout ? GQColors.cyanSpark : GQColors.adaptiveOverlay(0.08))
+                            .fill(didWorkout ? GQColors.textSecondary : GQColors.adaptiveOverlay(0.08))
                             .frame(width: 8, height: 8)
                     }
                     .frame(maxWidth: .infinity)
@@ -399,7 +399,7 @@ struct LogView: View {
                             .font(.system(size: 14))
                             .foregroundStyle(GQGradients.primary)
                             .frame(width: 28, height: 28)
-                            .background(GQColors.cyanSpark.opacity(0.1))
+                            .background(GQColors.textSecondary.opacity(0.1))
                             .clipShape(RoundedRectangle(cornerRadius: 6))
 
                         VStack(alignment: .leading, spacing: 2) {
@@ -528,7 +528,7 @@ struct LogView: View {
         } else {
             Circle()
                 .trim(from: 0, to: trimTo)
-                .stroke(GQColors.cyanSpark, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                .stroke(GQColors.textSecondary, style: StrokeStyle(lineWidth: 12, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .frame(width: 120, height: 120)
         }
@@ -631,10 +631,10 @@ struct LogView: View {
                     Text("Log Meal")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundColor(GQColors.cyanSpark)
+                .foregroundColor(GQColors.textSecondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(GQColors.cyanSpark.opacity(0.1))
+                .background(GQColors.textSecondary.opacity(0.1))
                 .cornerRadius(10)
             }
             .buttonStyle(GQInteractiveStyle())
@@ -724,7 +724,7 @@ struct LogView: View {
                         )
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [GQColors.cyanSpark.opacity(0.2), .clear],
+                                colors: [GQColors.textSecondary.opacity(0.2), .clear],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -734,18 +734,18 @@ struct LogView: View {
                             x: .value("Date", m.date),
                             y: .value("Weight", m.value)
                         )
-                        .foregroundStyle(GQColors.cyanSpark.gradient)
+                        .foregroundStyle(GQColors.textSecondary.gradient)
                         .lineStyle(StrokeStyle(lineWidth: 2))
                     }
 
                     if let goal = profile.goalWeight, goal > 0 {
                         RuleMark(y: .value("Goal", goal))
                             .lineStyle(StrokeStyle(lineWidth: 1, dash: [5]))
-                            .foregroundStyle(GQColors.vividPurple)
+                            .foregroundStyle(GQColors.deepBlue)
                             .annotation(position: .top, alignment: .trailing) {
                                 Text("Goal")
                                     .font(.system(size: 9))
-                                    .foregroundColor(GQColors.vividPurple)
+                                    .foregroundColor(GQColors.deepBlue)
                             }
                     }
                 }
@@ -811,7 +811,7 @@ struct LogView: View {
                         .foregroundColor(GQColors.textTertiary)
                     Text(String(format: "%.1f", goal))
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(GQColors.vividPurple)
+                        .foregroundColor(GQColors.deepBlue)
                     + Text(" lbs")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
@@ -855,7 +855,7 @@ struct LogView: View {
                 } label: {
                     Text("See All")
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                 }
             }
 
@@ -879,10 +879,10 @@ struct LogView: View {
                         Text("Log Weight")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(GQColors.cyanSpark.opacity(0.1))
+                    .background(GQColors.textSecondary.opacity(0.1))
                     .cornerRadius(10)
                 }
                 .buttonStyle(GQInteractiveStyle())
@@ -896,10 +896,10 @@ struct LogView: View {
                         Text("Measurements")
                             .font(.system(size: 13, weight: .semibold))
                     }
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundColor(GQColors.deepBlue)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(GQColors.vividPurple.opacity(0.1))
+                    .background(GQColors.deepBlue.opacity(0.1))
                     .cornerRadius(10)
                 }
                 .buttonStyle(GQInteractiveStyle())

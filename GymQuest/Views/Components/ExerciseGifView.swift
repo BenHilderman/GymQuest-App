@@ -16,12 +16,14 @@ struct ExerciseGifView: View {
 
     enum GifSize {
         case thumbnail  // 40×40pt — list rows
+        case detail     // 44×44pt — detail page rows, scaledToFit
         case medium     // 80×80pt — expanded cards
         case large      // full width × 250pt — form demo sheet
 
         var dimension: CGFloat {
             switch self {
             case .thumbnail: return 40
+            case .detail: return 44
             case .medium: return 80
             case .large: return 250
             }
@@ -30,6 +32,7 @@ struct ExerciseGifView: View {
         var cornerRadius: CGFloat {
             switch self {
             case .thumbnail: return 8
+            case .detail: return 10
             case .medium: return 12
             case .large: return 12
             }
@@ -61,6 +64,16 @@ struct ExerciseGifView: View {
                     RoundedRectangle(cornerRadius: size.cornerRadius)
                         .fill(GQColors.surfaceElevated)
                 )
+        case .detail:
+            AnimatedImage(url: url, isAnimating: .constant(true))
+                .resizable()
+                .scaledToFit()
+                .frame(width: size.dimension, height: size.dimension)
+                .clipShape(RoundedRectangle(cornerRadius: size.cornerRadius))
+                .background(
+                    RoundedRectangle(cornerRadius: size.cornerRadius)
+                        .fill(GQColors.surfaceElevated)
+                )
         case .large:
             AnimatedImage(url: url, isAnimating: .constant(true))
                 .resizable()
@@ -79,7 +92,7 @@ struct ExerciseGifView: View {
     private var fallbackContent: some View {
         let metadata = ExtendedExerciseDatabase.find(exerciseName)
         switch size {
-        case .thumbnail, .medium:
+        case .thumbnail, .detail, .medium:
             ZStack {
                 RoundedRectangle(cornerRadius: size.cornerRadius)
                     .fill(GQColors.surfaceElevated)
@@ -209,24 +222,21 @@ struct OverlayExerciseGifStrip: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(visible) { exercise in
-                    OverlayExerciseGifItem(exercise: exercise)
-                }
-                if totalCount > 4 {
-                    Button { onTapMore?() } label: {
-                        Text("+\(totalCount - 4)")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
-                            .frame(width: 40, height: 40)
-                            .background(.white.opacity(0.2))
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                    .buttonStyle(.plain)
-                }
+        HStack(spacing: 10) {
+            ForEach(visible) { exercise in
+                OverlayExerciseGifItem(exercise: exercise)
             }
-            .padding(.horizontal, 12)
+            if totalCount > 4 {
+                Button { onTapMore?() } label: {
+                    Text("+\(totalCount - 4)")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 40, height: 40)
+                        .background(.white.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }

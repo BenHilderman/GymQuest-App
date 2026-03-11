@@ -58,7 +58,7 @@ struct InAppCameraView: View {
                     } label: {
                         Image(systemName: flashEnabled ? "bolt.fill" : "bolt.slash.fill")
                             .font(.title2)
-                            .foregroundColor(flashEnabled ? .yellow : .white)
+                            .foregroundColor(flashEnabled ? GQColors.textSecondary : .white)
                             .padding(12)
                             .background(Circle().fill(Color.black.opacity(0.5)))
                     }
@@ -136,11 +136,11 @@ struct InAppCameraView: View {
                             if isVideoMode {
                                 if camera.isRecording {
                                     RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.red)
+                                        .fill(GQColors.textSecondary)
                                         .frame(width: 32, height: 32)
                                 } else {
                                     Circle()
-                                        .fill(Color.red)
+                                        .fill(GQColors.textSecondary)
                                         .frame(width: 60, height: 60)
                                 }
                             } else {
@@ -165,7 +165,7 @@ struct InAppCameraView: View {
                 if camera.isRecording {
                     HStack(spacing: 8) {
                         Circle()
-                            .fill(Color.red)
+                            .fill(GQColors.textSecondary)
                             .frame(width: 12, height: 12)
                         Text(camera.recordingDuration)
                             .font(.system(size: 16, weight: .semibold, design: .monospaced))
@@ -277,7 +277,7 @@ struct CapturePreviewView: View {
                             Text("Use")
                                 .font(.caption)
                         }
-                        .foregroundColor(.green)
+                        .foregroundColor(GQColors.textSecondary)
                     }
                 }
                 .padding(.bottom, 60)

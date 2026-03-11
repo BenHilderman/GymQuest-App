@@ -13,16 +13,22 @@ struct WeeklyProgressRing: View {
     let completed: Int
     @Binding var target: Int
     let workoutDates: [Date]
+    var workoutIcons: [Date: String] = [:] // date -> SF Symbol icon
+    var dailyStreak: Int = 0
+    var weeklyStreak: Int = 0
 
     @State private var showingGoalPicker = false
 
-    init(completed: Int, target: Binding<Int>, workoutDates: [Date] = []) {
+    init(completed: Int, target: Binding<Int>, workoutDates: [Date] = [], workoutIcons: [Date: String] = [:], dailyStreak: Int = 0, weeklyStreak: Int = 0) {
         self.completed = completed
         self._target = target
         self.workoutDates = workoutDates
+        self.workoutIcons = workoutIcons
+        self.dailyStreak = dailyStreak
+        self.weeklyStreak = weeklyStreak
     }
 
-    private var weekDays: [(label: String, date: Date, isToday: Bool, hasWorkout: Bool)] {
+    private var weekDays: [(label: String, date: Date, isToday: Bool, hasWorkout: Bool, icon: String?)] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today) else { return [] }
@@ -33,11 +39,13 @@ struct WeeklyProgressRing: View {
             guard let date = calendar.date(byAdding: .day, value: offset, to: weekInterval.start) else { return nil }
             let dayStart = calendar.startOfDay(for: date)
             let label = date.formatted(.dateTime.weekday(.narrow))
+            let icon = workoutIcons.first(where: { calendar.isDate($0.key, inSameDayAs: date) })?.value
             return (
                 label: label,
                 date: date,
                 isToday: calendar.isDateInToday(date),
-                hasWorkout: workoutDaySet.contains(dayStart)
+                hasWorkout: workoutDaySet.contains(dayStart),
+                icon: icon
             )
         }
     }
@@ -48,93 +56,121 @@ struct WeeklyProgressRing: View {
     }
 
     var body: some View {
-        VStack(spacing: 14) {
-            // Summary row
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("This Week")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(GQColors.textSecondary)
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(completed)")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundStyle(GQColors.textPrimary)
-                        Text("/ \(target) workouts")
-                            .font(.system(size: 15))
-                            .foregroundStyle(GQColors.textTertiary)
-                    }
-                }
-                Spacer()
-
-                // Tappable progress ring to edit goal
+        VStack(spacing: 16) {
+            // Header row
+            HStack(spacing: 12) {
+                // Progress ring
                 Button {
                     showingGoalPicker = true
                 } label: {
                     ZStack {
                         Circle()
-                            .stroke(GQColors.adaptiveOverlay(0.08), lineWidth: 5)
+                            .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 4.5)
+                            .frame(width: 44, height: 44)
                         if progress > 0 {
                             Circle()
                                 .trim(from: 0, to: progress)
                                 .stroke(
                                     GQGradients.primary,
-                                    style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                                    style: StrokeStyle(lineWidth: 4.5, lineCap: .round)
                                 )
                                 .rotationEffect(.degrees(-90))
+                                .frame(width: 44, height: 44)
                         }
                         if completed >= target && target > 0 {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(GQColors.deepBlue)
+                                .foregroundStyle(GQGradients.primary)
                         } else {
-                            Text("\(target)")
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(GQColors.textTertiary)
+                            Text("\(completed)")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundStyle(GQColors.textPrimary)
                         }
                     }
                     .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("This Week")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(GQColors.textPrimary)
+                    Text("\(completed) of \(target) workouts")
+                        .font(.system(size: 12))
+                        .foregroundStyle(GQColors.textTertiary)
+                }
+
+                Spacer()
+
+                // Streak
+                if dailyStreak > 0 || weeklyStreak > 0 {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(GQGradients.primary.opacity(0.85))
+                            Text("\(dailyStreak)")
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(GQColors.textPrimary)
+                        }
+                        if weeklyStreak > 0 {
+                            Text("\(weeklyStreak) week streak")
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.textTertiary)
+                        } else {
+                            Text("day streak")
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                    }
+                }
             }
 
-            // Week calendar row
+            // Week calendar
             HStack(spacing: 0) {
                 ForEach(weekDays, id: \.date) { day in
-                    VStack(spacing: 6) {
+                    VStack(spacing: 5) {
                         Text(day.label)
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(GQColors.textTertiary)
+                            .foregroundStyle(day.isToday ? GQColors.textPrimary : GQColors.textTertiary)
 
                         ZStack {
                             if day.hasWorkout {
                                 Circle()
-                                    .fill(GQGradients.primary.opacity(0.18))
-                                Circle()
-                                    .stroke(GQGradients.primary.opacity(0.45), lineWidth: 1)
+                                    .fill(GQGradients.primary.opacity(0.15))
                             } else if day.isToday {
                                 Circle()
-                                    .stroke(GQGradients.primary, lineWidth: 1.5)
+                                    .strokeBorder(GQGradients.primary.opacity(0.6), lineWidth: 1.5)
+                            } else {
+                                Circle()
+                                    .fill(GQColors.adaptiveOverlay(0.04))
                             }
 
                             Text(day.date.formatted(.dateTime.day()))
-                                .font(.system(size: 15, weight: day.hasWorkout || day.isToday ? .semibold : .regular, design: .rounded))
+                                .font(.system(size: 14, weight: day.hasWorkout || day.isToday ? .semibold : .regular, design: .rounded))
                                 .foregroundStyle(
                                     day.hasWorkout ? AnyShapeStyle(GQGradients.primary) :
-                                    day.isToday ? AnyShapeStyle(GQColors.textPrimary) : AnyShapeStyle(GQColors.textTertiary)
+                                    day.isToday ? AnyShapeStyle(GQColors.textPrimary) :
+                                    AnyShapeStyle(GQColors.textTertiary)
                                 )
                         }
-                        .frame(width: 34, height: 34)
+                        .frame(width: 36, height: 36)
 
-                        // Completion dot
-                        Circle()
-                            .fill(day.hasWorkout ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(.clear))
-                            .frame(width: 4, height: 4)
+                        // Workout type icon
+                        if let icon = day.icon {
+                            Image(systemName: icon)
+                                .font(.system(size: 8, weight: .medium))
+                                .foregroundStyle(GQGradients.primary.opacity(0.85))
+                        } else {
+                            Color.clear.frame(height: 8)
+                        }
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .homeSocialCard(cornerRadius: 16)
         .sheet(isPresented: $showingGoalPicker) {
             WeeklyGoalPicker(target: $target)

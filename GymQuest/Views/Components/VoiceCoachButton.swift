@@ -42,9 +42,9 @@ struct VoiceCoachButton: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(speechService.isListening ? Color.red : GQColors.vividPurple)
+                        .fill(speechService.isListening ? Color.red : GQColors.deepBlue)
                         .frame(width: 56, height: 56)
-                        .shadow(color: (speechService.isListening ? Color.red : GQColors.vividPurple).opacity(0.4),
+                        .shadow(color: (speechService.isListening ? Color.red : GQColors.deepBlue).opacity(0.4),
                                 radius: 8, y: 4)
 
                     Image(systemName: speechService.isListening ? "mic.fill" : "mic")
@@ -83,7 +83,7 @@ struct VoiceCoachButton: View {
     private var responseOverlay: some View {
         HStack(spacing: 8) {
             Image(systemName: voiceCoach.isSpeaking ? "speaker.wave.2.fill" : "text.bubble.fill")
-                .foregroundColor(GQColors.vividPurple)
+                .foregroundColor(GQColors.deepBlue)
 
             Text(voiceCoach.lastResponse)
                 .font(.caption)

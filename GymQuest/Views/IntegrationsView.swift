@@ -23,7 +23,7 @@ struct IntegrationsView: View {
                 GQScreenTitleBlock(
                     title: "Integrations",
                     subtitle: "Manage data sources and sync status.",
-                    accent: GQColors.cyanSpark
+                    accent: GQColors.textSecondary
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 10)
@@ -52,7 +52,7 @@ struct IntegrationsView: View {
                     }
                     .buttonStyle(
                         WorkoutFlowPrimaryButtonStyle(
-                            accent: featureFlags.healthKitImportEnabled ? GQColors.cyanSpark : GQColors.vividPurple
+                            accent: featureFlags.healthKitImportEnabled ? GQColors.textSecondary : GQColors.deepBlue
                         )
                     )
                 }
@@ -63,7 +63,7 @@ struct IntegrationsView: View {
                     icon: "waveform.path.ecg",
                     name: "WHOOP",
                     description: "Recovery, strain, sleep quality",
-                    iconColor: GQColors.cyanSpark,
+                    iconColor: GQColors.textSecondary,
                     isConnected: integrationManager.whoop.isConnected,
                     isSyncing: integrationManager.whoop.isSyncing,
                     lastSync: integrationManager.whoop.lastSyncDate,
@@ -84,7 +84,7 @@ struct IntegrationsView: View {
                         } label: {
                             Text("Connect WHOOP")
                         }
-                        .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.cyanSpark))
+                        .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.textSecondary))
                     }
                 }
                 .padding(.horizontal, 16)
@@ -107,7 +107,7 @@ struct IntegrationsView: View {
                     }
                     .buttonStyle(
                         WorkoutFlowPrimaryButtonStyle(
-                            accent: integrationManager.strava.isConnected ? GQColors.electricGold : Color(hex: "FC4C02")
+                            accent: integrationManager.strava.isConnected ? GQColors.textSecondary : Color(hex: "FC4C02")
                         )
                     )
                 }
@@ -131,7 +131,7 @@ struct IntegrationsView: View {
                                 .font(.system(size: 15, weight: .semibold))
                         }
                     }
-                    .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.vividPurple))
+                    .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.deepBlue))
                     .padding(.horizontal, 16)
                 }
 
@@ -365,11 +365,11 @@ private struct GravlInfoCard: View {
         HStack(spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(GQColors.electricGold.opacity(0.15))
+                    .fill(GQColors.textSecondary.opacity(0.15))
                     .frame(width: 40, height: 40)
                 Image(systemName: "dumbbell.fill")
                     .font(.system(size: 18))
-                    .foregroundColor(GQColors.electricGold)
+                    .foregroundColor(GQColors.textSecondary)
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -385,15 +385,15 @@ private struct GravlInfoCard: View {
 
             Text("Auto")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(GQColors.electricGold)
+                .foregroundColor(GQColors.textSecondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(
-                    Capsule().fill(GQColors.electricGold.opacity(0.15))
+                    Capsule().fill(GQColors.textSecondary.opacity(0.15))
                 )
         }
         .padding(16)
-        .workoutFlowCard(accent: GQColors.electricGold)
+        .workoutFlowCard(accent: GQColors.textSecondary)
     }
 }
 

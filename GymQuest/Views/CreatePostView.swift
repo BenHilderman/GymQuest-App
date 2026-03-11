@@ -113,11 +113,6 @@ struct CreatePostView: View {
                             .scrollContentBackground(.hidden)
                     }
 
-                    // Emotion picker (workout posts only)
-                    if selectedContentType == .workout {
-                        WorkoutEmotionPicker(selectedEmotion: $selectedEmotion, compact: true)
-                    }
-
                     // Workout-specific options
                     if selectedContentType == .workout, let workout = workout {
                         VStack(alignment: .leading, spacing: 12) {
@@ -1033,13 +1028,13 @@ struct QuickTagButton: View {
                 .foregroundColor(isSelected ? .white : .gray)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(isSelected ? GQColors.cyanSpark.opacity(0.4) : Color.black.opacity(0.05))
+                .background(isSelected ? GQColors.textSecondary.opacity(0.4) : Color.black.opacity(0.05))
                 .cornerRadius(14)
                 .scaleEffect(isSelected ? 1.05 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(isSelected ? GQColors.cyanSpark : Color.clear, lineWidth: 1)
+                        .strokeBorder(isSelected ? GQColors.textSecondary : Color.clear, lineWidth: 1)
                 )
         }
         .buttonStyle(GQInteractiveStyle())

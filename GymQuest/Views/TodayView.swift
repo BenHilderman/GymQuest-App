@@ -49,6 +49,17 @@ struct TodayView: View {
         return nonRestWorkouts.filter { $0.date >= startOfWeek }.map(\.date)
     }
 
+    private var thisWeekWorkoutIcons: [Date: String] {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return [:] }
+        var icons: [Date: String] = [:]
+        for w in nonRestWorkouts where w.date >= startOfWeek {
+            icons[w.date] = w.type.icon
+        }
+        return icons
+    }
+
     private var lastNonRestWorkout: Workout? {
         nonRestWorkouts.first
     }
@@ -71,12 +82,15 @@ struct TodayView: View {
             }
             .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { checkForDraft() }
+            .onAppear {
+                checkForDraft()
+                MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
+            }
         }
     }
 
     private var todayContent: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             dateHeader
 
             if showDraftBanner {
@@ -86,7 +100,10 @@ struct TodayView: View {
             WeeklyProgressRing(
                 completed: workoutsThisWeek,
                 target: $profile.daysPerWeek,
-                workoutDates: thisWeekWorkoutDates
+                workoutDates: thisWeekWorkoutDates,
+                workoutIcons: thisWeekWorkoutIcons,
+                dailyStreak: dailyStreak,
+                weeklyStreak: weeklyStreak
             )
 
             startWorkoutHeroButton
@@ -98,12 +115,16 @@ struct TodayView: View {
             )
             .environment(\.modelContext, modelContext)
 
+            if let milestone = nextMilestone {
+                milestoneRow(milestone)
+            }
+
             if let todayPlan = todaysPlanDay {
                 plannedWorkoutCard(todayPlan)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.top, 4)
         .padding(.bottom, 100)
     }
 
@@ -141,52 +162,48 @@ struct TodayView: View {
     }
 
     private var resumeDraftBanner: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: "arrow.counterclockwise.circle.fill")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(GQColors.textSecondary)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Resume last workout?")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    Text("\(draftWorkoutType) \u{00B7} Started \(draftStartTime, format: .dateTime.month(.abbreviated).day().hour().minute())")
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textSecondary)
-                        .lineLimit(1)
-                }
-
-                Spacer()
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.08))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
             }
 
-            HStack(spacing: 12) {
-                Button {
-                    discardDraft()
-                } label: {
-                    Text("Discard")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(GQColors.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(GQColors.textSecondary.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    resumeDraft()
-                } label: {
-                    Text("Resume")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(GQGradients.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-                .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(draftWorkoutType)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(draftStartTime, format: .dateTime.month(.abbreviated).day().hour().minute())
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textTertiary)
             }
+
+            Spacer()
+
+            Button {
+                discardDraft()
+            } label: {
+                Text("Dismiss")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                resumeDraft()
+            } label: {
+                Text("Resume")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(GQGradients.primary)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
         }
         .padding(14)
         .homeSocialCard(cornerRadius: 14)
@@ -243,16 +260,153 @@ struct TodayView: View {
         }
     }
 
+    // MARK: - Streak & Milestone
+
+    private var dailyStreak: Int {
+        let calendar = Calendar.current
+        let activePlan = activePlans.first
+        let planDays: [TrainingPlanDay]? = activePlan?.weeks.flatMap(\.days)
+        let planLength = planDays?.count ?? 7
+        var streak = 0
+        var dayOffset = 0
+
+        while true {
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: calendar.startOfDay(for: Date())) else { break }
+
+            let hasWorkout = nonRestWorkouts.contains { calendar.isDate($0.date, inSameDayAs: date) }
+
+            if hasWorkout {
+                streak += 1
+            } else if let days = planDays {
+                // Check if this was a planned rest day
+                let dayIndex = dayOffset % planLength
+                let reversedIndex = (planLength - dayIndex) % planLength
+                if reversedIndex < days.count && days[reversedIndex].isRestDay {
+                    streak += 1 // Rest day doesn't break streak
+                } else if dayOffset == 0 {
+                    // Today — they might not have worked out yet
+                    break
+                } else {
+                    break
+                }
+            } else {
+                if dayOffset == 0 { break } // Today, haven't worked out yet
+                else { break }
+            }
+            dayOffset += 1
+            if dayOffset > 365 { break }
+        }
+        return streak
+    }
+
+    private var weeklyStreak: Int {
+        let calendar = Calendar.current
+        let target = profile.daysPerWeek
+        guard target > 0 else { return 0 }
+        var streak = 0
+        var weeksAgo = 1 // Start from last completed week
+
+        while true {
+            guard let weekStart = calendar.date(byAdding: .weekOfYear, value: -weeksAgo, to: Date()),
+                  let interval = calendar.dateInterval(of: .weekOfYear, for: weekStart) else { break }
+            let count = nonRestWorkouts.filter { $0.date >= interval.start && $0.date < interval.end }.count
+            if count >= target {
+                streak += 1
+            } else {
+                break
+            }
+            weeksAgo += 1
+            if weeksAgo > 52 { break }
+        }
+        return streak
+    }
+
+    private var nextMilestone: (label: String, current: Int, target: Int)? {
+        let total = nonRestWorkouts.count
+        let milestones = [10, 25, 50, 75, 100, 150, 200, 250, 300, 365, 500, 750, 1000]
+        if let next = milestones.first(where: { $0 > total }) {
+            return ("\(next) workouts", total, next)
+        }
+        return nil
+    }
+
+    private func milestoneRow(_ milestone: (label: String, current: Int, target: Int)) -> some View {
+        let fraction = CGFloat(milestone.current) / CGFloat(milestone.target)
+        let remaining = milestone.target - milestone.current
+
+        return HStack(spacing: 14) {
+            // Mini ring showing progress to milestone
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.06))
+                    .frame(width: 46, height: 46)
+                    .blur(radius: 5)
+
+                Circle()
+                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 4)
+                    .frame(width: 38, height: 38)
+                Circle()
+                    .trim(from: 0, to: fraction)
+                    .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 38, height: 38)
+
+                Text("\(milestone.current)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(GQColors.textPrimary)
+            }
+            .frame(width: 38, height: 38)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Next: \(milestone.target) workouts")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text("\(remaining) more to go")
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+
+            Spacer()
+
+            // Percentage pill
+            Text("\(Int(fraction * 100))%")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(GQGradients.primary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(GQGradients.primary.opacity(0.08))
+                )
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
     // MARK: - Date Header
 
     private var dateHeader: some View {
-        HStack {
-            Text(Date(), format: .dateTime.weekday(.wide).month(.wide).day())
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundStyle(GQColors.textPrimary)
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(greeting)
+                    .font(.system(size: 13))
+                    .foregroundStyle(GQColors.textTertiary)
+                Text(Date(), format: .dateTime.weekday(.wide).month(.abbreviated).day())
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundStyle(GQColors.textPrimary)
+            }
             Spacer()
         }
-        .padding(.top, 4)
+        .padding(.top, 2)
+    }
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 0..<12: return "Good morning"
+        case 12..<17: return "Good afternoon"
+        default: return "Good evening"
+        }
     }
 
     // MARK: - Tab Bar (Feed-style)
@@ -307,13 +461,29 @@ struct TodayView: View {
             appState.showingWorkoutStartOptions = true
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: "figure.strengthtraining.traditional")
-                    .font(.system(size: 18, weight: .semibold))
+                ZStack {
+                    Circle()
+                        .fill(.white.opacity(0.2))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                }
                 Text("Start Workout")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .opacity(0.6)
             }
+            .foregroundColor(.white)
+            .padding(.leading, 10)
+            .padding(.trailing, 16)
+            .padding(.vertical, 10)
+            .background(GQGradients.primary)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
         }
-        .buttonStyle(PrimaryButtonStyle())
+        .buttonStyle(.plain)
     }
 
     // MARK: - Planned Workout Card
@@ -333,67 +503,56 @@ struct TodayView: View {
     private func plannedWorkoutCard(_ day: TrainingPlanDay) -> some View {
         let wType = WorkoutType(rawValue: day.workoutType) ?? .push
 
-        VStack(spacing: 0) {
-            // Header
+        VStack(spacing: 12) {
             HStack(spacing: 12) {
-                Image(systemName: wType.icon)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 40, height: 40)
-                    .background(GQGradients.workoutGradient(for: wType))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(GQGradients.primary.opacity(0.08))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: wType.icon)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(GQGradients.primary)
+                }
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Today's Plan")
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textSecondary)
+                VStack(alignment: .leading, spacing: 2) {
                     Text(day.label)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
+                    Text("\(day.exercises.count) exercises · Today's plan")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()
-
-                Text("\(day.exercises.count) exercises")
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textTertiary)
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 14)
-            .padding(.bottom, 12)
 
-            Divider()
-                .overlay(GQColors.borderDefault)
-
-            // Options
             HStack(spacing: 8) {
-                planOptionButton(label: "Same as Last", icon: "clock.arrow.circlepath") {
+                planOptionButton(label: "Repeat Last", icon: "clock.arrow.circlepath") {
                     startPlannedFromLast(wType)
                 }
-                planOptionButton(label: "AI", icon: "brain.head.profile") {
+                planOptionButton(label: "AI Assist", icon: "sparkles") {
                     startPlannedAI(wType)
                 }
-                planOptionButton(label: "Fresh", icon: "plus") {
+                planOptionButton(label: "Empty", icon: "plus") {
                     startPlannedFresh(wType)
                 }
             }
-            .padding(14)
         }
+        .padding(14)
         .homeSocialCard(cornerRadius: 14)
     }
 
     private func planOptionButton(label: String, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(GQColors.deepBlue)
+                    .font(.system(size: 11, weight: .medium))
                 Text(label)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(GQColors.textPrimary)
             }
+            .foregroundColor(GQColors.textSecondary)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .padding(.vertical, 9)
             .background(GQColors.adaptiveOverlay(0.04))
             .clipShape(RoundedRectangle(cornerRadius: 10))
         }

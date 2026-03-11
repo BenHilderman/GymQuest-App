@@ -217,11 +217,7 @@ struct CategoryFilterBar: View {
                             .background(
                                 Group {
                                     if isSelected {
-                                        LinearGradient(
-                                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        )
+                                        GQGradients.primary
                                     } else {
                                         Color.white.opacity(0.1)
                                     }
@@ -611,9 +607,8 @@ struct PostMediaBackground: View {
     private var fallbackGradient: some View {
         LinearGradient(
             colors: [
-                Color(red: 0.102, green: 0.102, blue: 0.180),
-                Color(red: 0.086, green: 0.129, blue: 0.243),
-                Color(red: 0.059, green: 0.059, blue: 0.102)
+                GQColors.surfaceBase,
+                GQColors.background
             ],
             startPoint: .top,
             endPoint: .bottom
@@ -861,7 +856,7 @@ struct PostInfoSection: View {
         let text = words.reduce(Text("")) { result, word in
             let str = String(word)
             if str.hasPrefix("#") {
-                return result + Text(str).foregroundColor(GQColors.cyanSpark).bold() + Text(" ")
+                return result + Text(str).foregroundColor(GQColors.deepBlue).bold() + Text(" ")
             } else {
                 return result + Text(str) + Text(" ")
             }
@@ -909,7 +904,7 @@ struct ActionButtonColumn: View {
                 DiscoverActionButton(
                     icon: isLiked ? "heart.fill" : "heart",
                     count: likeCount,
-                    tint: isLiked ? GQColors.coralRed : .white
+                    tint: isLiked ? GQColors.textSecondary : .white
                 ) {
                     onLikeTap()
                 }
@@ -950,7 +945,7 @@ struct ActionButtonColumn: View {
             DiscoverActionButton(
                 icon: isBookmarked ? "bookmark.fill" : "bookmark",
                 count: 0,
-                tint: isBookmarked ? GQColors.cyanSpark : .white
+                tint: isBookmarked ? GQColors.textSecondary : .white
             ) {
                 onBookmarkTap()
             }
@@ -1016,7 +1011,7 @@ struct FloatingHeart: View {
     var body: some View {
         Image(systemName: "heart.fill")
             .font(.system(size: 80))
-            .foregroundColor(GQColors.coralRed)
+            .foregroundColor(GQColors.textSecondary)
             .scaleEffect(scale)
             .opacity(opacity)
             .offset(y: yOffset)
@@ -1110,7 +1105,7 @@ struct DiscoverCommentsSheet: View {
                         postNewComment()
                     }
                     .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
                     .disabled(newComment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 .padding(.horizontal, 16)
@@ -1188,7 +1183,7 @@ struct DiscoverCommentRow: View {
             } label: {
                 Image(systemName: isLiked ? "heart.fill" : "heart")
                     .font(.system(size: 12))
-                    .foregroundColor(isLiked ? GQColors.coralRed : .secondary)
+                    .foregroundColor(isLiked ? GQColors.textSecondary : .secondary)
             }
         }
         .padding(.horizontal, 16)
@@ -1373,7 +1368,7 @@ struct PlaylistPreviewSheet: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(track.0)
                                         .font(.system(size: 15, weight: index == 0 ? .bold : .regular))
-                                        .foregroundColor(index == 0 ? GQColors.cyanSpark : .primary)
+                                        .foregroundColor(index == 0 ? GQColors.textSecondary : .primary)
                                     Text(track.1)
                                         .font(.system(size: 12))
                                         .foregroundColor(.secondary)
@@ -1402,7 +1397,7 @@ struct PlaylistPreviewSheet: View {
                                     .font(.system(size: 14, weight: .semibold))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
-                                    .background(Color(red: 0.118, green: 0.725, blue: 0.329))
+                                    .background(GQColors.deepBlue)
                                     .foregroundColor(.white)
                                     .cornerRadius(10)
                             }
@@ -1417,7 +1412,7 @@ struct PlaylistPreviewSheet: View {
                                     .font(.system(size: 14, weight: .semibold))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
-                                    .background(Color(red: 0.988, green: 0.220, blue: 0.376))
+                                    .background(GQColors.deepBlue)
                                     .foregroundColor(.white)
                                     .cornerRadius(10)
                             }

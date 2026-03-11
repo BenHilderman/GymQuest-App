@@ -39,7 +39,7 @@ struct VoiceNoteRecorderView: View {
             HStack(spacing: 8) {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
 
                 Text("Add voice note")
                     .font(.system(size: 13, weight: .medium))
@@ -64,7 +64,7 @@ struct VoiceNoteRecorderView: View {
         HStack(spacing: 12) {
             // Pulsing red dot
             Circle()
-                .fill(GQColors.coralRed)
+                .fill(GQColors.textSecondary)
                 .frame(width: 10, height: 10)
                 .scaleEffect(pulseScale)
                 .onAppear {
@@ -99,18 +99,18 @@ struct VoiceNoteRecorderView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(GQColors.coralRed)
+                .background(GQColors.textSecondary)
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(GQColors.coralRed.opacity(0.12))
+        .background(GQColors.textSecondary.opacity(0.12))
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(GQColors.coralRed.opacity(0.3), lineWidth: 1)
+                .stroke(GQColors.textSecondary.opacity(0.3), lineWidth: 1)
         )
     }
 
@@ -130,7 +130,7 @@ struct VoiceNoteRecorderView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(width: 32, height: 32)
-                    .background(GQColors.cyanSpark)
+                    .background(GQColors.textSecondary)
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -143,7 +143,7 @@ struct VoiceNoteRecorderView: View {
                         .frame(height: 4)
 
                     Capsule()
-                        .fill(GQColors.cyanSpark)
+                        .fill(GQColors.textSecondary)
                         .frame(width: geo.size.width * service.playbackProgress, height: 4)
                 }
                 .frame(maxHeight: .infinity, alignment: .center)
@@ -173,7 +173,7 @@ struct VoiceNoteRecorderView: View {
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(GQColors.cyanSpark.opacity(0.25), lineWidth: 1)
+                .stroke(GQColors.textSecondary.opacity(0.25), lineWidth: 1)
         )
     }
 

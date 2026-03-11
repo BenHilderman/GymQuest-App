@@ -126,7 +126,7 @@ struct Exercise3DDemoSheet: View {
                             .padding(.vertical, 6)
                             .background(
                                 playbackSpeed == Float(speed)
-                                    ? GQColors.vividPurple.opacity(0.3)
+                                    ? GQColors.deepBlue.opacity(0.3)
                                     : Color.black.opacity(0.03)
                             )
                             .cornerRadius(6)
@@ -148,11 +148,11 @@ struct Exercise3DDemoSheet: View {
                 .padding(.vertical, 14)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(GQColors.vividPurple.opacity(0.2))
+                        .fill(GQColors.deepBlue.opacity(0.2))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(GQColors.vividPurple.opacity(0.4), lineWidth: 1)
+                        .stroke(GQColors.deepBlue.opacity(0.4), lineWidth: 1)
                 )
             }
         }
@@ -220,7 +220,7 @@ struct Exercise3DDemoSheet: View {
     private func tempoSection(tempo: String) -> some View {
         HStack {
             Image(systemName: "metronome")
-                .foregroundColor(GQColors.cyanSpark)
+                .foregroundColor(GQColors.textSecondary)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Recommended Tempo")
@@ -228,7 +228,7 @@ struct Exercise3DDemoSheet: View {
                     .foregroundColor(GQColors.textTertiary)
                 Text(tempo)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
             }
 
             Spacer()
@@ -264,7 +264,7 @@ struct Exercise3DDemoSheet: View {
                 Label("Watch key joints", systemImage: "eye")
             }
             .font(.system(size: 12))
-            .foregroundColor(GQColors.cyanSpark)
+            .foregroundColor(GQColors.textSecondary)
         }
         .padding(16)
         .background(GQColors.surfaceBase)

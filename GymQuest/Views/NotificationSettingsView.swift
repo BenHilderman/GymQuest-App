@@ -21,7 +21,7 @@ struct NotificationSettingsView: View {
                         HStack {
                             Image(systemName: "bell.badge")
                                 .font(.title2)
-                                .foregroundColor(GQColors.sunsetOrange)
+                                .foregroundColor(GQColors.textSecondary)
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Enable Notifications")
@@ -42,7 +42,7 @@ struct NotificationSettingsView: View {
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(GQColors.vividPurple)
+                                .background(GQColors.deepBlue)
                                 .cornerRadius(10)
                         }
                         .buttonStyle(GQInteractiveStyle())
@@ -148,7 +148,7 @@ struct DayButton: View {
                 .frame(width: 36, height: 36)
                 .background(
                     Circle()
-                        .fill(isSelected ? GQColors.vividPurple : Color.black.opacity(0.06))
+                        .fill(isSelected ? GQColors.deepBlue : Color.black.opacity(0.06))
                 )
         }
         .buttonStyle(GQInteractiveStyle())

@@ -104,6 +104,9 @@ struct LiftAIApp: App {
             CoachNote.self,
             ExerciseLeaderboardEntry.self,
 
+            // Goals
+            UserGoal.self,
+
             // Form Studio
             FormExercise.self,
             FormMediaSet.self,

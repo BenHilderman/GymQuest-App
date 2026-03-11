@@ -52,7 +52,10 @@ final class LocationTrackingService: NSObject {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = 10 // meters — ~every 3s at running pace
         locationManager.activityType = .fitness
-        locationManager.allowsBackgroundLocationUpdates = true
+        if let modes = Bundle.main.infoDictionary?["UIBackgroundModes"] as? [String],
+           modes.contains("location") {
+            locationManager.allowsBackgroundLocationUpdates = true
+        }
         locationManager.pausesLocationUpdatesAutomatically = false
         locationManager.delegate = self
     }

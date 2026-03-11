@@ -32,7 +32,7 @@ struct VoiceNotePlayerView: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
                     .frame(width: 34, height: 34)
-                    .background(GQColors.cyanSpark)
+                    .background(GQColors.textSecondary)
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -47,7 +47,7 @@ struct VoiceNotePlayerView: View {
                     Capsule()
                         .fill(
                             LinearGradient(
-                                colors: [GQColors.cyanSpark, GQColors.vividPurple],
+                                colors: [GQColors.textSecondary, GQColors.deepBlue],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )

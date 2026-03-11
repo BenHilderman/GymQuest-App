@@ -117,8 +117,8 @@ struct PaywallView: View {
     private var featuresSection: some View {
         VStack(spacing: 0) {
             featureRow(icon: "brain.head.profile", title: "AI-Generated Workouts", desc: "Personalized programs built for your goals", color: GQColors.deepBlue)
-            featureRow(icon: "chart.line.uptrend.xyaxis", title: "Advanced Analytics", desc: "Deep insights into volume, strength, and recovery", color: GQColors.vividPurple)
-            featureRow(icon: "list.bullet.clipboard", title: "Custom Training Plans", desc: "Multi-week periodized programming", color: GQColors.cyanSpark)
+            featureRow(icon: "chart.line.uptrend.xyaxis", title: "Advanced Analytics", desc: "Deep insights into volume, strength, and recovery", color: GQColors.deepBlue)
+            featureRow(icon: "list.bullet.clipboard", title: "Custom Training Plans", desc: "Multi-week periodized programming", color: GQColors.textSecondary)
             featureRow(icon: "figure.strengthtraining.traditional", title: "Form Studio", desc: "Exercise technique library with cues", color: GQColors.success)
             featureRow(icon: "clock.arrow.circlepath", title: "Unlimited History", desc: "Access your full workout archive", color: GQColors.deepBlue)
         }

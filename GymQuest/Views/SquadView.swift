@@ -67,7 +67,7 @@ struct SquadView: View {
                                         .foregroundColor(GQColors.textPrimary)
                                         .frame(maxWidth: .infinity)
                                         .padding(.vertical, 12)
-                                        .background(GQColors.cyanSpark.opacity(0.12))
+                                        .background(GQColors.textSecondary.opacity(0.12))
                                         .cornerRadius(GQRadius.md)
                                 }
                             }
@@ -185,11 +185,11 @@ struct SquadCardView: View {
                         if squad.streakWeeks > 0 {
                             HStack(spacing: 4) {
                                 Image(systemName: "flame.fill")
-                                    .foregroundColor(GQColors.sunsetOrange)
+                                    .foregroundColor(GQColors.textSecondary)
                                 Text("\(squad.streakWeeks)w")
                             }
                             .font(.system(size: 12))
-                            .foregroundColor(GQColors.sunsetOrange)
+                            .foregroundColor(GQColors.textSecondary)
                         }
                     }
                 }
@@ -213,7 +213,7 @@ struct SquadCardView: View {
 
                         Text("+\(challenge.xpReward) XP")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
                     }
 
                     // Progress bar
@@ -255,7 +255,7 @@ struct SquadCardView: View {
                             // Rank
                             Text("\(index + 1)")
                                 .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(index == 0 ? GQColors.prGold : GQColors.textTertiary)
+                                .foregroundColor(index == 0 ? GQColors.textSecondary : GQColors.textTertiary)
                                 .frame(width: 20)
 
                             // Avatar
@@ -433,7 +433,7 @@ struct JoinSquadSheet: View {
                     VStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 48))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
 
                         Text("Joined \(squad.name)!")
                             .font(.headline)
@@ -547,7 +547,7 @@ struct SquadDetailView: View {
                         } label: {
                             Label("Copy Code", systemImage: "doc.on.doc")
                                 .font(.system(size: 13))
-                                .foregroundColor(GQColors.cyanSpark)
+                                .foregroundColor(GQColors.textSecondary)
                         }
                     }
                     .padding(20)
@@ -571,7 +571,7 @@ struct SquadDetailView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "chart.bar.fill")
-                                .foregroundColor(GQColors.vividPurple)
+                                .foregroundColor(GQColors.deepBlue)
                             Text("Volume Leaderboard")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(GQColors.textPrimary)
@@ -604,7 +604,7 @@ struct SquadDetailView: View {
                             .foregroundColor(GQColors.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(GQColors.vividPurple.opacity(0.12))
+                            .background(GQColors.deepBlue.opacity(0.12))
                             .cornerRadius(GQRadius.md)
                         }
                         .buttonStyle(GQInteractiveStyle())
@@ -742,9 +742,9 @@ struct LeaderboardRow: View {
 
     var rankColor: Color {
         switch rank {
-        case 1: return GQColors.prGold
+        case 1: return GQColors.textSecondary
         case 2: return GQColors.textTertiary
-        case 3: return GQColors.sunsetOrange
+        case 3: return GQColors.textSecondary
         default: return GQColors.textPrimary.opacity(0.5)
         }
     }
@@ -816,7 +816,7 @@ struct ActiveChallengeCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("ACTIVE CHALLENGE")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(GQColors.vividPurple.opacity(0.8))
+                        .foregroundColor(GQColors.deepBlue.opacity(0.8))
                         .tracking(0.5)
 
                     Text(challenge.title)
@@ -828,10 +828,10 @@ struct ActiveChallengeCard: View {
 
                 Text("+\(challenge.xpReward) XP")
                     .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
-                    .background(GQColors.cyanSpark.opacity(0.15))
+                    .background(GQColors.textSecondary.opacity(0.15))
                     .cornerRadius(8)
             }
 
@@ -874,7 +874,7 @@ struct ActiveChallengeCard: View {
         .padding(16)
         .background(
             LinearGradient(
-                colors: [GQColors.vividPurple.opacity(0.2), GQColors.deepBlue.opacity(0.1)],
+                colors: [GQColors.deepBlue.opacity(0.2), GQColors.deepBlue.opacity(0.1)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -882,7 +882,7 @@ struct ActiveChallengeCard: View {
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(GQColors.vividPurple.opacity(0.3), lineWidth: 1)
+                .strokeBorder(GQColors.deepBlue.opacity(0.3), lineWidth: 1)
         )
     }
 }

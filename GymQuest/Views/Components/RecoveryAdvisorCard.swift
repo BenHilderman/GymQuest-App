@@ -92,8 +92,8 @@ struct RecoveryAdvisorCard: View {
     private var zoneColor: Color {
         guard let score = recoveryScore else { return GQColors.textSecondary }
         if score >= 67 { return GQColors.success }
-        if score >= 34 { return GQColors.electricGold }
-        return GQColors.coralRed
+        if score >= 34 { return GQColors.textSecondary }
+        return GQColors.textSecondary
     }
 
     private var zoneIcon: String {

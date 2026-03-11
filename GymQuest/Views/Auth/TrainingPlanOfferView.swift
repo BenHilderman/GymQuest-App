@@ -78,7 +78,7 @@ struct TrainingPlanOfferView: View {
     // MARK: - Generating Phase
 
     private let generatingGradient = LinearGradient(
-        colors: [GQColors.deepBlue.opacity(0.55), GQColors.vividPurple.opacity(0.45), GQColors.coralRed.opacity(0.50)],
+        colors: [GQColors.deepBlue.opacity(0.55), GQColors.deepBlue.opacity(0.45), GQColors.textSecondary.opacity(0.50)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
@@ -90,13 +90,13 @@ struct TrainingPlanOfferView: View {
             GQColors.background.ignoresSafeArea()
 
             Circle()
-                .fill(GQColors.vividPurple.opacity(0.15))
+                .fill(GQColors.deepBlue.opacity(0.15))
                 .frame(width: 280, height: 280)
                 .blur(radius: 70)
                 .offset(x: -40 + generatingProgress * 80, y: -80)
 
             Circle()
-                .fill(GQColors.vividPurple.opacity(0.12))
+                .fill(GQColors.deepBlue.opacity(0.12))
                 .frame(width: 220, height: 220)
                 .blur(radius: 60)
                 .offset(x: 60 - generatingProgress * 60, y: 120)
@@ -108,7 +108,7 @@ struct TrainingPlanOfferView: View {
                 ZStack {
                     // Outer track
                     Circle()
-                        .stroke(GQColors.vividPurple.opacity(0.2), lineWidth: 3)
+                        .stroke(GQColors.deepBlue.opacity(0.2), lineWidth: 3)
                         .frame(width: 110, height: 110)
 
                     // Spinning arc
@@ -122,14 +122,14 @@ struct TrainingPlanOfferView: View {
                     Circle()
                         .fill(
                             LinearGradient(
-                                colors: [GQColors.deepBlue.opacity(0.9), GQColors.vividPurple.opacity(0.9)],
+                                colors: [GQColors.deepBlue.opacity(0.9), GQColors.deepBlue.opacity(0.9)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         )
                         .frame(width: 52, height: 52)
                         .scaleEffect(generatingProgress < 1 ? 1.0 + sin(generatingProgress * .pi * 2) * 0.08 : 1.0)
-                        .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 16, y: 0)
+                        .shadow(color: GQColors.deepBlue.opacity(0.3), radius: 16, y: 0)
                         .shadow(color: GQColors.deepBlue.opacity(0.15), radius: 24, y: 0)
 
                     // Checkmark icon inside
@@ -143,12 +143,12 @@ struct TrainingPlanOfferView: View {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 4)
-                                .fill(GQColors.vividPurple.opacity(0.2))
+                                .fill(GQColors.deepBlue.opacity(0.2))
 
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(
                                     LinearGradient(
-                                        colors: [GQColors.deepBlue.opacity(0.9), GQColors.vividPurple.opacity(0.9)],
+                                        colors: [GQColors.deepBlue.opacity(0.9), GQColors.deepBlue.opacity(0.9)],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
@@ -174,7 +174,7 @@ struct TrainingPlanOfferView: View {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [GQColors.cardBackground, GQColors.vividPurple.opacity(0.04)],
+                                    colors: [GQColors.cardBackground, GQColors.deepBlue.opacity(0.04)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -184,7 +184,7 @@ struct TrainingPlanOfferView: View {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .stroke(
                                 LinearGradient(
-                                    colors: [GQColors.vividPurple.opacity(0.5), GQColors.vividPurple.opacity(0.25)],
+                                    colors: [GQColors.deepBlue.opacity(0.5), GQColors.deepBlue.opacity(0.25)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
@@ -209,19 +209,19 @@ struct TrainingPlanOfferView: View {
             GQColors.background.ignoresSafeArea()
 
             Circle()
-                .fill(GQColors.vividPurple.opacity(0.15))
+                .fill(GQColors.deepBlue.opacity(0.15))
                 .frame(width: 280, height: 280)
                 .blur(radius: 70)
                 .offset(x: -60, y: -120)
 
             Circle()
-                .fill(GQColors.vividPurple.opacity(0.12))
+                .fill(GQColors.deepBlue.opacity(0.12))
                 .frame(width: 220, height: 220)
                 .blur(radius: 60)
                 .offset(x: 80, y: 200)
 
             Circle()
-                .fill(GQColors.sunsetOrange.opacity(0.10))
+                .fill(GQColors.textSecondary.opacity(0.10))
                 .frame(width: 200, height: 200)
                 .blur(radius: 50)
                 .offset(x: -40, y: 400)
@@ -458,8 +458,8 @@ struct TrainingPlanOfferView: View {
     private var featuresSection: some View {
         VStack(spacing: 0) {
             featureRow(icon: "brain.head.profile", title: "AI Weekly Adjustments", desc: "Your plan evolves as you progress", color: GQColors.deepBlue)
-            featureRow(icon: "figure.strengthtraining.traditional", title: "500+ Exercise Library", desc: "Guided demos for every movement", color: GQColors.vividPurple)
-            featureRow(icon: "chart.line.uptrend.xyaxis", title: "Progressive Overload", desc: "Automatic weight & volume tracking", color: GQColors.cyanSpark)
+            featureRow(icon: "figure.strengthtraining.traditional", title: "500+ Exercise Library", desc: "Guided demos for every movement", color: GQColors.deepBlue)
+            featureRow(icon: "chart.line.uptrend.xyaxis", title: "Progressive Overload", desc: "Automatic weight & volume tracking", color: GQColors.textSecondary)
             featureRow(icon: "clock.arrow.circlepath", title: "Real-Time Coaching", desc: "Form cues and rest timers", color: GQColors.success)
         }
         .padding(.vertical, 8)
@@ -566,7 +566,7 @@ struct TrainingPlanOfferView: View {
                     if let savingsText {
                         Text(savingsText)
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(GQColors.vividPurple)
+                            .foregroundStyle(GQColors.deepBlue)
                     }
                 }
 

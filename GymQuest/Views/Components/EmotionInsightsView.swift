@@ -23,7 +23,7 @@ struct EmotionInsightsCard: View {
         HStack(spacing: 8) {
             Image(systemName: "heart.text.square.fill")
                 .font(.system(size: 16))
-                .foregroundColor(GQColors.vividPurple)
+                .foregroundColor(GQColors.deepBlue)
             Text("EMOTION JOURNEY")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(GQColors.textTertiary)
@@ -40,7 +40,7 @@ struct EmotionInsightsCard: View {
         HStack(spacing: 8) {
             Image(systemName: "flame.fill")
                 .font(.system(size: 14))
-                .foregroundColor(GQColors.sunsetOrange)
+                .foregroundColor(GQColors.textSecondary)
             Text("\(insights.resilienceStreak) workouts showing up when it's hard — that takes real grit")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(GQColors.textPrimary)
@@ -49,7 +49,7 @@ struct EmotionInsightsCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(GQColors.sunsetOrange.opacity(0.1))
+                .fill(GQColors.textSecondary.opacity(0.1))
         )
     }
 

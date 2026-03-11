@@ -81,7 +81,7 @@ struct SocialView: View {
                             .foregroundColor(selectedSection == section ? GQColors.textPrimary : GQColors.textTertiary)
 
                         Rectangle()
-                            .fill(selectedSection == section ? GQColors.vividPurple : Color.clear)
+                            .fill(selectedSection == section ? GQColors.deepBlue : Color.clear)
                             .frame(height: 2)
                     }
                 }
@@ -122,7 +122,7 @@ struct SocialView: View {
                             title: "Push Day Pump",
                             author: "FitnessPro",
                             likes: 2340,
-                            color: GQColors.vividPurple
+                            color: GQColors.deepBlue
                         )
                         TrendingWorkoutCard(
                             title: "5x5 Strength",
@@ -134,7 +134,7 @@ struct SocialView: View {
                             title: "HIIT Burn",
                             author: "CardioQueen",
                             likes: 1654,
-                            color: GQColors.cyanSpark
+                            color: GQColors.textSecondary
                         )
                     }
                 }
@@ -176,7 +176,7 @@ struct SocialView: View {
                     progress: 0.6,
                     daysRemaining: 12,
                     participants: 234,
-                    color: GQColors.vividPurple
+                    color: GQColors.deepBlue
                 )
 
                 ClubGoalCard(
@@ -185,7 +185,7 @@ struct SocialView: View {
                     progress: 0.35,
                     daysRemaining: 4,
                     participants: 89,
-                    color: GQColors.cyanSpark
+                    color: GQColors.textSecondary
                 )
             }
             .padding(.top, 8)
@@ -205,7 +205,7 @@ struct SocialView: View {
                     } label: {
                         Text("See All")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
                     }
                 }
 
@@ -222,7 +222,7 @@ struct SocialView: View {
                     members: 89,
                     activeChallenge: "PR Week",
                     icon: "dumbbell.fill",
-                    color: GQColors.vividPurple
+                    color: GQColors.deepBlue
                 )
             }
 
@@ -342,7 +342,7 @@ struct SocialView: View {
                 .padding(.vertical, 12)
                 .background(
                     LinearGradient(
-                        colors: [GQColors.vividPurple, GQColors.deepBlue],
+                        colors: [GQColors.deepBlue, GQColors.deepBlue],
                         startPoint: .leading,
                         endPoint: .trailing
                     )
@@ -433,7 +433,7 @@ struct FeaturedWorkoutCard: View {
             HStack {
                 Text("WORKOUT OF THE DAY")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
                     .tracking(1)
 
                 Spacer()
@@ -470,7 +470,7 @@ struct FeaturedWorkoutCard: View {
                     .padding(.vertical, 12)
                     .background(
                         LinearGradient(
-                            colors: [GQColors.vividPurple, GQColors.deepBlue],
+                            colors: [GQColors.deepBlue, GQColors.deepBlue],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
@@ -481,7 +481,7 @@ struct FeaturedWorkoutCard: View {
         .padding(16)
         .background(
             LinearGradient(
-                colors: [GQColors.vividPurple.opacity(0.2), Color.clear],
+                colors: [GQColors.deepBlue.opacity(0.2), Color.clear],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -490,7 +490,7 @@ struct FeaturedWorkoutCard: View {
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(GQColors.vividPurple.opacity(0.3), lineWidth: 1)
+                .stroke(GQColors.deepBlue.opacity(0.3), lineWidth: 1)
         )
         .fullScreenCover(isPresented: $showFollowWorkout) {
             FollowWorkoutView(
@@ -560,7 +560,7 @@ struct DiscoverPostCard: View {
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            colors: [GQColors.deepBlue, GQColors.textSecondary],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -589,10 +589,10 @@ struct DiscoverPostCard: View {
                 } label: {
                     Text("Follow")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(GQColors.cyanSpark.opacity(0.15))
+                        .background(GQColors.textSecondary.opacity(0.15))
                         .cornerRadius(6)
                 }
             }
@@ -817,7 +817,7 @@ struct UpcomingChallengeRow: View {
         HStack {
             Image(systemName: icon)
                 .font(.system(size: 16))
-                .foregroundColor(GQColors.cyanSpark)
+                .foregroundColor(GQColors.textSecondary)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -837,9 +837,9 @@ struct UpcomingChallengeRow: View {
             } label: {
                 Image(systemName: "bell")
                     .font(.system(size: 14))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
                     .padding(8)
-                    .background(GQColors.cyanSpark.opacity(0.15))
+                    .background(GQColors.textSecondary.opacity(0.15))
                     .cornerRadius(8)
             }
         }
@@ -869,7 +869,7 @@ struct FriendPostCard: View {
             // Author Header
             HStack(spacing: 10) {
                 Circle()
-                    .fill(GQColors.vividPurple.opacity(0.3))
+                    .fill(GQColors.deepBlue.opacity(0.3))
                     .frame(width: 40, height: 40)
                     .overlay(
                         Text(String(post.authorName.prefix(1)).uppercased())
@@ -937,14 +937,14 @@ struct FriendPostCard: View {
                     .padding(.vertical, 12)
                     .background(
                         LinearGradient(
-                            colors: [GQColors.vividPurple.opacity(0.3), GQColors.deepBlue.opacity(0.3)],
+                            colors: [GQColors.deepBlue.opacity(0.3), GQColors.deepBlue.opacity(0.3)],
                             startPoint: .leading,
                             endPoint: .trailing
                         )
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(GQColors.vividPurple.opacity(0.5), lineWidth: 1)
+                            .stroke(GQColors.deepBlue.opacity(0.5), lineWidth: 1)
                     )
                     .cornerRadius(12)
                 }

@@ -190,9 +190,9 @@ enum ReadinessLevel: String, CaseIterable {
     var color: Color {
         switch self {
         case .optimal: return GQColors.success
-        case .good: return GQColors.cyanSpark
-        case .moderate: return GQColors.electricGold
-        case .low: return GQColors.coralRed
+        case .good: return GQColors.textSecondary
+        case .moderate: return GQColors.textSecondary
+        case .low: return GQColors.textSecondary
         }
     }
 

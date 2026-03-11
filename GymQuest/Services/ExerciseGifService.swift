@@ -47,6 +47,21 @@ final class ExerciseGifService {
         for (key, id) in lowercaseMappings {
             if key.contains(lower) || lower.contains(key) { return id }
         }
+        // Word-overlap match — e.g. "HIIT Sled Push" matches "Sled Push"
+        let words = Set(lower.split(separator: " ").map(String.init))
+        if words.count >= 2 {
+            var bestMatch: (id: String, overlap: Int)?
+            for (key, id) in lowercaseMappings {
+                let keyWords = Set(key.split(separator: " ").map(String.init))
+                let overlap = words.intersection(keyWords).count
+                if overlap >= 2, overlap >= keyWords.count - 1 {
+                    if bestMatch == nil || overlap > bestMatch!.overlap {
+                        bestMatch = (id, overlap)
+                    }
+                }
+            }
+            if let match = bestMatch { return match.id }
+        }
         return nil
     }
 

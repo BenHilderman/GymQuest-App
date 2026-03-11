@@ -104,8 +104,8 @@ struct LeaderboardView: View {
                         .font(.caption2)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 4)
-                        .background(selectedWeightClass == nil ? GQColors.vividPurple.opacity(0.2) : Color.clear)
-                        .foregroundColor(selectedWeightClass == nil ? GQColors.vividPurple : GQColors.textSecondary)
+                        .background(selectedWeightClass == nil ? GQColors.deepBlue.opacity(0.2) : Color.clear)
+                        .foregroundColor(selectedWeightClass == nil ? GQColors.deepBlue : GQColors.textSecondary)
                         .clipShape(Capsule())
                 }
 
@@ -117,8 +117,8 @@ struct LeaderboardView: View {
                             .font(.caption2)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
-                            .background(selectedWeightClass == wc ? GQColors.vividPurple.opacity(0.2) : Color.clear)
-                            .foregroundColor(selectedWeightClass == wc ? GQColors.vividPurple : GQColors.textSecondary)
+                            .background(selectedWeightClass == wc ? GQColors.deepBlue.opacity(0.2) : Color.clear)
+                            .foregroundColor(selectedWeightClass == wc ? GQColors.deepBlue : GQColors.textSecondary)
                             .clipShape(Capsule())
                     }
                 }
@@ -180,7 +180,7 @@ struct LeaderboardView: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
-        .background(rank <= 3 ? GQColors.vividPurple.opacity(0.05) : Color.clear)
+        .background(rank <= 3 ? GQColors.deepBlue.opacity(0.05) : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
@@ -218,9 +218,9 @@ struct LeaderboardView: View {
 
     private func medalColor(for rank: Int) -> Color {
         switch rank {
-        case 1: return Color(red: 1.0, green: 0.84, blue: 0.0)  // Gold
-        case 2: return Color(red: 0.75, green: 0.75, blue: 0.75) // Silver
-        case 3: return Color(red: 0.80, green: 0.50, blue: 0.20) // Bronze
+        case 1: return GQColors.textSecondary
+        case 2: return GQColors.textSecondary
+        case 3: return GQColors.textSecondary
         default: return .clear
         }
     }

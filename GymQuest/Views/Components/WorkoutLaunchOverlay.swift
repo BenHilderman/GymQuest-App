@@ -39,7 +39,7 @@ struct WorkoutLaunchOverlay: View {
             Circle()
                 .stroke(
                     LinearGradient(
-                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                        colors: [GQColors.deepBlue, GQColors.textSecondary],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
@@ -67,7 +67,7 @@ struct WorkoutLaunchOverlay: View {
                     .font(.system(size: 100, weight: .black, design: .rounded))
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                            colors: [GQColors.deepBlue, GQColors.textSecondary],
                             startPoint: .leading,
                             endPoint: .trailing
                         )

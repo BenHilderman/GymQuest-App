@@ -55,7 +55,7 @@ struct WorkoutCardView: View {
                 isLiked: $isLiked
             )
         }
-        .workoutFlowCard(accent: GQColors.vividPurple, cornerRadius: 16)
+        .workoutFlowCard(accent: GQColors.deepBlue, cornerRadius: 16)
     }
 }
 
@@ -74,7 +74,7 @@ struct CardHeader: View {
                 // workout type icon
                 Circle()
                     .fill(LinearGradient(
-                        colors: [GQColors.deepBlue, GQColors.vividPurple],
+                        colors: [GQColors.deepBlue, GQColors.deepBlue],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ))
@@ -110,7 +110,7 @@ struct CardHeader: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text("+\(xpEarned) XP")
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(GQColors.cyanSpark)
+                    .foregroundColor(GQColors.textSecondary)
             }
         }
         .padding(16)
@@ -125,7 +125,7 @@ struct StreakBadge: View {
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [GQColors.vividPurple, GQColors.cyanSpark],
+                        colors: [GQColors.deepBlue, GQColors.textSecondary],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -152,12 +152,12 @@ struct PRCallout: View {
                 HStack(spacing: 10) {
                     Image(systemName: "trophy.fill")
                         .font(.system(size: 16))
-                        .foregroundColor(GQColors.cyanSpark)
+                        .foregroundColor(GQColors.textSecondary)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("NEW PR")
                             .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(GQColors.cyanSpark)
+                            .foregroundColor(GQColors.textSecondary)
 
                         HStack(spacing: 4) {
                             if let exercise = pr.exerciseName {
@@ -261,13 +261,13 @@ struct CoachTakeawaySection: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "brain.head.profile")
                 .font(.system(size: 16))
-                .foregroundColor(GQColors.cyanSpark)
+                .foregroundColor(GQColors.textSecondary)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("COACH SAYS")
                     .font(.system(size: 10, weight: .bold))
-                    .foregroundColor(GQColors.cyanSpark.opacity(0.85))
+                    .foregroundColor(GQColors.textSecondary.opacity(0.85))
 
                 Text(takeaway)
                     .font(.system(size: 14))

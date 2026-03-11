@@ -27,9 +27,7 @@ struct ProfileView: View {
 
     @StateObject private var healthKit = HealthKitService.shared
     @State private var showingSettings = false
-    @State private var selectedWorkout: Workout?
     @State private var selectedPost: Post?
-    @State private var selectedTab: ProfileContentTab = .posts
     @State private var emotionInsightsExpanded = false
     @State private var showingCoach = false
     @State private var showingCalendarHistory = false
@@ -72,8 +70,7 @@ struct ProfileView: View {
                     todayHealthStatsCard
                     achievementBadgesSection
                     VStack(spacing: 0) {
-                        profileTabBar
-                        profileTabContent
+                        postsContent
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
                     }
@@ -115,9 +112,6 @@ struct ProfileView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showingSettings) {
                 SettingsView(profile: profile)
-            }
-            .sheet(item: $selectedWorkout) { workout in
-                SessionDetailView(session: workout)
             }
             .sheet(
                 isPresented: Binding(
@@ -797,148 +791,37 @@ struct ProfileView: View {
         .homeSocialCard()
     }
 
-    private var profileTabBar: some View {
-        HStack(spacing: 0) {
-            ForEach(ProfileContentTab.allCases, id: \.self) { tab in
-                Button {
-                    withAnimation(GQMotion.micro) {
-                        selectedTab = tab
-                    }
-                } label: {
-                    VStack(spacing: 8) {
-                        HStack(spacing: 4) {
-                            Image(systemName: tab.icon)
-                                .font(.system(size: 12, weight: .semibold))
-                            Text(tab.rawValue)
-                                .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .medium))
-                        }
-                        .foregroundColor(selectedTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
-
-                        Rectangle()
-                            .fill(selectedTab == tab ? GQColors.textPrimary : Color.clear)
-                            .frame(height: 2)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 10)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
     @ViewBuilder
-    private var profileTabContent: some View {
-        switch selectedTab {
-        case .posts:
-            if userPosts.isEmpty {
-                ProfileEmptyState(
-                    icon: "camera.on.rectangle",
-                    title: "No posts yet",
-                    subtitle: "Share your sessions and progress here."
-                )
-            } else {
-                LazyVGrid(
-                    columns: [
-                        GridItem(.flexible(), spacing: 2),
-                        GridItem(.flexible(), spacing: 2),
-                        GridItem(.flexible(), spacing: 2)
-                    ],
-                    spacing: 2
-                ) {
-                    ForEach(userPosts) { post in
-                        Button {
-                            selectedPost = post
-                        } label: {
-                            ProfilePostThumbnail(post: post)
-                        }
-                        .buttonStyle(.plain)
+    private var postsContent: some View {
+        if userPosts.isEmpty {
+            ProfileEmptyState(
+                icon: "camera.on.rectangle",
+                title: "No posts yet",
+                subtitle: "Share your sessions and progress here."
+            )
+        } else {
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: 2),
+                    GridItem(.flexible(), spacing: 2),
+                    GridItem(.flexible(), spacing: 2)
+                ],
+                spacing: 2
+            ) {
+                ForEach(userPosts) { post in
+                    Button {
+                        selectedPost = post
+                    } label: {
+                        ProfilePostThumbnail(post: post)
                     }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-
-        case .workouts:
-            if workouts.isEmpty {
-                ProfileEmptyState(
-                    icon: "figure.strengthtraining.traditional",
-                    title: "No workouts yet",
-                    subtitle: "Log your first workout to build your archive."
-                )
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(workouts) { workout in
-                        WorkoutHistoryRowV2(workout: workout)
-                            .onTapGesture {
-                                selectedWorkout = workout
-                            }
-                    }
+                    .buttonStyle(.plain)
                 }
             }
-
-        case .prs:
-            if prEvents.isEmpty {
-                ProfileEmptyState(
-                    icon: "trophy.fill",
-                    title: "No PRs yet",
-                    subtitle: "Hit a personal record to see it here."
-                )
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(prEvents) { pr in
-                        HStack(spacing: 10) {
-                            ZStack {
-                                Circle()
-                                    .fill(GQColors.textSecondary.opacity(0.15))
-                                    .frame(width: 42, height: 42)
-                                Image(systemName: "trophy.fill")
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(GQColors.textSecondary)
-                            }
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(pr.exerciseName)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(GQColors.textPrimary)
-                                    .lineLimit(1)
-                                HStack(spacing: 8) {
-                                    Text(prValueFormatted(pr))
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(GQColors.textSecondary)
-                                    Text(pr.prType.rawValue)
-                                        .font(.system(size: 11))
-                                        .foregroundColor(GQColors.textTertiary)
-                                }
-                            }
-
-                            Spacer()
-
-                            Text(pr.date.formatted(.dateTime.month(.abbreviated).day()))
-                                .font(.system(size: 11))
-                                .foregroundColor(GQColors.textTertiary)
-                        }
-                        .padding(12)
-                        .homeSocialCard(accent: GQColors.textSecondary, subtle: true)
-                    }
-                }
-            }
-
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
 }
 
-private enum ProfileContentTab: String, CaseIterable {
-    case posts = "Posts"
-    case workouts = "Workouts"
-    case prs = "PRs"
-
-    var icon: String {
-        switch self {
-        case .posts: return "square.grid.3x3.fill"
-        case .workouts: return "list.bullet.rectangle"
-        case .prs: return "trophy.fill"
-        }
-    }
-}
 
 
 private struct ProfileEmptyState: View {
