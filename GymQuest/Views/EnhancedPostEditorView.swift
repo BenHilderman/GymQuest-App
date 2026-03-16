@@ -41,6 +41,7 @@ struct EnhancedPostEditorView: View {
     @State private var selectedSong: Song?
     @State private var spotifyPlaylistURL: String = ""
     @State private var appleMusicPlaylistURL: String = ""
+    @State private var snippetStartTime: Double = 0
 
     // Sheet state
     @State private var showMediaPicker = false
@@ -53,6 +54,16 @@ struct EnhancedPostEditorView: View {
     // Voice note
     @State private var voiceNoteData: Data?
     @State private var voiceNoteDuration: TimeInterval = 0
+
+    // Challenge
+    @State private var attachedChallenge: PostChallengeData?
+    @State private var showChallengeCreator = false
+
+    // Theme
+    @State private var selectedTheme: PostTheme = .sunset
+
+    // Confetti
+    @State private var showConfetti = false
 
     // Error handling
     @State private var showError = false
@@ -99,6 +110,9 @@ struct EnhancedPostEditorView: View {
                         .padding(.horizontal, 16)
                     }
 
+                    // Post theme picker
+                    PostThemePicker(selectedTheme: $selectedTheme)
+
                     // Tagging section
                     VStack(spacing: 16) {
                         // Tag people
@@ -130,6 +144,16 @@ struct EnhancedPostEditorView: View {
                         ) {
                             showSquadPicker = true
                         }
+
+                        // Attach challenge
+                        TaggingButton(
+                            icon: "trophy.fill",
+                            title: attachedChallenge?.title ?? "Attach Challenge",
+                            selectedCount: attachedChallenge != nil ? 1 : 0,
+                            color: .orange
+                        ) {
+                            showChallengeCreator = true
+                        }
                     }
                     .padding(.horizontal)
 
@@ -155,6 +179,15 @@ struct EnhancedPostEditorView: View {
                         showMusicPicker: $showMusicPicker,
                         activityType: workout?.type.rawValue
                     )
+
+                    // Snippet scrubber (when song has preview URL)
+                    if selectedSong?.previewURL != nil {
+                        SnippetScrubber(
+                            snippetStart: $snippetStartTime,
+                            previewURL: selectedSong?.previewURL
+                        )
+                        .padding(.horizontal)
+                    }
 
                     // Playlist URLs
                     PlaylistLinkSection(
@@ -222,6 +255,9 @@ struct EnhancedPostEditorView: View {
                     activityType: workout?.type.rawValue
                 )
             }
+            .sheet(isPresented: $showChallengeCreator) {
+                ChallengeCreatorSheet(attachedChallenge: $attachedChallenge)
+            }
             .onAppear {
                 if selectedSong == nil, let song = initialSong {
                     selectedSong = song
@@ -231,6 +267,12 @@ struct EnhancedPostEditorView: View {
                 Button("OK", role: .cancel) { }
             } message: {
                 Text(errorMessage)
+            }
+            .overlay {
+                if showConfetti {
+                    ConfettiOverlay()
+                        .allowsHitTesting(false)
+                }
             }
         }
     }
@@ -265,21 +307,287 @@ struct EnhancedPostEditorView: View {
             appleMusicPlaylistURL: appleMusicPlaylistURL.isEmpty ? nil : appleMusicPlaylistURL,
             workoutEmotion: selectedEmotion?.rawValue,
             voiceNoteData: voiceNoteData,
-            voiceNoteDuration: voiceNoteDuration > 0 ? voiceNoteDuration : nil
+            voiceNoteDuration: voiceNoteDuration > 0 ? voiceNoteDuration : nil,
+            overlayTheme: selectedTheme.rawValue,
+            musicSnippetStart: selectedSong?.previewURL != nil ? snippetStartTime : nil
         )
 
         if let song = selectedSong {
             musicService.addToRecent(song)
         }
 
+        // Attach challenge if set
+        if var challengeInfo = attachedChallenge {
+            let challenge = Challenge(
+                id: challengeInfo.challengeId,
+                scope: .club,
+                title: challengeInfo.title,
+                challengeDescription: "Community challenge from post",
+                goalType: ChallengeGoalType(rawValue: challengeInfo.goalType) ?? .workouts,
+                goalTarget: challengeInfo.goalTarget,
+                startDate: Date(),
+                endDate: challengeInfo.endDate,
+                xpReward: 100
+            )
+            modelContext.insert(challenge)
+            challengeInfo.participantCount = 1  // creator counts
+            post.challengeId = challengeInfo.challengeId
+            post.challengeData = try? JSONEncoder().encode(challengeInfo)
+        }
+
         modelContext.insert(post)
         do {
             try modelContext.save()
-            dismiss()
+            #if canImport(UIKit)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            #endif
+            showConfetti = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                dismiss()
+            }
         } catch {
             errorMessage = "Failed to save post. Please try again."
             showError = true
         }
+    }
+}
+
+// MARK: - Snippet Scrubber
+
+struct SnippetScrubber: View {
+    @Binding var snippetStart: Double
+    let previewURL: String?
+
+    private let totalDuration: Double = 30
+    private let snippetLength: Double = 15
+    private let barCount: Int = 48
+
+    @State private var isDragging = false
+    @State private var isPreviewPlaying = false
+
+    // Deterministic waveform heights (seeded from bar index)
+    private func barHeight(for index: Int, maxHeight: CGFloat) -> CGFloat {
+        let seed = Double(index)
+        let h = abs(sin(seed * 1.8) * cos(seed * 0.7) + sin(seed * 3.2) * 0.5)
+        return max(maxHeight * 0.15, CGFloat(h) * maxHeight)
+    }
+
+    private var endTime: Double {
+        min(snippetStart + snippetLength, totalDuration)
+    }
+
+    private func timeLabel(_ seconds: Double) -> String {
+        let m = Int(seconds) / 60
+        let s = Int(seconds) % 60
+        return String(format: "%d:%02d", m, s)
+    }
+
+    private func isBarInSelection(_ index: Int) -> Bool {
+        let barTime = (Double(index) / Double(barCount)) * totalDuration
+        return barTime >= snippetStart && barTime <= endTime
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Header
+            HStack {
+                Image(systemName: "waveform")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+                Text("PREVIEW CLIP")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(GQColors.textTertiary)
+                    .tracking(0.5)
+                Spacer()
+                Text("\(timeLabel(snippetStart)) – \(timeLabel(endTime))")
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(isPreviewPlaying ? GQColors.deepBlue : GQColors.textSecondary)
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.15), value: snippetStart)
+            }
+
+            // Waveform scrubber
+            GeometryReader { geo in
+                let trackWidth = geo.size.width
+                let maxStart = totalDuration - snippetLength
+
+                ZStack(alignment: .leading) {
+                    // Waveform bars
+                    HStack(alignment: .center, spacing: 1.5) {
+                        ForEach(0..<barCount, id: \.self) { i in
+                            let selected = isBarInSelection(i)
+                            RoundedRectangle(cornerRadius: 1.5)
+                                .fill(selected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary.opacity(0.25)))
+                                .frame(height: barHeight(for: i, maxHeight: 32))
+                                .animation(.easeInOut(duration: 0.15), value: selected)
+                        }
+                    }
+                    .frame(maxHeight: 36, alignment: .center)
+                }
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            if !isDragging {
+                                isDragging = true
+                                #if canImport(UIKit)
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                #endif
+                            }
+                            let fraction = value.location.x / trackWidth
+                            snippetStart = min(max(0, fraction * totalDuration - snippetLength / 2), maxStart)
+                        }
+                        .onEnded { _ in
+                            isDragging = false
+                            #if canImport(UIKit)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            #endif
+                            // Preview audio at new position
+                            if let url = previewURL {
+                                isPreviewPlaying = true
+                                MusicPreviewService.shared.playURL(
+                                    postId: UUID(),
+                                    previewURL: url,
+                                    snippetStart: snippetStart
+                                )
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                    MusicPreviewService.shared.stop()
+                                    isPreviewPlaying = false
+                                }
+                            }
+                        }
+                )
+            }
+            .frame(height: 36)
+
+            // Hint text
+            Text("Drag to choose which part plays on your post")
+                .font(.system(size: 11))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(GQColors.surfaceOverlay.opacity(0.78))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .strokeBorder(GQColors.deepBlue.opacity(isDragging ? 0.3 : 0.08), lineWidth: 1)
+                )
+        )
+        .animation(.easeInOut(duration: 0.2), value: isDragging)
+    }
+}
+
+// MARK: - Post Theme Picker
+
+struct PostThemePicker: View {
+    @Binding var selectedTheme: PostTheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Post Vibe")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(GQColors.textPrimary)
+                .padding(.horizontal, 16)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(PostTheme.allCases, id: \.self) { theme in
+                        ThemeSwatch(theme: theme, isSelected: selectedTheme == theme) {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                selectedTheme = theme
+                            }
+                            #if canImport(UIKit)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            #endif
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+}
+
+private struct ThemeSwatch: View {
+    let theme: PostTheme
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 6) {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: theme.previewColors,
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(Color.white, lineWidth: isSelected ? 2.5 : 0)
+                    )
+                    .scaleEffect(isSelected ? 1.1 : 1.0)
+
+                Text("\(theme.emoji) \(theme.rawValue)")
+                    .font(.caption2)
+                    .foregroundColor(isSelected ? GQColors.textPrimary : GQColors.textSecondary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Confetti Overlay
+
+struct ConfettiOverlay: View {
+    @State private var particles: [(id: Int, x: CGFloat, y: CGFloat, color: Color, size: CGFloat, rotation: Double)] = []
+    @State private var animate = false
+
+    private let colors: [Color] = [
+        Color(red: 0.9, green: 0.4, blue: 0.2),
+        Color(red: 0.9, green: 0.7, blue: 0.2),
+        Color(red: 0.85, green: 0.3, blue: 0.4),
+        Color(red: 0.5, green: 0.3, blue: 0.7),
+        Color(red: 0.1, green: 0.4, blue: 0.6),
+        .white
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(particles, id: \.id) { p in
+                    RoundedRectangle(cornerRadius: p.size > 6 ? 2 : p.size)
+                        .fill(p.color)
+                        .frame(width: p.size, height: p.size * (p.id % 2 == 0 ? 1.5 : 1))
+                        .rotationEffect(.degrees(animate ? p.rotation + 360 : p.rotation))
+                        .position(
+                            x: p.x,
+                            y: animate ? geo.size.height + 50 : -20
+                        )
+                        .opacity(animate ? 0 : 1)
+                }
+            }
+            .onAppear {
+                particles = (0..<24).map { i in
+                    (
+                        id: i,
+                        x: CGFloat.random(in: 20...(geo.size.width - 20)),
+                        y: CGFloat.random(in: 0...geo.size.height * 0.3),
+                        color: colors[i % colors.count],
+                        size: CGFloat.random(in: 4...10),
+                        rotation: Double.random(in: 0...180)
+                    )
+                }
+                withAnimation(.easeOut(duration: 1.4)) {
+                    animate = true
+                }
+            }
+        }
+        .ignoresSafeArea()
     }
 }
 
@@ -1227,6 +1535,90 @@ struct SquadTagRow: View {
             .padding(.vertical, 8)
         }
         .buttonStyle(GQInteractiveStyle())
+    }
+}
+
+// MARK: - Challenge Creator Sheet
+
+struct ChallengeCreatorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var attachedChallenge: PostChallengeData?
+
+    @State private var title = ""
+    @State private var goalType: ChallengeGoalType = .workouts
+    @State private var goalTarget: Int = 10
+    @State private var endDate = Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date()
+
+    private var minDate: Date {
+        Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Challenge Details") {
+                    TextField("Challenge title", text: $title)
+                        .textFieldStyle(LiftAITextFieldStyle())
+
+                    Picker("Goal Type", selection: $goalType) {
+                        ForEach(ChallengeGoalType.allCases, id: \.self) { type in
+                            Label(type.rawValue, systemImage: type.icon)
+                                .tag(type)
+                        }
+                    }
+
+                    Stepper("Target: \(goalTarget)", value: $goalTarget, in: 1...1000)
+
+                    DatePicker("End Date", selection: $endDate, in: minDate..., displayedComponents: .date)
+                }
+                .listRowBackground(GQColors.surfaceBase)
+
+                if let challenge = attachedChallenge {
+                    Section {
+                        Button(role: .destructive) {
+                            attachedChallenge = nil
+                            dismiss()
+                        } label: {
+                            Label("Remove Challenge", systemImage: "trash")
+                        }
+                    }
+                    .listRowBackground(GQColors.surfaceBase)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .gqPageBackground()
+            .navigationTitle("Create Challenge")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Attach") {
+                        let challengeId = attachedChallenge?.challengeId ?? UUID()
+                        attachedChallenge = PostChallengeData(
+                            challengeId: challengeId,
+                            title: title,
+                            goalType: goalType.rawValue,
+                            goalTarget: goalTarget,
+                            endDate: endDate,
+                            participantCount: 0
+                        )
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .onAppear {
+                if let existing = attachedChallenge {
+                    title = existing.title
+                    goalType = ChallengeGoalType(rawValue: existing.goalType) ?? .workouts
+                    goalTarget = existing.goalTarget
+                    endDate = existing.endDate
+                }
+            }
+        }
     }
 }
 

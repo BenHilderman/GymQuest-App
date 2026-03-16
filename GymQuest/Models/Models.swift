@@ -320,6 +320,17 @@ struct FeedPR: Codable, Identifiable {
     var prType: String          // "Weight PR", "Rep PR", "Volume PR"
 }
 
+// MARK: - Post Challenge Data (lightweight, for feed display)
+
+struct PostChallengeData: Codable {
+    var challengeId: UUID
+    var title: String
+    var goalType: String       // ChallengeGoalType rawValue
+    var goalTarget: Int
+    var endDate: Date
+    var participantCount: Int  // snapshot, updated on join
+}
+
 // MARK: - Feed Motivation Types
 
 enum MotivationType: String, CaseIterable {
@@ -937,6 +948,9 @@ final class UserProfile {
     var availableEquipmentJSON: String = "[]"
     var fitnessProfileCompleted: Bool = false
     var isPremium: Bool = false
+    var freeTrialWorkoutsRemaining: Int = 3
+    var lastPaywallShownDate: Date?
+    var paywallDismissCount: Int = 0
     var preferredWorkoutDuration: Int = 60
     var gymName: String = ""
     var subscriptionExpiryDate: Date?
@@ -1457,8 +1471,18 @@ final class Post {
     var voiceNoteDuration: Double?
     var isPremiumAuthor: Bool
 
+    // Post theme overlay
+    var overlayTheme: String?           // PostTheme rawValue
+
+    // Music snippet (which section of preview to play)
+    var musicSnippetStart: Double?
+
     // Video metadata
     var videoAspectRatio: Double?
+
+    // Challenge attached to post
+    var challengeId: UUID?
+    var challengeData: Data?            // JSON-encoded PostChallengeData
 
     init(
         id: UUID = UUID(),
@@ -1503,7 +1527,11 @@ final class Post {
         voiceNoteData: Data? = nil,
         voiceNoteDuration: Double? = nil,
         isPremiumAuthor: Bool = false,
-        videoAspectRatio: Double? = nil
+        overlayTheme: String? = nil,
+        musicSnippetStart: Double? = nil,
+        videoAspectRatio: Double? = nil,
+        challengeId: UUID? = nil,
+        challengeData: Data? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -1547,7 +1575,11 @@ final class Post {
         self.voiceNoteData = voiceNoteData
         self.voiceNoteDuration = voiceNoteDuration
         self.isPremiumAuthor = isPremiumAuthor
+        self.overlayTheme = overlayTheme
+        self.musicSnippetStart = musicSnippetStart
         self.videoAspectRatio = videoAspectRatio
+        self.challengeId = challengeId
+        self.challengeData = challengeData
     }
 
     /// Decode shared workout data for follow feature
@@ -1560,6 +1592,12 @@ final class Post {
     func getFeedPRs() -> [FeedPR] {
         guard let data = prMomentsData else { return [] }
         return (try? JSONDecoder().decode([FeedPR].self, from: data)) ?? []
+    }
+
+    /// Decode attached challenge data for feed display
+    func getPostChallenge() -> PostChallengeData? {
+        guard let data = challengeData else { return nil }
+        return try? JSONDecoder().decode(PostChallengeData.self, from: data)
     }
 
     /// Get/set decoded media items for exercise-aligned media
@@ -1588,6 +1626,13 @@ final class Post {
         guard let workoutEmotion else { return nil }
         return WorkoutEmotion(rawValue: workoutEmotion)
     }
+
+    /// Typed accessor for the post overlay theme
+    var theme: PostTheme? {
+        guard let overlayTheme else { return nil }
+        return PostTheme(rawValue: overlayTheme)
+    }
+
 }
 
 // tracks who follows who - for the feed and @mentions
@@ -1812,6 +1857,7 @@ final class PRMoment {
 }
 
 enum PRType: String, Codable {
+    case weightPR = "Weight PR"
     case repPR = "Rep PR"
     case e1rmPR = "e1RM PR"
     case volumePR = "Volume PR"
@@ -1847,38 +1893,473 @@ enum FistBumpTarget: String, Codable {
     case prMoment
 }
 
+// MARK: - Consistency State (System 1)
+
+enum ConsistencyState: String, Codable, CaseIterable {
+    case onTrack = "On Track"
+    case slipping = "Slipping"
+    case atRisk = "At Risk"
+    case comeback = "Comeback"
+    case rebuilding = "Rebuilding"
+}
+
+// MARK: - Pod Lifecycle State (System 2)
+
+enum PodLifecycleState: String, Codable {
+    case forming = "Forming"
+    case active = "Active"
+    case stale = "Stale"
+    case dead = "Dead"
+}
+
+enum PodLevel: String, Codable, CaseIterable {
+    case beginner = "Beginner"
+    case intermediate = "Intermediate"
+    case advanced = "Advanced"
+}
+
+enum PodVisibility: String, Codable {
+    case open = "Open"
+    case inviteOnly = "Invite Only"
+}
+
+enum PodRole: String, Codable {
+    case member = "Member"
+    case leader = "Leader"
+}
+
+enum PodCheckInType: String, Codable, CaseIterable {
+    case trainingNow = "Training Now"
+    case done = "Done"
+    case needPush = "Need a Push"
+    case restDay = "Rest Day"
+
+    var emoji: String {
+        switch self {
+        case .trainingNow: return "\u{1F3CB}\u{FE0F}"
+        case .done: return "\u{2705}"
+        case .needPush: return "\u{1F4AA}"
+        case .restDay: return "\u{1F634}"
+        }
+    }
+}
+
+enum NudgeSourceType: String, Codable {
+    case ai = "AI"
+    case pod = "Pod"
+    case club = "Club"
+    case system = "System"
+}
+
+enum NudgeType: String, Codable, CaseIterable {
+    case missedWorkout = "Missed Workout"
+    case comeback = "Comeback"
+    case streakRisk = "Streak Risk"
+    case podSupport = "Pod Support"
+    case weeklyGoal = "Weekly Goal"
+
+    var icon: String {
+        switch self {
+        case .missedWorkout: return "exclamationmark.circle"
+        case .comeback: return "arrow.counterclockwise"
+        case .streakRisk: return "flame"
+        case .podSupport: return "hand.thumbsup"
+        case .weeklyGoal: return "target"
+        }
+    }
+}
+
+enum ChallengeScope: String, Codable {
+    case individual = "Individual"
+    case pod = "Pod"
+    case club = "Club"
+}
+
 @Model
 final class Pod {
     var id: UUID
+    var clubId: UUID?
     var name: String
+    var summary: String
     var inviteCode: String
     var creatorId: UUID
     var memberIds: [UUID]
+    var level: String
+    var schedulePreference: String
+    var trainingStyle: String
+    var maxMembers: Int
+    var weeklyWorkoutTarget: Int
     var streakWeeks: Int
+    var visibility: String
+    var lifecycle: String
+    var lastActivityDate: Date?
+    var autoCreated: Bool
     var createdAt: Date
 
     init(
         id: UUID = UUID(),
+        clubId: UUID? = nil,
         name: String = "",
+        summary: String = "",
         inviteCode: String = "",
         creatorId: UUID = UUID(),
         memberIds: [UUID] = [],
+        level: PodLevel = .beginner,
+        schedulePreference: String = "Flexible",
+        trainingStyle: String = "General",
+        maxMembers: Int = 6,
+        weeklyWorkoutTarget: Int = 3,
         streakWeeks: Int = 0,
+        visibility: PodVisibility = .open,
+        lifecycleState: PodLifecycleState = .forming,
+        lastActivityDate: Date? = nil,
+        autoCreated: Bool = false,
         createdAt: Date = Date()
     ) {
         self.id = id
+        self.clubId = clubId
         self.name = name
+        self.summary = summary
         self.inviteCode = inviteCode.isEmpty ? Pod.generateCode() : inviteCode
         self.creatorId = creatorId
         self.memberIds = memberIds
+        self.level = level.rawValue
+        self.schedulePreference = schedulePreference
+        self.trainingStyle = trainingStyle
+        self.maxMembers = maxMembers
+        self.weeklyWorkoutTarget = weeklyWorkoutTarget
         self.streakWeeks = streakWeeks
+        self.visibility = visibility.rawValue
+        self.lifecycle = lifecycleState.rawValue
+        self.lastActivityDate = lastActivityDate
+        self.autoCreated = autoCreated
         self.createdAt = createdAt
     }
+
+    var podLevel: PodLevel { PodLevel(rawValue: level) ?? .beginner }
+    var podVisibility: PodVisibility { PodVisibility(rawValue: visibility) ?? .open }
+    var lifecycleState: PodLifecycleState {
+        get { PodLifecycleState(rawValue: lifecycle) ?? .forming }
+        set { lifecycle = newValue.rawValue }
+    }
+    var isFull: Bool { memberIds.count >= maxMembers }
+    var memberCount: Int { memberIds.count }
 
     static func generateCode() -> String {
         let chars = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
         return String((0..<6).compactMap { _ in chars.randomElement() })
     }
+}
+
+// MARK: - Pod Membership
+
+@Model
+final class PodMembership {
+    var id: UUID
+    var podId: UUID
+    var userId: UUID
+    var role: String
+    var joinedAt: Date
+    var weeklyCompletedWorkouts: Int
+    var currentStreak: Int
+    var isPrimaryPod: Bool
+
+    init(
+        id: UUID = UUID(),
+        podId: UUID = UUID(),
+        userId: UUID = UUID(),
+        role: PodRole = .member,
+        joinedAt: Date = Date(),
+        weeklyCompletedWorkouts: Int = 0,
+        currentStreak: Int = 0,
+        isPrimaryPod: Bool = true
+    ) {
+        self.id = id
+        self.podId = podId
+        self.userId = userId
+        self.role = role.rawValue
+        self.joinedAt = joinedAt
+        self.weeklyCompletedWorkouts = weeklyCompletedWorkouts
+        self.currentStreak = currentStreak
+        self.isPrimaryPod = isPrimaryPod
+    }
+
+    var podRole: PodRole { PodRole(rawValue: role) ?? .member }
+}
+
+// MARK: - Pod Check-In
+
+@Model
+final class PodCheckIn {
+    var id: UUID
+    var podId: UUID
+    var userId: UUID
+    var type: String
+    var workoutId: UUID?
+    var message: String?
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        podId: UUID = UUID(),
+        userId: UUID = UUID(),
+        type: PodCheckInType = .done,
+        workoutId: UUID? = nil,
+        message: String? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.podId = podId
+        self.userId = userId
+        self.type = type.rawValue
+        self.workoutId = workoutId
+        self.message = message
+        self.createdAt = createdAt
+    }
+
+    var checkInType: PodCheckInType { PodCheckInType(rawValue: type) ?? .done }
+}
+
+// MARK: - Accountability Nudge
+
+@Model
+final class AccountabilityNudge {
+    var id: UUID
+    var userId: UUID
+    var sourceType: String
+    var nudgeType: String
+    var title: String
+    var message: String
+    var actionLabel: String
+    var createdAt: Date
+    var actedAt: Date?
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID = UUID(),
+        sourceType: NudgeSourceType = .system,
+        nudgeType: NudgeType = .weeklyGoal,
+        title: String = "",
+        message: String = "",
+        actionLabel: String = "View",
+        createdAt: Date = Date(),
+        actedAt: Date? = nil
+    ) {
+        self.id = id
+        self.userId = userId
+        self.sourceType = sourceType.rawValue
+        self.nudgeType = nudgeType.rawValue
+        self.title = title
+        self.message = message
+        self.actionLabel = actionLabel
+        self.createdAt = createdAt
+        self.actedAt = actedAt
+    }
+
+    var source: NudgeSourceType { NudgeSourceType(rawValue: sourceType) ?? .system }
+    var nudge: NudgeType { NudgeType(rawValue: nudgeType) ?? .weeklyGoal }
+    var isActedOn: Bool { actedAt != nil }
+}
+
+// MARK: - Comeback Plan
+
+@Model
+final class ComebackPlan {
+    var id: UUID
+    var userId: UUID
+    var reason: String
+    var suggestedWorkoutType: String
+    var suggestedDuration: Int
+    var encouragement: String
+    var createdAt: Date
+    var completedAt: Date?
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID = UUID(),
+        reason: String = "missed_days",
+        suggestedWorkoutType: String = "Full Body",
+        suggestedDuration: Int = 30,
+        encouragement: String = "Welcome back! A shorter session is all you need to get moving again.",
+        createdAt: Date = Date(),
+        completedAt: Date? = nil
+    ) {
+        self.id = id
+        self.userId = userId
+        self.reason = reason
+        self.suggestedWorkoutType = suggestedWorkoutType
+        self.suggestedDuration = suggestedDuration
+        self.encouragement = encouragement
+        self.createdAt = createdAt
+        self.completedAt = completedAt
+    }
+
+    var isCompleted: Bool { completedAt != nil }
+}
+
+// MARK: - Challenge
+
+@Model
+final class Challenge {
+    var id: UUID
+    var templateId: UUID?
+    var scope: String
+    var title: String
+    var challengeDescription: String
+    var goalType: ChallengeGoalType
+    var goalTarget: Int
+    var currentProgress: Int
+    var startDate: Date
+    var endDate: Date
+    var xpReward: Int
+    var isCompleted: Bool
+    var completedAt: Date?
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        templateId: UUID? = nil,
+        scope: ChallengeScope = .individual,
+        title: String = "",
+        challengeDescription: String = "",
+        goalType: ChallengeGoalType = .workouts,
+        goalTarget: Int = 1,
+        currentProgress: Int = 0,
+        startDate: Date = Date(),
+        endDate: Date = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date(),
+        xpReward: Int = 50,
+        isCompleted: Bool = false,
+        completedAt: Date? = nil,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.templateId = templateId
+        self.scope = scope.rawValue
+        self.title = title
+        self.challengeDescription = challengeDescription
+        self.goalType = goalType
+        self.goalTarget = goalTarget
+        self.currentProgress = currentProgress
+        self.startDate = startDate
+        self.endDate = endDate
+        self.xpReward = xpReward
+        self.isCompleted = isCompleted
+        self.completedAt = completedAt
+        self.createdAt = createdAt
+    }
+
+    var challengeScope: ChallengeScope { ChallengeScope(rawValue: scope) ?? .individual }
+    var progress: Double {
+        guard goalTarget > 0 else { return 0 }
+        return min(1.0, Double(currentProgress) / Double(goalTarget))
+    }
+    var daysRemaining: Int {
+        max(0, Calendar.current.dateComponents([.day], from: Date(), to: endDate).day ?? 0)
+    }
+    var isActive: Bool { !isCompleted && Date() < endDate }
+}
+
+// MARK: - Challenge Enrollment
+
+@Model
+final class ChallengeEnrollment {
+    var id: UUID
+    var challengeId: UUID
+    var userId: UUID
+    var progress: Int
+    var isCompleted: Bool
+    var completedAt: Date?
+    var enrolledAt: Date
+
+    init(
+        id: UUID = UUID(),
+        challengeId: UUID = UUID(),
+        userId: UUID = UUID(),
+        progress: Int = 0,
+        isCompleted: Bool = false,
+        completedAt: Date? = nil,
+        enrolledAt: Date = Date()
+    ) {
+        self.id = id
+        self.challengeId = challengeId
+        self.userId = userId
+        self.progress = progress
+        self.isCompleted = isCompleted
+        self.completedAt = completedAt
+        self.enrolledAt = enrolledAt
+    }
+}
+
+// MARK: - User Momentum State
+
+@Model
+final class UserMomentumState {
+    var id: UUID
+    var userId: UUID
+    var state: String
+    var currentWeekTarget: Int
+    var currentWeekCompleted: Int
+    var missedDaysInRow: Int
+    var streak: Int
+    var lastWorkoutDate: Date?
+    var comebackEligible: Bool
+    var beginnerPhaseActive: Bool
+    var beginnerGraceEndDate: Date?
+    var firstWorkoutCompleted: Bool
+    var firstWeekCompleted: Bool
+    var lastStateTransition: Date?
+    var weeklyVelocity: Double
+    var rebuildingWeekCount: Int
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID = UUID(),
+        consistencyState: ConsistencyState = .onTrack,
+        currentWeekTarget: Int = 3,
+        currentWeekCompleted: Int = 0,
+        missedDaysInRow: Int = 0,
+        streak: Int = 0,
+        lastWorkoutDate: Date? = nil,
+        comebackEligible: Bool = false,
+        beginnerPhaseActive: Bool = true,
+        beginnerGraceEndDate: Date? = nil,
+        firstWorkoutCompleted: Bool = false,
+        firstWeekCompleted: Bool = false,
+        lastStateTransition: Date? = nil,
+        weeklyVelocity: Double = 0,
+        rebuildingWeekCount: Int = 0
+    ) {
+        self.id = id
+        self.userId = userId
+        self.state = consistencyState.rawValue
+        self.currentWeekTarget = currentWeekTarget
+        self.currentWeekCompleted = currentWeekCompleted
+        self.missedDaysInRow = missedDaysInRow
+        self.streak = streak
+        self.lastWorkoutDate = lastWorkoutDate
+        self.comebackEligible = comebackEligible
+        self.beginnerPhaseActive = beginnerPhaseActive
+        self.beginnerGraceEndDate = beginnerGraceEndDate
+        self.firstWorkoutCompleted = firstWorkoutCompleted
+        self.firstWeekCompleted = firstWeekCompleted
+        self.lastStateTransition = lastStateTransition
+        self.weeklyVelocity = weeklyVelocity
+        self.rebuildingWeekCount = rebuildingWeekCount
+    }
+
+    var consistencyState: ConsistencyState {
+        get { ConsistencyState(rawValue: state) ?? .onTrack }
+        set { state = newValue.rawValue }
+    }
+    var effectiveWeeklyTarget: Int {
+        consistencyState == .rebuilding ? max(1, currentWeekTarget - 1) : currentWeekTarget
+    }
+    var weeklyProgress: Double {
+        guard currentWeekTarget > 0 else { return 0 }
+        return min(1.0, Double(currentWeekCompleted) / Double(currentWeekTarget))
+    }
+    var isOnTrack: Bool { currentWeekCompleted >= currentWeekTarget }
+    var needsComebackNudge: Bool { missedDaysInRow >= 3 && !comebackEligible }
 }
 
 // MARK: - Quest System (GymQuest 2.0)
@@ -2174,6 +2655,8 @@ final class Club {
     var createdAt: Date
     var parentClubId: UUID?        // non-nil = this is a channel/sub-club
     var category: ClubCategory?
+    var lastActivityDate: Date?
+    var isListedInDiscovery: Bool
 
     var resolvedCategory: ClubCategory { category ?? .generalFitness }
 
@@ -2195,7 +2678,9 @@ final class Club {
         tags: [String] = [],
         createdAt: Date = Date(),
         parentClubId: UUID? = nil,
-        category: ClubCategory? = nil
+        category: ClubCategory? = nil,
+        lastActivityDate: Date? = nil,
+        isListedInDiscovery: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -2215,6 +2700,8 @@ final class Club {
         self.createdAt = createdAt
         self.parentClubId = parentClubId
         self.category = category
+        self.lastActivityDate = lastActivityDate
+        self.isListedInDiscovery = isListedInDiscovery
     }
 
     var isOpen: Bool {
@@ -2857,6 +3344,120 @@ enum EmotionSentiment: String, Codable {
     case positive
     case neutral
     case resilient
+}
+
+/// Theme overlay for post photos in the feed
+enum PostTheme: String, Codable, CaseIterable {
+    case sunset = "Sunset"
+    case ocean = "Ocean"
+    case lavender = "Lavender"
+    case golden = "Golden"
+    case rose = "Rose"
+    case midnight = "Midnight"
+
+    var emoji: String {
+        switch self {
+        case .sunset: return "🌅"
+        case .ocean: return "🌊"
+        case .lavender: return "💜"
+        case .golden: return "✨"
+        case .rose: return "🌹"
+        case .midnight: return "🌙"
+        }
+    }
+
+    var topGradientColors: [Color] {
+        switch self {
+        case .sunset:
+            return [
+                Color(red: 0.9, green: 0.4, blue: 0.2).opacity(0.45),
+                Color(red: 0.9, green: 0.5, blue: 0.3).opacity(0.15),
+                .clear
+            ]
+        case .ocean:
+            return [
+                Color(red: 0.1, green: 0.4, blue: 0.6).opacity(0.45),
+                Color(red: 0.1, green: 0.5, blue: 0.7).opacity(0.15),
+                .clear
+            ]
+        case .lavender:
+            return [
+                Color(red: 0.5, green: 0.3, blue: 0.7).opacity(0.45),
+                Color(red: 0.6, green: 0.4, blue: 0.8).opacity(0.15),
+                .clear
+            ]
+        case .golden:
+            return [
+                Color(red: 0.9, green: 0.7, blue: 0.2).opacity(0.45),
+                Color(red: 0.95, green: 0.8, blue: 0.3).opacity(0.15),
+                .clear
+            ]
+        case .rose:
+            return [
+                Color(red: 0.85, green: 0.3, blue: 0.4).opacity(0.45),
+                Color(red: 0.9, green: 0.4, blue: 0.5).opacity(0.15),
+                .clear
+            ]
+        case .midnight:
+            return [
+                Color(red: 0.1, green: 0.05, blue: 0.2).opacity(0.45),
+                Color(red: 0.1, green: 0.05, blue: 0.2).opacity(0.15),
+                .clear
+            ]
+        }
+    }
+
+    var bottomGradientColors: [Color] {
+        switch self {
+        case .sunset:
+            return [
+                .clear,
+                Color(red: 0.8, green: 0.3, blue: 0.1).opacity(0.3),
+                Color(red: 0.6, green: 0.15, blue: 0.05).opacity(0.6)
+            ]
+        case .ocean:
+            return [
+                .clear,
+                Color(red: 0.05, green: 0.2, blue: 0.4).opacity(0.3),
+                Color(red: 0.02, green: 0.1, blue: 0.3).opacity(0.6)
+            ]
+        case .lavender:
+            return [
+                .clear,
+                Color(red: 0.3, green: 0.15, blue: 0.5).opacity(0.3),
+                Color(red: 0.2, green: 0.08, blue: 0.4).opacity(0.6)
+            ]
+        case .golden:
+            return [
+                .clear,
+                Color(red: 0.7, green: 0.5, blue: 0.1).opacity(0.3),
+                Color(red: 0.5, green: 0.3, blue: 0.05).opacity(0.6)
+            ]
+        case .rose:
+            return [
+                .clear,
+                Color(red: 0.6, green: 0.15, blue: 0.2).opacity(0.3),
+                Color(red: 0.4, green: 0.08, blue: 0.12).opacity(0.6)
+            ]
+        case .midnight:
+            return [
+                .clear,
+                Color(red: 0.15, green: 0.05, blue: 0.1).opacity(0.3),
+                Color(red: 0.1, green: 0.03, blue: 0.12).opacity(0.6)
+            ]
+        }
+    }
+
+    var previewColors: [Color] {
+        switch self {
+        case .sunset: return [Color(red: 0.9, green: 0.4, blue: 0.2), Color(red: 0.6, green: 0.15, blue: 0.05)]
+        case .ocean: return [Color(red: 0.1, green: 0.4, blue: 0.6), Color(red: 0.02, green: 0.1, blue: 0.3)]
+        case .lavender: return [Color(red: 0.5, green: 0.3, blue: 0.7), Color(red: 0.2, green: 0.08, blue: 0.4)]
+        case .golden: return [Color(red: 0.9, green: 0.7, blue: 0.2), Color(red: 0.5, green: 0.3, blue: 0.05)]
+        case .rose: return [Color(red: 0.85, green: 0.3, blue: 0.4), Color(red: 0.4, green: 0.08, blue: 0.12)]
+        case .midnight: return [Color(red: 0.15, green: 0.1, blue: 0.25), Color(red: 0.1, green: 0.03, blue: 0.12)]
+        }
+    }
 }
 
 /// How the user felt during / after a workout
@@ -3512,6 +4113,8 @@ enum AnalyticsEventType: String, Codable {
     case healthkitImportSuccess = "healthkit_import_success"
     case stravaImportSuccess = "strava_import_success"
     case mealLogged = "meal_logged"
+    case comebackCardShown = "comeback_card_shown"
+    case learnItemSaved = "learn_item_saved"
 }
 
 /// Local analytics event for tracking key metrics
@@ -3999,6 +4602,302 @@ final class UserGoal {
     var isExerciseGoal: Bool { type == "exercise" }
     var isBodyweightGoal: Bool { type == "bodyweight" }
     var isAchieved: Bool { achievedAt != nil }
+}
+
+// MARK: - Challenge Template (non-persisted)
+
+struct ChallengeTemplate: Codable, Identifiable {
+    var id: UUID
+    var title: String
+    var description: String
+    var scope: ChallengeScope
+    var goalType: ChallengeGoalType
+    var goalTarget: Int
+    var durationDays: Int
+    var requiredConsistencyState: ConsistencyState?
+    var xpReward: Int
+}
+
+// MARK: - Content Privacy & Feed Item Type
+
+enum ContentPrivacy: String, Codable {
+    case publicFeed = "Public"
+    case friends = "Friends"
+    case `private` = "Private"
+    case pod = "Pod"
+    case privateOnly = "Private Only"
+    case club = "Club"
+}
+
+enum FeedItemType: String, Codable {
+    case workoutShare = "Workout Share"
+    case manualPost = "Manual Post"
+    case prCelebration = "PR Celebration"
+    case milestone = "Milestone"
+    case milestoneAchieved = "Milestone Achieved"
+    case comebackStarted = "Comeback Started"
+    case podSummary = "Pod Summary"
+    case prMoment = "PR Moment"
+}
+
+// MARK: - Notification Log
+
+@Model
+final class NotificationLog {
+    var id: UUID
+    var userId: UUID
+    var category: String
+    var sentAt: Date
+    var title: String
+    var readAt: Date?
+
+    init(id: UUID = UUID(), userId: UUID = UUID(), category: String = "", sentAt: Date = Date(), title: String = "", readAt: Date? = nil) {
+        self.id = id
+        self.userId = userId
+        self.category = category
+        self.sentAt = sentAt
+        self.title = title
+        self.readAt = readAt
+    }
+}
+
+// MARK: - Workout Adaptation
+
+enum AdaptationReason: String, Codable {
+    case plateau = "Plateau"
+    case fatigue = "Fatigue"
+    case recovery = "Recovery"
+    case progression = "Progression"
+}
+
+@Model
+final class WorkoutAdaptation {
+    var id: UUID
+    var userId: UUID
+    var workoutDate: Date
+    var reason: AdaptationReason
+    var originalExercise: String?
+    var adaptedExercise: String?
+    var details: String
+    var createdAt: Date
+
+    init(id: UUID = UUID(), userId: UUID = UUID(), workoutDate: Date = Date(), reason: AdaptationReason = .progression, originalExercise: String? = nil, adaptedExercise: String? = nil, details: String = "", createdAt: Date = Date()) {
+        self.id = id
+        self.userId = userId
+        self.workoutDate = workoutDate
+        self.reason = reason
+        self.originalExercise = originalExercise
+        self.adaptedExercise = adaptedExercise
+        self.details = details
+        self.createdAt = createdAt
+    }
+}
+
+// MARK: - Scheduled Plan Day
+
+enum PlanDayStatus: String, Codable {
+    case planned, completed, missed, moved, shortened, swapped, rest, recovery, comeback, rebalanced
+}
+
+@Model
+final class ScheduledPlanDay {
+    var id: UUID
+    var planId: UUID
+    var planWeekNumber: Int
+    var planDayNumber: Int
+    var dayOfWeek: Int // 1=Sun..7=Sat
+    var scheduledDate: Date
+    var originalDate: Date?
+    var status: String // PlanDayStatus rawValue
+    var label: String
+    var workoutType: String
+    var isRestDay: Bool
+    var exercisesData: Data? // JSON-encoded [TrainingPlanExercise]
+    var workoutId: UUID?
+
+    var dayStatus: PlanDayStatus {
+        get { PlanDayStatus(rawValue: status) ?? .planned }
+        set { status = newValue.rawValue }
+    }
+
+    var exercises: [TrainingPlanExercise] {
+        get {
+            guard let data = exercisesData else { return [] }
+            return (try? JSONDecoder().decode([TrainingPlanExercise].self, from: data)) ?? []
+        }
+        set {
+            exercisesData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    init(
+        id: UUID = UUID(),
+        planId: UUID = UUID(),
+        planWeekNumber: Int = 1,
+        planDayNumber: Int = 1,
+        dayOfWeek: Int = 1,
+        scheduledDate: Date = Date(),
+        originalDate: Date? = nil,
+        status: PlanDayStatus = .planned,
+        label: String = "",
+        workoutType: String = "",
+        isRestDay: Bool = false,
+        exercises: [TrainingPlanExercise] = [],
+        workoutId: UUID? = nil
+    ) {
+        self.id = id
+        self.planId = planId
+        self.planWeekNumber = planWeekNumber
+        self.planDayNumber = planDayNumber
+        self.dayOfWeek = dayOfWeek
+        self.scheduledDate = scheduledDate
+        self.originalDate = originalDate
+        self.status = status.rawValue
+        self.label = label
+        self.workoutType = workoutType
+        self.isRestDay = isRestDay
+        self.exercisesData = try? JSONEncoder().encode(exercises)
+        self.workoutId = workoutId
+    }
+}
+
+// MARK: - Milestone Event
+
+@Model
+final class MilestoneEvent {
+    var id: UUID
+    var userId: UUID
+    var type: String
+    var title: String
+    var createdAt: Date
+
+    var milestoneDescription: String
+
+    init(id: UUID = UUID(), userId: UUID = UUID(), type: String = "", title: String = "", milestoneDescription: String = "", createdAt: Date = Date()) {
+        self.id = id
+        self.userId = userId
+        self.type = type
+        self.title = title
+        self.milestoneDescription = milestoneDescription
+        self.createdAt = createdAt
+    }
+}
+
+enum MilestoneType: String, Codable {
+    case podGoalHit = "Pod Goal Hit"
+    case streakWeek = "Streak Week"
+    case firstPR = "First PR"
+    case comebackComplete = "Comeback Complete"
+    case firstWorkout = "First Workout"
+    case firstFullWeek = "First Full Week"
+    case consistencyStreak7 = "Consistency Streak 7"
+    case consistencyStreak30 = "Consistency Streak 30"
+}
+
+// MARK: - Club Admin Action
+
+enum ClubAdminAction: String, Codable {
+    case kick = "Kick"
+    case ban = "Ban"
+    case promote = "Promote"
+    case demote = "Demote"
+}
+
+// MARK: - User Relationship
+
+enum UserRelationship: String, Codable {
+    case none = "None"
+    case friend = "Friend"
+    case blocked = "Blocked"
+    case podMate = "Pod Mate"
+    case clubMate = "Club Mate"
+}
+
+// MARK: - Blocked User
+
+@Model
+final class BlockedUser {
+    var id: UUID
+    var userId: UUID
+    var blockedUserId: UUID
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID,
+        blockedUserId: UUID,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.userId = userId
+        self.blockedUserId = blockedUserId
+        self.createdAt = createdAt
+    }
+}
+
+// MARK: - Muted User
+
+@Model
+final class MutedUser {
+    var id: UUID
+    var userId: UUID
+    var mutedUserId: UUID
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        userId: UUID,
+        mutedUserId: UUID,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.userId = userId
+        self.mutedUserId = mutedUserId
+        self.createdAt = createdAt
+    }
+}
+
+// MARK: - Content Report
+
+@Model
+final class ContentReport {
+    var id: UUID
+    var reporterId: UUID
+    var contentType: String
+    var contentId: UUID
+    var reason: String
+    var details: String?
+    var createdAt: Date
+    var resolved: Bool
+
+    init(
+        id: UUID = UUID(),
+        reporterId: UUID,
+        contentType: String,
+        contentId: UUID,
+        reason: String,
+        details: String? = nil,
+        createdAt: Date = Date(),
+        resolved: Bool = false
+    ) {
+        self.id = id
+        self.reporterId = reporterId
+        self.contentType = contentType
+        self.contentId = contentId
+        self.reason = reason
+        self.details = details
+        self.createdAt = createdAt
+        self.resolved = resolved
+    }
+}
+
+// MARK: - Beginner Support Profile
+
+struct BeginnerSupportProfile {
+    var preferredTrainingTime: String = "flexible"
+    var daysPerWeek: Int = 3
+    var gymType: String = "commercial"
+    var confidenceLevel: Int = 1
 }
 
 // ExtendedExerciseDatabase and ExerciseMetadata are now in ExerciseDatabase.swift
