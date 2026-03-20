@@ -2,12 +2,13 @@
 //  WorkoutStartOptionsView.swift
 //  GymQuest
 //
-//  Workout start options sheet - 4 ways to begin a workout:
-//  Custom, AI Generated, Follow Previous, Saved Workouts
+//  Workout start hub — tap "+" → hub sheet → pick a route → navigates to dedicated page.
 //
 
 import SwiftUI
 import SwiftData
+
+// MARK: - Workout Start Options View
 
 struct WorkoutStartOptionsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -19,58 +20,59 @@ struct WorkoutStartOptionsView: View {
 
     let profile: UserProfile
 
-    @State private var showingTypePicker = false
-    @State private var showingPreviousWorkouts = false
-    @State private var showingSavedWorkouts = false
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 header
 
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: GQLayout.sectionSpacing) {
+                    VStack(alignment: .leading, spacing: 24) {
                         heroSection
                             .padding(.top, 8)
 
-                        VStack(spacing: 10) {
-                            optionCard(
+                        sectionLabel("CHOOSE YOUR PATH")
+
+                        VStack(spacing: 14) {
+                            routeCard(
                                 icon: "figure.strengthtraining.traditional",
                                 title: "Custom Workout",
-                                subtitle: "Choose your split and build your session",
+                                subtitle: "Choose your split and go",
                                 accent: GQColors.deepBlue,
-                                emphasized: true
+                                useGradient: true
                             ) {
-                                showingTypePicker = true
+                                WorkoutTypeSelectionView(profile: profile)
                             }
 
-                            optionCard(
-                                icon: "brain.head.profile",
-                                title: "AI Generated",
-                                subtitle: "Start from a smart recommendation",
-                                accent: GQColors.textSecondary,
-                                badgeText: "AI"
-                            ) {
-                                showingTypePicker = true
-                            }
-
-                            optionCard(
+                            routeCard(
                                 icon: "clock.arrow.circlepath",
                                 title: "Follow Previous",
                                 subtitle: previousWorkoutSubtitle,
-                                accent: GQColors.deepBlue
+                                accent: GQColors.deepBlue,
+                                useGradient: true
                             ) {
-                                showingPreviousWorkouts = true
+                                PreviousWorkoutsListView(profile: profile, workouts: nonRestWorkouts)
                             }
 
-                            optionCard(
+                            routeCard(
                                 icon: "bookmark.fill",
                                 title: "Saved Workouts",
                                 subtitle: savedWorkoutsSubtitle,
-                                accent: GQColors.success,
-                                badgeText: savedTemplates.isEmpty ? nil : "\(savedTemplates.count)"
+                                accent: GQColors.deepBlue,
+                                badgeText: savedTemplates.isEmpty ? nil : "\(savedTemplates.count)",
+                                useGradient: true
                             ) {
-                                showingSavedWorkouts = true
+                                SavedWorkoutsListView(profile: profile, templates: savedTemplates)
+                            }
+
+                            routeCard(
+                                icon: "brain.head.profile",
+                                title: "AI Generated",
+                                subtitle: "Smart recommendation",
+                                accent: GQColors.deepBlue,
+                                badgeText: "AI",
+                                useGradient: true
+                            ) {
+                                AIGeneratedPlaceholderView()
                             }
                         }
 
@@ -78,22 +80,16 @@ struct WorkoutStartOptionsView: View {
 
                         Spacer(minLength: 34)
                     }
-                    .gqScreenHorizontalPadding()
+                    .padding(.horizontal, 16)
                 }
             }
             .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingTypePicker) {
-                WorkoutTypeSelectionView(profile: profile)
-            }
-            .sheet(isPresented: $showingPreviousWorkouts) {
-                PreviousWorkoutsSheet(profile: profile, workouts: nonRestWorkouts)
-            }
-            .sheet(isPresented: $showingSavedWorkouts) {
-                SavedWorkoutsSheet(profile: profile, templates: savedTemplates)
-            }
         }
+        .tint(GQColors.textPrimary)
     }
+
+    // MARK: - Header
 
     private var header: some View {
         HStack {
@@ -104,53 +100,67 @@ struct WorkoutStartOptionsView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
                     .frame(width: 34, height: 34)
-                    .background(Color.black.opacity(0.05))
+                    .background(GQColors.adaptiveOverlay(0.04))
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
 
             Spacer()
         }
-        .padding(.horizontal, GQLayout.screenHorizontal)
+        .padding(.horizontal, 16)
         .padding(.top, 16)
     }
 
-    private var heroSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Start Workout")
-                .font(.system(size: 32, weight: .bold))
-                .foregroundColor(GQColors.textPrimary)
+    // MARK: - Hero
 
-            Text("Pick a flow that matches your day.")
-                .font(.system(size: 15))
+    private var heroSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Start Workout")
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundStyle(GQGradients.primary)
+
+            Text("Pick how you want to train today.")
+                .font(.system(size: 13, weight: .medium))
                 .foregroundColor(GQColors.textSecondary)
         }
     }
 
-    private func optionCard(
+    // MARK: - Section Label
+
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(GQTypography.sectionHeader)
+            .foregroundColor(GQColors.textTertiary)
+            .textCase(.uppercase)
+            .tracking(0.5)
+    }
+
+    // MARK: - Route Card
+
+    private func routeCard<Destination: View>(
         icon: String,
         title: String,
         subtitle: String,
         accent: Color,
         badgeText: String? = nil,
-        emphasized: Bool = false,
-        action: @escaping () -> Void
+        useGradient: Bool = false,
+        @ViewBuilder destination: @escaping () -> Destination
     ) -> some View {
-        Button(action: action) {
+        NavigationLink(destination: destination) {
             HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(accent.opacity(0.18))
-                        .frame(width: 44, height: 44)
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(accent)
-                }
+                Circle()
+                    .fill(useGradient ? GQColors.deepBlue.opacity(0.08) : accent.opacity(0.10))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: icon)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(useGradient ? GQGradients.primary : LinearGradient(colors: [accent, accent], startPoint: .leading, endPoint: .trailing))
+                    )
 
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         Text(title)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(GQColors.textPrimary)
 
                         if let badgeText {
@@ -159,7 +169,7 @@ struct WorkoutStartOptionsView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(accent.opacity(0.85))
+                                .background(accent.opacity(0.80))
                                 .clipShape(Capsule())
                         }
                     }
@@ -173,46 +183,46 @@ struct WorkoutStartOptionsView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
             }
-            .padding(.horizontal, GQLayout.cardHorizontal)
-            .padding(.vertical, GQLayout.cardVertical)
-            .homeSocialCard(accent: accent, emphasized: emphasized)
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
         }
         .buttonStyle(GQInteractiveStyle())
     }
 
+    // MARK: - Motivational Stats
+
     private var motivationalStats: some View {
-        HStack(spacing: 0) {
-            statItem(value: "\(streakDays)", label: "Day Streak")
-            Divider()
-                .frame(height: 28)
-                .overlay(GQColors.borderDefault)
-            statItem(value: "\(workoutsThisWeek)", label: "This Week")
-            Divider()
-                .frame(height: 28)
-                .overlay(GQColors.borderDefault)
-            statItem(value: "Lv \(profile.level)", label: "Level")
+        VStack(spacing: 0) {
+            sectionLabel("YOUR PROGRESS")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 10)
+
+            HStack(spacing: 0) {
+                statItem(value: "\(streakDays)", label: "Day Streak")
+                Divider()
+                    .frame(height: 28)
+                    .overlay(GQColors.borderSubtle)
+                statItem(value: "\(workoutsThisWeek)", label: "This Week")
+                Divider()
+                    .frame(height: 28)
+                    .overlay(GQColors.borderSubtle)
+                statItem(value: "Lv \(profile.level)", label: "Level")
+            }
+            .padding(.vertical, 14)
+            .homeSocialCard(cornerRadius: 14)
         }
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(GQColors.surfaceBase)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(GQColors.borderDefault, lineWidth: 1)
-        )
     }
 
     private func statItem(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundColor(GQColors.textPrimary)
             Text(label)
-                .font(.system(size: 11))
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
@@ -246,12 +256,10 @@ struct WorkoutStartOptionsView: View {
     }
 
     private var streakDays: Int {
-        // Compute consecutive days with workouts
         let calendar = Calendar.current
         var streak = 0
         var checkDate = calendar.startOfDay(for: Date())
 
-        // Check if today has a workout, if not start from yesterday
         let todayWorkouts = nonRestWorkouts.filter { calendar.isDate($0.date, inSameDayAs: checkDate) }
         if todayWorkouts.isEmpty {
             guard let yesterday = calendar.date(byAdding: .day, value: -1, to: checkDate) else { return 0 }
@@ -270,87 +278,84 @@ struct WorkoutStartOptionsView: View {
     }
 }
 
-// MARK: - Previous Workouts Sheet
+// MARK: - Previous Workouts List View
 
-struct PreviousWorkoutsSheet: View {
-    @Environment(\.dismiss) private var dismiss
+struct PreviousWorkoutsListView: View {
     @EnvironmentObject var appState: AppState
 
     let profile: UserProfile
     let workouts: [Workout]
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if workouts.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .font(.system(size: 48))
-                            .foregroundColor(GQColors.textTertiary)
-                        Text("No previous workouts")
-                            .font(.headline)
-                            .foregroundColor(GQColors.textSecondary)
-                        Text("Complete a workout first, then come back to repeat it.")
-                            .font(.subheadline)
-                            .foregroundColor(GQColors.textTertiary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(32)
-                } else {
-                    List {
+        Group {
+            if workouts.isEmpty {
+                emptyStateView(
+                    icon: "clock.arrow.circlepath",
+                    title: "No previous workouts",
+                    body: "Complete a workout first, then come back to repeat it."
+                )
+            } else {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 14) {
                         ForEach(workouts.prefix(20)) { workout in
-                            HStack(spacing: 12) {
-                                Button {
-                                    startFromPrevious(workout)
-                                } label: {
-                                    HStack(spacing: 12) {
-                                        Image(systemName: workout.type.icon)
-                                            .font(.system(size: 20))
-                                            .foregroundColor(.white)
-                                            .frame(width: 40, height: 40)
-                                            .background(GQGradients.workoutGradient(for: workout.type))
-                                            .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(workout.title ?? workout.type.rawValue)
-                                                .font(.system(size: 15, weight: .semibold))
-                                                .foregroundColor(GQColors.textPrimary)
-                                            Text("\(workout.exercises.count) exercises · \(workout.date.formatted(.dateTime.month(.abbreviated).day()))")
-                                                .font(.system(size: 13))
-                                                .foregroundColor(GQColors.textSecondary)
-                                        }
-
-                                        Spacer()
-                                    }
-                                }
-
-                                WorkoutFavoriteButton(workout: workout)
-
-                                Button {
-                                    startFromPrevious(workout)
-                                } label: {
-                                    Image(systemName: "play.circle.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(GQColors.deepBlue)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .listRowBackground(GQColors.cardBackground)
+                            workoutRow(workout)
                         }
                     }
-                    .listStyle(.plain)
-                }
-            }
-            .gqPageBackground()
-            .navigationTitle("Previous Workouts")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(GQColors.textSecondary)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 34)
                 }
             }
         }
+        .gqPageBackground()
+        .navigationTitle("Previous Workouts")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func workoutRow(_ workout: Workout) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                startFromPrevious(workout)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: workout.type.icon)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 40, height: 40)
+                        .background(GQGradients.workoutGradient(for: workout.type))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(workout.title ?? workout.type.rawValue)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                        Text("\(workout.exercises.count) exercises · \(workout.date.formatted(.dateTime.month(.abbreviated).day()))")
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textSecondary)
+                    }
+
+                    Spacer()
+                }
+            }
+            .buttonStyle(.plain)
+
+            WorkoutFavoriteButton(workout: workout)
+
+            Button {
+                startFromPrevious(workout)
+            } label: {
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(GQGradients.primary)
+                    .frame(width: 40, height: 40)
+                    .background(GQColors.deepBlue.opacity(0.08))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
     }
 
     private func startFromPrevious(_ workout: Workout) {
@@ -364,86 +369,81 @@ struct PreviousWorkoutsSheet: View {
             )
         }
         appState.startWorkout(type: workout.type, exercises: exercises)
-        dismiss()
     }
 }
 
-// MARK: - Saved Workouts Sheet
+// MARK: - Saved Workouts List View
 
-struct SavedWorkoutsSheet: View {
-    @Environment(\.dismiss) private var dismiss
+struct SavedWorkoutsListView: View {
     @EnvironmentObject var appState: AppState
 
     let profile: UserProfile
     let templates: [WorkoutTemplate]
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if templates.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "bookmark")
-                            .font(.system(size: 48))
-                            .foregroundColor(GQColors.textTertiary)
-                        Text("No saved workouts")
-                            .font(.headline)
-                            .foregroundColor(GQColors.textSecondary)
-                        Text("Save workout templates from the feed to use them here.")
-                            .font(.subheadline)
-                            .foregroundColor(GQColors.textTertiary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding(32)
-                } else {
-                    List {
+        Group {
+            if templates.isEmpty {
+                emptyStateView(
+                    icon: "bookmark",
+                    title: "No saved workouts",
+                    body: "Save workout templates from the feed to use them here."
+                )
+            } else {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 14) {
                         ForEach(templates) { template in
-                            Button {
-                                startFromTemplate(template)
-                            } label: {
-                                HStack(spacing: 12) {
-                                    Image(systemName: template.workoutType.icon)
-                                        .font(.system(size: 20))
-                                        .foregroundColor(.white)
-                                        .frame(width: 40, height: 40)
-                                        .background(GQGradients.workoutGradient(for: template.workoutType))
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(template.name)
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(GQColors.textPrimary)
-                                        Text("\(template.estimatedDuration) min · Used \(template.useCount) times")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(GQColors.textSecondary)
-                                    }
-
-                                    Spacer()
-
-                                    Image(systemName: "play.circle.fill")
-                                        .font(.system(size: 24))
-                                        .foregroundColor(GQColors.success)
-                                }
-                            }
-                            .listRowBackground(GQColors.cardBackground)
+                            templateRow(template)
                         }
                     }
-                    .listStyle(.plain)
-                }
-            }
-            .gqPageBackground()
-            .navigationTitle("Saved Workouts")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundColor(GQColors.textSecondary)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 34)
                 }
             }
         }
+        .gqPageBackground()
+        .navigationTitle("Saved Workouts")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func templateRow(_ template: WorkoutTemplate) -> some View {
+        Button {
+            startFromTemplate(template)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: template.workoutType.icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 40, height: 40)
+                    .background(GQGradients.workoutGradient(for: template.workoutType))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(template.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("\(template.estimatedDuration) min · Used \(template.useCount) times")
+                        .font(.system(size: 13))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(GQGradients.primary)
+                    .frame(width: 40, height: 40)
+                    .background(GQColors.deepBlue.opacity(0.08))
+                    .clipShape(Circle())
+            }
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(GQInteractiveStyle())
     }
 
     private func startFromTemplate(_ template: WorkoutTemplate) {
-        // Decode template exercises if available
         var activeExercises: [ActiveExercise] = []
         if let data = template.exerciseData,
            let decoded = try? JSONDecoder().decode([SharedWorkoutData.SharedExercise].self, from: data) {
@@ -460,12 +460,92 @@ struct SavedWorkoutsSheet: View {
 
         appState.startWorkout(type: template.workoutType, exercises: activeExercises)
 
-        // Increment use count
         template.useCount += 1
         template.lastUsedAt = Date()
-
-        dismiss()
     }
+}
+
+// MARK: - AI Generated Placeholder
+
+struct AIGeneratedPlaceholderView: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: 16) {
+                Circle()
+                    .fill(GQColors.deepBlue.opacity(0.08))
+                    .frame(width: 72, height: 72)
+                    .overlay(
+                        Image(systemName: "brain.head.profile")
+                            .font(.system(size: 40))
+                            .foregroundColor(GQColors.textTertiary)
+                    )
+
+                Text("Coming Soon")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(GQColors.textSecondary)
+
+                Text("AI-powered workout recommendations are on the way.")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 260)
+            }
+            .padding(24)
+            .homeSocialCard(cornerRadius: 14)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(
+                        LinearGradient(
+                            colors: [GQColors.deepBlue.opacity(0.3), GQColors.deepBlue.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .padding(.horizontal, 16)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .gqPageBackground()
+        .navigationTitle("AI Generated")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Empty State Helper
+
+private func emptyStateView(icon: String, title: String, body: String) -> some View {
+    VStack(spacing: 0) {
+        Spacer()
+
+        VStack(spacing: 16) {
+            Circle()
+                .fill(GQColors.deepBlue.opacity(0.08))
+                .frame(width: 72, height: 72)
+                .overlay(
+                    Image(systemName: icon)
+                        .font(.system(size: 40))
+                        .foregroundColor(GQColors.textTertiary)
+                )
+
+            Text(title)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+
+            Text(body)
+                .font(.system(size: 13))
+                .foregroundColor(GQColors.textTertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 260)
+        }
+
+        Spacer()
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
 }
 
 // MARK: - Workout Favorite Button

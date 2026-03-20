@@ -2,32 +2,77 @@
 //  WorkoutTypeSelectionView.swift
 //  GymQuest
 //
-//  Workout type selection screen - appears when tapping "Start Workout"
-//  User picks their workout type before logging their session.
+//  Type grid page — pushed from the workout start hub.
+//  Tap a split/activity card to start a workout.
 //
 
 import SwiftUI
-import SwiftData
+
+// MARK: - Workout Type Option
 
 private struct WorkoutTypeOption: Identifiable {
     let type: WorkoutType
     let description: String
-
     var id: WorkoutType { type }
-
     var accent: Color {
-        GQGradients.workoutGradientColors(for: type).first ?? GQColors.deepBlue
+        GQGradients.workoutGradientColors(for: type).first ?? GQColors.textTertiary
     }
 }
 
+// MARK: - Compact Workout Type Card
+
+private struct CompactWorkoutTypeCard: View {
+    let option: WorkoutTypeOption
+    var isTapped: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Icon circle
+                Circle()
+                    .fill(GQColors.deepBlue.opacity(0.08))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: option.type.icon)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                    )
+
+                // Text
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(option.type.rawValue)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+
+                    Text(option.description)
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
+            .scaleEffect(isTapped ? 0.92 : 1.0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isTapped)
+        }
+        .buttonStyle(GQInteractiveStyle())
+    }
+}
+
+// MARK: - Workout Type Selection View
+
 struct WorkoutTypeSelectionView: View {
-    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var appState: AppState
 
     let profile: UserProfile
 
     @State private var selectedType: WorkoutType?
     @State private var customName: String = ""
+    @State private var tapScale: WorkoutType?
 
     private let splitTypes: [WorkoutTypeOption] = [
         .init(type: .push, description: "Chest, shoulders, triceps"),
@@ -48,117 +93,78 @@ struct WorkoutTypeSelectionView: View {
         .init(type: .custom, description: "Name your own workout"),
     ]
 
-    private var selectedAccent: Color {
-        guard let selectedType else { return GQColors.deepBlue }
-        return GQGradients.workoutGradientColors(for: selectedType).first ?? GQColors.deepBlue
-    }
-
-    @State private var tapScale: WorkoutType? = nil
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12),
+    ]
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                header
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                // TRAINING SPLIT
+                sectionLabel("TRAINING SPLIT")
 
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 20) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Let's Workout")
-                                .font(.system(size: 32, weight: .bold))
-                                .foregroundColor(GQColors.textPrimary)
-
-                            Text("Tap to start.")
-                                .font(.system(size: 15))
-                                .foregroundColor(GQColors.textSecondary)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.top, 8)
-
-                        // MARK: - Training Split
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Training Split")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(GQColors.textSecondary)
-                                .padding(.horizontal, 20)
-
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                                ForEach(splitTypes) { option in
-                                    workoutCard(for: option)
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
-
-                        // MARK: - Activity
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Activity")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(GQColors.textSecondary)
-                                .padding(.horizontal, 20)
-
-                            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                                ForEach(activityTypes) { option in
-                                    workoutCard(for: option)
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                        }
-
-                        // "Other" card with inline text field
-                        if selectedType == .custom {
-                            VStack(spacing: 8) {
-                                TextField("Enter workout name...", text: $customName)
-                                    .font(.system(size: 15))
-                                    .foregroundColor(GQColors.textPrimary)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 12)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .fill(Color.black.opacity(0.04))
-                                    )
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(GQColors.deepBlue.opacity(0.3), lineWidth: 1)
-                                    )
-
-                                Button {
-                                    startWorkout()
-                                } label: {
-                                    Text("Go")
-                                }
-                                .buttonStyle(HomeSocialPrimaryButtonStyle(accent: GQColors.deepBlue))
-                            }
-                            .padding(.horizontal, 20)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                        }
-
-                        Spacer(minLength: 40)
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(splitTypes) { option in
+                        workoutCard(for: option)
                     }
                 }
+
+                // ACTIVITY
+                sectionLabel("ACTIVITY")
+
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(activityTypes) { option in
+                        workoutCard(for: option)
+                    }
+                }
+
+                // Custom name inline field
+                if selectedType == .custom {
+                    HStack(spacing: 10) {
+                        TextField("Workout name", text: $customName)
+                            .textFieldStyle(LiftAITextFieldStyle())
+
+                        Button {
+                            startWorkout()
+                        } label: {
+                            Text("Go")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(
+                                    Capsule()
+                                        .fill(GQGradients.primary)
+                                )
+                        }
+                        .buttonStyle(GQInteractiveStyle())
+                    }
+                    .padding(14)
+                    .homeSocialCard(cornerRadius: 14)
+                }
+
+                Spacer(minLength: 34)
             }
-            .gqPageBackground()
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
+        .gqPageBackground()
+        .navigationTitle("Custom Workout")
+        .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var header: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(GQColors.textPrimary)
-                    .frame(width: 34, height: 34)
-                    .background(Color.black.opacity(0.05))
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
+    // MARK: - Section Label
 
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .font(GQTypography.sectionHeader)
+            .foregroundColor(GQColors.textTertiary)
+            .textCase(.uppercase)
+            .tracking(0.5)
     }
+
+    // MARK: - Workout Card
 
     @ViewBuilder
     private func workoutCard(for option: WorkoutTypeOption) -> some View {
@@ -180,6 +186,8 @@ struct WorkoutTypeSelectionView: View {
         }
     }
 
+    // MARK: - Start Workout
+
     private func startWorkout() {
         guard let selectedType else { return }
         HapticManager.shared.impact(.medium)
@@ -189,53 +197,5 @@ struct WorkoutTypeSelectionView: View {
         } else {
             appState.startWorkout(type: selectedType)
         }
-        dismiss()
     }
-}
-
-private struct CompactWorkoutTypeCard: View {
-    let option: WorkoutTypeOption
-    var isTapped: Bool = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 10) {
-                Image(systemName: option.type.icon)
-                    .font(.system(size: 32, weight: .medium))
-                    .foregroundColor(.white)
-
-                Text(option.type.rawValue)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 18)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(GQGradients.workoutCardGradient(for: option.type))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            colors: [GQColors.deepBlue.opacity(0.15), GQColors.deepBlue.opacity(0.15)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.04), radius: 4, y: 2)
-            .scaleEffect(isTapped ? 0.92 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isTapped)
-        }
-        .buttonStyle(GQInteractiveStyle())
-    }
-}
-
-#Preview {
-    WorkoutTypeSelectionView(profile: UserProfile(name: "Ben", username: "ben"))
-        .environmentObject(AppState())
 }

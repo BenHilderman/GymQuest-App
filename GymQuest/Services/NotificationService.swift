@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import SwiftData
 import UserNotifications
 
 @MainActor
@@ -26,6 +27,10 @@ class NotificationService: ObservableObject {
     private init() {
         loadSettings()
         checkAuthorizationStatus()
+    }
+
+    func configure(modelContext: ModelContext) {
+        // No-op: NotificationService uses UserDefaults, not SwiftData
     }
 
     // MARK: - Authorization

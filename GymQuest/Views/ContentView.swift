@@ -125,7 +125,23 @@ struct ContentView: View {
             AddMeasurementSheet(profile: profile, measurementType: .weight)
         }
         .onAppear {
-            AnalyticsService.shared.configure(modelContext: modelContext)
+            let ctx = modelContext
+            AnalyticsService.shared.configure(modelContext: ctx)
+            MomentumService.shared.configure(modelContext: ctx)
+            PodService.shared.configure(modelContext: ctx)
+            ChallengeService.shared.configure(modelContext: ctx)
+            PermissionsService.shared.configure(modelContext: ctx)
+            NotificationService.shared.configure(modelContext: ctx)
+            ClubService.shared.configure(modelContext: ctx)
+            FeedContentService.shared.configure(modelContext: ctx)
+            WorkoutAdaptationService.shared.configure(modelContext: ctx)
+            PremiumGateService.shared.configure(modelContext: ctx)
+            PlanScheduleService.shared.configure(modelContext: ctx)
+            QuestService.shared.configure(modelContext: ctx)
+            QuestService.shared.seedDefaultQuests()
+            SquadService.shared.configure(modelContext: ctx)
+            LearningService.shared.configure(modelContext: ctx)
+            ProductionSeeder.seedIfNeeded(modelContext: ctx)
         }
     }
 }

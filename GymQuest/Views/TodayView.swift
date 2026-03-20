@@ -20,16 +20,59 @@ struct TodayView: View {
 
     @Query(filter: #Predicate<TrainingPlan> { $0.isActive }) private var activePlans: [TrainingPlan]
 
+    // Pod & accountability data
+    @Query private var allPodMemberships: [PodMembership]
+    @Query private var allPods: [Pod]
+    @Query private var allMomentumStates: [UserMomentumState]
+    @Query private var allClubs: [Club]
+
+    // Challenge data
+    @Query(sort: \ChallengeEnrollment.enrolledAt, order: .reverse) private var allChallengeEnrollments: [ChallengeEnrollment]
+    @Query(sort: \Challenge.startDate, order: .reverse) private var allChallenges: [Challenge]
+
     @State private var showDraftBanner = false
     @State private var draftWorkoutType: String = ""
     @State private var draftStartTime: Date = Date()
     @State private var showingPlanOptions = false
     @State private var selectedSubTab: TodaySubTab = .today
+    @State private var consistencyState: ConsistencyState = .onTrack
 
     private enum TodaySubTab: String, CaseIterable {
         case today = "Today"
         case progress = "Progress"
     }
+
+    // MARK: - Pod / Challenge Computed Props
+
+    private var primaryPodMembership: PodMembership? {
+        allPodMemberships.first { $0.userId == profile.id && $0.isPrimaryPod }
+    }
+
+    private var primaryPod: Pod? {
+        guard let membership = primaryPodMembership else { return nil }
+        return allPods.first { $0.id == membership.podId }
+    }
+
+    private var userMomentum: UserMomentumState? {
+        allMomentumStates.first { $0.userId == profile.id }
+    }
+
+
+    private var primaryClub: Club? {
+        guard let clubId = primaryPod?.clubId else { return nil }
+        return allClubs.first { $0.id == clubId }
+    }
+
+
+    private var activeChallengeEnrollments: [ChallengeEnrollment] {
+        allChallengeEnrollments.filter { enrollment in
+            enrollment.userId == profile.id &&
+            !enrollment.isCompleted &&
+            allChallenges.contains { $0.id == enrollment.challengeId && $0.isActive }
+        }
+    }
+
+    // MARK: - Workout Data
 
     private var nonRestWorkouts: [Workout] {
         allWorkouts.filter { $0.type != .rest }
@@ -64,10 +107,11 @@ struct TodayView: View {
         nonRestWorkouts.first
     }
 
+    // MARK: - Body
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Tab bar matching Feed style
                 todayTabBar
 
                 ScrollView {
@@ -78,23 +122,39 @@ struct TodayView: View {
                         ProgressAnalyticsView(profile: profile, inline: true)
                     }
                 }
-                .scrollContentBackground(.hidden)
             }
+            .scrollContentBackground(.hidden)
             .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear {
-                checkForDraft()
-                MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
+        }
+        .onAppear {
+            checkForDraft()
+            MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
+            MomentumService.shared.checkInactivity(userId: profile.id)
+            consistencyState = MomentumService.shared.evaluateState(userId: profile.id)
+            ChallengeService.shared.autoEnroll(userId: profile.id, consistencyState: consistencyState)
+            PodService.shared.evaluateLifecycles()
+
+            if let activePlan = activePlans.first {
+                PlanScheduleService.shared.resolveMissedDays(planId: activePlan.id)
             }
         }
     }
 
+    private var sectionDivider: some View {
+        Rectangle()
+            .fill(GQColors.adaptiveOverlay(0.08))
+            .frame(height: 0.33)
+            .padding(.vertical, 1)
+    }
+
     private var todayContent: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 6) {
             dateHeader
 
             if showDraftBanner {
                 resumeDraftBanner
+                sectionDivider
             }
 
             WeeklyProgressRing(
@@ -106,7 +166,7 @@ struct TodayView: View {
                 weeklyStreak: weeklyStreak
             )
 
-            startWorkoutHeroButton
+            sectionDivider
 
             TodayDashboardSection(
                 profile: profile,
@@ -115,16 +175,35 @@ struct TodayView: View {
             )
             .environment(\.modelContext, modelContext)
 
+            sectionDivider
+
+            startWorkoutHeroButton
+
+            sectionDivider
+
+            // Pod / Find a Pod card
+            podOrOnboardingCard
+                .featureGated(FeatureFlags.shared.podSystemEnabled)
+
             if let milestone = nextMilestone {
+                sectionDivider
                 milestoneRow(milestone)
             }
 
             if let todayPlan = todaysPlanDay {
+                sectionDivider
                 plannedWorkoutCard(todayPlan)
+            }
+
+            // Challenge card (e.g. Set Slayer)
+            if let firstEnrollment = activeChallengeEnrollments.first,
+               let challenge = allChallenges.first(where: { $0.id == firstEnrollment.challengeId }),
+               FeatureFlags.shared.challengeEngineEnabled {
+                sectionDivider
+                challengeCard(enrollment: firstEnrollment, challenge: challenge)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 4)
         .padding(.bottom, 100)
     }
 
@@ -210,56 +289,6 @@ struct TodayView: View {
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
-    // MARK: - Quick Log Section
-
-    private var quickLogSection: some View {
-        HStack(spacing: 12) {
-            Button {
-                appState.showingAddMeasurement = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "scalemass.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(GQColors.success)
-                    Text("Log Weight")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(GQColors.success.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(GQColors.success.opacity(0.3), lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                appState.showingMealLog = true
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "fork.knife")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(GQColors.textSecondary)
-                    Text("Log Food")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(GQColors.textSecondary.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(GQColors.textSecondary.opacity(0.3), lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
     // MARK: - Streak & Milestone
 
     private var dailyStreak: Int {
@@ -278,19 +307,17 @@ struct TodayView: View {
             if hasWorkout {
                 streak += 1
             } else if let days = planDays {
-                // Check if this was a planned rest day
                 let dayIndex = dayOffset % planLength
                 let reversedIndex = (planLength - dayIndex) % planLength
                 if reversedIndex < days.count && days[reversedIndex].isRestDay {
-                    streak += 1 // Rest day doesn't break streak
+                    streak += 1
                 } else if dayOffset == 0 {
-                    // Today — they might not have worked out yet
                     break
                 } else {
                     break
                 }
             } else {
-                if dayOffset == 0 { break } // Today, haven't worked out yet
+                if dayOffset == 0 { break }
                 else { break }
             }
             dayOffset += 1
@@ -304,7 +331,7 @@ struct TodayView: View {
         let target = profile.daysPerWeek
         guard target > 0 else { return 0 }
         var streak = 0
-        var weeksAgo = 1 // Start from last completed week
+        var weeksAgo = 1
 
         while true {
             guard let weekStart = calendar.date(byAdding: .weekOfYear, value: -weeksAgo, to: Date()),
@@ -335,7 +362,6 @@ struct TodayView: View {
         let remaining = milestone.target - milestone.current
 
         return HStack(spacing: 14) {
-            // Mini ring showing progress to milestone
             ZStack {
                 Circle()
                     .fill(GQGradients.primary.opacity(0.06))
@@ -368,7 +394,6 @@ struct TodayView: View {
 
             Spacer()
 
-            // Percentage pill
             Text("\(Int(fraction * 100))%")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(GQGradients.primary)
@@ -379,17 +404,17 @@ struct TodayView: View {
                         .fill(GQGradients.primary.opacity(0.08))
                 )
         }
-        .padding(14)
-        .homeSocialCard(cornerRadius: 14)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     // MARK: - Date Header
 
     private var dateHeader: some View {
         HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(greeting)
-                    .font(.system(size: 13))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(GQColors.textTertiary)
                 Text(Date(), format: .dateTime.weekday(.wide).month(.abbreviated).day())
                     .font(.system(size: 22, weight: .bold, design: .rounded))
@@ -397,7 +422,8 @@ struct TodayView: View {
             }
             Spacer()
         }
-        .padding(.top, 2)
+        .padding(.top, 16)
+        .padding(.bottom, 6)
     }
 
     private var greeting: String {
@@ -425,29 +451,35 @@ struct TodayView: View {
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                selectedSubTab = tab
-                            }
+                            selectedSubTab = tab
                         }
                 }
             }
             .padding(.bottom, 6)
 
-            GeometryReader { geometry in
-                let tabWidth = geometry.size.width / CGFloat(TodaySubTab.allCases.count)
-                let underlineWidth: CGFloat = 40
+            ZStack(alignment: .leading) {
+                // Full-width grey baseline
                 Rectangle()
-                    .fill(GQGradients.primary)
-                    .frame(width: underlineWidth, height: 1.5)
-                    .clipShape(RoundedRectangle(cornerRadius: 0.75))
-                    .offset(x: tabWidth * CGFloat(subTabIndex) + (tabWidth - underlineWidth) / 2)
-                    .animation(.easeInOut(duration: 0.3), value: subTabIndex)
+                    .fill(GQColors.borderSubtle)
+                    .frame(height: 0.5)
+
+                // Active tab accent underline
+                GeometryReader { geometry in
+                    let tabWidth = geometry.size.width / CGFloat(TodaySubTab.allCases.count)
+                    Rectangle()
+                        .fill(GQGradients.primary)
+                        .frame(width: tabWidth, height: 1.5)
+                        .clipShape(RoundedRectangle(cornerRadius: 0.75))
+                        .offset(x: tabWidth * CGFloat(subTabIndex))
+                        .animation(.easeInOut(duration: 0.3), value: subTabIndex)
+                }
+                .frame(height: 1.5)
             }
             .frame(height: 1.5)
         }
         .padding(.horizontal, 20)
-        .padding(.top, 8)
-        .padding(.bottom, 6)
+        .padding(.top, 20)
+        .padding(.bottom, 2)
         .background(
             GQColors.background
                 .ignoresSafeArea(edges: .top)
@@ -574,17 +606,177 @@ struct TodayView: View {
             }
             appState.startWorkout(type: type, exercises: exercises)
         } else {
-            // No previous workout of this type, start fresh
             appState.startWorkout(type: type, exercises: [])
         }
     }
 
     private func startPlannedAI(_ type: WorkoutType) {
-        // Opens the workout start flow which has AI option
         appState.showingWorkoutStartOptions = true
     }
 
     private func startPlannedFresh(_ type: WorkoutType) {
         appState.startWorkout(type: type, exercises: [])
     }
+
+    // MARK: - Pod Row
+
+    @ViewBuilder
+    private var podOrOnboardingCard: some View {
+        if let pod = primaryPod {
+            podRow(pod)
+        } else if allClubs.isEmpty {
+            podPromptRow(title: "Join a Club", subtitle: "Train with others")
+        } else {
+            podPromptRow(title: "Find a Pod", subtitle: "Accountability group")
+        }
+    }
+
+    private func podPromptRow(title: String, subtitle: String) -> some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.06))
+                    .frame(width: 46, height: 46)
+                    .blur(radius: 5)
+                Circle()
+                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 4)
+                    .frame(width: 38, height: 38)
+                Image(systemName: "person.3")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+            .frame(width: 38, height: 38)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(subtitle)
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(GQColors.adaptiveOverlay(0.04)))
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
+        .onTapGesture {
+            appState.selectedTab = .feed
+            NotificationCenter.default.post(name: .navigateToFeedTab, object: FeedTab.clubs)
+        }
+    }
+
+    private func podRow(_ pod: Pod) -> some View {
+        let completed = userMomentum?.currentWeekCompleted ?? workoutsThisWeek
+        let target = pod.weeklyWorkoutTarget
+        let fraction = CGFloat(completed) / CGFloat(max(target, 1))
+        let remaining = max(target - completed, 0)
+
+        return HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.06))
+                    .frame(width: 46, height: 46)
+                    .blur(radius: 5)
+                Circle()
+                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 4)
+                    .frame(width: 38, height: 38)
+                Circle()
+                    .trim(from: 0, to: min(fraction, 1.0))
+                    .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 38, height: 38)
+                Text("\(completed)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(GQColors.textPrimary)
+            }
+            .frame(width: 38, height: 38)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(pod.name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(remaining > 0 ? "\(remaining) more this week" : "Goal complete")
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+
+            Spacer()
+
+            Text(fraction >= 1.0 ? "Done" : "\(Int(min(fraction, 1.0) * 100))%")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(fraction >= 1.0 ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQGradients.primary))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(AnyShapeStyle(fraction >= 1.0 ? AnyShapeStyle(GQGradients.primary.opacity(0.08)) : AnyShapeStyle(GQGradients.primary.opacity(0.08))))
+                )
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
+        .onTapGesture {
+            appState.selectedTab = .feed
+            NotificationCenter.default.post(name: .navigateToFeedTab, object: FeedTab.clubs)
+        }
+    }
+
+    // MARK: - Challenge Row
+
+    private func challengeCard(enrollment: ChallengeEnrollment, challenge: Challenge) -> some View {
+        let fraction = CGFloat(enrollment.progress) / CGFloat(max(challenge.goalTarget, 1))
+        let remaining = challenge.goalTarget - enrollment.progress
+
+        return HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.06))
+                    .frame(width: 46, height: 46)
+                    .blur(radius: 5)
+                Circle()
+                    .stroke(GQColors.adaptiveOverlay(0.06), lineWidth: 4)
+                    .frame(width: 38, height: 38)
+                Circle()
+                    .trim(from: 0, to: min(fraction, 1.0))
+                    .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 38, height: 38)
+                Text("\(enrollment.progress)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(GQColors.textPrimary)
+            }
+            .frame(width: 38, height: 38)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(challenge.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(remaining > 0 ? "\(remaining) more to go" : "Challenge complete")
+                    .font(.system(size: 11))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+
+            Spacer()
+
+            Text(fraction >= 1.0 ? "Done" : "\(Int(min(fraction, 1.0) * 100))%")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(fraction >= 1.0 ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQGradients.primary))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule()
+                        .fill(AnyShapeStyle(fraction >= 1.0 ? AnyShapeStyle(GQGradients.primary.opacity(0.08)) : AnyShapeStyle(GQGradients.primary.opacity(0.08))))
+                )
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
 }

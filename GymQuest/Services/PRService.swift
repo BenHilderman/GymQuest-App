@@ -118,7 +118,7 @@ class PRService: ObservableObject {
             let moment = PRMoment(
                 odId: profile.id,
                 odUsername: profile.username,
-                prType: .repPR, // Using repPR for display compatibility
+                prType: .weightPR,
                 exerciseName: exercise.name,
                 value: "\(Int(bestSet.weight)) × \(bestSet.reps)",
                 previousValue: "\(Int(prev.weight)) × \(prev.reps)",
@@ -142,7 +142,7 @@ class PRService: ObservableObject {
             let moment = PRMoment(
                 odId: profile.id,
                 odUsername: profile.username,
-                prType: .repPR,
+                prType: .weightPR,
                 exerciseName: exercise.name,
                 value: "\(Int(bestSet.weight)) × \(bestSet.reps)",
                 previousValue: nil,

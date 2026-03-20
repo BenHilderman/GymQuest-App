@@ -1419,6 +1419,7 @@ final class Post {
     var songTitle: String?
     var artistName: String?
     var songPreviewURL: String?  // For playback
+    var albumArtURL: String?     // Pre-fetched cover image URL
     var musicSource: String?     // "spotify", "apple_music", "ai_suggested"
     var playlistId: String?      // If linked from a playlist
 
@@ -1500,6 +1501,7 @@ final class Post {
         songTitle: String? = nil,
         artistName: String? = nil,
         songPreviewURL: String? = nil,
+        albumArtURL: String? = nil,
         musicSource: String? = nil,
         playlistId: String? = nil,
         detectedActivity: String? = nil,
@@ -1548,6 +1550,7 @@ final class Post {
         self.songTitle = songTitle
         self.artistName = artistName
         self.songPreviewURL = songPreviewURL
+        self.albumArtURL = albumArtURL
         self.musicSource = musicSource
         self.playlistId = playlistId
         self.detectedActivity = detectedActivity

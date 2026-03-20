@@ -260,7 +260,7 @@ struct CreatePostView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 48))
-                            .foregroundColor(GQColors.success)
+                            .foregroundStyle(GQGradients.primary)
                         Text("Posted!")
                             .font(.headline)
                             .foregroundColor(GQColors.textPrimary)
@@ -387,7 +387,7 @@ struct MusicSelectorSection: View {
                     } label: {
                         Text("Remove")
                             .font(.system(size: 12))
-                            .foregroundColor(GQColors.error)
+                            .foregroundColor(GQColors.textSecondary)
                     }
                 }
             }
@@ -811,7 +811,7 @@ struct ServiceConnectionCard: View {
 
                 Text(isConnected ? "Connected" : "Tap to connect")
                     .font(.system(size: 13))
-                    .foregroundColor(isConnected ? GQColors.success : GQColors.textSecondary)
+                    .foregroundColor(isConnected ? GQColors.textPrimary : GQColors.textSecondary)
             }
 
             Spacer()
@@ -819,7 +819,7 @@ struct ServiceConnectionCard: View {
             if isConnected {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
-                    .foregroundColor(GQColors.success)
+                    .foregroundStyle(GQGradients.primary)
             } else {
                 Button(action: onConnect) {
                     Text("Connect")

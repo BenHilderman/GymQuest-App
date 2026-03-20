@@ -17,7 +17,7 @@ import UIKit
 final class HapticManager {
     static let shared = HapticManager()
 
-    #if canImport(UIKit)
+    #if os(iOS)
     private let lightGenerator = UIImpactFeedbackGenerator(style: .light)
     private let mediumGenerator = UIImpactFeedbackGenerator(style: .medium)
     private let heavyGenerator = UIImpactFeedbackGenerator(style: .heavy)
@@ -26,7 +26,7 @@ final class HapticManager {
     #endif
 
     private var isEnabled: Bool {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard UserDefaults.standard.object(forKey: "hapticFeedbackEnabled") as? Bool ?? true else { return false }
         return !UIAccessibility.isReduceMotionEnabled
         #else
@@ -35,7 +35,7 @@ final class HapticManager {
     }
 
     private init() {
-        #if canImport(UIKit)
+        #if os(iOS)
         lightGenerator.prepare()
         mediumGenerator.prepare()
         heavyGenerator.prepare()
@@ -45,14 +45,14 @@ final class HapticManager {
     }
 
     func tap() {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         lightGenerator.impactOccurred()
         #endif
     }
 
     func select() {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         selectionGenerator.selectionChanged()
         selectionGenerator.prepare()
@@ -60,7 +60,7 @@ final class HapticManager {
     }
 
     func impact(_ style: HapticStyle = .medium) {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         switch style {
         case .light: lightGenerator.impactOccurred()
@@ -71,7 +71,7 @@ final class HapticManager {
     }
 
     func setComplete(setNumber: Int, totalSets: Int) {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         // Progressive intensity: later sets get heavier haptics
         let progress = Double(setNumber) / Double(max(totalSets, 1))
@@ -96,7 +96,7 @@ final class HapticManager {
     }
 
     func workoutComplete() {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         notificationGenerator.notificationOccurred(.success)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
@@ -109,14 +109,14 @@ final class HapticManager {
     }
 
     func success() {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         notificationGenerator.notificationOccurred(.success)
         #endif
     }
 
     func error() {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         notificationGenerator.notificationOccurred(.error)
         #endif
@@ -141,7 +141,7 @@ final class HapticManager {
     }
 
     func prDetected() {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         heavyGenerator.impactOccurred()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
@@ -154,7 +154,7 @@ final class HapticManager {
     }
 
     func milestoneReached() {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         heavyGenerator.impactOccurred()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -168,7 +168,7 @@ final class HapticManager {
     }
 
     func countdownGo() {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         heavyGenerator.impactOccurred()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -190,7 +190,7 @@ final class HapticManager {
     }
 
     func exerciseComplete() {
-        #if canImport(UIKit)
+        #if os(iOS)
         guard isEnabled else { return }
         heavyGenerator.impactOccurred()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
@@ -1649,14 +1649,14 @@ struct WorkoutFlowMetricChip: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(GQColors.textTertiary)
                 Text(value)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(GQColors.textSecondary)
             }
         } else {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(color)
+                    .foregroundStyle(GQGradients.primary)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(value)
@@ -1754,9 +1754,10 @@ struct GQPageChromeModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            #if !os(tvOS)
             .scrollContentBackground(.hidden)
             .toolbarBackground(.hidden, for: .navigationBar)
-            // toolbarColorScheme follows system automatically
+            #endif
             .tint(tint)
     }
 }
@@ -2222,7 +2223,7 @@ struct MusicPhotoOverlay: View {
 
             Spacer()
 
-            MusicEQBars(barCount: 3, barWidth: 2.5, maxHeight: 14, color: serviceColor, isPlaying: true)
+            MusicEQBars(barCount: 4, barWidth: 2.5, maxHeight: 16, color: serviceColor, isPlaying: true)
 
             if musicSource != nil {
                 if isSpotify {
@@ -2391,6 +2392,60 @@ struct MusicBadge: View {
         }
         .onDisappear {
             animateBars = false
+        }
+    }
+}
+
+// MARK: - Inline Vinyl Disc
+
+struct InlineVinylDisc: View {
+    let serviceColor: Color
+    var isPlaying: Bool = false
+
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.black)
+                .frame(width: 38, height: 38)
+            Circle()
+                .fill(
+                    AngularGradient(
+                        colors: [Color.white.opacity(0.08), Color.white.opacity(0.03), Color.white.opacity(0.08)],
+                        center: .center
+                    )
+                )
+                .frame(width: 36, height: 36)
+            // Grooves
+            ForEach([28, 22, 16] as [CGFloat], id: \.self) { size in
+                Circle()
+                    .stroke(Color.white.opacity(0.06), lineWidth: 0.5)
+                    .frame(width: size, height: size)
+            }
+            Circle()
+                .fill(serviceColor)
+                .frame(width: 10, height: 10)
+        }
+        .rotationEffect(.degrees(rotation))
+        .onAppear {
+            if isPlaying { startSpinning() }
+        }
+        .onChange(of: isPlaying) { _, playing in
+            if playing { startSpinning() } else { stopSpinning() }
+        }
+        .onDisappear { stopSpinning() }
+    }
+
+    private func startSpinning() {
+        withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+            rotation = rotation + 360
+        }
+    }
+
+    private func stopSpinning() {
+        withAnimation(.easeOut(duration: 0.3)) {
+            // Freezes at current rotation
         }
     }
 }

@@ -130,7 +130,7 @@ struct EnhancedPostEditorView: View {
                             icon: "location.fill",
                             title: selectedLocation?.name ?? "Add Location",
                             selectedCount: selectedLocation != nil ? 1 : 0,
-                            color: GQColors.success
+                            color: GQColors.textSecondary
                         ) {
                             showLocationPicker = true
                         }
@@ -140,7 +140,7 @@ struct EnhancedPostEditorView: View {
                             icon: "person.3.fill",
                             title: "Share with Squads",
                             selectedCount: taggedSquads.count,
-                            color: GQColors.deepBlue
+                            color: GQColors.textSecondary
                         ) {
                             showSquadPicker = true
                         }
@@ -150,7 +150,7 @@ struct EnhancedPostEditorView: View {
                             icon: "trophy.fill",
                             title: attachedChallenge?.title ?? "Attach Challenge",
                             selectedCount: attachedChallenge != nil ? 1 : 0,
-                            color: .orange
+                            color: GQColors.textSecondary
                         ) {
                             showChallengeCreator = true
                         }
@@ -213,11 +213,12 @@ struct EnhancedPostEditorView: View {
             }
             .scrollContentBackground(.hidden)
             .gqPageBackground()
-            .navigationTitle("Customize Post")
+            .navigationTitle("Share Workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Skip") { dismiss() }
+                        .foregroundColor(GQColors.textSecondary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Post") { createPost() }
@@ -401,7 +402,7 @@ struct SnippetScrubber: View {
                 Spacer()
                 Text("\(timeLabel(snippetStart)) – \(timeLabel(endTime))")
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundColor(isPreviewPlaying ? GQColors.deepBlue : GQColors.textSecondary)
+                    .foregroundStyle(isPreviewPlaying ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textSecondary))
                     .contentTransition(.numericText())
                     .animation(.easeInOut(duration: 0.15), value: snippetStart)
             }
@@ -782,13 +783,7 @@ struct MediaSlot: View {
                         VStack(spacing: 4) {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 24))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [GQColors.deepBlue, GQColors.textSecondary],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
+                                .foregroundStyle(GQGradients.primary)
                             Text("Add")
                                 .font(.system(size: 11))
                                 .foregroundColor(GQColors.textSecondary)
@@ -807,7 +802,7 @@ struct MediaSlot: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(GQColors.deepBlue)
+                                .background(GQColors.textSecondary)
                                 .cornerRadius(8)
                         }
                     }
@@ -901,7 +896,7 @@ struct TaggedItemsPreview: View {
                         PostTagChip(
                             icon: "location.fill",
                             text: loc.name,
-                            color: GQColors.success
+                            color: GQColors.textSecondary
                         ) {
                             onRemoveLocation()
                         }
@@ -912,7 +907,7 @@ struct TaggedItemsPreview: View {
                         PostTagChip(
                             icon: "person.3.fill",
                             text: squad.name,
-                            color: GQColors.deepBlue
+                            color: GQColors.textSecondary
                         ) {
                             onRemoveSquad(squad)
                         }
@@ -1032,7 +1027,7 @@ struct MediaPickerSheet: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                 }
-                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.deepBlue))
+                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.textSecondary))
                 .padding(.horizontal)
 
                 // Camera button
@@ -1301,7 +1296,7 @@ struct LocationTaggingView: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "mappin.circle.fill")
-                                        .foregroundColor(GQColors.success)
+                                        .foregroundStyle(GQGradients.primary)
                                     Text("Use \"\(searchText)\"")
                                         .foregroundColor(GQColors.textPrimary)
                                 }
@@ -1387,7 +1382,7 @@ struct ClubLocationRow: View {
         Button(action: onSelect) {
             HStack {
                 Image(systemName: "building.2.fill")
-                    .foregroundColor(GQColors.success)
+                    .foregroundStyle(GQGradients.primary)
                     .frame(width: 30)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -1406,7 +1401,7 @@ struct ClubLocationRow: View {
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(GQColors.success)
+                        .foregroundStyle(GQGradients.primary)
                 }
             }
             .padding(.vertical, 8)
@@ -1530,7 +1525,7 @@ struct SquadTagRow: View {
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
-                    .foregroundColor(isSelected ? GQColors.deepBlue : GQColors.textTertiary)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary))
             }
             .padding(.vertical, 8)
         }

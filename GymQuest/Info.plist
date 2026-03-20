@@ -29,17 +29,9 @@
 	<string>1</string>
 	<key>GIDClientID</key>
 	<string>672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo.apps.googleusercontent.com</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Lift AI uses your location to map your outdoor workout routes and calculate distance and pace.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>GymQuest uses your health data to track workouts, activity, and fitness progress.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>GymQuest saves your workout data to Apple Health.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Lift AI uses speech recognition for hands-free voice coaching during workouts.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Lift AI uses the camera for real-time form checking during exercises.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Lift AI uses the microphone for voice coaching and voice notes during workouts.</string>
 </dict>
 </plist>

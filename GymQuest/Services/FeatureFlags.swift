@@ -137,6 +137,21 @@ final class FeatureFlags: ObservableObject {
         didSet { save("recoveryAdvisorEnabled", value: recoveryAdvisorEnabled) }
     }
 
+    /// Pod accountability system (System 2)
+    @Published var podSystemEnabled: Bool {
+        didSet { save("podSystemEnabled", value: podSystemEnabled) }
+    }
+
+    /// Premium gate system (soft paywall triggers)
+    @Published var premiumGateEnabled: Bool {
+        didSet { save("premiumGateEnabled", value: premiumGateEnabled) }
+    }
+
+    /// Challenge engine (System 3)
+    @Published var challengeEngineEnabled: Bool {
+        didSet { save("challengeEngineEnabled", value: challengeEngineEnabled) }
+    }
+
     // MARK: - One-Time Prompt Tracking
 
     var hasSeenGymLocationPrompt: Bool {
@@ -180,6 +195,9 @@ final class FeatureFlags: ObservableObject {
         self.formCheckCameraEnabled = defaults.object(forKey: prefix + "formCheckCameraEnabled") as? Bool ?? false
         self.voiceCoachEnabled = defaults.object(forKey: prefix + "voiceCoachEnabled") as? Bool ?? false
         self.recoveryAdvisorEnabled = defaults.object(forKey: prefix + "recoveryAdvisorEnabled") as? Bool ?? true
+        self.podSystemEnabled = defaults.object(forKey: prefix + "podSystemEnabled") as? Bool ?? true
+        self.premiumGateEnabled = defaults.object(forKey: prefix + "premiumGateEnabled") as? Bool ?? false
+        self.challengeEngineEnabled = defaults.object(forKey: prefix + "challengeEngineEnabled") as? Bool ?? true
     }
 
     private func save(_ key: String, value: Bool) {

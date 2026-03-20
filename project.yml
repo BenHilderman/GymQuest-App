@@ -5,6 +5,7 @@ options:
     iOS: "17.0"
     macOS: "14.0"
     watchOS: "10.0"
+    tvOS: "17.0"
   xcodeVersion: "15.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
@@ -136,6 +137,81 @@ targets:
         DEVELOPMENT_TEAM: 356D828QY6
         CODE_SIGN_STYLE: Automatic
 
+  GymQuestTV:
+    type: application
+    platform: tvOS
+    sources:
+      - path: GymQuestTV
+        excludes:
+          - "TopShelfExtension"
+      - path: GymQuest/Models
+      - path: GymQuest/Views/DesignSystem.swift
+      - path: GymQuest/Services/MockDataSeeder.swift
+      - path: GymQuest/Services/SocialSeeder.swift
+      - path: GymQuest/Services/ProductionSeeder.swift
+      - path: GymQuest/Services/DiscoverSeeder.swift
+      - path: GymQuest/Services/LeaderboardService.swift
+      - path: GymQuest/Services/PRService.swift
+      - path: GymQuest/Services/ExerciseHistoryService.swift
+      - path: GymQuest/Services/FeatureFlags.swift
+      - path: GymQuest/Services/AnalyticsService.swift
+      - path: GymQuest/Services/SubscriptionService.swift
+      - path: GymQuest/Services/PremiumGateService.swift
+      - path: GymQuest/Services/MomentumService.swift
+      - path: GymQuest/Services/QuestService.swift
+      - path: GymQuest/Services/ChallengeService.swift
+      - path: GymQuest/Services/FeedRankingService.swift
+      - path: GymQuest/Services/FeedContentService.swift
+      - path: GymQuest/Services/SocialActivityService.swift
+      - path: GymQuest/Services/ProgressiveOverloadService.swift
+      - path: GymQuest/Services/PodService.swift
+      - path: GymQuest/Services/PlanScheduleService.swift
+      - path: GymQuest/Services/ClubService.swift
+      - path: GymQuest/Services/SquadService.swift
+
+      - path: GymQuest/Services/LearningService.swift
+      - path: GymQuest/Services/NutritionService.swift
+      - path: GymQuest/Services/PermissionsService.swift
+      - path: GymQuest/Services/EngagementTrackingService.swift
+      - path: GymQuest/Services/EmotionInsightsService.swift
+      - path: GymQuest/Services/WorkoutAdaptationService.swift
+      - path: GymQuest/Features/FormStudio/Models
+      - path: GymQuest/Services/AlbumArtService.swift
+      - path: GymQuest/Services/ExerciseGifService.swift
+      - path: GymQuest/Views/Components/ExerciseGifView.swift
+      - path: GymQuest/Resources/ExerciseGifs
+      - path: GymQuest/Resources/exercisedb_mapping.json
+    dependencies:
+      - package: SDWebImageSwiftUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.liftai.pro.tv
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+        DEVELOPMENT_TEAM: 356D828QY6
+        CODE_SIGN_STYLE: Automatic
+      configs:
+        Debug:
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+  GymQuestTVTopShelf:
+    type: app-extension
+    platform: tvOS
+    sources:
+      - path: GymQuestTV/TopShelfExtension
+    dependencies:
+      - target: GymQuestTV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.liftai.pro.tv.topshelf
+        DEVELOPMENT_TEAM: 356D828QY6
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier: com.apple.tv-top-shelf
+
 schemes:
   GymQuest_iOS:
     build:
@@ -148,6 +224,20 @@ schemes:
       targets:
         - GymQuestTests
         - GymQuestUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+  GymQuestTV:
+    build:
+      targets:
+        GymQuestTV: all
+        GymQuestTVTopShelf: all
+    run:
+      config: Debug
     profile:
       config: Release
     analyze:

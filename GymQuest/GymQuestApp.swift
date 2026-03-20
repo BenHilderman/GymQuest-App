@@ -65,6 +65,16 @@ struct LiftAIApp: App {
             PRMoment.self,
             FistBump.self,
             Pod.self,
+            PodMembership.self,
+            PodCheckIn.self,
+            AccountabilityNudge.self,
+            ComebackPlan.self,
+            Challenge.self,
+            ChallengeEnrollment.self,
+            UserMomentumState.self,
+            NotificationLog.self,
+            WorkoutAdaptation.self,
+            MilestoneEvent.self,
             Reaction.self,
 
             // Squads (GymQuest 2.0)
@@ -95,6 +105,14 @@ struct LiftAIApp: App {
 
             // Weekly Recap (GymQuest 2.0)
             WeeklyRecap.self,
+
+            // Schedule
+            ScheduledPlanDay.self,
+
+            // Permissions
+            BlockedUser.self,
+            MutedUser.self,
+            ContentReport.self,
 
             // Analytics (GymQuest 2.0)
             AnalyticsEvent.self,
@@ -185,9 +203,9 @@ struct LiftAIApp: App {
                     .onOpenURL { url in
                         #if DEBUG
                         if url.scheme == "liftai", let host = url.host {
-                            let tab: FeedTab? = switch host {
-                            case "discover": .discover
-                            case "social": .social
+                            let tab: FeedFilter? = switch host {
+                            case "social", "discover": .discover
+                            case "friends": .friends
                             case "clubs": .clubs
                             default: nil
                             }
@@ -285,7 +303,7 @@ class AppState: ObservableObject {
             }
         }
 
-        static let visibleTabs: [Tab] = [.feed, .today, .activity, .profile]
+        static let visibleTabs: [Tab] = [.today, .feed, .activity, .profile]
     }
 }
 

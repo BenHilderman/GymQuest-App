@@ -95,9 +95,15 @@ struct WeeklyProgressRing: View {
                     Text("This Week")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(GQColors.textPrimary)
-                    Text("\(completed) of \(target) workouts")
-                        .font(.system(size: 12))
-                        .foregroundStyle(GQColors.textTertiary)
+                    if completed >= target {
+                        Text("Weekly goal complete!")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(GQGradients.primary)
+                    } else {
+                        Text("\(completed) of \(target) workouts")
+                            .font(.system(size: 12))
+                            .foregroundStyle(GQColors.textTertiary)
+                    }
                 }
 
                 Spacer()

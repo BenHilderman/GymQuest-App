@@ -485,9 +485,7 @@ struct FeedTabsView: View {
                         .frame(maxWidth: .infinity)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.3)) {
-                                selectedTab = tab
-                            }
+                            selectedTab = tab
                         }
                 }
             }
@@ -599,7 +597,9 @@ struct PostCardV2: View {
             cachedWorkout = post.getSharedWorkout()
             cachedPRs = post.getFeedPRs()
             cachedChallenge = post.getPostChallenge()
-            if let song = post.songTitle, let artist = post.artistName {
+            if let stored = post.albumArtURL, let url = URL(string: stored) {
+                albumArtworkURL = url
+            } else if let song = post.songTitle, let artist = post.artistName {
                 albumArtworkURL = await AlbumArtService.shared.artworkURL(song: song, artist: artist)
             }
             #if canImport(UIKit)

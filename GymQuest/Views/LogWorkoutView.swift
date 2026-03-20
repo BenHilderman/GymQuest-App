@@ -289,7 +289,6 @@ struct LogWorkoutView: View {
                 date: Date(),
                 type: workoutType,
                 duration: duration,
-                rpe: 7,
                 notes: caption
             )
 
@@ -612,7 +611,7 @@ struct ExerciseRow: View {
                     } label: {
                         Image(systemName: "minus.circle")
                             .font(.system(size: 14))
-                            .foregroundColor(.red.opacity(0.6))
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
             }
@@ -629,7 +628,7 @@ struct ExerciseRow: View {
                     Text("Set")
                         .font(.caption)
                 }
-                .foregroundColor(.blue)
+                .foregroundStyle(GQGradients.primary)
             }
         }
         .padding(12)

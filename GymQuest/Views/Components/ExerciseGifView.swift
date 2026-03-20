@@ -56,6 +56,8 @@ struct ExerciseGifView: View {
         switch size {
         case .thumbnail, .medium:
             AnimatedImage(url: url, isAnimating: .constant(true))
+                .customLoopCount(0)
+                .playbackRate(1.0)
                 .resizable()
                 .scaledToFill()
                 .frame(width: size.dimension, height: size.dimension)
@@ -66,6 +68,8 @@ struct ExerciseGifView: View {
                 )
         case .detail:
             AnimatedImage(url: url, isAnimating: .constant(true))
+                .customLoopCount(0)
+                .playbackRate(1.0)
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.dimension, height: size.dimension)
@@ -76,6 +80,8 @@ struct ExerciseGifView: View {
                 )
         case .large:
             AnimatedImage(url: url, isAnimating: .constant(true))
+                .customLoopCount(0)
+                .playbackRate(1.0)
                 .resizable()
                 .scaledToFit()
                 .frame(maxWidth: .infinity)
@@ -217,27 +223,19 @@ struct OverlayExerciseGifStrip: View {
     let totalCount: Int
     var onTapMore: (() -> Void)? = nil
 
-    private var visible: [SharedWorkoutData.SharedExercise] {
-        Array(exercises.prefix(4))
-    }
-
     var body: some View {
-        HStack(spacing: 10) {
-            ForEach(visible) { exercise in
-                OverlayExerciseGifItem(exercise: exercise)
-            }
-            if totalCount > 4 {
-                Button { onTapMore?() } label: {
-                    Text("+\(totalCount - 4)")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
-                        .background(.white.opacity(0.2))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+        GeometryReader { geo in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(exercises) { exercise in
+                        OverlayExerciseGifItem(exercise: exercise)
+                    }
                 }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 4)
+                .frame(minWidth: geo.size.width)
             }
         }
+        .frame(height: 66)
     }
 }
 
@@ -253,15 +251,20 @@ struct OverlayExerciseGifItem: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            ExerciseGifView(exerciseName: exercise.name, size: .thumbnail)
+            ExerciseGifView(exerciseName: exercise.name, size: .detail)
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 2)
             Text(exercise.name)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundColor(.white)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white.opacity(0.9))
+                .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 1)
                 .lineLimit(1)
-                .frame(maxWidth: 48)
+                .frame(maxWidth: 52)
             Text(setSummary)
-                .font(.system(size: 8))
-                .foregroundColor(.white.opacity(0.7))
+                .font(.system(size: 9, weight: .regular))
+                .foregroundColor(.white.opacity(0.85))
+                .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 1)
                 .lineLimit(1)
         }
     }
