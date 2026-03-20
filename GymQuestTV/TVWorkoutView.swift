@@ -136,9 +136,9 @@ struct TVStepperControl: View {
                     .font(.system(size: TVTypography.Size.stat * 0.45, weight: .bold, design: .rounded))
                     .foregroundStyle(offWhite)
                     .frame(width: 56, height: 56)
-                    .background(Color(white: 0.22))
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
 
@@ -161,9 +161,9 @@ struct TVStepperControl: View {
                     .font(.system(size: TVTypography.Size.stat * 0.45, weight: .bold, design: .rounded))
                     .foregroundStyle(offWhite)
                     .frame(width: 56, height: 56)
-                    .background(Color(white: 0.22))
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
         }
@@ -325,7 +325,7 @@ private struct ExerciseListPanel: View {
                     .font(.system(size: 22))
             } else if isCurrent {
                 Image(systemName: "play.circle.fill")
-                    .foregroundStyle(GQColors.primary)
+                    .foregroundStyle(GQGradients.primary)
                     .font(.system(size: 22))
             } else {
                 Image(systemName: "circle")
@@ -347,7 +347,7 @@ private struct ExerciseListPanel: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 8)
-        .background(isCurrent ? GQColors.primary.opacity(0.15) : .clear)
+        .background(isCurrent ? GQColors.deepBlue.opacity(0.12) : .clear)
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
@@ -585,11 +585,12 @@ private struct ActiveWorkoutContent: View {
                                 removeSet()
                             } label: {
                                 Image(systemName: "minus")
-                                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                                    .foregroundStyle(offWhite.opacity(0.6))
-                                    .frame(width: 44, height: 44)
-                                    .background(Color(white: 0.22))
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundStyle(offWhite.opacity(0.5))
+                                    .frame(width: 40, height: 40)
+                                    .background(Color.white.opacity(0.06))
                                     .clipShape(Circle())
+                                    .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
                             }
                             .buttonStyle(.plain)
 
@@ -601,11 +602,12 @@ private struct ActiveWorkoutContent: View {
                                 addSet()
                             } label: {
                                 Image(systemName: "plus")
-                                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                                    .foregroundStyle(offWhite.opacity(0.6))
-                                    .frame(width: 44, height: 44)
-                                    .background(Color(white: 0.22))
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundStyle(offWhite.opacity(0.5))
+                                    .frame(width: 40, height: 40)
+                                    .background(Color.white.opacity(0.06))
                                     .clipShape(Circle())
+                                    .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5))
                             }
                             .buttonStyle(.plain)
                         }
@@ -674,11 +676,15 @@ private struct ActiveWorkoutContent: View {
                             Text("Add Exercise")
                                 .font(.system(size: 22, weight: .semibold, design: .rounded))
                         }
-                        .foregroundStyle(GQGradients.primary)
+                        .foregroundStyle(offWhite.opacity(0.6))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color(white: 0.22))
+                        .background(Color.white.opacity(0.06))
                         .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                        )
                     }
                     .buttonStyle(.plain)
                 }
@@ -720,9 +726,19 @@ private struct ActiveWorkoutContent: View {
         let totalSets = exercise.sets.count
 
         HStack(spacing: 14) {
-            Image(systemName: isCompleted ? "checkmark.circle.fill" : (isCurrent ? "play.circle.fill" : "circle"))
-                .font(.system(size: 22))
-                .foregroundStyle(isCompleted ? .green : (isCurrent ? GQColors.deepBlue : offWhite.opacity(0.2)))
+            Group {
+                if isCompleted {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(GQColors.success)
+                } else if isCurrent {
+                    Image(systemName: "play.circle.fill")
+                        .foregroundStyle(GQGradients.primary)
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundStyle(offWhite.opacity(0.2))
+                }
+            }
+            .font(.system(size: 22))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(exercise.name)
@@ -736,7 +752,7 @@ private struct ActiveWorkoutContent: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 12)
-        .background(isCurrent ? Color(white: 0.22) : .clear)
+        .background(isCurrent ? GQColors.deepBlue.opacity(0.12) : .clear)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
@@ -1004,6 +1020,7 @@ private struct ActiveWorkoutContent: View {
 
 struct TVWorkoutView: View {
     @Environment(\.modelContext) private var modelContext
+    var quickStartType: WorkoutType? = nil
     @State private var selectedWorkoutType: WorkoutType? = nil
     @State private var exercises: [ActiveExercise] = []
     @State private var workoutStartTime: Date = Date()
@@ -1027,6 +1044,11 @@ struct TVWorkoutView: View {
             }
         }
         .animation(.easeInOut(duration: 0.4), value: isWorkoutActive)
+        .onAppear {
+            if let type = quickStartType, !isWorkoutActive {
+                startWorkout(type: type)
+            }
+        }
     }
 
     private func startWorkout(type: WorkoutType) {

@@ -2,8 +2,21 @@ import SwiftUI
 
 #if os(tvOS)
 
+// Environment key for navigating to Workout tab from Dashboard
+private struct SwitchToWorkoutKey: EnvironmentKey {
+    static let defaultValue: (WorkoutType) -> Void = { _ in }
+}
+
+extension EnvironmentValues {
+    var switchToWorkout: (WorkoutType) -> Void {
+        get { self[SwitchToWorkoutKey.self] }
+        set { self[SwitchToWorkoutKey.self] = newValue }
+    }
+}
+
 struct TVContentView: View {
     @State private var selectedTab = 0
+    @State private var pendingWorkoutType: WorkoutType?
     @FocusState private var focusedTab: Int?
 
     private let offWhite = Color(white: 0.93)
@@ -15,42 +28,32 @@ struct TVContentView: View {
         ("Progress", "chart.line.uptrend.xyaxis")
     ]
 
-    private var isTabBarFocused: Bool {
-        focusedTab != nil
-    }
-
     var body: some View {
-        ZStack(alignment: .top) {
-            // Content
-            Group {
-                switch selectedTab {
-                case 0: TVDashboardView()
-                case 1: TVFeedView()
-                case 2: TVWorkoutView()
-                case 3: TVProgressView()
-                default: TVDashboardView()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.top, 64)
-
-            // Tab bar — always visible, all tabs shown equally
+        VStack(spacing: 0) {
+            // Tab bar
             HStack(spacing: 36) {
                 ForEach(0..<tabs.count, id: \.self) { index in
+                    let isFocused = focusedTab == index
+                    let isSelected = selectedTab == index
+
                     HStack(spacing: 8) {
                         Image(systemName: tabs[index].1)
                             .font(.system(size: 20, weight: .medium))
                         Text(tabs[index].0)
-                            .font(.system(size: 22, weight: focusedTab == index ? .semibold : .medium, design: .rounded))
+                            .font(.system(size: 22, weight: isFocused || isSelected ? .semibold : .medium, design: .rounded))
                     }
-                    .foregroundColor(offWhite.opacity(focusedTab == index ? 1.0 : 0.5))
+                    .foregroundColor(
+                        isFocused ? offWhite :
+                        isSelected ? offWhite.opacity(0.7) :
+                        offWhite.opacity(0.4)
+                    )
                     .padding(.horizontal, 20)
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(focusedTab == index ? Color.white.opacity(0.15) : Color.clear)
+                            .fill(isFocused ? Color.white.opacity(0.15) : Color.clear)
                     )
-                    .scaleEffect(focusedTab == index ? 1.04 : 1.0)
+                    .scaleEffect(isFocused ? 1.04 : 1.0)
                     .animation(.easeInOut(duration: 0.2), value: focusedTab)
                     .focusable()
                     .focused($focusedTab, equals: index)
@@ -80,6 +83,24 @@ struct TVContentView: View {
                     selectedTab = tab
                 }
             }
+
+            // Content
+            Group {
+                switch selectedTab {
+                case 0:
+                    TVDashboardView()
+                        .environment(\.switchToWorkout, { type in
+                            pendingWorkoutType = type
+                            selectedTab = 2
+                            focusedTab = 2
+                        })
+                case 1: TVFeedView()
+                case 2: TVWorkoutView(quickStartType: pendingWorkoutType)
+                case 3: TVProgressView()
+                default: TVDashboardView()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(white: 0.11).ignoresSafeArea())
     }

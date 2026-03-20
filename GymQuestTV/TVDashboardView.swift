@@ -80,6 +80,7 @@ struct TVWeeklyRing: View {
 
 struct TVDashboardView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.switchToWorkout) private var switchToWorkout
 
     @Query(sort: \Workout.date, order: .reverse) private var allWorkouts: [Workout]
     @Query(sort: \Challenge.startDate, order: .reverse) private var allChallenges: [Challenge]
@@ -411,7 +412,9 @@ struct TVDashboardView: View {
 
     @ViewBuilder
     private func quickStartCard(_ type: WorkoutType) -> some View {
-        Button(action: {}) {
+        Button {
+            switchToWorkout(type)
+        } label: {
             VStack(spacing: 16) {
                 Image(systemName: type.icon)
                     .font(.system(size: 40, weight: .medium))
