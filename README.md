@@ -1,6 +1,6 @@
 # GymQuest
 
-A full-stack, multi-platform fitness application built with SwiftUI and SwiftData. Real-time workout tracking, multi-provider AI coaching, RPG-style progression, and a social feed — across iOS, tvOS, and watchOS.
+A full-stack, multi-platform fitness application built with SwiftUI and SwiftData. Real-time workout tracking, multi-provider AI coaching, RPG-style progression, and a social feed across iOS, tvOS, and watchOS.
 
 > SwiftUI · SwiftData · Swift 5.9 · iOS 17+ · tvOS 17+ · watchOS 10+ · Supabase · FastAPI · XcodeGen
 
@@ -149,7 +149,7 @@ backend/                           Python FastAPI microservice
 
 Schema includes profiles, posts, reactions, comments, workouts, sets, exercises, training load, and server-side validation constraints on captions, comments, and usernames.
 
-On-device, **SwiftData** persists all 55 model classes locally. Supabase sync is opt-in via feature flags — the app works fully offline.
+On-device, **SwiftData** persists all 55 model classes locally. Supabase sync is opt-in via feature flags. The app works fully offline.
 
 ---
 
@@ -192,32 +192,6 @@ Seven GitHub Actions workflows, plus four additional CI platforms:
 | **Trivy** | Dependency vulnerabilities and infrastructure misconfigurations |
 | **Dependabot** | Weekly Swift package updates, monthly GitHub Actions updates |
 | **Syft SBOM** | SPDX and CycloneDX software bill of materials on every release |
-
----
-
-## Getting Started
-
-```bash
-# Generate the Xcode project and open it
-brew install xcodegen
-git clone https://github.com/BenHilderman/gymquest-official.git
-cd gymquest-official
-xcodegen generate
-open GymQuest.xcodeproj
-```
-
-Select the **GymQuest_iOS** scheme for iPhone, **GymQuestTV** for Apple TV, or build the watchOS target for Apple Watch.
-
-AI coaching is optional — the app runs in Demo Mode without any API keys. To enable it, add your OpenAI or Groq key through the in-app AI setup flow.
-
-To run the backend:
-
-```bash
-cd backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
 
 ---
 
