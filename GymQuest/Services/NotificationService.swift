@@ -177,6 +177,30 @@ class NotificationService: ObservableObject {
         UNUserNotificationCenter.current().add(request)
     }
 
+    // MARK: - Supabase Realtime Notifications
+
+    func startSupabaseNotificationListener() {
+        guard FeatureFlags.shared.supabaseSyncEnabled,
+              let userId = SupabaseAuthService.shared.currentUserId else { return }
+
+        SupabaseSyncService.shared.subscribeToNotifications(userId: userId) { notification in
+            self.sendLocalNotification(
+                title: "Lift AI",
+                body: notification.message ?? "\(notification.fromName ?? "Someone") interacted with your post",
+                identifier: notification.id?.uuidString ?? UUID().uuidString
+            )
+        }
+    }
+
+    private func sendLocalNotification(title: String, body: String, identifier: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
     func sendPRNotification(exerciseName: String, improvement: String) {
         guard isAuthorized else { return }
 

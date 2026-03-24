@@ -11,6 +11,8 @@
 import SwiftUI
 import SwiftData
 import AVKit
+import PhotosUI
+import Supabase
 
 private let profileNeutralAccent = GQColors.overlayMedium
 private let profilePrimaryAccent = GQColors.adaptiveOverlay(0.42)
@@ -37,6 +39,9 @@ struct ProfileView: View {
     // Activity stats state
     @State private var weeklyProgress: (completed: Int, target: Int) = (0, 0)
     @State private var readinessLevel: ReadinessLevel = .good
+
+    // Profile photo picker
+    @State private var selectedPhotoItem: PhotosPickerItem?
 
     // Cached computed stats (refreshed on appear and data change)
     @State private var cachedStreak: Int = 0
@@ -536,7 +541,19 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: 10) {
             // Avatar + stat columns row
             HStack(spacing: 20) {
-                profileAvatar
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    profileAvatar
+                        .overlay(alignment: .bottomTrailing) {
+                            Image(systemName: "camera.circle.fill")
+                                .font(.system(size: 22))
+                                .foregroundStyle(.white, GQColors.deepBlue)
+                                .offset(x: 2, y: 2)
+                        }
+                }
+                .buttonStyle(.plain)
+                .onChange(of: selectedPhotoItem) { _, newItem in
+                    handleProfilePhotoSelection(newItem)
+                }
 
                 HStack(spacing: 0) {
                     igStatColumn(value: "\(userPosts.count)", label: "Posts")
@@ -615,7 +632,17 @@ struct ProfileView: View {
     // MARK: - Achievement Badges
 
     private var achievementBadgesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let allBadges: [(icon: String, title: String, unlocked: Bool)] = [
+            ("figure.walk", "First Workout", totalWorkoutCount >= 1),
+            ("flame.fill", "7-Day Streak", profile.xp >= 500),
+            ("flame.circle.fill", "30-Day Streak", profile.xp >= 3000),
+            ("trophy.fill", "100 Workouts", totalWorkoutCount >= 100),
+            ("star.fill", "PR Machine", prEvents.count >= 10),
+            ("bubble.left.and.bubble.right.fill", "Social Butterfly", userPosts.count >= 10),
+        ]
+        let sorted = allBadges.sorted { $0.unlocked && !$1.unlocked }
+
+        return VStack(alignment: .leading, spacing: 8) {
             Text("ACHIEVEMENTS")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(GQColors.textSecondary)
@@ -624,12 +651,9 @@ struct ProfileView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    achievementBadge(icon: "figure.walk", title: "First Workout", unlocked: totalWorkoutCount >= 1)
-                    achievementBadge(icon: "flame.fill", title: "7-Day Streak", unlocked: profile.xp >= 500)
-                    achievementBadge(icon: "flame.circle.fill", title: "30-Day Streak", unlocked: profile.xp >= 3000)
-                    achievementBadge(icon: "trophy.fill", title: "100 Workouts", unlocked: totalWorkoutCount >= 100)
-                    achievementBadge(icon: "star.fill", title: "PR Machine", unlocked: prEvents.count >= 10)
-                    achievementBadge(icon: "bubble.left.and.bubble.right.fill", title: "Social Butterfly", unlocked: userPosts.count >= 10)
+                    ForEach(Array(sorted.enumerated()), id: \.offset) { _, badge in
+                        achievementBadge(icon: badge.icon, title: badge.title, unlocked: badge.unlocked)
+                    }
                 }
             }
         }
@@ -709,6 +733,31 @@ struct ProfileView: View {
             Text(String(profile.name.prefix(1)).uppercased())
                 .font(.system(size: 30, weight: .bold))
                 .foregroundColor(GQColors.textPrimary)
+        }
+    }
+
+    private func handleProfilePhotoSelection(_ item: PhotosPickerItem?) {
+        guard let item else { return }
+        Task {
+            guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+            await MainActor.run {
+                profile.profilePhotoData = data
+                try? modelContext.save()
+            }
+
+            // Upload to Supabase
+            if FeatureFlags.shared.supabaseSyncEnabled,
+               let userId = SupabaseAuthService.shared.currentUserId {
+                do {
+                    let url = try await SupabaseStorageService.shared.uploadProfilePhoto(userId: userId, imageData: data)
+                    try await SupabaseConfig.client.from("profiles")
+                        .update(["profile_photo_url": url])
+                        .eq("id", value: userId.uuidString)
+                        .execute()
+                } catch {
+                    print("[ProfileView] Profile photo upload failed: \(error)")
+                }
+            }
         }
     }
 
@@ -1674,7 +1723,7 @@ struct SettingsView: View {
                             settingsRow(
                                 icon: "link.circle.fill",
                                 title: "Connected Services",
-                                subtitle: "Apple Health, WHOOP, Strava",
+                                subtitle: "Apple Health",
                                 color: GQColors.textSecondary
                             )
                         }
@@ -1871,6 +1920,9 @@ struct SettingsView: View {
                         profile.username = username.isEmpty ? name.lowercased().replacingOccurrences(of: " ", with: "") : username
                         profile.aiProvider = aiProvider
                         profile.apiKey = apiKey
+                        if !apiKey.isEmpty {
+                            AIKeychain.save(key: apiKey, userId: profile.id.uuidString)
+                        }
                         profile.ollamaModel = ollamaModel
                         profile.ollamaHost = ollamaHost
                         profile.gymName = gymName

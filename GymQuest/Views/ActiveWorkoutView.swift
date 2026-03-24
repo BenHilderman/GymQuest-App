@@ -835,6 +835,17 @@ struct ActiveWorkoutView: View {
 
         modelContext.insert(workout)
 
+        // Sync workout to Supabase
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    try await SupabaseSyncService.shared.syncWorkout(workout)
+                } catch {
+                    print("[WorkoutSync] Failed to sync workout: \(error)")
+                }
+            }
+        }
+
         // Track level before XP to detect level-up
         previousLevel = profile.level
         let earnedXP = 20 + (exercises.reduce(0) { $0 + $1.sets.filter { $0.isCompleted }.count } * 5)
@@ -3376,6 +3387,17 @@ struct WorkoutSessionCompletionSheet: View {
         )
         modelContext.insert(workout)
 
+        // Sync workout to Supabase
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    try await SupabaseSyncService.shared.syncWorkout(workout)
+                } catch {
+                    print("[WorkoutSync] Failed to sync workout: \(error)")
+                }
+            }
+        }
+
         let captionText = caption.isEmpty
             ? "Just finished a \(displayTitle) workout!"
             : caption
@@ -3397,6 +3419,7 @@ struct WorkoutSessionCompletionSheet: View {
             workoutEmotion: selectedEmotion?.rawValue
         )
         modelContext.insert(post)
+        FeedContentService.shared.syncPostToSupabase(post)
 
         // Add XP (bonus for sharing)
         let xpEarned = 25 + (totalSets * 5)
@@ -3447,6 +3470,17 @@ struct WorkoutSessionCompletionSheet: View {
         )
         modelContext.insert(workout)
 
+        // Sync workout to Supabase
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    try await SupabaseSyncService.shared.syncWorkout(workout)
+                } catch {
+                    print("[WorkoutSync] Failed to sync workout: \(error)")
+                }
+            }
+        }
+
         // Create post if sharing
         if shareToFeed {
             let post = Post(
@@ -3461,6 +3495,7 @@ struct WorkoutSessionCompletionSheet: View {
                 artistName: selectedSong?.artist
             )
             modelContext.insert(post)
+            FeedContentService.shared.syncPostToSupabase(post)
         }
 
         // Add XP
@@ -3501,6 +3536,17 @@ struct WorkoutSessionCompletionSheet: View {
             isFavorite: isFavoriteWorkout
         )
         modelContext.insert(workout)
+
+        // Sync workout to Supabase
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    try await SupabaseSyncService.shared.syncWorkout(workout)
+                } catch {
+                    print("[WorkoutSync] Failed to sync workout: \(error)")
+                }
+            }
+        }
 
         // Post-save hooks
         MomentumService.shared.recordWorkoutCompleted(userId: profile.id)

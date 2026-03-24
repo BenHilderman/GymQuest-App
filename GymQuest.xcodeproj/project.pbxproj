@@ -233,6 +233,7 @@
 		3D6E4CBF8E7C41AAFA61D079 /* 0031.gif in Resources */ = {isa = PBXBuildFile; fileRef = 37EBD6A3578B3A3E2E100563 /* 0031.gif */; };
 		3D7F51B980CA4A1E5DC7BD08 /* 0058.gif in Resources */ = {isa = PBXBuildFile; fileRef = 88CBCD2C034D0CCC2EB096BE /* 0058.gif */; };
 		3E387AE02337ACB3E5983C87 /* 9001.gif in Resources */ = {isa = PBXBuildFile; fileRef = 20BAB2678D5DCD7A81012504 /* 9001.gif */; };
+		3E8A1179F096A0B3BA0E27F3 /* AIKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CD87B7C07D128AF494530C1 /* AIKeychain.swift */; };
 		3EBD20CA4FD90A77730E7371 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D7039D248B9E03824CEE17D /* ProfileView.swift */; };
 		3F0C731A93C0D2DCA7021952 /* 0027.gif in Resources */ = {isa = PBXBuildFile; fileRef = 53EDD082823721CDDAD1E86A /* 0027.gif */; };
 		3F8F99F001342DB64B130E9D /* 1456.gif in Resources */ = {isa = PBXBuildFile; fileRef = A28AF93B9108724681430E28 /* 1456.gif */; };
@@ -584,6 +585,17 @@
 		AA61DABE38553C1C7C941825 /* 9002.gif in Resources */ = {isa = PBXBuildFile; fileRef = 35494613AF46EE1EA0870552 /* 9002.gif */; };
 		AA645F6743D2FCAE7F92A370 /* 1460.gif in Resources */ = {isa = PBXBuildFile; fileRef = 5EF1398D7EF4C726428E7B76 /* 1460.gif */; };
 		AAFC21D915DAA134EAED9163 /* 0300.gif in Resources */ = {isa = PBXBuildFile; fileRef = B2C9440504D01265BDF7E785 /* 0300.gif */; };
+		AB001 /* lose_yourself.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA001 /* lose_yourself.jpg */; };
+		AB002 /* power.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA002 /* power.jpg */; };
+		AB003 /* run_this_town.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA003 /* run_this_town.jpg */; };
+		AB004 /* sicko_mode.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA004 /* sicko_mode.jpg */; };
+		AB005 /* stronger.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA005 /* stronger.jpg */; };
+		AB006 /* humble.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA006 /* humble.jpg */; };
+		AB007 /* blinding_lights.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA007 /* blinding_lights.jpg */; };
+		AB008 /* levitating.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA008 /* levitating.jpg */; };
+		AB009 /* till_i_collapse.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA009 /* till_i_collapse.jpg */; };
+		AB010 /* starboy.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA010 /* starboy.jpg */; };
+		AB011 /* eye_of_the_tiger.jpg in Resources */ = {isa = PBXBuildFile; fileRef = AA011 /* eye_of_the_tiger.jpg */; };
 		AB408BF114C1F19A49B705C9 /* 9033.gif in Resources */ = {isa = PBXBuildFile; fileRef = B3ADEF491AE70801FF52EF47 /* 9033.gif */; };
 		AB541257ED4AC7044D8489DA /* 0296.gif in Resources */ = {isa = PBXBuildFile; fileRef = E7A8FF52FA8D4A1554C078EF /* 0296.gif */; };
 		AB9C5B82A49D3C2F381674BD /* 0670.gif in Resources */ = {isa = PBXBuildFile; fileRef = 1016EDEF8EC710B0E7ACEFD8 /* 0670.gif */; };
@@ -900,6 +912,16 @@
 		FEE89A1530FF63B1002345CA /* PoseDetectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE38C04B3B675E565445861 /* PoseDetectionService.swift */; };
 		FF2D7FC3BA98E955366E7F07 /* 9058.gif in Resources */ = {isa = PBXBuildFile; fileRef = 48FFFA43927473B75EB60E7C /* 9058.gif */; };
 		FFFD96368EB6D12E828E9DE9 /* FeedContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C9136B4B361513F6595C6F5 /* FeedContentService.swift */; };
+		SB101 /* SupabaseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB001 /* SupabaseConfig.swift */; };
+		SB102 /* SupabaseAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB002 /* SupabaseAuthService.swift */; };
+		SB103 /* SupabaseSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB003 /* SupabaseSyncService.swift */; };
+		SB104 /* SupabaseSyncable.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB004 /* SupabaseSyncable.swift */; };
+		SB105 /* SupabaseStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB005 /* SupabaseStorageService.swift */; };
+		SB301 /* SupabaseConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB001 /* SupabaseConfig.swift */; };
+		SB302 /* SupabaseAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB002 /* SupabaseAuthService.swift */; };
+		SB303 /* SupabaseSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB003 /* SupabaseSyncService.swift */; };
+		SB304 /* SupabaseSyncable.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB004 /* SupabaseSyncable.swift */; };
+		SB305 /* SupabaseStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SB005 /* SupabaseStorageService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1160,6 +1182,7 @@
 		9B490DF2A0D87B2786C05222 /* 0738.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0738.gif; sourceTree = "<group>"; };
 		9B8CC22DFA738BB146442BFF /* 3289.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3289.gif; sourceTree = "<group>"; };
 		9CAC34F1199EA29DE9222EF2 /* WatchSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSyncService.swift; sourceTree = "<group>"; };
+		9CD87B7C07D128AF494530C1 /* AIKeychain.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AIKeychain.swift; sourceTree = "<group>"; };
 		9D101B935B0EB0A3F8BB02F0 /* 3361.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 3361.gif; sourceTree = "<group>"; };
 		9F0EB5E8A6862967E1B4FBEC /* 0861.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0861.gif; sourceTree = "<group>"; };
 		9F5EA7880327C25016FA4113 /* 9018.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 9018.gif; sourceTree = "<group>"; };
@@ -1181,6 +1204,17 @@
 		A9454FF1974F15CE5F31A227 /* 0658.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0658.gif; sourceTree = "<group>"; };
 		A94C7ADACD1792C542E6045D /* 9045.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 9045.gif; sourceTree = "<group>"; };
 		A9B7768240EC4E6C85E805C1 /* 0581.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0581.gif; sourceTree = "<group>"; };
+		AA001 /* lose_yourself.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = lose_yourself.jpg; path = GymQuest/Resources/AlbumArt/lose_yourself.jpg; sourceTree = "<group>"; };
+		AA002 /* power.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = power.jpg; path = GymQuest/Resources/AlbumArt/power.jpg; sourceTree = "<group>"; };
+		AA003 /* run_this_town.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = run_this_town.jpg; path = GymQuest/Resources/AlbumArt/run_this_town.jpg; sourceTree = "<group>"; };
+		AA004 /* sicko_mode.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = sicko_mode.jpg; path = GymQuest/Resources/AlbumArt/sicko_mode.jpg; sourceTree = "<group>"; };
+		AA005 /* stronger.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = stronger.jpg; path = GymQuest/Resources/AlbumArt/stronger.jpg; sourceTree = "<group>"; };
+		AA006 /* humble.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = humble.jpg; path = GymQuest/Resources/AlbumArt/humble.jpg; sourceTree = "<group>"; };
+		AA007 /* blinding_lights.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = blinding_lights.jpg; path = GymQuest/Resources/AlbumArt/blinding_lights.jpg; sourceTree = "<group>"; };
+		AA008 /* levitating.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = levitating.jpg; path = GymQuest/Resources/AlbumArt/levitating.jpg; sourceTree = "<group>"; };
+		AA009 /* till_i_collapse.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = till_i_collapse.jpg; path = GymQuest/Resources/AlbumArt/till_i_collapse.jpg; sourceTree = "<group>"; };
+		AA010 /* starboy.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = starboy.jpg; path = GymQuest/Resources/AlbumArt/starboy.jpg; sourceTree = "<group>"; };
+		AA011 /* eye_of_the_tiger.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; name = eye_of_the_tiger.jpg; path = GymQuest/Resources/AlbumArt/eye_of_the_tiger.jpg; sourceTree = "<group>"; };
 		AA131719B13C99DC07EE9A12 /* exercises.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = exercises.json; sourceTree = "<group>"; };
 		AAA153E6168B9303D0168084 /* 0577.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 0577.gif; sourceTree = "<group>"; };
 		AE5A9C845094E817074CF60B /* 9042.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 9042.gif; sourceTree = "<group>"; };
@@ -1311,6 +1345,11 @@
 		FE5171083CB348C1E97D206C /* 9061.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 9061.gif; sourceTree = "<group>"; };
 		FE93A9B35B352F8CFA85BD7A /* ClubsTabUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClubsTabUITests.swift; sourceTree = "<group>"; };
 		FF9DCE2F92D36971BA5E7DB1 /* ActiveWorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutView.swift; sourceTree = "<group>"; };
+		SB001 /* SupabaseConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseConfig.swift; sourceTree = "<group>"; };
+		SB002 /* SupabaseAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseAuthService.swift; sourceTree = "<group>"; };
+		SB003 /* SupabaseSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSyncService.swift; sourceTree = "<group>"; };
+		SB004 /* SupabaseSyncable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseSyncable.swift; sourceTree = "<group>"; };
+		SB005 /* SupabaseStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseStorageService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1446,6 +1485,11 @@
 				3DA59902F77FA7D6F64F9B48 /* AlbumArtService.swift */,
 				4978182100C2755CFC9AA0D3 /* AnalyticsService.swift */,
 				F2CB109373E443E95FA26418 /* AuthService.swift */,
+				SB001 /* SupabaseConfig.swift */,
+				SB002 /* SupabaseAuthService.swift */,
+				SB003 /* SupabaseSyncService.swift */,
+				SB004 /* SupabaseSyncable.swift */,
+				SB005 /* SupabaseStorageService.swift */,
 				BCDF82A5969FBD2C73629835 /* ChallengeService.swift */,
 				A731B0EEE255B8254FFC5F37 /* ClubService.swift */,
 				6F125B332C7C3B5CC7EE10C2 /* DiscoverSeeder.swift */,
@@ -1493,6 +1537,7 @@
 				3D0277672CD2E09BBE14177F /* WorkoutAdaptationService.swift */,
 				A00D5DE93FFC1C25E34A3A1C /* WorkoutPartyService.swift */,
 				907A1902B8892CEA5B38F469 /* WorkoutVoiceCoachService.swift */,
+				9CD87B7C07D128AF494530C1 /* AIKeychain.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2045,6 +2090,7 @@
 			packageProductDependencies = (
 				B7E734B932C58049CA8E374A /* GoogleSignIn */,
 				3AF31601813826CD8ED9017B /* SDWebImageSwiftUI */,
+				AABB0011CCDD2233EEFF4455 /* Supabase */,
 			);
 			productName = GymQuest_iOS;
 			productReference = 3237C58B11E753F4B0B0D4C9 /* GymQuest.app */;
@@ -2062,8 +2108,6 @@
 				E412527E31478FCBD092FD1E /* PBXTargetDependency */,
 			);
 			name = GymQuestUITests;
-			packageProductDependencies = (
-			);
 			productName = GymQuestUITests;
 			productReference = 120430F57DF820A25C85F96A /* GymQuestUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -2080,8 +2124,6 @@
 				39D6E7A58B6A1415B24D3F4C /* PBXTargetDependency */,
 			);
 			name = GymQuestPerformanceTests;
-			packageProductDependencies = (
-			);
 			productName = GymQuestPerformanceTests;
 			productReference = 83804E839220822B45F414B7 /* GymQuestPerformanceTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -2119,8 +2161,6 @@
 				CAE6E4E194D46A891C2394DD /* PBXTargetDependency */,
 			);
 			name = GymQuestTVTopShelf;
-			packageProductDependencies = (
-			);
 			productName = GymQuestTVTopShelf;
 			productReference = 1E33C28EC180BA1823B72605 /* GymQuestTVTopShelf.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -2137,8 +2177,6 @@
 			dependencies = (
 			);
 			name = GymQuestWatch;
-			packageProductDependencies = (
-			);
 			productName = GymQuestWatch;
 			productReference = C0B537663F6B677CAAA8E3BC /* GymQuestWatch.app */;
 			productType = "com.apple.product-type.application";
@@ -2222,8 +2260,10 @@
 				349BB2E934F50C7F0A826867 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 				6AD50D6176D25521331B1273 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */,
 				BD26ABA16D701B9657070655 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
 			preferredProjectObjectVersion = 77;
+			productRefGroup = 56D83D0A9C616C96969868B6 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -2244,6 +2284,17 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AB001 /* lose_yourself.jpg in Resources */,
+				AB011 /* eye_of_the_tiger.jpg in Resources */,
+				AB010 /* starboy.jpg in Resources */,
+				AB002 /* power.jpg in Resources */,
+				AB003 /* run_this_town.jpg in Resources */,
+				AB004 /* sicko_mode.jpg in Resources */,
+				AB005 /* stronger.jpg in Resources */,
+				AB006 /* humble.jpg in Resources */,
+				AB007 /* blinding_lights.jpg in Resources */,
+				AB008 /* levitating.jpg in Resources */,
+				AB009 /* till_i_collapse.jpg in Resources */,
 				5DE4E7680CD3529820B0C32B /* 0024.gif in Resources */,
 				0A71449DCAB629212472EEE2 /* 0025.gif in Resources */,
 				6BC0793CEF0DC0F3A8447E75 /* 0027.gif in Resources */,
@@ -2821,6 +2872,11 @@
 				F717AFECC7C1E53CF4B4ADDB /* AlbumArtService.swift in Sources */,
 				87426548E502507566E323FC /* AnalyticsService.swift in Sources */,
 				9D8C960155AE8AF2B2A9B586 /* AuthService.swift in Sources */,
+				SB301 /* SupabaseConfig.swift in Sources */,
+				SB302 /* SupabaseAuthService.swift in Sources */,
+				SB303 /* SupabaseSyncService.swift in Sources */,
+				SB304 /* SupabaseSyncable.swift in Sources */,
+				SB305 /* SupabaseStorageService.swift in Sources */,
 				79E1E44124AC60EB6E70F94E /* BodyMeasurementsView.swift in Sources */,
 				5188766DF8998A77C2696089 /* CalendarHistoryView.swift in Sources */,
 				5D4441DFD02C0FCFD874F577 /* CameraView.swift in Sources */,
@@ -2957,6 +3013,7 @@
 				6EBD2BA440347D515AE9E344 /* WorkoutStartOptionsView.swift in Sources */,
 				312105F3E68DC83E3FEB2A5F /* WorkoutTypeSelectionView.swift in Sources */,
 				2B15236409E5661581886E81 /* WorkoutVoiceCoachService.swift in Sources */,
+				3E8A1179F096A0B3BA0E27F3 /* AIKeychain.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3037,6 +3094,11 @@
 				73637C0AE0DB9489E16BC4BB /* AlbumArtService.swift in Sources */,
 				BF827FD3A1E71FE03AC59B84 /* AnalyticsService.swift in Sources */,
 				967679E279C6BFF828D2EBEA /* AuthService.swift in Sources */,
+				SB101 /* SupabaseConfig.swift in Sources */,
+				SB102 /* SupabaseAuthService.swift in Sources */,
+				SB103 /* SupabaseSyncService.swift in Sources */,
+				SB104 /* SupabaseSyncable.swift in Sources */,
+				SB105 /* SupabaseStorageService.swift in Sources */,
 				26212A341342C762C686E413 /* BodyMeasurementsView.swift in Sources */,
 				7B80F0A7C540168EC9176EE7 /* CalendarHistoryView.swift in Sources */,
 				01FE80F0CBBD3BC0CEEBF24C /* CameraView.swift in Sources */,
@@ -3809,6 +3871,14 @@
 				minimumVersion = 3.0.0;
 			};
 		};
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
 		BD26ABA16D701B9657070655 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing";
@@ -3839,6 +3909,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BD26ABA16D701B9657070655 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
 			productName = SnapshotTesting;
+		};
+		AABB0011CCDD2233EEFF4455 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1B2C3D4E5F6A7B8C9D0E1F2 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
 		};
 		B3AFD4072988961240E4C1D8 /* SDWebImageSwiftUI */ = {
 			isa = XCSwiftPackageProductDependency;

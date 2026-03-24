@@ -10,6 +10,7 @@
 
 import SwiftUI
 import SwiftData
+import Supabase
 
 // MARK: - Onboarding Light Theme
 
@@ -871,6 +872,25 @@ struct AISetupChatView: View {
         if let profile {
             viewModel.applyToProfile(profile)
             try? modelContext.save()
+
+            // Sync onboarding profile to Supabase
+            if FeatureFlags.shared.supabaseSyncEnabled, let userId = SupabaseAuthService.shared.currentUserId {
+                Task {
+                    do {
+                        try await SupabaseConfig.client.from("profiles")
+                            .update([
+                                "fitness_goal": profile.goal.rawValue,
+                                "display_name": profile.name,
+                                "username": profile.username,
+                                "experience_level": profile.experienceLevel?.rawValue ?? ""
+                            ])
+                            .eq("id", value: userId.uuidString)
+                            .execute()
+                    } catch {
+                        print("[Onboarding] Supabase profile sync failed: \(error)")
+                    }
+                }
+            }
 
             // Store onboarding data for training plan offer
             appState.onboardingData = OnboardingData(

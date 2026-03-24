@@ -11,6 +11,7 @@
 
 import SwiftUI
 import SwiftData
+import Supabase
 #if canImport(GoogleSignIn)
 import GoogleSignIn
 #endif
@@ -36,6 +37,7 @@ struct LiftAIApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var featureFlags = FeatureFlags.shared
     @StateObject private var subscriptionService = SubscriptionService.shared
+    @StateObject private var supabaseAuth = SupabaseAuthService.shared
     @AppStorage("appAppearance") private var appearance: String = AppAppearance.light.rawValue
     @Environment(\.scenePhase) private var scenePhase
 
@@ -191,6 +193,7 @@ struct LiftAIApp: App {
                     .environmentObject(appState)
                     .environmentObject(featureFlags)
                     .environmentObject(subscriptionService)
+                    .environmentObject(supabaseAuth)
                     .modelContainer(container)
                     .preferredColorScheme(AppAppearance(rawValue: appearance)?.colorScheme ?? .light)
                     .onChange(of: scenePhase) { _, phase in
@@ -201,7 +204,6 @@ struct LiftAIApp: App {
                         }
                     }
                     .onOpenURL { url in
-                        #if DEBUG
                         if url.scheme == "liftai", let host = url.host {
                             let tab: FeedFilter? = switch host {
                             case "social", "discover": .discover
@@ -214,10 +216,12 @@ struct LiftAIApp: App {
                                 NotificationCenter.default.post(name: .navigateToFeedTab, object: tab)
                             }
                         }
-                        #endif
                         #if canImport(GoogleSignIn)
                         GIDSignIn.sharedInstance.handle(url)
                         #endif
+                        Task {
+                            await SupabaseConfig.client.auth.handle(url)
+                        }
                     }
             }
         }

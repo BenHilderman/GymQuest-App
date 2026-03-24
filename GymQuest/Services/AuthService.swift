@@ -193,6 +193,14 @@ class AuthService: ObservableObject {
         }
     }
 
+    // MARK: - Supabase Lookup
+
+    func findBySupabaseId(_ supabaseId: UUID) -> UserProfile? {
+        guard let modelContext else { return nil }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: #Predicate { $0.supabaseId == supabaseId })
+        return try? modelContext.fetch(descriptor).first
+    }
+
     // just flips isAuthenticated to false
     func logout(profile: UserProfile) {
         guard let modelContext else { return }
@@ -203,6 +211,13 @@ class AuthService: ObservableObject {
             try modelContext.save()
         } catch {
             print("Error logging out: \(error)")
+        }
+
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            SupabaseSyncService.shared.stopSync()
+            Task {
+                try? await SupabaseAuthService.shared.signOut()
+            }
         }
     }
 }

@@ -339,6 +339,7 @@ struct EnhancedPostEditorView: View {
         modelContext.insert(post)
         do {
             try modelContext.save()
+            FeedContentService.shared.syncPostToSupabase(post)
             #if canImport(UIKit)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             #endif

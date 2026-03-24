@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Supabase
 
 struct UserProfileSheet: View {
     let userId: UUID
@@ -209,6 +210,21 @@ struct UserProfileSheet: View {
             if let records = try? modelContext.fetch(descriptor) {
                 for record in records { modelContext.delete(record) }
             }
+
+            // Sync unfollow to Supabase
+            if FeatureFlags.shared.supabaseSyncEnabled {
+                Task {
+                    do {
+                        try await SupabaseConfig.client.from("follows")
+                            .delete()
+                            .eq("follower_id", value: myId.uuidString)
+                            .eq("following_id", value: targetId.uuidString)
+                            .execute()
+                    } catch {
+                        print("[UserProfileSheet] Supabase unfollow sync failed: \(error)")
+                    }
+                }
+            }
         } else {
             isFollowing = true
             currentProfile.followingCount += 1
@@ -216,6 +232,18 @@ struct UserProfileSheet: View {
             let username = userProfile?.username ?? ""
             let friend = Friend(userId: myId, odId: targetId, odName: name, odUsername: username)
             modelContext.insert(friend)
+
+            // Sync follow to Supabase
+            if FeatureFlags.shared.supabaseSyncEnabled {
+                Task {
+                    do {
+                        let dto = FollowDTO(followerId: myId, followingId: targetId)
+                        try await SupabaseSyncService.shared.insert(dto, table: "follows")
+                    } catch {
+                        print("[UserProfileSheet] Supabase follow sync failed: \(error)")
+                    }
+                }
+            }
         }
 
         // Update target's follower count

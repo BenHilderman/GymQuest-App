@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import AVKit
 import Combine
+import Supabase
 
 // MARK: - BookmarkStore
 
@@ -473,6 +474,7 @@ struct DiscoverFeedCard: View {
         modelContext.insert(like)
         try? modelContext.save()
 
+        FeedContentService.shared.syncLikeToSupabase(postId: post.id, userId: profile.id, userName: profile.name)
         EngagementTrackingService.shared.trackLike(postId: post.id, userId: profile.id)
 
         showHeartAnimation = true
@@ -499,6 +501,7 @@ struct DiscoverFeedCard: View {
                 for like in likes { modelContext.delete(like) }
             }
             try? modelContext.save()
+            FeedContentService.shared.syncUnlikeToSupabase(postId: post.id, userId: profile.id)
         } else {
             triggerLike()
         }
@@ -528,12 +531,39 @@ struct DiscoverFeedCard: View {
             if let records = try? modelContext.fetch(descriptor) {
                 for record in records { modelContext.delete(record) }
             }
+
+            // Sync unfollow to Supabase
+            if FeatureFlags.shared.supabaseSyncEnabled {
+                Task {
+                    do {
+                        try await SupabaseConfig.client.from("follows")
+                            .delete()
+                            .eq("follower_id", value: myId.uuidString)
+                            .eq("following_id", value: authorId.uuidString)
+                            .execute()
+                    } catch {
+                        print("[DiscoverFeedView] Supabase unfollow sync failed: \(error)")
+                    }
+                }
+            }
         } else {
             isFollowing = true
             profile.followingCount += 1
             let friend = Friend(userId: profile.id, odId: post.authorId, odName: post.authorName, odUsername: post.authorUsername)
             modelContext.insert(friend)
             EngagementTrackingService.shared.trackFollow(postId: post.id, userId: profile.id)
+
+            // Sync follow to Supabase
+            if FeatureFlags.shared.supabaseSyncEnabled {
+                Task {
+                    do {
+                        let dto = FollowDTO(followerId: myId, followingId: authorId)
+                        try await SupabaseSyncService.shared.insert(dto, table: "follows")
+                    } catch {
+                        print("[DiscoverFeedView] Supabase follow sync failed: \(error)")
+                    }
+                }
+            }
         }
         updateAuthorFollowerCount(authorId: authorId, increment: isFollowing)
         try? modelContext.save()
@@ -560,6 +590,23 @@ struct DiscoverFeedCard: View {
         try? modelContext.save()
         if !isLiked { triggerLike() }
         showReactionPicker = false
+
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    let dto = ReactionDTO(
+                        userId: SupabaseAuthService.shared.currentUserId ?? reaction.odId,
+                        userUsername: reaction.odUsername,
+                        targetType: reaction.targetType,
+                        targetId: reaction.targetId,
+                        reactionType: reaction.reactionType.rawValue
+                    )
+                    try await SupabaseSyncService.shared.insert(dto, table: "reactions")
+                } catch {
+                    print("[Reaction] Supabase sync failed: \(error)")
+                }
+            }
+        }
     }
 
     private func handleNotInterested() {

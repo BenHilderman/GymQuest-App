@@ -35,6 +35,28 @@ class SquadService: ObservableObject {
         context.insert(squad)
         try? context.save()
 
+        // Sync to Supabase
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    let dto = SquadDTO(
+                        id: squad.id,
+                        name: squad.name,
+                        creatorId: SupabaseAuthService.shared.currentUserId ?? squad.creatorId,
+                        memberIds: squad.memberIds,
+                        inviteCode: squad.inviteCode,
+                        streakWeeks: squad.streakWeeks,
+                        xpMultiplier: squad.xpMultiplier,
+                        createdAt: squad.createdAt,
+                        updatedAt: squad.createdAt
+                    )
+                    try await SupabaseSyncService.shared.insert(dto, table: "squads")
+                } catch {
+                    print("[SquadService] Supabase sync failed: \(error)")
+                }
+            }
+        }
+
         // Track analytics
         AnalyticsService.shared.trackSquadCreated(
             userId: creatorId,

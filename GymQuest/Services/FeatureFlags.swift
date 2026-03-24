@@ -37,12 +37,12 @@ final class FeatureFlags: ObservableObject {
         didSet { save("healthKitImportEnabled", value: healthKitImportEnabled) }
     }
 
-    /// Strava activity import
+    /// Strava activity import — Removed
     @Published var stravaImportEnabled: Bool {
         didSet { save("stravaImportEnabled", value: stravaImportEnabled) }
     }
 
-    /// WHOOP recovery/strain import
+    /// WHOOP recovery/strain import — Removed
     @Published var whoopEnabled: Bool {
         didSet { save("whoopEnabled", value: whoopEnabled) }
     }
@@ -152,6 +152,11 @@ final class FeatureFlags: ObservableObject {
         didSet { save("challengeEngineEnabled", value: challengeEngineEnabled) }
     }
 
+    /// Supabase backend sync (posts, profiles, social data)
+    @Published var supabaseSyncEnabled: Bool {
+        didSet { save("supabaseSyncEnabled", value: supabaseSyncEnabled) }
+    }
+
     // MARK: - One-Time Prompt Tracking
 
     var hasSeenGymLocationPrompt: Bool {
@@ -178,8 +183,8 @@ final class FeatureFlags: ObservableObject {
         self.questsEnabled = defaults.object(forKey: prefix + "questsEnabled") as? Bool ?? true
         self.squadsEnabled = defaults.object(forKey: prefix + "squadsEnabled") as? Bool ?? true
         self.healthKitImportEnabled = defaults.object(forKey: prefix + "healthKitImportEnabled") as? Bool ?? false
-        self.stravaImportEnabled = defaults.object(forKey: prefix + "stravaImportEnabled") as? Bool ?? false
-        self.whoopEnabled = defaults.object(forKey: prefix + "whoopEnabled") as? Bool ?? false
+        self.stravaImportEnabled = false // Removed
+        self.whoopEnabled = false // Removed
         self.robotDemosEnabled = defaults.object(forKey: prefix + "robotDemosEnabled") as? Bool ?? true
         self.nutritionEnabled = defaults.object(forKey: prefix + "nutritionEnabled") as? Bool ?? true
         self.workoutPartyEnabled = defaults.object(forKey: prefix + "workoutPartyEnabled") as? Bool ?? true
@@ -198,6 +203,7 @@ final class FeatureFlags: ObservableObject {
         self.podSystemEnabled = defaults.object(forKey: prefix + "podSystemEnabled") as? Bool ?? true
         self.premiumGateEnabled = defaults.object(forKey: prefix + "premiumGateEnabled") as? Bool ?? false
         self.challengeEngineEnabled = defaults.object(forKey: prefix + "challengeEngineEnabled") as? Bool ?? true
+        self.supabaseSyncEnabled = defaults.object(forKey: prefix + "supabaseSyncEnabled") as? Bool ?? true
     }
 
     private func save(_ key: String, value: Bool) {
@@ -212,8 +218,7 @@ final class FeatureFlags: ObservableObject {
         questsEnabled = true
         squadsEnabled = true
         healthKitImportEnabled = true
-        stravaImportEnabled = true
-        whoopEnabled = true
+        // stravaImportEnabled and whoopEnabled removed
         robotDemosEnabled = true
         nutritionEnabled = true
         enhancedPREnabled = true
@@ -244,8 +249,7 @@ final class FeatureFlags: ObservableObject {
         questsEnabled = true
         squadsEnabled = true
         healthKitImportEnabled = false
-        stravaImportEnabled = false
-        whoopEnabled = false
+        // stravaImportEnabled and whoopEnabled removed
         robotDemosEnabled = true
         nutritionEnabled = true
         workoutPartyEnabled = true

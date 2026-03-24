@@ -17,6 +17,7 @@ import GoogleSignIn
 
 struct LoginView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var supabaseAuth: SupabaseAuthService
     @Environment(\.modelContext) private var modelContext
     @StateObject private var authService = AuthService()
 
@@ -218,6 +219,17 @@ struct LoginView: View {
                 return
             }
 
+            // Supabase signup (if enabled)
+            if FeatureFlags.shared.supabaseSyncEnabled {
+                Task {
+                    do {
+                        try await supabaseAuth.signUp(email: email, password: password, username: "", displayName: "")
+                    } catch {
+                        print("[LoginView] Supabase signup failed: \(error)")
+                    }
+                }
+            }
+
             // new user - go to onboarding (password passed through AuthState, not persisted)
             showingEmailSheet = false
             withAnimation {
@@ -225,6 +237,17 @@ struct LoginView: View {
             }
         } else {
             // login flow
+            // Supabase login (if enabled)
+            if FeatureFlags.shared.supabaseSyncEnabled {
+                Task {
+                    do {
+                        try await supabaseAuth.signIn(email: email, password: password)
+                    } catch {
+                        print("[LoginView] Supabase login failed: \(error)")
+                    }
+                }
+            }
+
             if let _ = authService.login(email: email, password: password) {
                 showingEmailSheet = false
                 appState.authState = .authenticated
@@ -321,4 +344,5 @@ struct EmailAuthSheet: View {
 #Preview {
     LoginView()
         .environmentObject(AppState())
+        .environmentObject(SupabaseAuthService.shared)
 }

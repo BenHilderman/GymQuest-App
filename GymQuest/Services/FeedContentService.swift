@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import Supabase
 
 // MARK: - Feed Content Service (System 7)
 // Feed Creation Rules: auto-generation, validation, and rate limiting for feed posts.
@@ -28,6 +29,17 @@ final class FeedContentService: ObservableObject {
         self.modelContext = modelContext
     }
 
+    // MARK: - Input Sanitization
+
+    /// Strips HTML-unsafe characters and trims whitespace to prevent injection.
+    static func sanitize(_ input: String) -> String {
+        input
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Post Creation
 
     /// Creates a draft workout share post. The user can edit or discard before publishing.
@@ -40,7 +52,7 @@ final class FeedContentService: ObservableObject {
         let exerciseNames = workout.exercises.map { $0.name }
         let highlight = exerciseNames.first
 
-        let caption = buildWorkoutCaption(workout: workout)
+        let caption = Self.sanitize(buildWorkoutCaption(workout: workout))
 
         let post = Post(
             authorId: authorId,
@@ -67,7 +79,7 @@ final class FeedContentService: ObservableObject {
             authorId: authorId,
             authorName: authorName,
             authorUsername: authorUsername,
-            caption: "\(milestone.title) — \(milestone.milestoneDescription)"
+            caption: Self.sanitize("\(milestone.title) — \(milestone.milestoneDescription)")
         )
 
         return post
@@ -83,7 +95,7 @@ final class FeedContentService: ObservableObject {
             authorId: authorId,
             authorName: authorName,
             authorUsername: authorUsername,
-            caption: "Back at it! Starting the comeback."
+            caption: Self.sanitize("Back at it! Starting the comeback.")
         )
 
         return post
@@ -101,7 +113,7 @@ final class FeedContentService: ObservableObject {
             authorId: authorId,
             authorName: authorName,
             authorUsername: authorUsername,
-            caption: "New PR on \(exerciseName): \(value)",
+            caption: Self.sanitize("New PR on \(exerciseName): \(value)"),
             exerciseHighlight: exerciseName
         )
 
@@ -118,7 +130,7 @@ final class FeedContentService: ObservableObject {
         authorName: String,
         authorUsername: String
     ) -> Post {
-        let caption = "\(podName) weekly summary: \(membersTrained)/\(totalMembers) members trained this week (target: \(weeklyTarget))."
+        let caption = Self.sanitize("\(podName) weekly summary: \(membersTrained)/\(totalMembers) members trained this week (target: \(weeklyTarget)).")
 
         let post = Post(
             authorId: authorId,
@@ -182,6 +194,78 @@ final class FeedContentService: ObservableObject {
         var timestamps = postTimestamps[userId] ?? []
         timestamps.append(Date())
         postTimestamps[userId] = timestamps
+    }
+
+    // MARK: - Supabase Sync
+
+    /// Call after a post has been successfully inserted into SwiftData.
+    func syncPostToSupabase(_ post: Post) {
+        guard FeatureFlags.shared.supabaseSyncEnabled else { return }
+        Task {
+            do {
+                var mediaUrls: [String] = []
+                if let photoData = post.photoData {
+                    let url = try await SupabaseStorageService.shared.uploadPostMedia(postId: post.id, imageData: photoData)
+                    mediaUrls.append(url)
+                }
+                let dto = PostDTO(
+                    id: post.id,
+                    authorId: SupabaseAuthService.shared.currentUserId ?? post.authorId,
+                    authorName: post.authorName,
+                    authorUsername: post.authorUsername,
+                    caption: post.caption,
+                    workoutType: post.workoutType,
+                    duration: post.duration != 0 ? post.duration : nil,
+                    setCount: post.setCount != 0 ? post.setCount : nil,
+                    exerciseHighlight: post.exerciseHighlight,
+                    songTitle: post.songTitle,
+                    artistName: post.artistName,
+                    mediaUrls: mediaUrls.isEmpty ? nil : mediaUrls,
+                    likeCount: 0,
+                    commentCount: 0,
+                    isDeleted: false,
+                    createdAt: post.timestamp,
+                    updatedAt: post.timestamp
+                )
+                try await SupabaseSyncService.shared.insert(dto, table: "posts")
+            } catch {
+                print("[FeedContentService] Supabase post sync failed: \(error)")
+            }
+        }
+    }
+
+    /// Call after a like has been locally inserted.
+    func syncLikeToSupabase(postId: UUID, userId: UUID, userName: String) {
+        guard FeatureFlags.shared.supabaseSyncEnabled else { return }
+        Task {
+            do {
+                let dto = LikeDTO(
+                    postId: postId,
+                    userId: SupabaseAuthService.shared.currentUserId ?? userId,
+                    userName: userName
+                )
+                try await SupabaseSyncService.shared.insert(dto, table: "likes")
+            } catch {
+                print("[FeedContentService] Supabase like sync failed: \(error)")
+            }
+        }
+    }
+
+    /// Call after a like has been locally deleted (unliked).
+    func syncUnlikeToSupabase(postId: UUID, userId: UUID) {
+        guard FeatureFlags.shared.supabaseSyncEnabled else { return }
+        Task {
+            do {
+                let resolvedUserId = SupabaseAuthService.shared.currentUserId ?? userId
+                try await SupabaseConfig.client.from("likes")
+                    .delete()
+                    .eq("post_id", value: postId.uuidString)
+                    .eq("user_id", value: resolvedUserId.uuidString)
+                    .execute()
+            } catch {
+                print("[FeedContentService] Supabase unlike sync failed: \(error)")
+            }
+        }
     }
 
     // MARK: - Private Helpers

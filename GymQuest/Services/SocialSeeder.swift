@@ -5,6 +5,16 @@ import SwiftData
 
 struct SocialSeeder {
 
+    /// Load bundled album art by filename (without extension)
+    private static func bundledAlbumArt(_ name: String) -> Data? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "jpg", subdirectory: "AlbumArt") else {
+            // Try without subdirectory
+            guard let url = Bundle.main.url(forResource: name, withExtension: "jpg") else { return nil }
+            return try? Data(contentsOf: url)
+        }
+        return try? Data(contentsOf: url)
+    }
+
     // Consistent fake users shared across all seed data
     static let fakeUsers: [(id: UUID, name: String, username: String)] = [
         (UUID(uuidString: "A0000001-0000-0000-0000-000000000001")!, "Marcus Chen", "marcuschen"),
@@ -20,7 +30,7 @@ struct SocialSeeder {
     ]
 
     static func seedIfNeeded(modelContext: ModelContext) {
-        let seederVersion = "socialSeeder_v7"
+        let seederVersion = "socialSeeder_v9"
         let needsReseed = !UserDefaults.standard.bool(forKey: seederVersion)
 
         let descriptor = FetchDescriptor<Post>()
@@ -85,6 +95,7 @@ struct SocialSeeder {
             overlayTheme: "Sunset",
             musicSnippetStart: 5.0
         )
+        p1.albumArtData = bundledAlbumArt("lose_yourself")
         p1.photoData = demoPhotoData
         if let photoData = demoPhotoData {
             let items: [PostMedia] = [
@@ -200,6 +211,7 @@ struct SocialSeeder {
             overlayTheme: "Golden",
             musicSnippetStart: 8.0
         )
+        p3.albumArtData = bundledAlbumArt("power")
         p3.photoData = demoPhotoData
         if let photoData = demoPhotoData {
             let items: [PostMedia] = [
@@ -284,6 +296,7 @@ struct SocialSeeder {
             ]
             p4.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        p4.albumArtData = bundledAlbumArt("run_this_town")
         modelContext.insert(p4)
         postIds.append(p4.id)
 
@@ -492,6 +505,7 @@ struct SocialSeeder {
             ]
             p7.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        p7.albumArtData = bundledAlbumArt("sicko_mode")
         modelContext.insert(p7)
         postIds.append(p7.id)
 
@@ -515,6 +529,7 @@ struct SocialSeeder {
             locationName: "The ARC - Queen's",
             workoutEmotion: "Fired Up"
         )
+        p8.albumArtData = bundledAlbumArt("till_i_collapse")
         p8.photoData = demoPhotoData
         if let photoData = demoPhotoData {
             let items: [PostMedia] = [
@@ -662,6 +677,7 @@ struct SocialSeeder {
             ]
             p10.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        p10.albumArtData = bundledAlbumArt("stronger")
         modelContext.insert(p10)
         postIds.append(p10.id)
 
@@ -801,6 +817,7 @@ struct SocialSeeder {
         // PR: Olivia hit an OHP PR
         let p12PR = [FeedPR(exerciseName: "Overhead Press", value: "135 lbs", previousValue: "125 lbs", improvement: "+10 lbs", prType: "Weight PR")]
         p12.prMomentsData = try? JSONEncoder().encode(p12PR)
+        p12.albumArtData = bundledAlbumArt("humble")
         modelContext.insert(p12)
         postIds.append(p12.id)
 
@@ -1107,6 +1124,7 @@ struct SocialSeeder {
             authorUsername: fakeUsers[7].username
         )
         p17.sharedWorkoutData = try? JSONEncoder().encode(p17Workout)
+        p17.albumArtData = bundledAlbumArt("blinding_lights")
         modelContext.insert(p17)
         postIds.append(p17.id)
 
@@ -1268,6 +1286,7 @@ struct SocialSeeder {
             authorUsername: fakeUsers[0].username
         )
         p21.sharedWorkoutData = try? JSONEncoder().encode(p21Workout)
+        p21.albumArtData = bundledAlbumArt("levitating")
         modelContext.insert(p21)
         postIds.append(p21.id)
 
@@ -1412,6 +1431,7 @@ struct SocialSeeder {
             commentCount: 2,
             workoutEmotion: "Calm"
         )
+        p25.albumArtData = bundledAlbumArt("starboy")
         p25.photoData = demoPhotoData
         if let photoData = demoPhotoData {
             let items: [PostMedia] = [
@@ -1775,6 +1795,7 @@ struct SocialSeeder {
             myPost1.sharedWorkoutData = try? JSONEncoder().encode(postAWorkout)
             let postAPR = [FeedPR(exerciseName: "Bench Press", value: "185×3", previousValue: "175×3", improvement: "+10 lbs", prType: "Weight PR")]
             myPost1.prMomentsData = try? JSONEncoder().encode(postAPR)
+            myPost1.albumArtData = bundledAlbumArt("lose_yourself")
             modelContext.insert(myPost1)
             myPostIds.append(myPost1.id)
 
@@ -1855,6 +1876,7 @@ struct SocialSeeder {
                 locationName: "Lakeshore Trail",
                 workoutEmotion: "Calm"
             )
+            myPost3.albumArtData = bundledAlbumArt("blinding_lights")
             modelContext.insert(myPost3)
             myPostIds.append(myPost3.id)
 
@@ -1933,6 +1955,7 @@ struct SocialSeeder {
             )
             let postEPR = [FeedPR(exerciseName: "Deadlift", value: "315×3", previousValue: "295×3", improvement: "+20 lbs", prType: "Weight PR")]
             myPost5.prMomentsData = try? JSONEncoder().encode(postEPR)
+            myPost5.albumArtData = bundledAlbumArt("till_i_collapse")
             modelContext.insert(myPost5)
             myPostIds.append(myPost5.id)
 
@@ -1968,6 +1991,7 @@ struct SocialSeeder {
                 commentCount: 2,
                 workoutEmotion: "Fired Up"
             )
+            myPost6.albumArtData = bundledAlbumArt("stronger")
             modelContext.insert(myPost6)
             myPostIds.append(myPost6.id)
 
@@ -2025,6 +2049,7 @@ struct SocialSeeder {
                 appleMusicPlaylistURL: "https://music.apple.com/playlist/workout-motivation/pl.u-55D6Xp1FGky0oN",
                 workoutEmotion: "Strong"
             )
+            myPost8.albumArtData = bundledAlbumArt("eye_of_the_tiger")
             modelContext.insert(myPost8)
             myPostIds.append(myPost8.id)
 
@@ -2214,6 +2239,30 @@ struct SocialSeeder {
             }
         }
 
+        try? modelContext.save()
+
+        // Download album art for all posts that have a URL but no cached data
+        Task.detached {
+            await downloadAlbumArt(modelContext: modelContext)
+        }
+    }
+
+    @MainActor
+    private static func downloadAlbumArt(modelContext: ModelContext) async {
+        let descriptor = FetchDescriptor<Post>()
+        guard let posts = try? modelContext.fetch(descriptor) else { return }
+
+        for post in posts where post.albumArtURL != nil && post.albumArtData == nil {
+            guard let urlString = post.albumArtURL, let url = URL(string: urlString) else { continue }
+            do {
+                let (data, response) = try await URLSession.shared.data(from: url)
+                if let http = response as? HTTPURLResponse, http.statusCode == 200, !data.isEmpty {
+                    post.albumArtData = data
+                }
+            } catch {
+                // Skip this one, try next
+            }
+        }
         try? modelContext.save()
     }
 

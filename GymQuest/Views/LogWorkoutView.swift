@@ -315,6 +315,17 @@ struct LogWorkoutView: View {
 
             modelContext.insert(workout) // swiftdata cascades to exercises/sets
 
+            // Sync workout to Supabase
+            if FeatureFlags.shared.supabaseSyncEnabled {
+                Task {
+                    do {
+                        try await SupabaseSyncService.shared.syncWorkout(workout)
+                    } catch {
+                        print("[WorkoutSync] Failed to sync workout: \(error)")
+                    }
+                }
+            }
+
             // xp system - rewards for completing workouts
             let xpGain = workout.xpValue
             let didLevelUp = profile.addXP(xpGain) // returns true if leveled up
@@ -348,6 +359,7 @@ struct LogWorkoutView: View {
 
             do {
                 try modelContext.save()
+                FeedContentService.shared.syncPostToSupabase(post)
             } catch {
                 print("Failed to save post: \(error)")
             }

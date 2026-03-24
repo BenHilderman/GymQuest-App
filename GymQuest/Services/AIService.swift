@@ -270,18 +270,20 @@ class AIService: ObservableObject {
 
         case .openai:
             // Hosted LLM (OpenAI): send systemPrompt + user prompt to GPT-style API
+            let resolvedKey = AIKeychain.load(userId: profile.id.uuidString) ?? profile.apiKey
             response = try await callOpenAI(
                 systemPrompt: systemPrompt,
                 userPrompt: prompt,
-                apiKey: profile.apiKey
+                apiKey: resolvedKey
             )
 
         case .groq:
             // Hosted LLM (Groq): same chat format as OpenAI, different provider/model
+            let resolvedKey = AIKeychain.load(userId: profile.id.uuidString) ?? profile.apiKey
             response = try await callGroq(
                 systemPrompt: systemPrompt,
                 userPrompt: prompt,
-                apiKey: profile.apiKey
+                apiKey: resolvedKey
             )
 
         case .ollama:
@@ -563,11 +565,12 @@ class AIService: ObservableObject {
         """
 
         do {
+            let resolvedKey = AIKeychain.load(userId: profile.id.uuidString) ?? profile.apiKey
             switch profile.aiProvider {
             case .openai:
-                return try await callOpenAI(systemPrompt: systemPrompt, userPrompt: userPrompt, apiKey: profile.apiKey)
+                return try await callOpenAI(systemPrompt: systemPrompt, userPrompt: userPrompt, apiKey: resolvedKey)
             case .groq:
-                return try await callGroq(systemPrompt: systemPrompt, userPrompt: userPrompt, apiKey: profile.apiKey)
+                return try await callGroq(systemPrompt: systemPrompt, userPrompt: userPrompt, apiKey: resolvedKey)
             case .ollama:
                 return try await callOllama(systemPrompt: systemPrompt, userPrompt: userPrompt, model: profile.ollamaModel, host: profile.ollamaHost)
             case .demo:
@@ -805,7 +808,7 @@ extension AIService {
                 "injuries": profile.injuries
             ],
             "workouts": workoutData,
-            "api_key": profile.apiKey
+            "api_key": AIKeychain.load(userId: profile.id.uuidString) ?? profile.apiKey
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

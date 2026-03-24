@@ -58,64 +58,7 @@ struct IntegrationsView: View {
                 }
                 .padding(.horizontal, 16)
 
-                // WHOOP
-                IntegrationCard(
-                    icon: "waveform.path.ecg",
-                    name: "WHOOP",
-                    description: "Recovery, strain, sleep quality",
-                    iconColor: GQColors.textSecondary,
-                    isConnected: integrationManager.whoop.isConnected,
-                    isSyncing: integrationManager.whoop.isSyncing,
-                    lastSync: integrationManager.whoop.lastSyncDate,
-                    dataPoints: whoopDataPoints
-                ) {
-                    if integrationManager.whoop.isConnected {
-                        Button {
-                            integrationManager.whoop.disconnect()
-                            featureFlags.whoopEnabled = false
-                        } label: {
-                            Text("Disconnect WHOOP")
-                        }
-                        .buttonStyle(WorkoutFlowSecondaryButtonStyle())
-                    } else {
-                        Button {
-                            // Would trigger OAuth flow
-                            featureFlags.whoopEnabled = true
-                        } label: {
-                            Text("Connect WHOOP")
-                        }
-                        .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.textSecondary))
-                    }
-                }
-                .padding(.horizontal, 16)
-
-                // Strava
-                IntegrationCard(
-                    icon: "figure.run",
-                    name: "Strava",
-                    description: "Runs, rides, GPS activities",
-                    iconColor: Color(hex: "FC4C02"),
-                    isConnected: integrationManager.strava.isConnected,
-                    isSyncing: integrationManager.strava.isSyncing,
-                    lastSync: integrationManager.strava.lastSyncDate,
-                    dataPoints: stravaDataPoints
-                ) {
-                    NavigationLink {
-                        StravaSettingsView(profile: profile)
-                    } label: {
-                        Text(integrationManager.strava.isConnected ? "Open Strava Settings" : "Connect Strava")
-                    }
-                    .buttonStyle(
-                        WorkoutFlowPrimaryButtonStyle(
-                            accent: integrationManager.strava.isConnected ? GQColors.textSecondary : Color(hex: "FC4C02")
-                        )
-                    )
-                }
-                .padding(.horizontal, 16)
-
-                // Gravl info card
-                GravlInfoCard()
-                    .padding(.horizontal, 16)
+                // WHOOP and Strava integrations removed
 
                 // Sync all button
                 if integrationManager.hasAnyConnection {
@@ -179,32 +122,7 @@ struct IntegrationsView: View {
         return points
     }
 
-    private var whoopDataPoints: [IntegrationDataPoint] {
-        guard integrationManager.whoop.isConnected else { return [] }
-        var points: [IntegrationDataPoint] = []
-        if let recovery = integrationManager.whoop.latestRecovery {
-            points.append(.init(label: "Recovery", value: "\(Int(recovery.score.recoveryScore))%"))
-        }
-        if let strain = integrationManager.whoop.latestStrain, let score = strain.score {
-            points.append(.init(label: "Strain", value: String(format: "%.1f", score.strain)))
-        }
-        if let sleep = integrationManager.whoop.latestSleep, let score = sleep.score {
-            points.append(.init(label: "Sleep", value: String(format: "%.1fh", score.stageSummary.totalSleepHours)))
-        }
-        return points
-    }
-
-    private var stravaDataPoints: [IntegrationDataPoint] {
-        guard integrationManager.strava.isConnected else { return [] }
-        var points: [IntegrationDataPoint] = []
-        if integrationManager.strava.importedActivityCount > 0 {
-            points.append(.init(label: "Activities", value: "\(integrationManager.strava.importedActivityCount)"))
-        }
-        if let athlete = integrationManager.strava.athleteProfile {
-            points.append(.init(label: "Athlete", value: athlete.displayName))
-        }
-        return points
-    }
+    // WHOOP and Strava data points removed
 }
 
 // MARK: - Integration Data Point

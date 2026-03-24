@@ -142,6 +142,13 @@ struct ContentView: View {
             SquadService.shared.configure(modelContext: ctx)
             LearningService.shared.configure(modelContext: ctx)
             ProductionSeeder.seedIfNeeded(modelContext: ctx)
+
+            if FeatureFlags.shared.supabaseSyncEnabled {
+                SupabaseSyncService.shared.configure(modelContext: ctx)
+                if let userId = SupabaseAuthService.shared.currentUserId {
+                    SupabaseSyncService.shared.startSync(userId: userId)
+                }
+            }
         }
     }
 }

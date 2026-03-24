@@ -11,6 +11,7 @@
 import Foundation
 import StoreKit
 import SwiftUI
+import Supabase
 
 @MainActor
 final class SubscriptionService: ObservableObject {
@@ -101,6 +102,19 @@ final class SubscriptionService: ObservableObject {
         }
 
         isPremium = hasActiveSubscription
+
+        if FeatureFlags.shared.supabaseSyncEnabled, let userId = SupabaseAuthService.shared.currentUserId {
+            Task {
+                do {
+                    try await SupabaseConfig.client.from("profiles")
+                        .update(["is_premium": isPremium])
+                        .eq("id", value: userId.uuidString)
+                        .execute()
+                } catch {
+                    print("[SubscriptionService] Supabase premium sync failed: \(error)")
+                }
+            }
+        }
     }
 
     // MARK: - Transaction Listener

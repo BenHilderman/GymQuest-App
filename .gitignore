@@ -22,3 +22,14 @@ xcuserdata/
 __pycache__/
 *.pyc
 .venv/
+
+# Build artifacts
+build_derived/
+build_out/
+_edit_recovery/
+
+# Design artifacts
+AppIconConcepts/
+
+# Utility scripts
+scripts/

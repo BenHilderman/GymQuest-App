@@ -348,6 +348,7 @@ struct CreatePostView: View {
         modelContext.insert(post)
         do {
             try modelContext.save()
+            FeedContentService.shared.syncPostToSupabase(post)
             HapticManager.shared.success()
             showPostedOverlay = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {

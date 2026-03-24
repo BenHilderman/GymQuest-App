@@ -118,6 +118,32 @@ class PodService: ObservableObject {
         ctx.insert(membership)
 
         try? ctx.save()
+
+        // Sync to Supabase
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    let dto = PodDTO(
+                        id: pod.id,
+                        name: pod.name,
+                        creatorId: SupabaseAuthService.shared.currentUserId ?? pod.creatorId,
+                        memberIds: pod.memberIds,
+                        inviteCode: pod.inviteCode,
+                        level: pod.level,
+                        lifecycle: pod.lifecycle,
+                        maxMembers: pod.maxMembers,
+                        weeklyWorkoutTarget: pod.weeklyWorkoutTarget,
+                        streakWeeks: pod.streakWeeks,
+                        createdAt: pod.createdAt,
+                        updatedAt: pod.createdAt
+                    )
+                    try await SupabaseSyncService.shared.insert(dto, table: "pods")
+                } catch {
+                    print("[PodService] Supabase sync failed: \(error)")
+                }
+            }
+        }
+
         return pod
     }
 

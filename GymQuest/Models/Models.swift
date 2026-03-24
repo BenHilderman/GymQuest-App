@@ -935,6 +935,7 @@ final class UserProfile {
     var passwordHash: String?    // SHA256 hash for local storage
     var googleId: String?
     var dateOfBirth: Date?
+    var supabaseId: UUID?
 
     // Fitness profile fields
     var genderRaw: String?
@@ -1060,7 +1061,8 @@ final class UserProfile {
         email: String? = nil,
         passwordHash: String? = nil,
         googleId: String? = nil,
-        dateOfBirth: Date? = nil
+        dateOfBirth: Date? = nil,
+        supabaseId: UUID? = nil
     ) {
         self.id = id
         self.name = name
@@ -1081,6 +1083,7 @@ final class UserProfile {
         self.passwordHash = passwordHash
         self.googleId = googleId
         self.dateOfBirth = dateOfBirth
+        self.supabaseId = supabaseId
     }
 
     func addXP(_ amount: Int) -> Bool {
@@ -1420,6 +1423,7 @@ final class Post {
     var artistName: String?
     var songPreviewURL: String?  // For playback
     var albumArtURL: String?     // Pre-fetched cover image URL
+    var albumArtData: Data?      // Cached album art image data for instant display
     var musicSource: String?     // "spotify", "apple_music", "ai_suggested"
     var playlistId: String?      // If linked from a playlist
 

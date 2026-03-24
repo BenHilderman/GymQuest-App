@@ -1072,6 +1072,7 @@ struct WorkoutCompletionSummary: View {
 
         modelContext.insert(post)
         try? modelContext.save()
+        FeedContentService.shared.syncPostToSupabase(post)
 
         withAnimation {
             hasShared = true

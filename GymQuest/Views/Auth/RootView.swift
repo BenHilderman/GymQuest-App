@@ -16,6 +16,7 @@ struct RootView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var featureFlags: FeatureFlags
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var supabaseAuth: SupabaseAuthService
     @StateObject private var authService = AuthService()
 
     @State private var hasCheckedAuth = false
@@ -52,6 +53,16 @@ struct RootView: View {
         }
         .onAppear {
             checkAuth()
+        }
+        .task {
+            if FeatureFlags.shared.supabaseSyncEnabled {
+                await supabaseAuth.restoreSession()
+                if supabaseAuth.isAuthenticated, let userId = supabaseAuth.currentUserId {
+                    await supabaseAuth.fetchAndApplyRemoteProfile(modelContext: modelContext)
+                    SupabaseSyncService.shared.configure(modelContext: modelContext)
+                    SupabaseSyncService.shared.startSync(userId: userId)
+                }
+            }
         }
     }
 
@@ -113,4 +124,5 @@ struct RootView: View {
 #Preview {
     RootView()
         .environmentObject(AppState())
+        .environmentObject(SupabaseAuthService.shared)
 }

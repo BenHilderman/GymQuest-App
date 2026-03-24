@@ -48,6 +48,21 @@ class AnalyticsService: ObservableObject {
 
         context.insert(event)
         try? context.save()
+
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    let dto = AnalyticsEventDTO(
+                        userId: SupabaseAuthService.shared.currentUserId ?? userId,
+                        eventType: eventType.rawValue,
+                        metadata: metadataString
+                    )
+                    try await SupabaseSyncService.shared.insert(dto, table: "analytics_events")
+                } catch {
+                    print("[AnalyticsService] Supabase sync failed: \(error)")
+                }
+            }
+        }
     }
 
     /// Generic event tracking with string event name and properties

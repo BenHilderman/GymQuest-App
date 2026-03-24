@@ -57,7 +57,7 @@ struct ExerciseGifView: View {
         case .thumbnail, .medium:
             AnimatedImage(url: url, isAnimating: .constant(true))
                 .customLoopCount(0)
-                .playbackRate(1.0)
+                .playbackRate(1.5)
                 .resizable()
                 .scaledToFill()
                 .frame(width: size.dimension, height: size.dimension)
@@ -69,7 +69,7 @@ struct ExerciseGifView: View {
         case .detail:
             AnimatedImage(url: url, isAnimating: .constant(true))
                 .customLoopCount(0)
-                .playbackRate(1.0)
+                .playbackRate(1.5)
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.dimension, height: size.dimension)
@@ -81,7 +81,7 @@ struct ExerciseGifView: View {
         case .large:
             AnimatedImage(url: url, isAnimating: .constant(true))
                 .customLoopCount(0)
-                .playbackRate(1.0)
+                .playbackRate(1.5)
                 .resizable()
                 .scaledToFit()
                 .frame(maxWidth: .infinity)

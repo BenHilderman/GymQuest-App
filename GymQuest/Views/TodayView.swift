@@ -127,7 +127,7 @@ struct TodayView: View {
             .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
         }
-        .onAppear {
+        .task {
             checkForDraft()
             MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
             MomentumService.shared.checkInactivity(userId: profile.id)
@@ -138,6 +138,10 @@ struct TodayView: View {
             if let activePlan = activePlans.first {
                 PlanScheduleService.shared.resolveMissedDays(planId: activePlan.id)
             }
+
+            // Give @Query time to pick up new enrollments from autoEnroll
+            try? await Task.sleep(for: .milliseconds(100))
+            consistencyState = MomentumService.shared.evaluateState(userId: profile.id)
         }
     }
 

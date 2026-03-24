@@ -65,6 +65,34 @@ class ClubService: ObservableObject {
         context.insert(membership)
 
         try context.save()
+
+        // Sync to Supabase
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    let dto = ClubDTO(
+                        id: club.id,
+                        name: club.name,
+                        description: club.clubDescription,
+                        location: club.location,
+                        creatorId: SupabaseAuthService.shared.currentUserId ?? club.creatorId,
+                        adminIds: club.adminIds,
+                        memberIds: club.memberIds,
+                        joinType: club.joinType.rawValue,
+                        category: club.resolvedCategory.rawValue,
+                        memberCount: club.memberCount,
+                        isVerified: club.isVerified,
+                        imageUrl: nil,
+                        createdAt: club.createdAt,
+                        updatedAt: club.createdAt
+                    )
+                    try await SupabaseSyncService.shared.insert(dto, table: "clubs")
+                } catch {
+                    print("[ClubService] Supabase sync failed: \(error)")
+                }
+            }
+        }
+
         return club
     }
 

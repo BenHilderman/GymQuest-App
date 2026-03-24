@@ -1364,6 +1364,7 @@ struct WorkoutCompletionView: View {
 
         do {
             try modelContext.save()
+            FeedContentService.shared.syncPostToSupabase(post)
         } catch {
             print("Failed to save post to feed: \(error)")
         }

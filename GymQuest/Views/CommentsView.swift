@@ -65,6 +65,7 @@ struct CommentsSheet: View {
             commentInputBar
         }
         .gqPageBackground()
+        .task { fetchRemoteComments() }
     }
 
     // MARK: - Header
@@ -391,12 +392,15 @@ struct CommentsSheet: View {
     private func addComment() {
         guard !newComment.isEmpty else { return }
 
+        let sanitizedContent = FeedContentService.sanitize(newComment)
+        guard !sanitizedContent.isEmpty else { return }
+
         let comment = Comment(
             postId: post.id,
             authorId: currentUserId,
             authorName: currentUserName.isEmpty ? "User" : currentUserName,
             authorUsername: currentUsername,
-            content: newComment,
+            content: sanitizedContent,
             timestamp: Date(),
             parentCommentId: replyTarget?.id,
             replyToAuthorName: replyTarget?.authorName
@@ -405,9 +409,67 @@ struct CommentsSheet: View {
         modelContext.insert(comment)
         post.commentCount += 1
         try? modelContext.save()
+
+        // Sync to Supabase
+        if FeatureFlags.shared.supabaseSyncEnabled {
+            Task {
+                do {
+                    let dto = CommentDTO(
+                        id: comment.id,
+                        postId: comment.postId,
+                        authorId: SupabaseAuthService.shared.currentUserId ?? comment.authorId,
+                        authorName: comment.authorName,
+                        authorUsername: comment.authorUsername,
+                        content: comment.content,
+                        parentCommentId: comment.parentCommentId,
+                        likeCount: 0,
+                        createdAt: comment.timestamp
+                    )
+                    try await SupabaseSyncService.shared.insert(dto, table: "comments")
+                } catch {
+                    print("[CommentsView] Supabase comment sync failed: \(error)")
+                }
+            }
+        }
+
         newComment = ""
         withAnimation(.easeOut(duration: 0.2)) {
             replyTarget = nil
+        }
+    }
+
+    // MARK: - Remote Comments Fetch
+
+    private func fetchRemoteComments() {
+        guard FeatureFlags.shared.supabaseSyncEnabled else { return }
+        Task {
+            do {
+                let remoteComments: [CommentDTO] = try await SupabaseSyncService.shared.fetch(from: "comments") { query in
+                    query.eq("post_id", value: post.id.uuidString).order("created_at", ascending: true)
+                }
+                for dto in remoteComments {
+                    let targetId = dto.id
+                    let descriptor = FetchDescriptor<Comment>(predicate: #Predicate<Comment> { $0.id == targetId })
+                    let existing = try? modelContext.fetch(descriptor)
+                    if existing?.isEmpty ?? true {
+                        let comment = Comment(
+                            id: dto.id,
+                            postId: dto.postId,
+                            authorId: dto.authorId,
+                            authorName: dto.authorName,
+                            authorUsername: dto.authorUsername,
+                            content: dto.content,
+                            timestamp: dto.createdAt ?? Date(),
+                            parentCommentId: dto.parentCommentId,
+                            likeCount: dto.likeCount
+                        )
+                        modelContext.insert(comment)
+                    }
+                }
+                try? modelContext.save()
+            } catch {
+                print("[CommentsView] Failed to fetch remote comments: \(error)")
+            }
         }
     }
 }
