@@ -5,16 +5,27 @@ Gamified fitness app for iOS. Real time workout tracking, multi provider AI coac
 > SwiftUI · SwiftData · Swift 5.9 · iOS 17+ · XcodeGen
 
 <p align="center">
-  <img src=".github/screenshots/feed.png" width="200" alt="Feed" />
+  <img src=".github/screenshots/today.png" width="230" alt="Today dashboard" />
   &nbsp;&nbsp;
-  <img src=".github/screenshots/today.png" width="200" alt="Today" />
+  <img src=".github/screenshots/progress.png" width="230" alt="Progress overview" />
   &nbsp;&nbsp;
-  <img src=".github/screenshots/start-workout.png" width="200" alt="Start Workout" />
+  <img src=".github/screenshots/progress_prs.png" width="230" alt="PRs and exercise trends" />
 </p>
+
 <p align="center">
-  <img src=".github/screenshots/activity.png" width="200" alt="Activity" />
+  <img src=".github/screenshots/active_workout.png" width="230" alt="Active workout" />
   &nbsp;&nbsp;
-  <img src=".github/screenshots/profile.png" width="200" alt="Profile" />
+  <img src=".github/screenshots/start_workout.png" width="230" alt="Start workout" />
+  &nbsp;&nbsp;
+  <img src=".github/screenshots/custom_workout.png" width="230" alt="Custom workout splits" />
+</p>
+
+<p align="center">
+  <img src=".github/screenshots/discover.png" width="230" alt="Discover feed" />
+  &nbsp;&nbsp;
+  <img src=".github/screenshots/clubs.png" width="230" alt="Clubs" />
+  &nbsp;&nbsp;
+  <img src=".github/screenshots/profile.png" width="230" alt="Profile" />
 </p>
 
 ---
