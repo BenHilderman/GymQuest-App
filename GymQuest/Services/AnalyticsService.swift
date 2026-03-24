@@ -49,6 +49,7 @@ class AnalyticsService: ObservableObject {
         context.insert(event)
         try? context.save()
 
+        #if canImport(Supabase)
         if FeatureFlags.shared.supabaseSyncEnabled {
             Task {
                 do {
@@ -63,6 +64,7 @@ class AnalyticsService: ObservableObject {
                 }
             }
         }
+        #endif
     }
 
     /// Generic event tracking with string event name and properties

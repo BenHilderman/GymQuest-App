@@ -120,6 +120,7 @@ class PodService: ObservableObject {
         try? ctx.save()
 
         // Sync to Supabase
+        #if canImport(Supabase)
         if FeatureFlags.shared.supabaseSyncEnabled {
             Task {
                 do {
@@ -143,6 +144,7 @@ class PodService: ObservableObject {
                 }
             }
         }
+        #endif
 
         return pod
     }

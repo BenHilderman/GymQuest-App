@@ -11,7 +11,9 @@
 import Foundation
 import StoreKit
 import SwiftUI
+#if canImport(Supabase)
 import Supabase
+#endif
 
 @MainActor
 final class SubscriptionService: ObservableObject {
@@ -103,6 +105,7 @@ final class SubscriptionService: ObservableObject {
 
         isPremium = hasActiveSubscription
 
+        #if canImport(Supabase)
         if FeatureFlags.shared.supabaseSyncEnabled, let userId = SupabaseAuthService.shared.currentUserId {
             Task {
                 do {
@@ -115,6 +118,7 @@ final class SubscriptionService: ObservableObject {
                 }
             }
         }
+        #endif
     }
 
     // MARK: - Transaction Listener

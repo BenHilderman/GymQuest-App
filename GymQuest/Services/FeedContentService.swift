@@ -1,6 +1,8 @@
 import Foundation
 import SwiftData
+#if canImport(Supabase)
 import Supabase
+#endif
 
 // MARK: - Feed Content Service (System 7)
 // Feed Creation Rules: auto-generation, validation, and rate limiting for feed posts.
@@ -198,6 +200,7 @@ final class FeedContentService: ObservableObject {
 
     // MARK: - Supabase Sync
 
+    #if canImport(Supabase)
     /// Call after a post has been successfully inserted into SwiftData.
     func syncPostToSupabase(_ post: Post) {
         guard FeatureFlags.shared.supabaseSyncEnabled else { return }
@@ -267,6 +270,7 @@ final class FeedContentService: ObservableObject {
             }
         }
     }
+    #endif
 
     // MARK: - Private Helpers
 

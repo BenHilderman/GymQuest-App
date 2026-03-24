@@ -36,6 +36,7 @@ class SquadService: ObservableObject {
         try? context.save()
 
         // Sync to Supabase
+        #if canImport(Supabase)
         if FeatureFlags.shared.supabaseSyncEnabled {
             Task {
                 do {
@@ -56,6 +57,7 @@ class SquadService: ObservableObject {
                 }
             }
         }
+        #endif
 
         // Track analytics
         AnalyticsService.shared.trackSquadCreated(

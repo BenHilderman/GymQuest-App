@@ -67,6 +67,7 @@ class ClubService: ObservableObject {
         try context.save()
 
         // Sync to Supabase
+        #if canImport(Supabase)
         if FeatureFlags.shared.supabaseSyncEnabled {
             Task {
                 do {
@@ -92,6 +93,7 @@ class ClubService: ObservableObject {
                 }
             }
         }
+        #endif
 
         return club
     }
