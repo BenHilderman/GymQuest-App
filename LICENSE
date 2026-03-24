@@ -1,21 +1,47 @@
+PROPRIETARY SOFTWARE LICENSE
+
 Copyright (c) 2025-2026 Benjamin Hilderman. All Rights Reserved.
 
-Permission is hereby granted to view and review the source code in this
-repository for personal, non-commercial, evaluation purposes only.
+This software and all associated source code, assets, documentation,
+and configuration files (collectively, the "Software") are the exclusive
+intellectual property of Benjamin Hilderman.
 
-The following actions are strictly prohibited without prior written
-consent from the copyright holder:
+NO LICENSE IS GRANTED. This repository is made publicly visible for
+portfolio review and evaluation purposes only. Visibility does not
+constitute a grant of any rights.
 
-  - Copying, modifying, merging, or creating derivative works
-  - Distributing, sublicensing, selling, or publishing any portion of
-    this software
-  - Using any portion of this code in commercial or non-commercial
-    projects, products, or services
-  - Forking this repository for any purpose other than submitting
-    contributions back to the original project
+You MAY NOT, under any circumstances, without express prior written
+permission from the copyright holder:
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
-CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
+  1. Copy, reproduce, or duplicate any portion of the Software.
+  2. Modify, adapt, translate, or create derivative works based on
+     the Software.
+  3. Distribute, publish, transmit, sublicense, lease, lend, sell,
+     or otherwise transfer the Software to any third party.
+  4. Use any portion of the Software in any other project, product,
+     service, or application, whether commercial or non-commercial.
+  5. Reverse engineer, decompile, or disassemble the Software.
+  6. Fork this repository for any purpose.
+  7. Use the Software, or any part thereof, to train machine learning
+     models, language models, or any form of artificial intelligence.
+  8. Claim authorship or ownership of the Software or any portion
+     thereof.
 
-For licensing inquiries, contact: github.com/BenHilderman
+ENFORCEMENT. Any unauthorized use, reproduction, or distribution of
+the Software constitutes copyright infringement under the Copyright
+Act (17 U.S.C. 101 et seq.), the Digital Millennium Copyright Act
+(DMCA), the Canadian Copyright Act (R.S.C., 1985, c. C-42), and
+applicable international copyright treaties including the Berne
+Convention. The copyright holder reserves the right to pursue all
+available legal remedies, including but not limited to injunctive
+relief, statutory damages, and recovery of legal fees.
+
+DISCLAIMER. THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR
+ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION
+WITH THE SOFTWARE.
+
+For licensing inquiries: benjaminhilderman@gmail.com
