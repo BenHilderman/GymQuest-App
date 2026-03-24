@@ -46,7 +46,7 @@ jobs:
             --config p/ci \
             --sarif \
             --output semgrep-results.sarif \
-            GymQuest-iOS/GymQuest/ \
+            GymQuest/ \
             || true
 
       - name: Run Semgrep iOS-Specific Rules
@@ -55,7 +55,7 @@ jobs:
             --config p/swift \
             --json \
             --output semgrep-swift.json \
-            GymQuest-iOS/GymQuest/ \
+            GymQuest/ \
             || true
 
       - name: Upload SARIF to GitHub Security

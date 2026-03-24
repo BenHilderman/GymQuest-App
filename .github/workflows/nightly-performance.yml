@@ -20,18 +20,15 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode Project
-        working-directory: GymQuest-iOS
         run: xcodegen generate
 
       - name: Resolve SPM Dependencies
-        working-directory: GymQuest-iOS
         run: |
           xcodebuild -resolvePackageDependencies \
             -scheme GymQuest \
             -clonedSourcePackagesDirPath .spm-cache
 
       - name: Run Performance Tests
-        working-directory: GymQuest-iOS
         run: |
           xcodebuild test \
             -scheme GymQuestPerformanceTests \
@@ -45,5 +42,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: performance-results-${{ github.run_number }}
-          path: GymQuest-iOS/PerformanceResults.xcresult
+          path: PerformanceResults.xcresult
           retention-days: 90

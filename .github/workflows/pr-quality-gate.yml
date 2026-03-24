@@ -28,18 +28,15 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode Project
-        working-directory: GymQuest-iOS
         run: xcodegen generate
 
       - name: Resolve SPM Dependencies
-        working-directory: GymQuest-iOS
         run: |
           xcodebuild -resolvePackageDependencies \
             -scheme GymQuest \
             -clonedSourcePackagesDirPath .spm-cache
 
       - name: Run Unit + Integration Tests
-        working-directory: GymQuest-iOS
         run: |
           xcodebuild test \
             -scheme GymQuestTests \
@@ -55,12 +52,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.device }}
-          path: GymQuest-iOS/TestResults.xcresult
+          path: TestResults.xcresult
           retention-days: 30
 
       - name: Extract Coverage
         if: success()
-        working-directory: GymQuest-iOS
         run: |
           xcrun xccov view --report TestResults.xcresult --json | \
             python3 -c "
@@ -88,18 +84,15 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode Project
-        working-directory: GymQuest-iOS
         run: xcodegen generate
 
       - name: Resolve SPM Dependencies
-        working-directory: GymQuest-iOS
         run: |
           xcodebuild -resolvePackageDependencies \
             -scheme GymQuest \
             -clonedSourcePackagesDirPath .spm-cache
 
       - name: Run UI Tests
-        working-directory: GymQuest-iOS
         run: |
           xcodebuild test \
             -scheme GymQuestUITests \
@@ -113,5 +106,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ui-test-results
-          path: GymQuest-iOS/UITestResults.xcresult
+          path: UITestResults.xcresult
           retention-days: 30

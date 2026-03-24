@@ -37,7 +37,7 @@ jobs:
       - name: Generate SBOM (SPDX JSON)
         uses: anchore/sbom-action@v0
         with:
-          path: ./GymQuest-iOS
+          path: .
           format: spdx-json
           output-file: sbom.spdx.json
           upload-artifact: true
@@ -48,7 +48,7 @@ jobs:
       - name: Generate SBOM (CycloneDX JSON)
         uses: anchore/sbom-action@v0
         with:
-          path: ./GymQuest-iOS
+          path: .
           format: cyclonedx-json
           output-file: sbom.cdx.json
           upload-artifact: true
@@ -60,7 +60,7 @@ jobs:
         uses: anchore/sbom-action@v0
         if: github.event_name == 'push'
         with:
-          path: ./GymQuest-iOS
+          path: .
           format: spdx-json
           output-file: sbom-snapshot.spdx.json
           dependency-snapshot: true
