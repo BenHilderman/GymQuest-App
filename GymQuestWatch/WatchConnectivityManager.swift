@@ -11,18 +11,19 @@ import WatchConnectivity
 import HealthKit
 
 @MainActor
-final class WatchConnectivityManager: NSObject, ObservableObject {
-    @Published var isWorkoutActive = false
-    @Published var currentExerciseName = ""
-    @Published var currentSetNumber = 0
-    @Published var totalSets = 0
-    @Published var restTimeRemaining = 0
-    @Published var elapsedSeconds = 0
-    @Published var workoutType = ""
-    @Published var heartRate: Double = 0
-    @Published var streak = 0
-    @Published var quickExercises: [String] = []
-    @Published var suggestedWeight: Double? = nil
+@Observable
+final class WatchConnectivityManager: NSObject {
+    var isWorkoutActive = false
+    var currentExerciseName = ""
+    var currentSetNumber = 0
+    var totalSets = 0
+    var restTimeRemaining = 0
+    var elapsedSeconds = 0
+    var workoutType = ""
+    var heartRate: Double = 0
+    var streak = 0
+    var quickExercises: [String] = []
+    var suggestedWeight: Double?
 
     private var session: WCSession?
     private var healthStore = HKHealthStore()
@@ -32,36 +33,62 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
     override nonisolated init() {
         super.init()
         if WCSession.isSupported() {
-            let session = WCSession.default
-            session.delegate = self
-            session.activate()
-            self.session = session
+            let wcSession = WCSession.default
+            wcSession.delegate = self
+            wcSession.activate()
+            self.session = wcSession
         }
     }
 
     // MARK: - Send to Phone
 
+    nonisolated func sendWorkoutStart(type: String) {
+        WCSession.default.sendMessage(
+            ["action": "workoutStart", "workoutType": type],
+            replyHandler: nil, errorHandler: nil
+        )
+    }
+
     nonisolated func sendSetComplete(exerciseName: String, setNumber: Int, weight: Double, reps: Int) {
-        let message: [String: Any] = [
+        WCSession.default.sendMessage([
             "action": "setComplete",
             "exerciseName": exerciseName,
             "setNumber": setNumber,
             "weight": weight,
-            "reps": reps
-        ]
-        session?.sendMessage(message, replyHandler: nil, errorHandler: nil)
-    }
-
-    nonisolated func sendWorkoutStart(type: String) {
-        let message: [String: Any] = [
-            "action": "workoutStart",
-            "workoutType": type
-        ]
-        session?.sendMessage(message, replyHandler: nil, errorHandler: nil)
+            "reps": reps,
+        ], replyHandler: nil, errorHandler: nil)
     }
 
     nonisolated func sendWorkoutEnd() {
-        session?.sendMessage(["action": "workoutEnd"], replyHandler: nil, errorHandler: nil)
+        WCSession.default.sendMessage(
+            ["action": "workoutEnd"],
+            replyHandler: nil, errorHandler: nil
+        )
+    }
+
+    nonisolated func sendCompletedWorkout(_ workout: WatchCompletedWorkout) {
+        guard let data = try? JSONEncoder().encode(workout) else { return }
+        WCSession.default.transferUserInfo([
+            "action": "completedWorkout",
+            "workoutData": data,
+        ])
+    }
+
+    nonisolated func requestSync() {
+        WCSession.default.sendMessage(
+            ["action": "requestSync"],
+            replyHandler: { reply in
+                Task { @MainActor in
+                    if let exercises = reply["quickExercises"] as? [String] {
+                        self.quickExercises = exercises
+                    }
+                    if let streakValue = reply["streak"] as? Int {
+                        self.streak = streakValue
+                    }
+                }
+            },
+            errorHandler: nil
+        )
     }
 
     // MARK: - HealthKit Workout
@@ -81,8 +108,10 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
 
             session.startActivity(with: Date())
             try await builder.beginCollection(at: Date())
+
+            observeHeartRate()
         } catch {
-            print("Failed to start HK workout: \(error)")
+            print("[Watch] HealthKit workout start failed: \(error)")
         }
     }
 
@@ -93,10 +122,35 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
             try await builder.endCollection(at: Date())
             try await builder.finishWorkout()
         } catch {
-            print("Failed to end HK workout: \(error)")
+            print("[Watch] HealthKit workout end failed: \(error)")
         }
         workoutSession = nil
         workoutBuilder = nil
+    }
+
+    private func observeHeartRate() {
+        guard let quantityType = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return }
+        let query = HKAnchoredObjectQuery(
+            type: quantityType,
+            predicate: HKQuery.predicateForSamples(withStart: Date(), end: nil),
+            anchor: nil,
+            limit: HKObjectQueryNoLimit
+        ) { [weak self] _, samples, _, _, _ in
+            self?.processHeartRateSamples(samples)
+        }
+        query.updateHandler = { [weak self] _, samples, _, _, _ in
+            self?.processHeartRateSamples(samples)
+        }
+        healthStore.execute(query)
+    }
+
+    private nonisolated func processHeartRateSamples(_ samples: [HKSample]?) {
+        guard let quantitySamples = samples as? [HKQuantitySample],
+              let latest = quantitySamples.last else { return }
+        let bpm = latest.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+        Task { @MainActor in
+            self.heartRate = bpm
+        }
     }
 }
 
@@ -104,12 +158,27 @@ final class WatchConnectivityManager: NSObject, ObservableObject {
 
 extension WatchConnectivityManager: WCSessionDelegate {
     nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
-        // Connected
+        if activationState == .activated {
+            Task { @MainActor in
+                self.requestSync()
+            }
+        }
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         Task { @MainActor in
             handleMessage(message)
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        Task { @MainActor in
+            if let exercises = applicationContext["quickExercises"] as? [String] {
+                self.quickExercises = exercises
+            }
+            if let weight = applicationContext["suggestedWeight"] as? Double {
+                self.suggestedWeight = weight
+            }
         }
     }
 
@@ -141,17 +210,6 @@ extension WatchConnectivityManager: WCSessionDelegate {
 
         default:
             break
-        }
-    }
-
-    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        Task { @MainActor in
-            if let exercises = applicationContext["quickExercises"] as? [String] {
-                quickExercises = exercises
-            }
-            if let weight = applicationContext["suggestedWeight"] as? Double {
-                suggestedWeight = weight
-            }
         }
     }
 }

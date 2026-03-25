@@ -20,6 +20,9 @@ packages:
   SDWebImageSwiftUI:
     url: https://github.com/SDWebImage/SDWebImageSwiftUI
     from: "3.0.0"
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: "2.0.0"
 
 settings:
   base:
@@ -42,6 +45,7 @@ targets:
     dependencies:
       - package: GoogleSignIn
       - package: SDWebImageSwiftUI
+      - package: Supabase
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.app
@@ -75,6 +79,11 @@ targets:
     platform: watchOS
     sources:
       - path: GymQuestWatch
+      - path: GymQuest/Services/ExerciseGifService.swift
+      - path: GymQuest/Resources/ExerciseGifs
+      - path: GymQuest/Resources/exercisedb_mapping.json
+    dependencies:
+      - package: SDWebImageSwiftUI
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.app.watchkitapp

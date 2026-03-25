@@ -24,14 +24,6 @@
 				<string>com.googleusercontent.apps.672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo</string>
 			</array>
 		</dict>
-		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>liftai</string>
-			</array>
-			<key>CFBundleURLName</key>
-			<string>com.liftai.app</string>
-		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>
