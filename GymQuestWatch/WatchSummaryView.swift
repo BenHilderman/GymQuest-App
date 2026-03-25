@@ -2,7 +2,7 @@
 //  WatchSummaryView.swift
 //  GymQuestWatch
 //
-//  Post-workout summary displayed after ending a workout.
+//  Post-workout summary.
 //
 
 import SwiftUI
@@ -12,41 +12,35 @@ struct WatchSummaryView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundStyle(WatchGradients.primary)
+                    .foregroundStyle(WatchColors.success)
 
-                Text("Complete!")
-                    .font(.headline)
+                Text("Complete")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
 
                 Text(workout.type)
-                    .font(.caption)
-                    .foregroundStyle(WatchColors.textSecondary)
-
-                Divider()
-                    .overlay(WatchColors.surface)
+                    .font(.system(size: 12))
+                    .foregroundStyle(WatchColors.textTertiary)
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                     summaryMetric(
                         value: formatDuration(workout.durationSeconds),
-                        label: "Duration",
-                        icon: "clock"
+                        label: "Duration"
                     )
                     summaryMetric(
                         value: "\(workout.exercises.count)",
-                        label: "Exercises",
-                        icon: "figure.strengthtraining.traditional"
+                        label: "Exercises"
                     )
                     summaryMetric(
                         value: "\(workout.totalSets)",
-                        label: "Sets",
-                        icon: "checkmark.circle"
+                        label: "Sets"
                     )
                     summaryMetric(
                         value: formatVolume(workout.totalVolume),
-                        label: "Volume",
-                        icon: "scalemass"
+                        label: "Volume"
                     )
                 }
 
@@ -55,10 +49,9 @@ struct WatchSummaryView: View {
                         Image(systemName: "trophy.fill")
                             .foregroundStyle(WatchColors.gold)
                         Text("\(workout.prsAchieved) PRs")
-                            .font(.caption.bold())
+                            .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(WatchColors.gold)
                     }
-                    .padding(.top, 4)
                 }
             }
             .padding(.horizontal, WatchLayout.horizontalPadding)
@@ -66,20 +59,17 @@ struct WatchSummaryView: View {
     }
 
     @ViewBuilder
-    private func summaryMetric(value: String, label: String, icon: String) -> some View {
+    private func summaryMetric(value: String, label: String) -> some View {
         VStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.caption2)
-                .foregroundStyle(WatchColors.vividPurple)
             Text(value)
-                .font(.caption.bold().monospacedDigit())
+                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white)
             Text(label)
                 .font(.system(size: 9))
-                .foregroundStyle(WatchColors.textSecondary)
+                .foregroundStyle(WatchColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
-        .background(WatchColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 8)
+        .watchGlass()
     }
 }

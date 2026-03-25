@@ -2,8 +2,7 @@
 //  WatchActiveWorkoutView.swift
 //  GymQuestWatch
 //
-//  Core workout experience with exercise tracking, rest timer,
-//  exercise list, and workout overview.
+//  Core workout experience. Apple-native design with gradient accents only.
 //
 
 import SwiftUI
@@ -63,19 +62,20 @@ struct WatchActiveWorkoutView: View {
     // MARK: - Tab 0: Exercise
 
     private var exerciseTab: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             if let exercise = currentExercise {
                 // GIF + Name
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     WatchGifView(exercise.name)
-                    VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(exercise.name)
-                            .font(.caption.bold())
+                            .font(.system(size: 14, weight: .semibold))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
+                            .foregroundStyle(.white)
                         Text("Set \(currentSetIndex + 1) of \(exercise.sets.count)")
-                            .font(.system(size: 10))
-                            .foregroundStyle(WatchColors.textSecondary)
+                            .font(.system(size: 11))
+                            .foregroundStyle(WatchColors.textTertiary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -83,12 +83,12 @@ struct WatchActiveWorkoutView: View {
                 // Weight (Digital Crown)
                 HStack {
                     Text("lbs")
-                        .font(.caption2)
-                        .foregroundStyle(WatchColors.textSecondary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(WatchColors.textTertiary)
                     Spacer()
                     Text("\(Int(currentWeight))")
-                        .font(.title3.bold().monospacedDigit())
-                        .foregroundStyle(WatchColors.vividPurple)
+                        .font(.system(size: 28, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(.white)
                 }
                 .focusable()
                 .digitalCrownRotation($currentWeight, from: 0, through: 999, by: 5, sensitivity: .medium)
@@ -96,27 +96,35 @@ struct WatchActiveWorkoutView: View {
                 // Reps
                 HStack {
                     Button { currentReps = max(1, currentReps - 1) } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .font(.title3)
+                        Image(systemName: "minus")
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(WatchColors.textSecondary)
+                            .frame(width: 32, height: 32)
+                            .background(WatchColors.surface)
+                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
 
                     Text("\(currentReps)")
-                        .font(.title3.bold().monospacedDigit())
+                        .font(.system(size: 24, weight: .bold, design: .rounded).monospacedDigit())
                         .frame(maxWidth: .infinity)
+                        .foregroundStyle(.white)
 
                     Button { currentReps = min(100, currentReps + 1) } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title3)
+                        Image(systemName: "plus")
+                            .font(.system(size: 14, weight: .medium))
                             .foregroundStyle(WatchColors.textSecondary)
+                            .frame(width: 32, height: 32)
+                            .background(WatchColors.surface)
+                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
                 }
 
                 // Complete Set
                 Button { completeSet() } label: {
-                    Text("COMPLETE SET")
+                    Text("Done")
+                        .font(.system(size: 15, weight: .semibold))
                 }
                 .buttonStyle(WatchPrimaryButtonStyle())
 
@@ -124,12 +132,11 @@ struct WatchActiveWorkoutView: View {
                 if showPR {
                     HStack(spacing: 4) {
                         Image(systemName: "trophy.fill")
-                            .font(.caption2)
-                            .foregroundStyle(WatchColors.gold)
-                        Text("PR!")
-                            .font(.caption.bold())
-                            .foregroundStyle(WatchColors.gold)
+                            .font(.system(size: 10))
+                        Text("PR")
+                            .font(.system(size: 11, weight: .bold))
                     }
+                    .foregroundStyle(WatchColors.gold)
                     .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -141,47 +148,53 @@ struct WatchActiveWorkoutView: View {
     // MARK: - Tab 1: Rest Timer
 
     private var restTimerTab: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             if isResting {
                 ZStack {
                     Circle()
-                        .stroke(WatchColors.deepBlue.opacity(0.2), lineWidth: 6)
+                        .stroke(Color(white: 0.18), lineWidth: 5)
 
                     Circle()
                         .trim(from: 0, to: restProgress)
                         .stroke(
                             WatchGradients.primary,
-                            style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                            style: StrokeStyle(lineWidth: 5, lineCap: .round)
                         )
                         .rotationEffect(.degrees(-90))
                         .animation(.linear(duration: 1), value: restSecondsRemaining)
 
                     VStack(spacing: 2) {
                         Text("\(restSecondsRemaining)")
-                            .font(.system(size: 36, weight: .bold, design: .rounded).monospacedDigit())
-                            .foregroundStyle(WatchColors.vividPurple)
+                            .font(.system(size: 40, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(.white)
                         Text("rest")
-                            .font(.caption2)
-                            .foregroundStyle(WatchColors.textSecondary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(WatchColors.textTertiary)
                     }
                 }
-                .frame(width: 110, height: 110)
+                .frame(width: 120, height: 120)
 
                 Button { skipRest() } label: {
                     Text("Skip")
-                        .font(.caption)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(WatchColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(WatchColors.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: WatchLayout.cornerRadius))
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
             } else {
-                VStack(spacing: 6) {
+                VStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.largeTitle)
+                        .font(.system(size: 36))
                         .foregroundStyle(WatchColors.success)
                     Text("Ready")
-                        .font(.headline)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
                     Text("Swipe up for next set")
                         .font(.system(size: 10))
-                        .foregroundStyle(WatchColors.textSecondary)
+                        .foregroundStyle(WatchColors.textTertiary)
                 }
             }
         }
@@ -191,11 +204,12 @@ struct WatchActiveWorkoutView: View {
 
     private var exerciseListTab: some View {
         ScrollView {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 Text("EXERCISES")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(WatchColors.textSecondary)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(WatchColors.textTertiary)
                     .tracking(0.5)
+                    .padding(.bottom, 4)
 
                 ForEach(exercises.indices, id: \.self) { index in
                     let exercise = exercises[index]
@@ -206,26 +220,26 @@ struct WatchActiveWorkoutView: View {
                     Button {
                         jumpToExercise(index)
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: isDone ? "checkmark.circle.fill" : (isCurrent ? "play.circle.fill" : "circle"))
-                                .font(.caption2)
-                                .foregroundStyle(isDone ? WatchColors.success : (isCurrent ? WatchColors.vividPurple : WatchColors.textSecondary))
+                        HStack(spacing: 8) {
+                            Image(systemName: isDone ? "checkmark.circle.fill" : (isCurrent ? "circle.inset.filled" : "circle"))
+                                .font(.system(size: 12))
+                                .foregroundStyle(isDone ? WatchColors.success : (isCurrent ? .white : WatchColors.textTertiary))
 
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(exercise.name)
-                                    .font(.caption2.bold())
+                                    .font(.system(size: 12, weight: .medium))
                                     .lineLimit(1)
-                                    .foregroundStyle(WatchColors.textPrimary)
+                                    .foregroundStyle(.white)
                                 Text("\(completedCount)/\(exercise.sets.count) sets")
                                     .font(.system(size: 9))
-                                    .foregroundStyle(WatchColors.textSecondary)
+                                    .foregroundStyle(WatchColors.textTertiary)
                             }
                             Spacer()
                         }
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 6)
-                        .background(isCurrent ? WatchColors.surface : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 8)
+                        .background(isCurrent ? WatchColors.surfaceElevated : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                 }
@@ -234,14 +248,14 @@ struct WatchActiveWorkoutView: View {
                     addExercise()
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "plus.circle")
-                            .font(.caption2)
-                        Text("Add Exercise")
-                            .font(.caption2)
+                        Image(systemName: "plus")
+                            .font(.system(size: 10))
+                        Text("Add")
+                            .font(.system(size: 11, weight: .medium))
                     }
-                    .foregroundStyle(WatchColors.deepBlue)
+                    .foregroundStyle(WatchColors.textSecondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
             }
@@ -252,29 +266,32 @@ struct WatchActiveWorkoutView: View {
     // MARK: - Tab 3: Overview
 
     private var overviewTab: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             Text(workoutType.uppercased())
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(WatchColors.vividPurple)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(WatchColors.textTertiary)
                 .tracking(0.5)
 
             Text(formatDuration(elapsedSeconds))
-                .font(.title2.bold().monospacedDigit())
+                .font(.system(size: 32, weight: .bold, design: .rounded).monospacedDigit())
+                .foregroundStyle(.white)
 
             HStack(spacing: 16) {
                 VStack(spacing: 2) {
                     Text("\(completedSets)/\(totalSetsCount)")
-                        .font(.caption.bold().monospacedDigit())
+                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white)
                     Text("Sets")
                         .font(.system(size: 9))
-                        .foregroundStyle(WatchColors.textSecondary)
+                        .foregroundStyle(WatchColors.textTertiary)
                 }
                 VStack(spacing: 2) {
                     Text(formatVolume(totalVolume))
-                        .font(.caption.bold().monospacedDigit())
+                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.white)
                     Text("Volume")
                         .font(.system(size: 9))
-                        .foregroundStyle(WatchColors.textSecondary)
+                        .foregroundStyle(WatchColors.textTertiary)
                 }
                 if connectivity.heartRate > 0 {
                     VStack(spacing: 2) {
@@ -283,11 +300,12 @@ struct WatchActiveWorkoutView: View {
                                 .font(.system(size: 8))
                                 .foregroundStyle(.red)
                             Text("\(Int(connectivity.heartRate))")
-                                .font(.caption.bold().monospacedDigit())
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.white)
                         }
                         Text("BPM")
                             .font(.system(size: 9))
-                            .foregroundStyle(WatchColors.textSecondary)
+                            .foregroundStyle(WatchColors.textTertiary)
                     }
                 }
             }
@@ -295,11 +313,15 @@ struct WatchActiveWorkoutView: View {
             Button(role: .destructive) {
                 showEndConfirmation = true
             } label: {
-                Label("End Workout", systemImage: "stop.fill")
-                    .font(.caption2)
+                Text("End Workout")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.red.opacity(0.9))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Color.red.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: WatchLayout.cornerRadius))
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.red.opacity(0.3))
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, WatchLayout.horizontalPadding)
         .confirmationDialog("End Workout?", isPresented: $showEndConfirmation) {
@@ -315,7 +337,6 @@ struct WatchActiveWorkoutView: View {
         syncCurrentSet()
         connectivity.sendWorkoutStart(type: workoutType)
         Task { await connectivity.startHealthKitWorkout() }
-
         elapsedTimer = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { _ in elapsedSeconds = Int(Date().timeIntervalSince(startDate)) }
@@ -326,12 +347,10 @@ struct WatchActiveWorkoutView: View {
         let exercise = exercises[currentExerciseIndex]
         guard exercise.sets.indices.contains(currentSetIndex) else { return }
 
-        // Save values to set
         exercises[currentExerciseIndex].sets[currentSetIndex].weight = currentWeight
         exercises[currentExerciseIndex].sets[currentSetIndex].reps = currentReps
         exercises[currentExerciseIndex].sets[currentSetIndex].isCompleted = true
 
-        // Send to iPhone
         connectivity.sendSetComplete(
             exerciseName: exercise.name,
             setNumber: currentSetIndex + 1,
@@ -339,10 +358,8 @@ struct WatchActiveWorkoutView: View {
             reps: currentReps
         )
 
-        // Check PR (simple: best volume for this exercise in this workout)
         checkPR()
 
-        // Advance
         let nextSetIndex = currentSetIndex + 1
         if nextSetIndex < exercises[currentExerciseIndex].sets.count {
             currentSetIndex = nextSetIndex
@@ -355,7 +372,6 @@ struct WatchActiveWorkoutView: View {
                 syncCurrentSet()
                 startRest(for: exercise.name)
             } else {
-                // All done
                 endWorkout()
             }
         }
@@ -367,7 +383,6 @@ struct WatchActiveWorkoutView: View {
         restSecondsRemaining = seconds
         isResting = true
         selectedTab = 1
-
         restTimer?.cancel()
         restTimer = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
@@ -422,9 +437,7 @@ struct WatchActiveWorkoutView: View {
         let previousBest = completedSets.dropLast().map(\.volume).max() ?? 0
         if currentVolume > previousBest && currentVolume > 0 {
             showPR = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                showPR = false
-            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { showPR = false }
         }
     }
 
@@ -432,7 +445,6 @@ struct WatchActiveWorkoutView: View {
         stopTimers()
         connectivity.sendWorkoutEnd()
         Task { await connectivity.endHealthKitWorkout() }
-
         let completed = WatchCompletedWorkout(
             type: workoutType,
             date: startDate,
@@ -447,7 +459,6 @@ struct WatchActiveWorkoutView: View {
             },
             prsAchieved: 0
         )
-
         WorkoutHistory.save(completed)
         connectivity.sendCompletedWorkout(completed)
         onFinish(completed)

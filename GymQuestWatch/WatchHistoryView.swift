@@ -15,11 +15,11 @@ struct WatchHistoryView: View {
             if history.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "clock.arrow.circlepath")
-                        .font(.title2)
-                        .foregroundStyle(WatchColors.textSecondary)
+                        .font(.system(size: 24))
+                        .foregroundStyle(WatchColors.textTertiary)
                     Text("No workouts yet")
-                        .font(.caption)
-                        .foregroundStyle(WatchColors.textSecondary)
+                        .font(.system(size: 13))
+                        .foregroundStyle(WatchColors.textTertiary)
                 }
             } else {
                 List {
@@ -28,18 +28,20 @@ struct WatchHistoryView: View {
                             HStack(spacing: 8) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(workout.type)
-                                        .font(.caption.bold())
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(.white)
                                     Text(workout.date.formatted(.dateTime.month(.abbreviated).day()))
                                         .font(.system(size: 10))
-                                        .foregroundStyle(WatchColors.textSecondary)
+                                        .foregroundStyle(WatchColors.textTertiary)
                                 }
                                 Spacer()
                                 VStack(alignment: .trailing, spacing: 2) {
                                     Text(formatDuration(workout.durationSeconds))
-                                        .font(.caption2.monospacedDigit())
+                                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(WatchColors.textSecondary)
                                     Text(formatVolume(workout.totalVolume))
                                         .font(.system(size: 10))
-                                        .foregroundStyle(WatchColors.vividPurple)
+                                        .foregroundStyle(WatchColors.textTertiary)
                                 }
                             }
                         }
@@ -61,38 +63,43 @@ struct WatchHistoryView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(workout.type)
-                        .font(.headline)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
                     Spacer()
                     Text(formatDuration(workout.durationSeconds))
-                        .font(.caption.monospacedDigit())
+                        .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(WatchColors.textSecondary)
                 }
 
                 Text(workout.date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day()))
-                    .font(.caption2)
-                    .foregroundStyle(WatchColors.textSecondary)
+                    .font(.system(size: 11))
+                    .foregroundStyle(WatchColors.textTertiary)
 
-                Divider().overlay(WatchColors.surface)
+                Rectangle()
+                    .fill(WatchColors.border)
+                    .frame(height: 0.5)
 
                 ForEach(workout.exercises) { exercise in
                     VStack(alignment: .leading, spacing: 3) {
                         Text(exercise.name)
-                            .font(.caption.bold())
-                            .foregroundStyle(WatchColors.vividPurple)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white)
 
                         ForEach(exercise.sets.indices, id: \.self) { i in
                             let set = exercise.sets[i]
                             HStack {
                                 Text("Set \(i + 1)")
                                     .font(.system(size: 10))
-                                    .foregroundStyle(WatchColors.textSecondary)
+                                    .foregroundStyle(WatchColors.textTertiary)
                                 Spacer()
                                 if set.weight > 0 {
                                     Text("\(Int(set.weight)) lbs x \(set.reps)")
                                         .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(WatchColors.textSecondary)
                                 } else {
                                     Text("\(set.reps) reps")
                                         .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(WatchColors.textSecondary)
                                 }
                             }
                         }
@@ -102,12 +109,12 @@ struct WatchHistoryView: View {
 
                 HStack {
                     Text("Total Volume")
-                        .font(.caption2)
-                        .foregroundStyle(WatchColors.textSecondary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(WatchColors.textTertiary)
                     Spacer()
                     Text(formatVolume(workout.totalVolume))
-                        .font(.caption.bold())
-                        .foregroundStyle(WatchGradients.primary)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
                 }
                 .padding(.top, 4)
             }

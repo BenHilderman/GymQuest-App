@@ -2,39 +2,43 @@
 //  WatchDesignSystem.swift
 //  GymQuestWatch
 //
-//  watchOS design system matching the iOS/tvOS brand.
+//  Apple-native watchOS design system. Neutral palette with gradient accents.
 //
 
 import SwiftUI
 import ImageIO
 
-// MARK: - Layout Constants
+// MARK: - Layout
 
 enum WatchLayout {
     static let horizontalPadding: CGFloat = 8
-    static let cornerRadius: CGFloat = 12
+    static let cornerRadius: CGFloat = 14
     static let gifSize: CGFloat = 36
     static let spacingSmall: CGFloat = 4
     static let spacingMedium: CGFloat = 8
     static let spacingLarge: CGFloat = 12
 }
 
-// MARK: - Brand Colors
+// MARK: - Colors (Neutral palette only)
 
 enum WatchColors {
     static let deepBlue = Color(hex: "3D7CFF")
     static let vividPurple = Color(hex: "C95BFF")
-    static let cyanSpark = Color(hex: "33D1FF")
-    static let success = Color.green
-    static let gold = Color(hex: "FFD700")
-    static let background = Color(white: 0.08)
-    static let surface = Color(white: 0.14)
-    static let surfaceElevated = Color(white: 0.18)
+
+    // Neutrals
+    static let background = Color(white: 0.06)
+    static let surface = Color(white: 0.13)
+    static let surfaceElevated = Color(white: 0.17)
+    static let surfaceLight = Color(white: 0.22)
     static let textPrimary = Color.white
-    static let textSecondary = Color(white: 0.6)
+    static let textSecondary = Color(white: 0.55)
+    static let textTertiary = Color(white: 0.38)
+    static let border = Color(white: 0.20)
+    static let success = Color(hex: "34C759")
+    static let gold = Color(hex: "FFD700")
 }
 
-// MARK: - Gradients
+// MARK: - Gradients (Only color in the app)
 
 enum WatchGradients {
     static let primary = LinearGradient(
@@ -47,6 +51,12 @@ enum WatchGradients {
         colors: [WatchColors.deepBlue, WatchColors.vividPurple],
         startPoint: .top,
         endPoint: .bottom
+    )
+
+    static let subtle = LinearGradient(
+        colors: [WatchColors.deepBlue.opacity(0.15), WatchColors.vividPurple.opacity(0.15)],
+        startPoint: .leading,
+        endPoint: .trailing
     )
 }
 
@@ -86,10 +96,10 @@ struct WatchGifView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
                 Image(systemName: "dumbbell.fill")
-                    .font(.system(size: size * 0.5))
-                    .foregroundStyle(WatchColors.vividPurple)
+                    .font(.system(size: size * 0.4))
+                    .foregroundStyle(WatchColors.textTertiary)
                     .frame(width: size, height: size)
-                    .background(WatchColors.surfaceElevated)
+                    .background(WatchColors.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
         }
@@ -118,5 +128,25 @@ struct WatchPrimaryButtonStyle: ButtonStyle {
             .background(WatchGradients.primary)
             .clipShape(RoundedRectangle(cornerRadius: WatchLayout.cornerRadius))
             .opacity(configuration.isPressed ? 0.7 : 1.0)
+    }
+}
+
+// MARK: - Glass Card Modifier
+
+struct WatchGlassCard: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background(WatchColors.surface)
+            .clipShape(RoundedRectangle(cornerRadius: WatchLayout.cornerRadius))
+            .overlay(
+                RoundedRectangle(cornerRadius: WatchLayout.cornerRadius)
+                    .stroke(WatchColors.border, lineWidth: 0.5)
+            )
+    }
+}
+
+extension View {
+    func watchGlass() -> some View {
+        modifier(WatchGlassCard())
     }
 }
