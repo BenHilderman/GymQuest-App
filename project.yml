@@ -82,8 +82,6 @@ targets:
       - path: GymQuest/Services/ExerciseGifService.swift
       - path: GymQuest/Resources/ExerciseGifs
       - path: GymQuest/Resources/exercisedb_mapping.json
-    dependencies:
-      - package: SDWebImageSwiftUI
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymquest.app.watchkitapp

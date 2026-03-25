@@ -70,7 +70,7 @@ struct WatchSummaryView: View {
         VStack(spacing: 3) {
             Image(systemName: icon)
                 .font(.caption2)
-                .foregroundStyle(WatchColors.cyanSpark)
+                .foregroundStyle(WatchColors.vividPurple)
             Text(value)
                 .font(.caption.bold().monospacedDigit())
             Text(label)

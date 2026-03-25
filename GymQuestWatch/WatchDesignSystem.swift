@@ -6,7 +6,7 @@
 //
 
 import SwiftUI
-import SDWebImageSwiftUI
+import ImageIO
 
 // MARK: - Layout Constants
 
@@ -77,23 +77,32 @@ struct WatchGifView: View {
     }
 
     var body: some View {
-        if let url = ExerciseGifService.shared.gifURL(for: exerciseName) {
-            AnimatedImage(url: url, isAnimating: .constant(true))
-                .customLoopCount(0)
-                .playbackRate(1.5)
-                .resizable()
-                .scaledToFill()
-                .frame(width: size, height: size)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .background(WatchColors.surfaceElevated)
-        } else {
-            Image(systemName: "dumbbell.fill")
-                .font(.system(size: size * 0.5))
-                .foregroundStyle(WatchColors.vividPurple)
-                .frame(width: size, height: size)
-                .background(WatchColors.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+        Group {
+            if let gifImage = loadGifFrame() {
+                gifImage
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                Image(systemName: "dumbbell.fill")
+                    .font(.system(size: size * 0.5))
+                    .foregroundStyle(WatchColors.vividPurple)
+                    .frame(width: size, height: size)
+                    .background(WatchColors.surfaceElevated)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
         }
+    }
+
+    private func loadGifFrame() -> Image? {
+        guard let url = ExerciseGifService.shared.gifURL(for: exerciseName),
+              let data = try? Data(contentsOf: url),
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              CGImageSourceGetCount(source) > 0,
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { return nil }
+        return Image(decorative: cgImage, scale: 1.0)
     }
 }
 

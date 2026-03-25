@@ -88,7 +88,7 @@ struct WatchActiveWorkoutView: View {
                     Spacer()
                     Text("\(Int(currentWeight))")
                         .font(.title3.bold().monospacedDigit())
-                        .foregroundStyle(WatchColors.cyanSpark)
+                        .foregroundStyle(WatchColors.vividPurple)
                 }
                 .focusable()
                 .digitalCrownRotation($currentWeight, from: 0, through: 999, by: 5, sensitivity: .medium)
@@ -159,7 +159,7 @@ struct WatchActiveWorkoutView: View {
                     VStack(spacing: 2) {
                         Text("\(restSecondsRemaining)")
                             .font(.system(size: 36, weight: .bold, design: .rounded).monospacedDigit())
-                            .foregroundStyle(WatchColors.cyanSpark)
+                            .foregroundStyle(WatchColors.vividPurple)
                         Text("rest")
                             .font(.caption2)
                             .foregroundStyle(WatchColors.textSecondary)
@@ -209,7 +209,7 @@ struct WatchActiveWorkoutView: View {
                         HStack(spacing: 6) {
                             Image(systemName: isDone ? "checkmark.circle.fill" : (isCurrent ? "play.circle.fill" : "circle"))
                                 .font(.caption2)
-                                .foregroundStyle(isDone ? WatchColors.success : (isCurrent ? WatchColors.cyanSpark : WatchColors.textSecondary))
+                                .foregroundStyle(isDone ? WatchColors.success : (isCurrent ? WatchColors.vividPurple : WatchColors.textSecondary))
 
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(exercise.name)
@@ -255,7 +255,7 @@ struct WatchActiveWorkoutView: View {
         VStack(spacing: 8) {
             Text(workoutType.uppercased())
                 .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(WatchColors.cyanSpark)
+                .foregroundStyle(WatchColors.vividPurple)
                 .tracking(0.5)
 
             Text(formatDuration(elapsedSeconds))

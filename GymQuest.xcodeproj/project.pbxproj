@@ -231,7 +231,6 @@
 		31FA9BE35AC1B6FAAA84C7BD /* PostCardComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5A4A1BA23435538A8F90F5 /* PostCardComponents.swift */; };
 		32370ED198D3E4342A84B7AC /* FormCheckCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7487D7B029256B93AC32DDC8 /* FormCheckCameraView.swift */; };
 		326411CFA2C2C8F0D3D62BAF /* demo_kettlebell.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = 8BC611247407EBDB141D3002 /* demo_kettlebell.mp4 */; };
-		3288612455ECA05B0F8C2152 /* ActiveWorkoutWatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F24ED7618C414EE346F7B80F /* ActiveWorkoutWatchView.swift */; };
 		329BCD3E516ABE46EE046637 /* FloatingReactionsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E16E8F62B47A1F06BE0E4E /* FloatingReactionsOverlay.swift */; };
 		33005203723A2821E852D156 /* 9058.gif in Resources */ = {isa = PBXBuildFile; fileRef = 48FFFA43927473B75EB60E7C /* 9058.gif */; };
 		330D1E790434DEC1CF02E9D2 /* 0311.gif in Resources */ = {isa = PBXBuildFile; fileRef = 0BC7B9B3D524DF636B01F0B9 /* 0311.gif */; };
@@ -346,7 +345,6 @@
 		4D26D31179D4D3F294028CD1 /* 9054.gif in Resources */ = {isa = PBXBuildFile; fileRef = 89D65EB1BE80335CDD29AFDC /* 9054.gif */; };
 		4D38F8C6ECCFC160150D9A63 /* OverlayTimelineLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9AC58A8EF0D294ADE92084 /* OverlayTimelineLoader.swift */; };
 		4D4499B75A9E8C522E0A528F /* 9062.gif in Resources */ = {isa = PBXBuildFile; fileRef = 2A55BA569BE1A45BC6F9D24C /* 9062.gif */; };
-		4D5DC2430B564F46456B259D /* SDWebImageSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = D005EA1F940EBF742A0CBE4B /* SDWebImageSwiftUI */; };
 		4D9F2E965328A41D96B02408 /* WorkoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19BF9571818D9F60DA4B3C21 /* WorkoutTests.swift */; };
 		4E03E24998F830268C7D8F7F /* QuestService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2F055F6FE71C4E19E10D0A8 /* QuestService.swift */; };
 		4EBAC795271EE374ECFA4E3D /* 0033.gif in Resources */ = {isa = PBXBuildFile; fileRef = DC730E20B6717FAEF898A12C /* 0033.gif */; };
@@ -1506,7 +1504,6 @@
 		EF1B227E45EF3A87C257CC91 /* ReplicateVideoGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReplicateVideoGenerator.swift; sourceTree = "<group>"; };
 		EF5386012FF7A560CF9BCCC3 /* PremiumGateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumGateService.swift; sourceTree = "<group>"; };
 		F0E31A10912D731256D42ADB /* WorkoutEmotionPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutEmotionPicker.swift; sourceTree = "<group>"; };
-		F24ED7618C414EE346F7B80F /* ActiveWorkoutWatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveWorkoutWatchView.swift; sourceTree = "<group>"; };
 		F2885E4899495F531ACE5197 /* openai_chat_response.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = openai_chat_response.json; sourceTree = "<group>"; };
 		F2CB109373E443E95FA26418 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		F384B0580BBBB1189AA24ADC /* 9053.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = 9053.gif; sourceTree = "<group>"; };
@@ -1558,14 +1555,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		9ABFF0FAC208DB9152CA061E /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				4D5DC2430B564F46456B259D /* SDWebImageSwiftUI in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D0D817226C1656BA041375E8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1611,7 +1600,6 @@
 		1F1A5AA16C6BECD6DFBAF515 /* GymQuestWatch */ = {
 			isa = PBXGroup;
 			children = (
-				F24ED7618C414EE346F7B80F /* ActiveWorkoutWatchView.swift */,
 				684E248635EB63946E9CB1FB /* Assets.xcassets */,
 				039AA272A00DEED288661650 /* GymQuestWatch.entitlements */,
 				C978922D864ED8D408AF4AD2 /* GymQuestWatchApp.swift */,
@@ -2403,7 +2391,6 @@
 			buildPhases = (
 				EA548833CCA41F9273E1B6C1 /* Sources */,
 				87EF57F2F4B3B13129D28F11 /* Resources */,
-				9ABFF0FAC208DB9152CA061E /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -2411,7 +2398,6 @@
 			);
 			name = GymQuestWatch;
 			packageProductDependencies = (
-				D005EA1F940EBF742A0CBE4B /* SDWebImageSwiftUI */,
 			);
 			productName = GymQuestWatch;
 			productReference = C0B537663F6B677CAAA8E3BC /* GymQuestWatch.app */;
@@ -3674,7 +3660,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3288612455ECA05B0F8C2152 /* ActiveWorkoutWatchView.swift in Sources */,
 				14583AF521C07ADD040E4789 /* ExerciseGifService.swift in Sources */,
 				57D27015A6759EE9BEE91363 /* GymQuestWatchApp.swift in Sources */,
 				D706C00A088309995263E06B /* SummaryWatchView.swift in Sources */,
@@ -4343,11 +4328,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9B774577F81A87231AD45717 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
-		};
-		D005EA1F940EBF742A0CBE4B /* SDWebImageSwiftUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 6AD50D6176D25521331B1273 /* XCRemoteSwiftPackageReference "SDWebImageSwiftUI" */;
-			productName = SDWebImageSwiftUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -39,7 +39,7 @@ struct WatchHistoryView: View {
                                         .font(.caption2.monospacedDigit())
                                     Text(formatVolume(workout.totalVolume))
                                         .font(.system(size: 10))
-                                        .foregroundStyle(WatchColors.cyanSpark)
+                                        .foregroundStyle(WatchColors.vividPurple)
                                 }
                             }
                         }
@@ -78,7 +78,7 @@ struct WatchHistoryView: View {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(exercise.name)
                             .font(.caption.bold())
-                            .foregroundStyle(WatchColors.cyanSpark)
+                            .foregroundStyle(WatchColors.vividPurple)
 
                         ForEach(exercise.sets.indices, id: \.self) { i in
                             let set = exercise.sets[i]

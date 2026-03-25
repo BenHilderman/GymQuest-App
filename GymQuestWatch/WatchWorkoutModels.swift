@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftUI
 
 // MARK: - Active Workout Types
 
@@ -161,7 +162,7 @@ func defaultRestSeconds(for exerciseName: String) -> Int {
 
 // MARK: - Workout Type Metadata
 
-struct WorkoutTypeInfo: Identifiable, Hashable {
+struct WorkoutTypeInfo: Identifiable {
     let id: String
     let name: String
     let icon: String
@@ -169,10 +170,10 @@ struct WorkoutTypeInfo: Identifiable, Hashable {
 
     static let all: [WorkoutTypeInfo] = [
         WorkoutTypeInfo(id: "Push", name: "Push", icon: "figure.strengthtraining.traditional", color: WatchColors.deepBlue),
-        WorkoutTypeInfo(id: "Pull", name: "Pull", icon: "figure.rowing", color: WatchColors.vividPurple),
+        WorkoutTypeInfo(id: "Pull", name: "Pull", icon: "figure.arms.open", color: WatchColors.vividPurple),
         WorkoutTypeInfo(id: "Legs", name: "Legs", icon: "figure.run", color: WatchColors.success),
-        WorkoutTypeInfo(id: "Upper", name: "Upper", icon: "figure.mixed.cardio", color: WatchColors.cyanSpark),
-        WorkoutTypeInfo(id: "Lower", name: "Lower", icon: "figure.cooldown", color: WatchColors.gold),
+        WorkoutTypeInfo(id: "Upper", name: "Upper", icon: "figure.highintensity.intervaltraining", color: WatchColors.deepBlue),
+        WorkoutTypeInfo(id: "Lower", name: "Lower", icon: "figure.step.training", color: WatchColors.vividPurple),
         WorkoutTypeInfo(id: "Full Body", name: "Full Body", icon: "figure.cross.training", color: WatchColors.deepBlue),
     ]
 }

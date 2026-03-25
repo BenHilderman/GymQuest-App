@@ -30,7 +30,7 @@ final class WatchConnectivityManager: NSObject {
     private var workoutSession: HKWorkoutSession?
     private var workoutBuilder: HKLiveWorkoutBuilder?
 
-    override nonisolated init() {
+    override init() {
         super.init()
         if WCSession.isSupported() {
             let wcSession = WCSession.default
