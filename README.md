@@ -46,6 +46,16 @@ A full-stack, multi-platform fitness application built with SwiftUI and SwiftDat
   <img src=".github/screenshots/tvos_progress.png" width="420" alt="tvOS Progress" />
 </p>
 
+## watchOS
+
+Self-contained companion app with exercise GIF previews, Digital Crown weight adjustment, rest timer with gradient ring, workout history stored locally on-watch, and real-time iPhone sync via WatchConnectivity. Tracks heart rate through HealthKit workout sessions. Built with SF Rounded typography and a neutral palette matching Apple's native design language.
+
+- Quick Start grid with Push, Pull, Legs, Upper, Lower, Full Body templates
+- 4-tab active workout: exercise tracking, rest timer, exercise list, overview
+- Local workout history persisted to UserDefaults (no SwiftData dependency)
+- Completed workouts sync to iPhone via `transferUserInfo` for guaranteed delivery
+- 160 bundled exercise GIFs with first-frame extraction via CoreGraphics
+
 ---
 
 ## Features
@@ -122,10 +132,13 @@ GymQuestTV/                        tvOS companion app
 
 GymQuestWatch/                     watchOS companion app
 ├── GymQuestWatchApp.swift           Entry point with WatchConnectivity
-├── WorkoutStartWatchView.swift      Quick workout launcher
-├── ActiveWorkoutWatchView.swift     Live set tracking on wrist
-├── SummaryWatchView.swift           Post-workout summary
-└── WatchConnectivityManager.swift   iPhone ↔ Watch real-time sync
+├── WatchHomeView.swift              Quick Start grid, recent workout history
+├── WatchActiveWorkoutView.swift     4-tab workout: exercise, rest timer, list, overview
+├── WatchSummaryView.swift           Post-workout stats with local persistence
+├── WatchHistoryView.swift           On-watch workout history with detail drill-down
+├── WatchConnectivityManager.swift   iPhone sync, HealthKit sessions, heart rate
+├── WatchDesignSystem.swift          SF Rounded typography, neutral palette, gradient accents
+└── WatchWorkoutModels.swift         Lightweight structs, templates, UserDefaults storage
 
 backend/                           Python FastAPI microservice
 ├── main.py                          REST API with CORS (port 8000)
