@@ -121,12 +121,12 @@ struct WatchGifView: View {
 struct WatchPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.footnote.bold())
+            .font(.system(size: 16, weight: .semibold, design: .rounded))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
             .background(WatchGradients.primary)
-            .clipShape(RoundedRectangle(cornerRadius: WatchLayout.cornerRadius))
+            .clipShape(Capsule())
             .opacity(configuration.isPressed ? 0.7 : 1.0)
     }
 }

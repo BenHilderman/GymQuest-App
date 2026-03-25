@@ -2,8 +2,6 @@
 //  WatchHomeView.swift
 //  GymQuestWatch
 //
-//  Home screen with workout type selection and recent history.
-//
 
 import SwiftUI
 
@@ -14,14 +12,13 @@ struct WatchHomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 10) {
+            VStack(spacing: 12) {
                 quickStartGrid
 
                 if !workoutHistory.isEmpty {
                     recentSection
                 }
             }
-            .padding(.horizontal, 2)
         }
         .navigationTitle("Lift AI")
         .onAppear { workoutHistory = WorkoutHistory.load() }
@@ -38,8 +35,6 @@ struct WatchHomeView: View {
         }
     }
 
-    // MARK: - Quick Start Grid
-
     private var quickStartGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
             ForEach(WorkoutTypeInfo.all) { type in
@@ -47,70 +42,70 @@ struct WatchHomeView: View {
                     let exercises = buildExercises(for: type.id)
                     activeWorkout = ActiveWorkoutState(type: type.name, exercises: exercises)
                 } label: {
-                    VStack(spacing: 6) {
+                    VStack(spacing: 8) {
                         Image(systemName: type.icon)
-                            .font(.system(size: 20, weight: .medium))
+                            .font(.system(size: 22, weight: .light, design: .rounded))
                             .foregroundStyle(WatchGradients.primary)
                         Text(type.name)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(WatchColors.textPrimary)
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .watchGlass()
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(WatchColors.surface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(WatchColors.border, lineWidth: 0.5)
+                            )
+                    )
                 }
                 .buttonStyle(.plain)
             }
         }
+        .padding(.horizontal, 2)
     }
 
-    // MARK: - Recent Workouts
-
     private var recentSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             NavigationLink(destination: WatchHistoryView()) {
                 HStack {
                     Text("Recent")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(WatchColors.textSecondary)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9))
+                        .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(WatchColors.textTertiary)
                 }
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 4)
 
             ForEach(workoutHistory.prefix(3)) { workout in
-                HStack(spacing: 8) {
-                    RoundedRectangle(cornerRadius: 2)
+                HStack(spacing: 10) {
+                    RoundedRectangle(cornerRadius: 1.5)
                         .fill(WatchGradients.primary)
-                        .frame(width: 3, height: 24)
+                        .frame(width: 3, height: 28)
 
-                    VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(workout.type)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(WatchColors.textPrimary)
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white)
                         Text(workout.date.formatted(.dateTime.month(.abbreviated).day()))
-                            .font(.system(size: 10))
+                            .font(.system(size: 11, design: .rounded))
                             .foregroundStyle(WatchColors.textTertiary)
                     }
                     Spacer()
                     Text(formatDuration(workout.durationSeconds))
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(WatchColors.textSecondary)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(WatchColors.textTertiary)
                 }
-                .padding(.horizontal, 4)
-                .padding(.vertical, 4)
             }
         }
+        .padding(.horizontal, 4)
     }
 }
-
-// MARK: - Active Workout State
 
 struct ActiveWorkoutState: Identifiable {
     let id = UUID()
