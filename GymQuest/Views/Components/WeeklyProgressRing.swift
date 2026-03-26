@@ -16,16 +16,22 @@ struct WeeklyProgressRing: View {
     var workoutIcons: [Date: String] = [:] // date -> SF Symbol icon
     var dailyStreak: Int = 0
     var weeklyStreak: Int = 0
+    var totalMinutes: Int = 0
+    var totalSets: Int = 0
+    var totalVolume: Double = 0
 
     @State private var showingGoalPicker = false
 
-    init(completed: Int, target: Binding<Int>, workoutDates: [Date] = [], workoutIcons: [Date: String] = [:], dailyStreak: Int = 0, weeklyStreak: Int = 0) {
+    init(completed: Int, target: Binding<Int>, workoutDates: [Date] = [], workoutIcons: [Date: String] = [:], dailyStreak: Int = 0, weeklyStreak: Int = 0, totalMinutes: Int = 0, totalSets: Int = 0, totalVolume: Double = 0) {
         self.completed = completed
         self._target = target
         self.workoutDates = workoutDates
         self.workoutIcons = workoutIcons
         self.dailyStreak = dailyStreak
         self.weeklyStreak = weeklyStreak
+        self.totalMinutes = totalMinutes
+        self.totalSets = totalSets
+        self.totalVolume = totalVolume
     }
 
     private var weekDays: [(label: String, date: Date, isToday: Bool, hasWorkout: Bool, icon: String?)] {
@@ -174,6 +180,18 @@ struct WeeklyProgressRing: View {
                     .frame(maxWidth: .infinity)
                 }
             }
+
+            // Weekly stats row
+            if totalMinutes > 0 || totalSets > 0 {
+                HStack(spacing: 0) {
+                    weekStat(value: "\(totalMinutes)", label: "min")
+                    Rectangle().fill(GQColors.borderSubtle).frame(width: 1, height: 20)
+                    weekStat(value: "\(totalSets)", label: "sets")
+                    Rectangle().fill(GQColors.borderSubtle).frame(width: 1, height: 20)
+                    weekStat(value: formatVol(totalVolume), label: "volume")
+                }
+                .padding(.top, 4)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
@@ -182,6 +200,23 @@ struct WeeklyProgressRing: View {
             WeeklyGoalPicker(target: $target)
                 .presentationDetents([.height(280)])
         }
+    }
+
+    private func weekStat(value: String, label: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(GQGradients.primary)
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func formatVol(_ v: Double) -> String {
+        if v >= 1000 { return String(format: "%.1fk", v / 1000) }
+        return "\(Int(v))"
     }
 }
 

@@ -331,6 +331,71 @@ struct PostChallengeData: Codable {
     var participantCount: Int  // snapshot, updated on join
 }
 
+// MARK: - Post Widget (interactive data card)
+
+enum PostWidgetType: String, Codable, CaseIterable {
+    case goal       // Goal progress ring
+    case pr         // PR celebration
+    case macros     // Today's macros donut
+    case body       // Body weight + sparkline
+    case streak     // Streak/milestone
+    case cardio     // Run/cardio stats
+
+    var icon: String {
+        switch self {
+        case .goal: return "target"
+        case .pr: return "trophy.fill"
+        case .macros: return "chart.pie.fill"
+        case .body: return "scalemass.fill"
+        case .streak: return "flame.fill"
+        case .cardio: return "figure.run"
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .goal: return "Goal"
+        case .pr: return "PR"
+        case .macros: return "Macros"
+        case .body: return "Weight"
+        case .streak: return "Streak"
+        case .cardio: return "Cardio"
+        }
+    }
+}
+
+struct PostWidget: Codable {
+    let type: PostWidgetType
+    // Goal
+    var goalExercise: String?
+    var goalTarget: Double?
+    var goalCurrent: Double?
+    var goalUnit: String?
+    // PR
+    var prExercise: String?
+    var prValue: String?
+    var prPrevious: String?
+    var prImprovement: String?
+    var prType: String?
+    // Macros
+    var calories: Int?
+    var protein: Int?
+    var carbs: Int?
+    var fat: Int?
+    // Body
+    var bodyWeight: Double?
+    var bodyChange: Double?
+    var bodyHistory: [Double]?
+    // Streak
+    var streakDays: Int?
+    var milestoneCount: Int?
+    var milestoneLabel: String?
+    // Cardio
+    var distance: Double?
+    var pace: String?
+    var elevation: Double?
+}
+
 // MARK: - Feed Motivation Types
 
 enum MotivationType: String, CaseIterable {
@@ -1489,6 +1554,9 @@ final class Post {
     var challengeId: UUID?
     var challengeData: Data?            // JSON-encoded PostChallengeData
 
+    // Interactive widget card (ONE per post)
+    var postWidgetData: Data?           // JSON-encoded PostWidget
+
     init(
         id: UUID = UUID(),
         authorId: UUID = UUID(),
@@ -1537,7 +1605,8 @@ final class Post {
         musicSnippetStart: Double? = nil,
         videoAspectRatio: Double? = nil,
         challengeId: UUID? = nil,
-        challengeData: Data? = nil
+        challengeData: Data? = nil,
+        postWidgetData: Data? = nil
     ) {
         self.id = id
         self.authorId = authorId
@@ -1587,6 +1656,7 @@ final class Post {
         self.videoAspectRatio = videoAspectRatio
         self.challengeId = challengeId
         self.challengeData = challengeData
+        self.postWidgetData = postWidgetData
     }
 
     /// Decode shared workout data for follow feature
@@ -1605,6 +1675,11 @@ final class Post {
     func getPostChallenge() -> PostChallengeData? {
         guard let data = challengeData else { return nil }
         return try? JSONDecoder().decode(PostChallengeData.self, from: data)
+    }
+
+    func getPostWidget() -> PostWidget? {
+        guard let data = postWidgetData else { return nil }
+        return try? JSONDecoder().decode(PostWidget.self, from: data)
     }
 
     /// Get/set decoded media items for exercise-aligned media

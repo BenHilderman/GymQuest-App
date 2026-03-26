@@ -184,9 +184,20 @@ struct ExerciseMediaCarousel: View {
                         .tag(index)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
+                .tabViewStyle(.page(indexDisplayMode: .never))
                 .aspectRatio(4.0/5.2, contentMode: .fit)
 
+                // Minimal dots like Instagram
+                if mediaItems.count > 1 {
+                    HStack(spacing: 4) {
+                        ForEach(0..<mediaItems.count, id: \.self) { i in
+                            Circle()
+                                .fill(i == selectedIndex ? GQColors.textSecondary : GQColors.textTertiary.opacity(0.3))
+                                .frame(width: 6, height: 6)
+                                .animation(.easeInOut(duration: 0.2), value: selectedIndex)
+                        }
+                    }
+                }
             }
         }
     }

@@ -58,9 +58,10 @@ struct ProfileView: View {
         let targetName = profile.name.lowercased()
 
         return posts.filter { post in
-            post.authorId == profile.id ||
+            (post.authorId == profile.id ||
             post.authorUsername.lowercased() == targetUsername ||
-            post.authorName.lowercased() == targetName
+            post.authorName.lowercased() == targetName) &&
+            post.photoData != nil
         }
     }
 
@@ -650,8 +651,17 @@ struct ProfileView: View {
                 .padding(.horizontal, 4)
 
             ScrollView(.horizontal, showsIndicators: false) {
+                let badges: [(icon: String, title: String, unlocked: Bool)] = [
+                    ("figure.walk", "First Workout", totalWorkoutCount >= 1),
+                    ("flame.fill", "7-Day Streak", profile.xp >= 500),
+                    ("flame.circle.fill", "30-Day Streak", profile.xp >= 3000),
+                    ("trophy.fill", "100 Workouts", totalWorkoutCount >= 100),
+                    ("star.fill", "PR Machine", prEvents.count >= 10),
+                    ("bubble.left.and.bubble.right.fill", "Social Butterfly", userPosts.count >= 10),
+                ].sorted { $0.unlocked && !$1.unlocked }
+
                 HStack(spacing: 10) {
-                    ForEach(Array(sorted.enumerated()), id: \.offset) { _, badge in
+                    ForEach(badges, id: \.title) { badge in
                         achievementBadge(icon: badge.icon, title: badge.title, unlocked: badge.unlocked)
                     }
                 }

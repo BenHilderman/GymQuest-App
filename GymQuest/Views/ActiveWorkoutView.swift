@@ -483,10 +483,28 @@ struct ActiveWorkoutView: View {
     // MARK: - Header
 
     private var workoutHeader: some View {
-        VStack(spacing: 16) {
-            // Row 1: Broadcast toggle | Spacer | End button
-            HStack {
-                // Broadcast toggle
+        VStack(spacing: 12) {
+            // Row 1: Title + End
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(displayTitle)
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+
+                    HStack(spacing: 8) {
+                        Label(formatVolume(totalVolume), systemImage: "chart.bar.fill")
+                        Text("·").foregroundColor(GQColors.textTertiary)
+                        Label("\(completedSetsCount)/\(totalSetsCount) sets", systemImage: "checkmark.circle")
+                        Text("·").foregroundColor(GQColors.textTertiary)
+                        Label("\(exercises.count) exercises", systemImage: "dumbbell")
+                    }
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textSecondary)
+                }
+
+                Spacer()
+
+                // Broadcast
                 Button {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                         isSharingLive.toggle()
@@ -499,57 +517,27 @@ struct ActiveWorkoutView: View {
                         }
                     }
                 } label: {
-                    if isSharingLive {
-                        HStack(spacing: 4) {
-                            Image(systemName: "antenna.radiowaves.left.and.right")
-                                .font(.system(size: 13, weight: .semibold))
-                            Text("\(SocialActivityService.shared.liveCount)")
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .foregroundStyle(GQGradients.primary)
-                        .frame(height: 32)
-                        .padding(.horizontal, 10)
-                        .background(Capsule().fill(GQColors.deepBlue.opacity(0.10)))
-                        .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 1))
-                    } else {
-                        Image(systemName: "antenna.radiowaves.left.and.right.slash")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(GQColors.textTertiary)
-                            .frame(width: 28, height: 28)
-                    }
+                    Image(systemName: isSharingLive ? "antenna.radiowaves.left.and.right" : "antenna.radiowaves.left.and.right.slash")
+                        .font(.system(size: 14))
+                        .foregroundColor(isSharingLive ? GQColors.deepBlue : GQColors.textTertiary)
                 }
                 .buttonStyle(.plain)
+                .padding(.trailing, 8)
 
-                Spacer()
-
-                // End button
+                // End
                 Button {
                     showingCancelConfirmation = true
                 } label: {
                     Text("End")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(GQColors.textSecondary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(GQColors.surfaceBase))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(GQColors.borderDefault, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
             }
-
-            // Hero circular progress ring with timer
-            heroTimerRing
-
-            // Type badge capsule
-            typeBadge
-
-            // Stat chips row
-            statChips
         }
         .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .padding(.bottom, 14)
-        .homeSocialCard(cornerRadius: 14)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
     }
 
     // MARK: - Hero Timer Ring
@@ -716,35 +704,17 @@ struct ActiveWorkoutView: View {
     // MARK: - Bottom Bar
 
     private var bottomBar: some View {
-        VStack(spacing: 8) {
-            // Live summary text
-            if completedSetsCount > 0 {
-                Text("\(exercises.count) exercises · \(completedSetsCount) sets · \(elapsedTime / 60) min")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(GQColors.textTertiary)
-                    .transition(.opacity)
-            }
-
-            Button { finishWorkout() } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
-                    Text("Finish Workout")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                }
+        Button { finishWorkout() } label: {
+            Text("Finish Workout")
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(RoundedRectangle(cornerRadius: 16).fill(GQGradients.primary))
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(GQInteractiveStyle())
+                .frame(height: 50)
+                .background(Capsule().fill(GQGradients.primary))
         }
-        .padding(16)
-        .padding(.horizontal, 16)
-        .homeSocialCard(cornerRadius: 14)
-        .padding(.bottom, 8)
-        .animation(.easeInOut(duration: 0.3), value: completedSetsCount > 0)
+        .buttonStyle(GQInteractiveStyle())
+        .padding(.horizontal, 32)
+        .padding(.bottom, 80)
     }
 
     // MARK: - Helpers
@@ -1193,6 +1163,7 @@ struct ActiveExerciseCard: View {
     @State private var best1RM: Double?
     @State private var showPlateCalculator = false
     @State private var prFiredForExercise = false
+    @State private var showExerciseDemo = false
 
     var completedCount: Int {
         exercise.sets.filter { $0.isCompleted }.count
@@ -1208,17 +1179,20 @@ struct ActiveExerciseCard: View {
         VStack(spacing: 0) {
             // Exercise header
             HStack(alignment: .center, spacing: 12) {
-                if FeatureFlags.shared.exerciseGifsEnabled {
-                    ExerciseGifView(exerciseName: exercise.name, size: .detail, showFallback: true)
-                } else {
-                    ZStack {
-                        Circle().fill(GQColors.deepBlue.opacity(0.10))
-                            .frame(width: 40, height: 40)
-                        Image(systemName: "dumbbell.fill")
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(GQGradients.primary)
+                Button { showExerciseDemo = true } label: {
+                    if FeatureFlags.shared.exerciseGifsEnabled {
+                        ExerciseGifView(exerciseName: exercise.name, size: .detail, showFallback: true)
+                    } else {
+                        ZStack {
+                            Circle().fill(GQColors.deepBlue.opacity(0.10))
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "dumbbell.fill")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(GQGradients.primary)
+                        }
                     }
                 }
+                .buttonStyle(.plain)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.name)
@@ -1322,6 +1296,9 @@ struct ActiveExerciseCard: View {
         }
         .onAppear {
             loadPreviousPerformance()
+        }
+        .sheet(isPresented: $showExerciseDemo) {
+            ExerciseDemoSheet(exerciseName: exercise.name, muscleGroup: exercise.muscleGroup.rawValue)
         }
     }
 
@@ -1515,6 +1492,145 @@ struct IntStepperField: View {
 
 // MARK: - Active Set Row
 
+// MARK: - Exercise Demo Sheet
+
+struct ExerciseDemoSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let exerciseName: String
+    let muscleGroup: String
+
+    private var metadata: ExerciseMetadata? {
+        ExtendedExerciseDatabase.find(exerciseName)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Large GIF
+                    ExerciseGifView(exerciseName: exerciseName, size: .large, showFallback: true)
+                        .frame(height: 280)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .padding(.horizontal, 16)
+
+                    // Exercise info
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Title + equipment
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(exerciseName)
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(GQColors.textPrimary)
+
+                            HStack(spacing: 8) {
+                                Text(muscleGroup)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(GQColors.textSecondary)
+                                if let meta = metadata {
+                                    Text("·")
+                                        .foregroundColor(GQColors.textTertiary)
+                                    Text(meta.equipment.rawValue)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundColor(GQColors.textSecondary)
+                                }
+                            }
+                        }
+
+                        // Cues
+                        if let meta = metadata, !meta.cues.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("HOW TO")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(GQColors.textTertiary)
+                                    .tracking(0.5)
+
+                                ForEach(Array(meta.cues.enumerated()), id: \.offset) { i, cue in
+                                    HStack(alignment: .top, spacing: 10) {
+                                        Text("\(i + 1)")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundStyle(GQGradients.primary)
+                                            .frame(width: 20)
+                                        Text(cue)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(GQColors.textPrimary)
+                                    }
+                                }
+                            }
+                            .padding(14)
+                            .homeSocialCard(cornerRadius: 14)
+                        }
+
+                        // Common mistakes
+                        if let meta = metadata, !meta.commonMistakes.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("AVOID")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(GQColors.textTertiary)
+                                    .tracking(0.5)
+
+                                ForEach(meta.commonMistakes, id: \.self) { mistake in
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(GQColors.textTertiary)
+                                            .frame(width: 20)
+                                        Text(mistake)
+                                            .font(.system(size: 14))
+                                            .foregroundColor(GQColors.textSecondary)
+                                    }
+                                }
+                            }
+                            .padding(14)
+                            .homeSocialCard(cornerRadius: 14)
+                        }
+
+                        // Muscles
+                        if let meta = metadata {
+                            HStack(spacing: 16) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("PRIMARY")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(GQColors.textTertiary)
+                                        .tracking(0.5)
+                                    Text(meta.primaryMuscles.joined(separator: ", "))
+                                        .font(.system(size: 13))
+                                        .foregroundColor(GQColors.textPrimary)
+                                }
+                                if !meta.secondaryMuscles.isEmpty {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text("SECONDARY")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(GQColors.textTertiary)
+                                            .tracking(0.5)
+                                        Text(meta.secondaryMuscles.joined(separator: ", "))
+                                            .font(.system(size: 13))
+                                            .foregroundColor(GQColors.textSecondary)
+                                    }
+                                }
+                                Spacer()
+                            }
+                            .padding(14)
+                            .homeSocialCard(cornerRadius: 14)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .padding(.top, 8)
+                .padding(.bottom, 40)
+            }
+            .scrollContentBackground(.hidden)
+            .gqPageBackground()
+            .navigationTitle(exerciseName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(GQColors.textSecondary)
+                }
+            }
+        }
+    }
+}
+
 struct ActiveSetRow: View {
     @Binding var set: ActiveSet
     let setNumber: Int
@@ -1551,30 +1667,49 @@ struct ActiveSetRow: View {
                     set.isCompleted.toggle()
                     if set.isCompleted {
                         #if canImport(UIKit)
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        // Satisfying triple haptic: tap → success → light
+                        let medium = UIImpactFeedbackGenerator(style: .medium)
+                        medium.impactOccurred()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
                         #endif
                         onComplete?()
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.45)) {
-                            checkScale = 1.25
+                        withAnimation(.spring(response: 0.15, dampingFraction: 0.4)) {
+                            checkScale = 1.35
                         }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                            withAnimation(.spring(response: 0.28, dampingFraction: 0.6)) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) {
                                 checkScale = 1.0
                             }
                         }
                     }
                 }
             } label: {
-                Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 26))
-                    .foregroundStyle(set.isCompleted ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.borderDefault))
-                    .scaleEffect(checkScale)
-                    .frame(width: 40)
+                ZStack {
+                    // Ripple effect on completion
+                    if set.isCompleted {
+                        Circle()
+                            .fill(GQColors.deepBlue.opacity(0.08))
+                            .frame(width: 36, height: 36)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+
+                    Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 26))
+                        .foregroundStyle(set.isCompleted ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.borderDefault))
+                        .scaleEffect(checkScale)
+                }
+                .frame(width: 40)
             }
             .buttonStyle(.plain)
         }
         .padding(.vertical, 6)
-        .background(set.isCompleted ? GQColors.deepBlue.opacity(0.04) : Color.clear)
+        .background(
+            set.isCompleted
+                ? AnyShapeStyle(LinearGradient(colors: [GQColors.deepBlue.opacity(0.04), GQColors.vividPurple.opacity(0.02)], startPoint: .leading, endPoint: .trailing))
+                : AnyShapeStyle(Color.clear)
+        )
     }
 }
 
@@ -3680,231 +3815,94 @@ struct CompactRestTimerBar: View {
     let onSkip: () -> Void
     let onHide: () -> Void
     let onAdjust: (Int) -> Void
-    var accentColor: Color = GQColors.primary
+    var accentColor: Color = GQColors.textTertiary
 
     @State private var showPills = false
-    @State private var shimmerRotation: Double = 0
-    @State private var heartbeatScale: CGFloat = 1.0
-    @State private var backgroundFlash: Double = 0.05
-    @State private var completionBurst: CGFloat = 1.0
-    @State private var showCheckmark = false
 
     var progress: CGFloat {
         guard restTimerTotal > 0 else { return 0 }
         return CGFloat(restTimeRemaining) / CGFloat(restTimerTotal)
     }
 
-    private var isHeartbeat: Bool {
-        restTimeRemaining <= 5 && restTimeRemaining > 0
-    }
-
-    private var isUrgent: Bool {
-        restTimeRemaining <= 3 && restTimeRemaining > 0
-    }
-
-    /// Smoothly interpolated ring color from accent -> coral starting at 5s
-    private var ringColor: Color {
-        guard restTimeRemaining <= 5, restTimeRemaining > 0 else { return accentColor }
-        let t = Double(5 - restTimeRemaining) / 5.0
-        return Color(
-            red: lerp(accentRGB.red, coralRGB.red, t),
-            green: lerp(accentRGB.green, coralRGB.green, t),
-            blue: lerp(accentRGB.blue, coralRGB.blue, t)
-        )
-    }
-
-    private var accentRGB: (red: Double, green: Double, blue: Double) {
-        // Use accent color components — approximate for the gradient
-        (0.4, 0.5, 1.0)
-    }
-
-    private var coralRGB: (red: Double, green: Double, blue: Double) {
-        (0.95, 0.3, 0.3)
-    }
-
-    private func lerp(_ a: Double, _ b: Double, _ t: Double) -> Double {
-        a + (b - a) * t
-    }
-
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                // Circular progress with shimmer ring
-                ZStack {
-                    Circle()
-                        .stroke(GQColors.borderDefault.opacity(0.5), lineWidth: 4)
-                    Circle()
-                        .trim(from: 0, to: progress)
-                        .stroke(
-                            AngularGradient(
-                                colors: [ringColor, ringColor.opacity(0.3), ringColor],
-                                center: .center,
-                                startAngle: .degrees(shimmerRotation),
-                                endAngle: .degrees(shimmerRotation + 360)
-                            ),
-                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
-                        .animation(.linear(duration: 1), value: progress)
+            HStack(spacing: 14) {
+                Text("\(restTimeRemaining)s")
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .frame(minWidth: 50, alignment: .leading)
 
-                    if showCheckmark {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(GQGradients.primary)
-                            .transition(.scale.combined(with: .opacity))
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(GQColors.borderDefault)
+                        Capsule()
+                            .fill(GQColors.textTertiary)
+                            .frame(width: geo.size.width * progress)
+                            .animation(.linear(duration: 1), value: progress)
                     }
                 }
-                .frame(width: 52, height: 52)
-                .scaleEffect(restTimeRemaining == 0 ? completionBurst : heartbeatScale)
+                .frame(height: 4)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    if showCheckmark {
-                        Text("Go!")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundStyle(GQGradients.primary)
-                            .contentTransition(.symbolEffect(.replace))
-                    } else {
-                        Text("\(restTimeRemaining)s")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundStyle(isUrgent ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textPrimary))
-                            .contentTransition(.numericText())
-                            .monospacedDigit()
-                            .scaleEffect(heartbeatScale)
-                    }
-
-                    Text("Rest")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-
-                Spacer()
-
-                // Expand/collapse duration pills
                 Button {
-                    withAnimation(.spring(response: 0.25)) {
-                        showPills.toggle()
-                    }
+                    withAnimation(.spring(response: 0.25)) { showPills.toggle() }
                 } label: {
-                    Image(systemName: showPills ? "chevron.up" : "slider.horizontal.3")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(GQColors.textSecondary)
-                        .padding(6)
-                        .background(GQColors.surfaceOverlay)
-                        .cornerRadius(8)
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
                 }
                 .buttonStyle(.plain)
 
-                // Skip — capsule button
-                Button {
-                    onSkip()
-                } label: {
+                Button { onSkip() } label: {
                     Text("Skip")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(GQColors.surfaceOverlay))
-                        .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 1))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
                 }
                 .buttonStyle(.plain)
 
-                // Hide
-                Button {
-                    onHide()
-                } label: {
+                Button { onHide() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(.system(size: 10, weight: .medium))
                         .foregroundColor(GQColors.textTertiary)
-                        .padding(6)
-                        .background(GQColors.surfaceOverlay)
-                        .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
 
-            // Duration pills — expandable
             if showPills {
                 HStack(spacing: 6) {
                     ForEach([30, 45, 60, 90, 120, 180], id: \.self) { seconds in
-                        Button {
-                            onAdjust(seconds)
-                        } label: {
-                            Text(seconds < 60 ? "\(seconds)s" : "\(seconds / 60):\(String(format: "%02d", seconds % 60))")
-                                .font(.system(size: 11, weight: .semibold))
+                        Button { onAdjust(seconds) } label: {
+                            Text(seconds < 60 ? "\(seconds)s" : "\(seconds / 60)m")
+                                .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(selectedRestDuration == seconds ? GQColors.textPrimary : GQColors.textTertiary)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(
-                                    selectedRestDuration == seconds
-                                    ? GQColors.surfaceElevated
-                                    : GQColors.surfaceOverlay
-                                )
-                                .cornerRadius(10)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(selectedRestDuration == seconds ? GQColors.overlayMedium : Color.clear)
+                                .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
                     }
                     Spacer()
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .padding(.bottom, 6)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
-
-            // Progress bar — slightly thicker
-            GeometryReader { geo in
-                Rectangle()
-                    .fill(ringColor.opacity(0.5))
-                    .frame(width: geo.size.width * progress, height: 3)
-                    .animation(.linear(duration: 1), value: progress)
-            }
-            .frame(height: 3)
         }
-        .padding(.horizontal, 16)
         .homeSocialCard(cornerRadius: 14)
-        .onAppear {
-            withAnimation(
-                .linear(duration: 4)
-                .repeatForever(autoreverses: false)
-            ) {
-                shimmerRotation = 360
-            }
-        }
-        .onChange(of: restTimeRemaining) { oldValue, newValue in
-            // Heartbeat pulse for last 5 seconds
-            if newValue <= 5 && newValue > 0 {
-                withAnimation(.spring(response: 0.15, dampingFraction: 0.4)) {
-                    heartbeatScale = 1.06
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
-                        heartbeatScale = 1.0
-                    }
-                }
-            }
-            // Background flash for last 3 seconds
-            if newValue <= 3 && newValue > 0 {
-                withAnimation(.easeIn(duration: 0.15)) {
-                    backgroundFlash = 0.12
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    withAnimation(.easeOut(duration: 0.15)) {
-                        backgroundFlash = 0.05
-                    }
-                }
-            }
-            // Completion burst at 0
+        .padding(.horizontal, 16)
+        .onChange(of: restTimeRemaining) { _, newValue in
             if newValue == 0 {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
-                    completionBurst = 1.15
-                    showCheckmark = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        completionBurst = 1.0
-                    }
-                }
+                #if canImport(UIKit)
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                #endif
+            } else if newValue <= 3 && newValue > 0 {
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                #endif
             }
         }
     }

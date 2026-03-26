@@ -186,6 +186,7 @@ targets:
       - path: GymQuest/Services/AlbumArtService.swift
       - path: GymQuest/Services/ExerciseGifService.swift
       - path: GymQuest/Views/Components/ExerciseGifView.swift
+      - path: GymQuest/Views/Components/WorkoutIslandPill.swift
       - path: GymQuest/Resources/ExerciseGifs
       - path: GymQuest/Resources/exercisedb_mapping.json
     dependencies:

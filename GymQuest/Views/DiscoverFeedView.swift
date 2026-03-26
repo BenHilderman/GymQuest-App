@@ -801,38 +801,128 @@ struct PostContentOverlay: View {
     var onNotInterested: () -> Void
     var onTapUsername: (() -> Void)? = nil
 
-    var body: some View {
-        VStack {
-            Spacer()
-            HStack(alignment: .bottom, spacing: 12) {
-                PostInfoSection(
-                    post: post,
-                    profile: profile,
-                    isFollowing: $isFollowing,
-                    showPlaylistPreview: $showPlaylistPreview,
-                    showMusicActions: $showMusicActions,
-                    onFollowTap: onFollowTap,
-                    onTapUsername: onTapUsername
-                )
+    private var hasMusic: Bool { post.songTitle != nil && post.artistName != nil }
+    private var isSpotify: Bool { post.musicSource?.lowercased().contains("spotify") == true }
+    private var serviceColor: Color { isSpotify ? Color(hex: "1DB954") : Color(hex: "FC3C44") }
 
-                ActionButtonColumn(
-                    post: post,
-                    profile: profile,
-                    isLiked: $isLiked,
-                    likeCount: $likeCount,
-                    commentCount: $commentCount,
-                    isBookmarked: $isBookmarked,
-                    showComments: $showComments,
-                    showShare: $showShare,
-                    showReactionPicker: $showReactionPicker,
-                    onLikeTap: onLikeTap,
-                    onBookmarkTap: onBookmarkTap,
-                    onReaction: onReaction,
-                    onNotInterested: onNotInterested
+    var body: some View {
+        ZStack {
+            // Full gradient overlay
+            VStack(spacing: 0) {
+                // Top fade (for music pill)
+                LinearGradient(
+                    colors: [.black.opacity(0.5), .black.opacity(0.15), .clear],
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
+                .frame(height: 120)
+
+                Spacer()
+
+                // Bottom fade (for info + actions)
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.1), .black.opacity(0.5), .black.opacity(0.75)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 220)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
+            .allowsHitTesting(false)
+
+            VStack {
+                // ── Top: Music pill (centered) ──
+                if hasMusic, let song = post.songTitle, let artist = post.artistName {
+                    Button {
+                        if post.spotifyPlaylistURL != nil || post.appleMusicPlaylistURL != nil {
+                            showPlaylistPreview = true
+                        } else {
+                            showMusicActions = true
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            // Album art placeholder
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(.ultraThinMaterial)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(serviceColor.opacity(0.3))
+                                    )
+                                    .frame(width: 40, height: 40)
+
+                                Image(systemName: "music.note")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(.white)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(song)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                Text(artist)
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .lineLimit(1)
+                            }
+
+                            MusicEQBars(barCount: 3, barWidth: 2, maxHeight: 12, color: .white, isPlaying: true)
+                                .frame(width: 14, height: 12)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .fill(serviceColor.opacity(0.12))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(.white.opacity(0.2), lineWidth: 0.5)
+                                )
+                        )
+                        .shadow(color: .black.opacity(0.3), radius: 10, y: 4)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 60)
+                    .frame(maxWidth: .infinity)
+                }
+
+                Spacer()
+
+                // ── Bottom: Info + Actions ──
+                HStack(alignment: .bottom, spacing: 12) {
+                    PostInfoSection(
+                        post: post,
+                        profile: profile,
+                        isFollowing: $isFollowing,
+                        showPlaylistPreview: $showPlaylistPreview,
+                        showMusicActions: $showMusicActions,
+                        onFollowTap: onFollowTap,
+                        onTapUsername: onTapUsername
+                    )
+
+                    ActionButtonColumn(
+                        post: post,
+                        profile: profile,
+                        isLiked: $isLiked,
+                        likeCount: $likeCount,
+                        commentCount: $commentCount,
+                        isBookmarked: $isBookmarked,
+                        showComments: $showComments,
+                        showShare: $showShare,
+                        showReactionPicker: $showReactionPicker,
+                        onLikeTap: onLikeTap,
+                        onBookmarkTap: onBookmarkTap,
+                        onReaction: onReaction,
+                        onNotInterested: onNotInterested
+                    )
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
         }
     }
 }
@@ -883,14 +973,10 @@ struct PostInfoSection: View {
                 captionWithHashtags
             }
 
-            // Music ticker
-            if post.songTitle != nil {
-                MusicMarqueeTicker(post: post) {
-                    if post.spotifyPlaylistURL != nil || post.appleMusicPlaylistURL != nil {
-                        showPlaylistPreview = true
-                    } else {
-                        showMusicActions = true
-                    }
+            // Playlist pill (only if has playlist links, music is shown at top)
+            if post.spotifyPlaylistURL != nil || post.appleMusicPlaylistURL != nil {
+                PlaylistPill(spotifyURL: post.spotifyPlaylistURL, appleMusicURL: post.appleMusicPlaylistURL) {
+                    showPlaylistPreview = true
                 }
             }
         }

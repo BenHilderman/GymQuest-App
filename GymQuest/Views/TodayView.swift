@@ -78,6 +78,27 @@ struct TodayView: View {
         allWorkouts.filter { $0.type != .rest }
     }
 
+    private var weeklyWorkoutMinutes: Int {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return 0 }
+        return nonRestWorkouts.filter { $0.date >= startOfWeek }.reduce(0) { $0 + $1.duration }
+    }
+
+    private var weeklyTotalVolume: Double {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return 0 }
+        return nonRestWorkouts.filter { $0.date >= startOfWeek }.reduce(0) { $0 + $1.totalVolume }
+    }
+
+    private var weeklyTotalSets: Int {
+        let calendar = Calendar.current
+        let now = Date()
+        guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return 0 }
+        return nonRestWorkouts.filter { $0.date >= startOfWeek }.reduce(0) { $0 + $1.totalSets }
+    }
+
     private var workoutsThisWeek: Int {
         let calendar = Calendar.current
         let now = Date()
@@ -167,7 +188,22 @@ struct TodayView: View {
                 workoutDates: thisWeekWorkoutDates,
                 workoutIcons: thisWeekWorkoutIcons,
                 dailyStreak: dailyStreak,
-                weeklyStreak: weeklyStreak
+                weeklyStreak: weeklyStreak,
+                totalMinutes: weeklyWorkoutMinutes,
+                totalSets: weeklyTotalSets,
+                totalVolume: weeklyTotalVolume
+            )
+
+            sectionDivider
+
+            // Apple Fitness-style activity rings
+            ActivityRingsCard(
+                workoutMinutes: weeklyWorkoutMinutes,
+                minuteGoal: 150,
+                totalSets: weeklyTotalSets,
+                setGoal: max(profile.daysPerWeek * 15, 60),
+                streak: dailyStreak,
+                streakGoal: 7
             )
 
             sectionDivider
@@ -783,4 +819,91 @@ struct TodayView: View {
         .padding(.vertical, 10)
     }
 
+}
+
+// MARK: - Apple Fitness-Style Activity Rings
+
+struct ActivityRingsCard: View {
+    let workoutMinutes: Int
+    let minuteGoal: Int
+    let totalSets: Int
+    let setGoal: Int
+    let streak: Int
+    let streakGoal: Int
+
+    @State private var animate = false
+
+    private var moveProgress: CGFloat { min(CGFloat(workoutMinutes) / CGFloat(max(minuteGoal, 1)), 1.5) }
+    private var exerciseProgress: CGFloat { min(CGFloat(totalSets) / CGFloat(max(setGoal, 1)), 1.5) }
+    private var streakProgress: CGFloat { min(CGFloat(streak) / CGFloat(max(streakGoal, 1)), 1.5) }
+
+    private let moveColor = Color(hex: "FF2D55")       // Apple red
+    private let exerciseColor = Color(hex: "A8FF04")    // Apple green
+    private let streakColor = Color(hex: "00D4FF")      // Apple cyan
+
+    var body: some View {
+        HStack(spacing: 20) {
+            // Rings
+            ZStack {
+                // Move (outer)
+                ringTrack(size: 90)
+                ringArc(progress: animate ? moveProgress : 0, color: moveColor, size: 90, lineWidth: 10)
+
+                // Exercise (middle)
+                ringTrack(size: 66)
+                ringArc(progress: animate ? exerciseProgress : 0, color: exerciseColor, size: 66, lineWidth: 10)
+
+                // Streak (inner)
+                ringTrack(size: 42)
+                ringArc(progress: animate ? streakProgress : 0, color: streakColor, size: 42, lineWidth: 10)
+            }
+            .frame(width: 100, height: 100)
+
+            // Labels
+            VStack(alignment: .leading, spacing: 10) {
+                ringLabel(color: moveColor, value: "\(workoutMinutes)", unit: "min", label: "Move", goal: minuteGoal)
+                ringLabel(color: exerciseColor, value: "\(totalSets)", unit: "sets", label: "Exercise", goal: setGoal)
+                ringLabel(color: streakColor, value: "\(streak)", unit: "days", label: "Streak", goal: streakGoal)
+            }
+
+            Spacer()
+        }
+        .padding(16)
+        .homeSocialCard(cornerRadius: 16)
+        .onAppear {
+            withAnimation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.2)) {
+                animate = true
+            }
+        }
+    }
+
+    private func ringTrack(size: CGFloat) -> some View {
+        Circle()
+            .stroke(GQColors.overlayLight, lineWidth: 10)
+            .frame(width: size, height: size)
+    }
+
+    private func ringArc(progress: CGFloat, color: Color, size: CGFloat, lineWidth: CGFloat) -> some View {
+        Circle()
+            .trim(from: 0, to: progress)
+            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .frame(width: size, height: size)
+            .rotationEffect(.degrees(-90))
+            .shadow(color: color.opacity(0.4), radius: 3, y: 1)
+    }
+
+    private func ringLabel(color: Color, value: String, unit: String, label: String, goal: Int) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+
+            Text(value)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+            Text("/\(goal) \(unit)")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+        }
+    }
 }

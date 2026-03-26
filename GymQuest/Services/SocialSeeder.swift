@@ -30,7 +30,7 @@ struct SocialSeeder {
     ]
 
     static func seedIfNeeded(modelContext: ModelContext) {
-        let seederVersion = "socialSeeder_v9"
+        let seederVersion = "socialSeeder_v11"
         let needsReseed = !UserDefaults.standard.bool(forKey: seederVersion)
 
         let descriptor = FetchDescriptor<Post>()
@@ -85,7 +85,7 @@ struct SocialSeeder {
             songTitle: "Lose Yourself",
             artistName: "Eminem",
             songPreviewURL: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/62/0a/a5/620aa56f-189e-708a-80f0-cebdada3872e/mzaf_7131619873177773332.plus.aac.p.m4a",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a0/4d/c4/a04dc484-03cc-02aa-fa82-5334fcb4bc16/18UMGIM24878.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/08/23/fc/0823fcd9-cb44-695b-32bf-b3bf51d9f800/00606949351229.rgb.jpg/300x300bb.jpg",
             musicSource: "Apple Music",
             likeCount: 34,
             commentCount: 4,
@@ -118,6 +118,10 @@ struct SocialSeeder {
             authorUsername: fakeUsers[0].username
         )
         p1.sharedWorkoutData = try? JSONEncoder().encode(p1Workout)
+        // Widget: Goal progress
+        p1.postWidgetData = try? JSONEncoder().encode(PostWidget(
+            type: .goal, goalExercise: "Bench Press", goalTarget: 225, goalCurrent: 205, goalUnit: "lbs"
+        ))
         modelContext.insert(p1)
         postIds.append(p1.id)
 
@@ -202,7 +206,7 @@ struct SocialSeeder {
             songTitle: "Power",
             artistName: "Kanye West",
             songPreviewURL: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview221/v4/ae/31/31/ae3131fa-7d8a-933b-c444-ecc0753f543e/mzaf_10401695774164926829.plus.aac.p.m4a",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/47/40/07/474007f1-31bc-bfb1-f474-a9bd5e0a3a0d/10UMGIM09444.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/c2/5d/86/c25d8658-6598-8dd5-ea0e-c5351ebe51e2/8fa68e79-a8ee-4460-bf14-2bf109a421fc.jpg/300x300bb.jpg",
             musicSource: "Apple Music",
             likeCount: 45,
             commentCount: 6,
@@ -237,6 +241,10 @@ struct SocialSeeder {
         // PR: Jake hit a squat PR
         let p3PR = [FeedPR(exerciseName: "Squat", value: "345×3", previousValue: "335×3", improvement: "+10 lbs", prType: "Weight PR")]
         p3.prMomentsData = try? JSONEncoder().encode(p3PR)
+        // Widget: PR celebration
+        p3.postWidgetData = try? JSONEncoder().encode(PostWidget(
+            type: .pr, prExercise: "Squat", prValue: "345×3", prPrevious: "335×3", prImprovement: "+10 lbs", prType: "Weight PR"
+        ))
         modelContext.insert(p3)
         postIds.append(p3.id)
 
@@ -278,7 +286,7 @@ struct SocialSeeder {
             songTitle: "Run This Town",
             artistName: "JAY-Z",
             songPreviewURL: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/63/1d/09/631d09d4-3ea6-81eb-172e-fbf14eb1bafe/mzaf_10891290295194397649.plus.aac.p.m4a",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/e1/f8/72/e1f87224-885e-bb68-476e-b3eeb8362b47/09UMGIM32901.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/17/4a/a7/174aa7ea-0116-6240-1187-1efb51552833/00602527586502.rgb.jpg/300x300bb.jpg",
             musicSource: "Spotify",
             sharedWorkoutData: runData,
             likeCount: 19,
@@ -433,6 +441,10 @@ struct SocialSeeder {
             ]
             p6.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        // Widget: Today's macros
+        p6.postWidgetData = try? JSONEncoder().encode(PostWidget(
+            type: .macros, calories: 2150, protein: 180, carbs: 220, fat: 72
+        ))
         modelContext.insert(p6)
         postIds.append(p6.id)
 
@@ -488,7 +500,7 @@ struct SocialSeeder {
             exerciseHighlight: "Bulgarian Split Squat",
             songTitle: "Sicko Mode",
             artistName: "Travis Scott",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/7e/e4/ab/7ee4ab84-3d05-7600-e2fc-4e7b11a47a39/18UMGIM52971.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/e7/49/8f/e7498f65-df8f-bead-d6e3-2a8d4d642a79/886447235317.jpg/300x300bb.jpg",
             musicSource: "Spotify",
             sharedWorkoutData: legData7,
             inspiredByUsername: fakeUsers[2].username,
@@ -522,7 +534,7 @@ struct SocialSeeder {
             exerciseHighlight: "Deadlift",
             songTitle: "Till I Collapse",
             artistName: "Eminem",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a0/4d/c4/a04dc484-03cc-02aa-fa82-5334fcb4bc16/18UMGIM24878.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/08/23/fc/0823fcd9-cb44-695b-32bf-b3bf51d9f800/00606949351229.rgb.jpg/300x300bb.jpg",
             musicSource: "Apple Music",
             likeCount: 31,
             commentCount: 2,
@@ -662,7 +674,7 @@ struct SocialSeeder {
             exerciseHighlight: "Dumbbell Press",
             songTitle: "Stronger",
             artistName: "Kanye West",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/02/da/e1/02dae132-5acc-0ee0-7b0c-9db239e4b089/07UMGD06593.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/39/25/2d/39252d65-2d50-b991-0962-f7a98a761271/00602517483507.rgb.jpg/300x300bb.jpg",
             musicSource: "Spotify",
             sharedWorkoutData: pushData10,
             likeCount: 42,
@@ -677,7 +689,10 @@ struct SocialSeeder {
             ]
             p10.mediaItemsData = try? JSONEncoder().encode(items)
         }
-        p10.albumArtData = bundledAlbumArt("stronger")
+        // Widget: Streak
+        p10.postWidgetData = try? JSONEncoder().encode(PostWidget(
+            type: .streak, streakDays: 14, milestoneLabel: "Day Comeback Streak"
+        ))
         modelContext.insert(p10)
         postIds.append(p10.id)
 
@@ -798,7 +813,7 @@ struct SocialSeeder {
             exerciseHighlight: "Overhead Press",
             songTitle: "HUMBLE.",
             artistName: "Kendrick Lamar",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/d0/f4/0e/d0f40ef3-86d2-af95-1003-14212e073991/17UMGIM15991.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/ab/16/ef/ab16efe9-e7f1-66ec-021c-5592a23f0f9e/17UMGIM88793.rgb.jpg/300x300bb.jpg",
             musicSource: "Spotify",
             sharedWorkoutData: pushData12,
             likeCount: 23,
@@ -1082,6 +1097,10 @@ struct SocialSeeder {
             ]
             p16.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        // Widget: Body progress
+        p16.postWidgetData = try? JSONEncoder().encode(PostWidget(
+            type: .body, bodyWeight: 174.5, bodyChange: -4.0, bodyHistory: [178.5, 178.0, 177.2, 177.0, 176.5, 176.8, 176.0, 175.5, 175.2, 174.8, 174.5]
+        ))
         modelContext.insert(p16)
         postIds.append(p16.id)
 
@@ -1097,7 +1116,7 @@ struct SocialSeeder {
             exerciseHighlight: "Treadmill",
             songTitle: "Blinding Lights",
             artistName: "The Weeknd",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/e4/7d/96/e47d964e-7879-b498-baf8-b0da1a964695/20UMGIM12176.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a6/6e/bf/a66ebf79-5008-8948-b352-a790fc87446b/19UM1IM04638.rgb.jpg/300x300bb.jpg",
             musicSource: "Apple Music",
             likeCount: 14,
             commentCount: 1,
@@ -1258,7 +1277,7 @@ struct SocialSeeder {
             exerciseHighlight: "Outdoor Run",
             songTitle: "Levitating",
             artistName: "Dua Lipa",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/75/2e/80/752e8083-8837-e13c-7697-136b5a346873/20UMGIM55963.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6c/11/d6/6c11d681-aa3a-d59e-4c2e-f77e181026ab/190295092665.jpg/300x300bb.jpg",
             musicSource: "Spotify",
             inspiredByUsername: fakeUsers[3].username,
             inspiredByName: fakeUsers[3].name,
@@ -1425,7 +1444,7 @@ struct SocialSeeder {
             exerciseHighlight: "Cycling",
             songTitle: "Starboy",
             artistName: "The Weeknd",
-            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/93/57/69/935769dc-30e4-95e1-1da0-a3a2c4382dd0/16UMGIM65828.rgb.jpg/300x300bb.jpg",
+            albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b5/92/bb/b592bb72-52e3-e756-9b26-9f56d08f47ab/16UMGIM67864.rgb.jpg/300x300bb.jpg",
             musicSource: "Spotify",
             likeCount: 21,
             commentCount: 2,
@@ -1772,7 +1791,7 @@ struct SocialSeeder {
                 exerciseHighlight: "Bench Press",
                 songTitle: "Lose Yourself",
                 artistName: "Eminem",
-                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a0/4d/c4/a04dc484-03cc-02aa-fa82-5334fcb4bc16/18UMGIM24878.rgb.jpg/300x300bb.jpg",
+                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/08/23/fc/0823fcd9-cb44-695b-32bf-b3bf51d9f800/00606949351229.rgb.jpg/300x300bb.jpg",
                 musicSource: "Apple Music",
                 detectedActivity: "Weights",
                 likeCount: 11,
@@ -1867,7 +1886,7 @@ struct SocialSeeder {
                 exerciseHighlight: "Cycling",
                 songTitle: "Blinding Lights",
                 artistName: "The Weeknd",
-                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music114/v4/e4/7d/96/e47d964e-7879-b498-baf8-b0da1a964695/20UMGIM12176.rgb.jpg/300x300bb.jpg",
+                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a6/6e/bf/a66ebf79-5008-8948-b352-a790fc87446b/19UM1IM04638.rgb.jpg/300x300bb.jpg",
                 musicSource: "Spotify",
                 detectedActivity: "Cycling",
                 sharedWorkoutData: try? JSONEncoder().encode(cycleWorkoutData),
@@ -1945,7 +1964,7 @@ struct SocialSeeder {
                 exerciseHighlight: "Deadlift",
                 songTitle: "Till I Collapse",
                 artistName: "Eminem",
-                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a0/4d/c4/a04dc484-03cc-02aa-fa82-5334fcb4bc16/18UMGIM24878.rgb.jpg/300x300bb.jpg",
+                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/08/23/fc/0823fcd9-cb44-695b-32bf-b3bf51d9f800/00606949351229.rgb.jpg/300x300bb.jpg",
                 musicSource: "Spotify",
                 sharedWorkoutData: try? JSONEncoder().encode(postEWorkout),
                 likeCount: 32,
@@ -1984,7 +2003,7 @@ struct SocialSeeder {
                 setCount: 12,
                 songTitle: "Stronger",
                 artistName: "Kanye West",
-                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/02/da/e1/02dae132-5acc-0ee0-7b0c-9db239e4b089/07UMGD06593.rgb.jpg/300x300bb.jpg",
+                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/39/25/2d/39252d65-2d50-b991-0962-f7a98a761271/00602517483507.rgb.jpg/300x300bb.jpg",
                 musicSource: "Apple Music",
                 sharedWorkoutData: try? JSONEncoder().encode(postFWorkout),
                 likeCount: 9,
@@ -2037,7 +2056,7 @@ struct SocialSeeder {
                 setCount: 18,
                 songTitle: "Eye of the Tiger",
                 artistName: "Survivor",
-                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/7b/13/81/7b1381df-943e-a951-0290-e0c0eb8e0e3e/886443927087.jpg/300x300bb.jpg",
+                albumArtURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/f9/02/8f/f9028f63-7a55-235e-f789-1e8946430fa2/614223201122.jpg/300x300bb.jpg",
                 musicSource: "Spotify",
                 sharedWorkoutData: try? JSONEncoder().encode(postHWorkout),
                 inspiredByUsername: "jakereeves",

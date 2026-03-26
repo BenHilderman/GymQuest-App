@@ -108,8 +108,12 @@ struct CreatePostView: View {
                         TextEditor(text: $caption)
                             .frame(minHeight: 80)
                             .padding(12)
-                            .background(Color.black.opacity(0.03))
-                            .cornerRadius(12)
+                            .background(GQColors.surfaceBase)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(GQColors.borderDefault, lineWidth: 1)
+                            )
                             .scrollContentBackground(.hidden)
                     }
 
@@ -120,7 +124,7 @@ struct CreatePostView: View {
                                 Text("Include workout stats")
                                     .font(.subheadline)
                             }
-                            .tint(.white)
+                            .tint(GQColors.deepBlue)
 
                             if includeStats {
                                 HStack(spacing: 20) {
@@ -150,8 +154,12 @@ struct CreatePostView: View {
                                     }
                                 }
                                 .padding()
-                                .background(Color.black.opacity(0.02))
-                                .cornerRadius(12)
+                                .background(GQColors.surfaceBase)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .strokeBorder(GQColors.borderDefault, lineWidth: 1)
+                                )
                             }
                         }
                     }
@@ -371,11 +379,12 @@ struct MusicSelectorSection: View {
     @StateObject private var musicService = MusicService.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "music.note")
+                    .font(.system(size: 13))
                     .foregroundStyle(GQGradients.primary)
-                Text("ADD MUSIC")
+                Text("MUSIC")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundColor(GQColors.textTertiary)
                     .tracking(0.5)
@@ -388,20 +397,17 @@ struct MusicSelectorSection: View {
                     } label: {
                         Text("Remove")
                             .font(.system(size: 12))
-                            .foregroundColor(GQColors.textSecondary)
+                            .foregroundColor(GQColors.textTertiary)
                     }
                 }
             }
 
             if let song = selectedSong {
-                // Selected song display
                 SelectedSongRow(song: song) {
                     showMusicPicker = true
                 }
             } else {
-                // Quick suggestions
-                VStack(spacing: 10) {
-                    // AI suggested songs
+                VStack(spacing: 8) {
                     if !musicService.suggestedSongs.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -414,7 +420,6 @@ struct MusicSelectorSection: View {
                         }
                     }
 
-                    // Browse button
                     Button {
                         showMusicPicker = true
                     } label: {
@@ -425,27 +430,15 @@ struct MusicSelectorSection: View {
                         .font(.system(size: 14, weight: .medium))
                         .foregroundColor(GQColors.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(GQColors.elevatedSurface)
-                        .cornerRadius(10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .strokeBorder(GQColors.neonPurple.opacity(0.3), lineWidth: 1)
-                        )
+                        .padding(.vertical, 11)
                     }
+                    .homeSocialCard(cornerRadius: 10)
                     .buttonStyle(GQInteractiveStyle())
                 }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(GQColors.surfaceOverlay.opacity(0.78))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(GQGradients.glassBorder, lineWidth: 0.85)
-        )
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
         .onAppear {
             if let activity = activityType {
                 musicService.generateAISuggestions(for: activity)
@@ -461,21 +454,15 @@ struct SelectedSongRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                // Album art placeholder
+                // Album art
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(
-                            LinearGradient(
-                                colors: [song.source.color, song.source.color.opacity(0.6)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 48, height: 48)
+                        .fill(GQColors.overlayMedium)
+                        .frame(width: 44, height: 44)
 
                     Image(systemName: "music.note")
-                        .font(.title3)
-                        .foregroundColor(.white)
+                        .font(.system(size: 16))
+                        .foregroundColor(GQColors.textSecondary)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -485,31 +472,30 @@ struct SelectedSongRow: View {
 
                     Text(song.artist)
                         .font(.system(size: 12))
-                        .foregroundColor(GQColors.textSecondary)
+                        .foregroundColor(GQColors.textTertiary)
                 }
 
                 Spacer()
 
-                // Source badge
-                HStack(spacing: 4) {
-                    Image(systemName: song.source.icon)
-                        .font(.system(size: 10))
-                    Text(song.source.rawValue)
-                        .font(.system(size: 10, weight: .medium))
-                }
-                .foregroundColor(song.source.color)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(song.source.color.opacity(0.15))
-                .cornerRadius(6)
+                Text(song.source.rawValue)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(GQColors.overlayMedium)
+                    .clipShape(Capsule())
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(GQColors.textTertiary)
             }
-            .padding(12)
-            .background(GQColors.elevatedSurface)
-            .cornerRadius(10)
+            .padding(10)
+            .background(GQColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(GQColors.borderDefault, lineWidth: 1)
+            )
         }
         .buttonStyle(GQInteractiveStyle())
     }
@@ -524,7 +510,7 @@ struct QuickSongChip: View {
             HStack(spacing: 6) {
                 Image(systemName: "music.note")
                     .font(.system(size: 10))
-                    .foregroundStyle(GQGradients.primary)
+                    .foregroundColor(GQColors.textTertiary)
 
                 VStack(alignment: .leading, spacing: 0) {
                     Text(song.title)
@@ -539,12 +525,12 @@ struct QuickSongChip: View {
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(GQColors.elevatedSurface)
-            .cornerRadius(8)
+            .padding(.vertical, 7)
+            .background(GQColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(GQColors.neonPurple.opacity(0.2), lineWidth: 1)
+                    .strokeBorder(GQColors.borderDefault, lineWidth: 1)
             )
         }
         .buttonStyle(GQInteractiveStyle())
