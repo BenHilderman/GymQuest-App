@@ -229,7 +229,7 @@ struct LogWorkoutView: View {
             }
 
             if exercises.isEmpty {
-                Text("Optional - track lifts for PR detection")
+                Text("Optional · track lifts for PR detection")
                     .font(.caption)
                     .foregroundColor(.gray.opacity(0.7))
             } else {

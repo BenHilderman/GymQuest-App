@@ -58,7 +58,6 @@ struct WorkoutStartOptionsView: View {
                                 title: "Saved Workouts",
                                 subtitle: savedWorkoutsSubtitle,
                                 accent: GQColors.deepBlue,
-                                badgeText: savedTemplates.isEmpty ? nil : "\(savedTemplates.count)",
                                 useGradient: true
                             ) {
                                 SavedWorkoutsListView(profile: profile, templates: savedTemplates)
@@ -69,7 +68,6 @@ struct WorkoutStartOptionsView: View {
                                 title: "AI Generated",
                                 subtitle: "Smart recommendation",
                                 accent: GQColors.deepBlue,
-                                badgeText: "AI",
                                 useGradient: true
                             ) {
                                 AIGeneratedPlaceholderView()
@@ -195,37 +193,31 @@ struct WorkoutStartOptionsView: View {
     // MARK: - Motivational Stats
 
     private var motivationalStats: some View {
-        VStack(spacing: 0) {
-            sectionLabel("YOUR PROGRESS")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 10)
-
-            HStack(spacing: 0) {
-                statItem(value: "\(streakDays)", label: "Day Streak")
-                Divider()
-                    .frame(height: 28)
-                    .overlay(GQColors.borderSubtle)
-                statItem(value: "\(workoutsThisWeek)", label: "This Week")
-                Divider()
-                    .frame(height: 28)
-                    .overlay(GQColors.borderSubtle)
-                statItem(value: "Lv \(profile.level)", label: "Level")
-            }
-            .padding(.vertical, 14)
-            .homeSocialCard(cornerRadius: 14)
+        HStack(spacing: 10) {
+            progressCard(icon: "flame.fill", value: "\(streakDays)", label: "Streak")
+            progressCard(icon: "calendar", value: "\(workoutsThisWeek)", label: "This Week")
+            progressCard(icon: "star.fill", value: "Lv \(profile.level)", label: UserProfile.levelTitle(for: profile.level))
         }
     }
 
-    private func statItem(value: String, label: String) -> some View {
-        VStack(spacing: 2) {
+    private func progressCard(icon: String, value: String, label: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(GQGradients.primary)
+
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(.system(size: 18, weight: .bold, design: .rounded))
                 .foregroundColor(GQColors.textPrimary)
+
             Text(label)
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .homeSocialCard(cornerRadius: 12)
     }
 
     // MARK: - Computed Properties
@@ -236,7 +228,7 @@ struct WorkoutStartOptionsView: View {
 
     private var previousWorkoutSubtitle: String {
         if let last = nonRestWorkouts.first {
-            return "Last: \(last.type.rawValue) — \(last.date.formatted(.dateTime.month(.abbreviated).day()))"
+            return "Last: \(last.type.rawValue) · \(last.date.formatted(.dateTime.month(.abbreviated).day()))"
         }
         return "Repeat a recent workout"
     }
@@ -296,9 +288,9 @@ struct PreviousWorkoutsListView: View {
                 )
             } else {
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 14) {
+                    VStack(spacing: 10) {
                         ForEach(workouts.prefix(20)) { workout in
-                            workoutRow(workout)
+                            workoutCard(workout)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -313,49 +305,50 @@ struct PreviousWorkoutsListView: View {
     }
 
     @ViewBuilder
-    private func workoutRow(_ workout: Workout) -> some View {
-        HStack(spacing: 12) {
-            Button {
-                startFromPrevious(workout)
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: workout.type.icon)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 40, height: 40)
-                        .background(GQGradients.workoutGradient(for: workout.type))
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
+    private func workoutCard(_ workout: Workout) -> some View {
+        let sortedExercises = workout.exercises.sorted { $0.order < $1.order }
 
-                    VStack(alignment: .leading, spacing: 3) {
+        Button {
+            startFromPrevious(workout)
+        } label: {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(GQColors.deepBlue.opacity(0.08))
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Image(systemName: workout.type.icon)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                    )
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
                         Text(workout.title ?? workout.type.rawValue)
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(GQColors.textPrimary)
-                        Text("\(workout.exercises.count) exercises · \(workout.date.formatted(.dateTime.month(.abbreviated).day()))")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textSecondary)
+                            .lineLimit(1)
+                        Spacer()
+                        Text(workout.date.formatted(.dateTime.month(.abbreviated).day()))
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textTertiary)
                     }
 
-                    Spacer()
+                    Text("\(workout.duration)m · \(workout.exercises.count) exercises · \(workout.totalSets) sets")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textSecondary)
+
+                    if !sortedExercises.isEmpty {
+                        Text(sortedExercises.prefix(3).map(\.name).joined(separator: ", "))
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                            .lineLimit(1)
+                    }
                 }
             }
-            .buttonStyle(.plain)
-
-            WorkoutFavoriteButton(workout: workout)
-
-            Button {
-                startFromPrevious(workout)
-            } label: {
-                Image(systemName: "play.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(GQGradients.primary)
-                    .frame(width: 40, height: 40)
-                    .background(GQColors.deepBlue.opacity(0.08))
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
         }
-        .padding(14)
-        .homeSocialCard(cornerRadius: 14)
+        .buttonStyle(GQInteractiveStyle())
     }
 
     private func startFromPrevious(_ workout: Workout) {
@@ -390,9 +383,9 @@ struct SavedWorkoutsListView: View {
                 )
             } else {
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 14) {
+                    VStack(spacing: 10) {
                         ForEach(templates) { template in
-                            templateRow(template)
+                            templateCard(template)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -407,35 +400,47 @@ struct SavedWorkoutsListView: View {
     }
 
     @ViewBuilder
-    private func templateRow(_ template: WorkoutTemplate) -> some View {
+    private func templateCard(_ template: WorkoutTemplate) -> some View {
+        let templateExercises = template.exercises
+
         Button {
             startFromTemplate(template)
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: template.workoutType.icon)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
+                Circle()
+                    .fill(GQColors.deepBlue.opacity(0.08))
                     .frame(width: 40, height: 40)
-                    .background(GQGradients.workoutGradient(for: template.workoutType))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        Image(systemName: template.workoutType.icon)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                    )
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(template.name)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    Text("\(template.estimatedDuration) min · Used \(template.useCount) times")
-                        .font(.system(size: 13))
+                    HStack {
+                        Text(template.name)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                            .lineLimit(1)
+                        Spacer()
+                        if let author = template.savedFromUsername, !author.isEmpty {
+                            Text("@\(author)")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(GQGradients.primary)
+                        }
+                    }
+
+                    Text("\(template.estimatedDuration)m · \(templateExercises.count) exercises")
+                        .font(.system(size: 12))
                         .foregroundColor(GQColors.textSecondary)
+
+                    if !templateExercises.isEmpty {
+                        Text(templateExercises.prefix(3).map(\.name).joined(separator: ", "))
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                            .lineLimit(1)
+                    }
                 }
-
-                Spacer()
-
-                Image(systemName: "play.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(GQGradients.primary)
-                    .frame(width: 40, height: 40)
-                    .background(GQColors.deepBlue.opacity(0.08))
-                    .clipShape(Circle())
             }
             .padding(14)
             .homeSocialCard(cornerRadius: 14)

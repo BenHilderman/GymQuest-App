@@ -1568,22 +1568,36 @@ struct MusicMarqueeTicker: View {
     let post: Post
     var onTap: () -> Void
 
+    @State private var resolvedArtURL: String?
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 6) {
-                Image(systemName: "music.note")
-                    .font(.system(size: 11))
+                AlbumArtAsync(
+                    localData: post.albumArtData,
+                    urlString: resolvedArtURL ?? post.albumArtURL,
+                    isSpotify: post.musicSource?.lowercased().contains("spotify") == true
+                )
                 Text(tickerText)
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
             }
             .foregroundColor(.white.opacity(0.85))
         }
+        .task(id: post.id) {
+            guard post.albumArtURL == nil, post.albumArtData == nil,
+                  let song = post.songTitle, !song.isEmpty else { return }
+            let artist = post.artistName ?? ""
+            if let url = await AlbumArtService.shared.artworkURL(song: song, artist: artist) {
+                resolvedArtURL = url.absoluteString
+                post.albumArtURL = url.absoluteString
+            }
+        }
     }
 
     private var tickerText: String {
         if let artist = post.artistName, !artist.isEmpty {
-            return "\(post.songTitle ?? "") - \(artist)"
+            return "\(post.songTitle ?? "") · \(artist)"
         }
         return post.songTitle ?? ""
     }

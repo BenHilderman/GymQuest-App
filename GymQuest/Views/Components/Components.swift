@@ -1615,7 +1615,7 @@ struct LevelUpBanner: View {
                     .foregroundColor(GQColors.textSecondary)
                     .tracking(1)
 
-                Text("Level \(newLevel) - \(UserProfile.levelTitle(for: newLevel))")
+                Text("Level \(newLevel) · \(UserProfile.levelTitle(for: newLevel))")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
             }

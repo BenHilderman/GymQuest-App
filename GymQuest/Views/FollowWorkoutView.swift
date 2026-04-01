@@ -577,7 +577,7 @@ struct FollowWorkoutView: View {
     func getNextExerciseName() -> String {
         if let exercise = currentExercise {
             if currentSetIndex < exercise.sets.count {
-                return "\(exercise.name) - Set \(currentSetIndex + 1)"
+                return "\(exercise.name) · Set \(currentSetIndex + 1)"
             }
         }
         if currentExerciseIndex + 1 < workoutData.exercises.count {

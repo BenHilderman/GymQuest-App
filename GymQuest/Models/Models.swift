@@ -4049,6 +4049,8 @@ final class WorkoutTemplate {
     var useCount: Int
     var createdAt: Date
     var lastUsedAt: Date?
+    var savedFromAuthor: String?    // Display name of who created it
+    var savedFromUsername: String?   // @username of creator
 
     init(
         id: UUID = UUID(),
@@ -4060,7 +4062,9 @@ final class WorkoutTemplate {
         isPublic: Bool = false,
         useCount: Int = 0,
         createdAt: Date = Date(),
-        lastUsedAt: Date? = nil
+        lastUsedAt: Date? = nil,
+        savedFromAuthor: String? = nil,
+        savedFromUsername: String? = nil
     ) {
         self.id = id
         self.odId = odId
@@ -4072,6 +4076,8 @@ final class WorkoutTemplate {
         self.useCount = useCount
         self.createdAt = createdAt
         self.lastUsedAt = lastUsedAt
+        self.savedFromAuthor = savedFromAuthor
+        self.savedFromUsername = savedFromUsername
     }
 
     var exercises: [TemplateExercise] {
