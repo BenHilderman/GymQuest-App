@@ -2373,15 +2373,12 @@ struct MusicBadge: View {
             .padding(.vertical, 6)
             .background(
                 Capsule()
-                    .fill(.ultraThinMaterial)
-                    .background(
-                        Capsule()
-                            .fill(Color.black.opacity(0.5))
-                    )
+                    .fill(Color.white)
+                    .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
             )
             .overlay(
                 Capsule()
-                    .strokeBorder(GQGradients.glassBorder, lineWidth: 0.85)
+                    .strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
             )
         }
         .buttonStyle(.plain)

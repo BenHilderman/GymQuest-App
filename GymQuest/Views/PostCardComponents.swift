@@ -3537,6 +3537,46 @@ struct AlbumArtImage: View {
     }
 }
 
+struct AlbumArtAsync: View {
+    let localData: Data?
+    let urlString: String?
+    let isSpotify: Bool
+
+    var body: some View {
+        Group {
+            #if canImport(UIKit)
+            if let data = localData, let uiImage = UIImage(data: data) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else if let str = urlString, let url = URL(string: str) {
+                WebImage(url: url) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    artPlaceholder
+                }
+            } else {
+                artPlaceholder
+            }
+            #else
+            artPlaceholder
+            #endif
+        }
+        .frame(width: 28, height: 28)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+
+    private var artPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 4)
+            .fill(isSpotify ? Color.green.opacity(0.3) : Color.pink.opacity(0.3))
+            .overlay(
+                Image(systemName: "music.note")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.6))
+            )
+    }
+}
+
 #if canImport(UIKit)
 extension UIImage {
     func dominantColor() -> Color {

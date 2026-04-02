@@ -73,7 +73,6 @@ struct ProfileView: View {
                 VStack(spacing: 8) {
                     profileHeader
                     profileCompletionBanner
-                    todayHealthStatsCard
                     achievementBadgesSection
                     VStack(spacing: 0) {
                         postsContent
@@ -641,7 +640,10 @@ struct ProfileView: View {
             ("star.fill", "PR Machine", prEvents.count >= 10),
             ("bubble.left.and.bubble.right.fill", "Social Butterfly", userPosts.count >= 10),
         ]
-        let sorted = allBadges.sorted { $0.unlocked && !$1.unlocked }
+        let sorted = allBadges.sorted { lhs, rhs in
+            if lhs.unlocked == rhs.unlocked { return false }
+            return lhs.unlocked
+        }
 
         return VStack(alignment: .leading, spacing: 8) {
             Text("ACHIEVEMENTS")
