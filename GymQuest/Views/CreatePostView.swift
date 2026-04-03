@@ -124,7 +124,7 @@ struct CreatePostView: View {
                                 Text("Include workout stats")
                                     .font(.subheadline)
                             }
-                            .tint(GQColors.deepBlue)
+                            .tint(GQColors.vividPurple)
 
                             if includeStats {
                                 HStack(spacing: 20) {
@@ -685,6 +685,7 @@ struct MusicPickerSheet: View {
                 }
             }
         }
+        .tint(GQColors.textPrimary)
     }
 }
 
@@ -735,9 +736,21 @@ struct SongRow: View {
                         )
                         .frame(width: 52, height: 52)
 
-                    Image(systemName: "music.note")
-                        .font(.title2)
-                        .foregroundColor(.white)
+                    if let artURL = song.albumArt {
+                        AsyncImage(url: artURL) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Image(systemName: "music.note")
+                                .font(.title2)
+                                .foregroundColor(.white)
+                        }
+                        .frame(width: 52, height: 52)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        Image(systemName: "music.note")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -767,7 +780,7 @@ struct SongRow: View {
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(isSelected ? GQColors.neonPurple.opacity(0.5) : Color.clear, lineWidth: 1)
+                    .stroke(isSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.5)) : AnyShapeStyle(Color.clear), lineWidth: 1)
             )
         }
         .buttonStyle(GQInteractiveStyle())
@@ -827,7 +840,7 @@ struct ServiceConnectionCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(GQGradients.glassBorder, lineWidth: 0.85)
+                .strokeBorder(GQColors.borderDefault, lineWidth: 1)
         )
     }
 }
@@ -1012,7 +1025,7 @@ struct QuickTagButton: View {
         } label: {
             Text(tag)
                 .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                .foregroundColor(isSelected ? .white : .gray)
+                .foregroundColor(isSelected ? .white : GQColors.textTertiary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(isSelected ? GQColors.textSecondary.opacity(0.4) : Color.black.opacity(0.05))
@@ -1045,7 +1058,7 @@ struct MealFeelingButton: View {
                     .animation(.spring(response: 0.3, dampingFraction: 0.4), value: isSelected)
                 Text(feeling.rawValue)
                     .font(.system(size: 9))
-                    .foregroundColor(isSelected ? .white : .gray)
+                    .foregroundColor(isSelected ? .white : GQColors.textTertiary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)

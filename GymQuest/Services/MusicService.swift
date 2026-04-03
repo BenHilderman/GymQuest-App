@@ -265,24 +265,24 @@ class MusicService: ObservableObject {
         // Generate workout-appropriate song suggestions based on activity
         let workoutSongs: [Song]
 
+        // Songs with real iTunes album art and 30s preview URLs
+        let loseYourself = Song(title: "Lose Yourself", artist: "Eminem", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/08/23/fc/0823fcd9-cb44-695b-32bf-b3bf51d9f800/00606949351229.rgb.jpg/300x300bb.jpg"), previewURL: URL(string: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview125/v4/53/82/26/53822699-a05f-8fd1-e498-1a5e4e498695/mzaf_13223030825880804498.plus.aac.p.m4a"), source: .aiSuggestion)
+        let tillICollapse = Song(title: "Till I Collapse", artist: "Eminem", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/08/23/fc/0823fcd9-cb44-695b-32bf-b3bf51d9f800/00606949351229.rgb.jpg/300x300bb.jpg"), previewURL: URL(string: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview115/v4/1e/3f/e4/1e3fe4d8-02e1-69e1-db3a-e18ce4a6bbbc/mzaf_14301754578498079498.plus.aac.p.m4a"), source: .aiSuggestion)
+        let power = Song(title: "Power", artist: "Kanye West", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/c2/5d/86/c25d8658-6598-8dd5-ea0e-c5351ebe51e2/8fa68e79-a8ee-4460-bf14-2bf109a421fc.jpg/300x300bb.jpg"), source: .aiSuggestion)
+        let stronger = Song(title: "Stronger", artist: "Kanye West", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music128/v4/39/25/2d/39252d65-2d50-b991-0962-f7a98a761271/00602517483507.rgb.jpg/300x300bb.jpg"), source: .aiSuggestion)
+        let eyeOfTheTiger = Song(title: "Eye of the Tiger", artist: "Survivor", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/f9/02/8f/f9028f63-7a55-235e-f789-1e8946430fa2/614223201122.jpg/300x300bb.jpg"), source: .aiSuggestion)
+        let blindingLights = Song(title: "Blinding Lights", artist: "The Weeknd", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/a6/6e/bf/a66ebf79-5008-8948-b352-a790fc87446b/19UM1IM04638.rgb.jpg/300x300bb.jpg"), previewURL: URL(string: "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview122/v4/63/67/0b/63670b6d-0712-4fbc-c07b-7615a2e7836e/mzaf_6682622363498498562.plus.aac.p.m4a"), source: .aiSuggestion)
+        let humble = Song(title: "HUMBLE.", artist: "Kendrick Lamar", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/ab/16/ef/ab16efe9-e7f1-66ec-021c-5592a23f0f9e/17UMGIM88793.rgb.jpg/300x300bb.jpg"), source: .aiSuggestion)
+        let sickoMode = Song(title: "SICKO MODE", artist: "Travis Scott", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/e7/49/8f/e7498f65-df8f-bead-d6e3-2a8d4d642a79/886447235317.jpg/300x300bb.jpg"), source: .aiSuggestion)
+        let levitating = Song(title: "Levitating", artist: "Dua Lipa", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/6c/11/d6/6c11d681-aa3a-d59e-4c2e-f77e181026ab/190295092665.jpg/300x300bb.jpg"), source: .aiSuggestion)
+        let starboy = Song(title: "Starboy", artist: "The Weeknd", albumArt: URL(string: "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/b5/92/bb/b592bb72-52e3-e756-9b26-9f56d08f47ab/16UMGIM67864.rgb.jpg/300x300bb.jpg"), source: .aiSuggestion)
+
         switch activityType?.lowercased() {
-        case "weightlifting", "weights":
-            workoutSongs = [
-                Song(title: "Lose Yourself", artist: "Eminem", source: .aiSuggestion),
-                Song(title: "Till I Collapse", artist: "Eminem", source: .aiSuggestion),
-                Song(title: "Power", artist: "Kanye West", source: .aiSuggestion),
-                Song(title: "Remember The Name", artist: "Fort Minor", source: .aiSuggestion),
-                Song(title: "Stronger", artist: "Kanye West", source: .aiSuggestion)
-            ]
-        case "running":
-            workoutSongs = [
-                Song(title: "Run Boy Run", artist: "Woodkid", source: .aiSuggestion),
-                Song(title: "Eye of the Tiger", artist: "Survivor", source: .aiSuggestion),
-                Song(title: "Can't Hold Us", artist: "Macklemore", source: .aiSuggestion),
-                Song(title: "Blinding Lights", artist: "The Weeknd", source: .aiSuggestion),
-                Song(title: "Don't Stop Me Now", artist: "Queen", source: .aiSuggestion)
-            ]
-        case "yoga":
+        case "weightlifting", "weights", "push", "pull", "legs", "upper", "lower":
+            workoutSongs = [loseYourself, tillICollapse, power, humble, stronger]
+        case "running", "cardio":
+            workoutSongs = [blindingLights, eyeOfTheTiger, levitating, starboy, sickoMode]
+        case "yoga", "stretching":
             workoutSongs = [
                 Song(title: "Weightless", artist: "Marconi Union", source: .aiSuggestion),
                 Song(title: "Clair de Lune", artist: "Debussy", source: .aiSuggestion),
@@ -290,22 +290,8 @@ class MusicService: ObservableObject {
                 Song(title: "Intro", artist: "The xx", source: .aiSuggestion),
                 Song(title: "Breathe", artist: "Télépopmusik", source: .aiSuggestion)
             ]
-        case "cycling":
-            workoutSongs = [
-                Song(title: "Sandstorm", artist: "Darude", source: .aiSuggestion),
-                Song(title: "Levels", artist: "Avicii", source: .aiSuggestion),
-                Song(title: "Wake Me Up", artist: "Avicii", source: .aiSuggestion),
-                Song(title: "Titanium", artist: "David Guetta", source: .aiSuggestion),
-                Song(title: "Animals", artist: "Martin Garrix", source: .aiSuggestion)
-            ]
         default:
-            workoutSongs = [
-                Song(title: "Eye of the Tiger", artist: "Survivor", source: .aiSuggestion),
-                Song(title: "Stronger", artist: "Kanye West", source: .aiSuggestion),
-                Song(title: "Work Out", artist: "J. Cole", source: .aiSuggestion),
-                Song(title: "Pump It", artist: "Black Eyed Peas", source: .aiSuggestion),
-                Song(title: "Thunderstruck", artist: "AC/DC", source: .aiSuggestion)
-            ]
+            workoutSongs = [eyeOfTheTiger, stronger, loseYourself, blindingLights, sickoMode]
         }
 
         suggestedSongs = workoutSongs

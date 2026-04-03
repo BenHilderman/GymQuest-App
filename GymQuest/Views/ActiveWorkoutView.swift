@@ -106,6 +106,8 @@ struct ActiveWorkoutView: View {
     @State private var showingCompletionChoice = false
     @State private var showingPostEditor = false
     @State private var savedWorkout: Workout?
+    @State private var workoutMedia: [PostMedia] = []
+    @State private var showingWorkoutCamera = false
     @State private var elapsedTime = 0
     @State private var timer: Timer?
     @State private var restTimer: Timer?
@@ -325,21 +327,51 @@ struct ActiveWorkoutView: View {
             }
 
             #if canImport(UIKit)
-            // Voice coach floating button
-            if FeatureFlags.shared.voiceCoachEnabled {
-                VStack {
+            // Floating buttons (camera + voice coach)
+            VStack {
+                Spacer()
+                HStack {
                     Spacer()
-                    HStack {
-                        Spacer()
-                        VoiceCoachButton(
-                            exercises: exercises,
-                            currentExerciseName: exercises.first(where: { !$0.sets.allSatisfy(\.isCompleted) })?.name,
-                            profile: profile,
-                            allWorkouts: (try? modelContext.fetch(FetchDescriptor<Workout>())) ?? []
-                        )
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 100)
+                    VStack(spacing: 12) {
+                        // Camera button
+                        Button { showingWorkoutCamera = true } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(GQColors.surfaceBase)
+                                    .frame(width: 48, height: 48)
+                                    .overlay(
+                                        Circle().stroke(GQColors.borderDefault, lineWidth: 1)
+                                    )
+                                    .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(GQGradients.primary)
+
+                                // Badge
+                                if !workoutMedia.isEmpty {
+                                    Text("\(workoutMedia.count)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 18, height: 18)
+                                        .background(GQColors.vividPurple)
+                                        .clipShape(Circle())
+                                        .offset(x: 16, y: -16)
+                                }
+                            }
+                        }
+
+                        // Voice coach
+                        if FeatureFlags.shared.voiceCoachEnabled {
+                            VoiceCoachButton(
+                                exercises: exercises,
+                                currentExerciseName: exercises.first(where: { !$0.sets.allSatisfy(\.isCompleted) })?.name,
+                                profile: profile,
+                                allWorkouts: (try? modelContext.fetch(FetchDescriptor<Workout>())) ?? []
+                            )
+                        }
                     }
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 100)
                 }
             }
             #endif
@@ -400,6 +432,7 @@ struct ActiveWorkoutView: View {
                 hasSeenPostWorkoutPaywall = true
                 showingPostWorkoutPaywall = true
             } else {
+                appState.selectedTab = .feed
                 appState.endWorkout()
             }
         }) {
@@ -408,7 +441,8 @@ struct ActiveWorkoutView: View {
                     profile: profile,
                     workout: workout,
                     exercises: makeCompletedExercises(),
-                    duration: elapsedTime / 60
+                    duration: elapsedTime / 60,
+                    preloadedMedia: workoutMedia
                 )
             }
         }
@@ -454,6 +488,7 @@ struct ActiveWorkoutView: View {
                             hasSeenPostWorkoutPaywall = true
                             showingPostWorkoutPaywall = true
                         } else {
+                            appState.selectedTab = .feed
                             appState.endWorkout()
                         }
                     }
@@ -461,10 +496,14 @@ struct ActiveWorkoutView: View {
             }
         }
         .sheet(isPresented: $showingPostWorkoutPaywall, onDismiss: {
+            appState.selectedTab = .feed
             appState.endWorkout()
         }) {
             PaywallView()
                 .environmentObject(SubscriptionService.shared)
+        }
+        .sheet(isPresented: $showingWorkoutCamera) {
+            WorkoutCameraSheet(workoutMedia: $workoutMedia)
         }
         .alert("Share Gym Location?", isPresented: $showingGymLocationPrompt) {
             Button("Share Location") {
@@ -3952,6 +3991,140 @@ struct OverloadSuggestionPill: View {
         }
     }
 }
+
+// MARK: - Workout Camera Sheet
+
+#if canImport(UIKit)
+struct WorkoutCameraSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var workoutMedia: [PostMedia]
+    @StateObject private var cameraVM = CameraViewModel()
+    @State private var selectedPhotoItem: PhotosPickerItem?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                GQColors.background.ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    // Camera viewfinder
+                    ZStack {
+                        PostCameraPreviewView(cameraVM: cameraVM)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(GQColors.borderDefault, lineWidth: 1)
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+
+                    // Media count indicator
+                    if !workoutMedia.isEmpty {
+                        Text("\(workoutMedia.count) captured")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                            .padding(.top, 8)
+                    }
+
+                    Spacer()
+
+                    // Controls
+                    HStack(alignment: .center) {
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .any(of: [.images, .videos])) {
+                            VStack(spacing: 6) {
+                                Image(systemName: "photo.on.rectangle")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(GQColors.textPrimary)
+                                Text("Library")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                            .frame(width: 56, height: 56)
+                        }
+
+                        Spacer()
+
+                        ShutterButton(isRecording: cameraVM.isRecording) {
+                            guard workoutMedia.count < EnhancedPostEditorView.maxMediaItems else { return }
+                            cameraVM.capturePhoto { data in
+                                guard let data = data,
+                                      let img = UIImage(data: data)?.fixedOrientation(),
+                                      let compressed = img.jpegData(compressionQuality: 0.8) else { return }
+                                let enhanced = cameraVM.applySubtleEnhancement(to: compressed)
+                                let media = PostMedia(exerciseName: nil, exerciseIndex: nil, mediaType: .photo, data: enhanced, thumbnailData: enhanced)
+                                workoutMedia.append(media)
+                                dismiss()
+                            }
+                        } onHoldStart: {
+                            guard workoutMedia.count < EnhancedPostEditorView.maxMediaItems else { return }
+                            cameraVM.startRecording()
+                        } onHoldEnd: {
+                            cameraVM.stopRecording { url in
+                                guard let url = url, let data = try? Data(contentsOf: url) else { return }
+                                let thumb = VideoThumbnailGenerator.generate(from: url)
+                                let thumbData = thumb?.jpegData(compressionQuality: 0.7)
+                                let media = PostMedia(exerciseName: nil, exerciseIndex: nil, mediaType: .video, data: data, thumbnailData: thumbData)
+                                workoutMedia.append(media)
+                                try? FileManager.default.removeItem(at: url)
+                                dismiss()
+                            }
+                        }
+
+                        Spacer()
+
+                        Button {
+                            cameraVM.flipCamera()
+                        } label: {
+                            VStack(spacing: 6) {
+                                Image(systemName: "camera.rotate")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(GQColors.textPrimary)
+                                Text("Flip")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                            .frame(width: 56, height: 56)
+                        }
+                    }
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 32)
+                    .padding(.top, 16)
+                }
+            }
+            .navigationTitle("Capture")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundColor(GQColors.textSecondary)
+                }
+            }
+            .onChange(of: selectedPhotoItem) { _, newValue in
+                loadFromLibrary(newValue)
+            }
+        }
+        .tint(GQColors.textPrimary)
+    }
+
+    private func loadFromLibrary(_ item: PhotosPickerItem?) {
+        guard let item = item else { return }
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                if let uiImage = UIImage(data: data)?.fixedOrientation() {
+                    let compressed = uiImage.jpegData(compressionQuality: 0.8) ?? data
+                    let enhanced = cameraVM.applySubtleEnhancement(to: compressed)
+                    let media = PostMedia(exerciseName: nil, exerciseIndex: nil, mediaType: .photo, data: enhanced, thumbnailData: enhanced)
+                    await MainActor.run {
+                        workoutMedia.append(media)
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+#endif
 
 // MARK: - Preview
 

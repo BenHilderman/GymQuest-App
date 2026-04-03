@@ -17,6 +17,9 @@ import UIKit
 // MARK: - Enhanced Post Editor View
 
 struct EnhancedPostEditorView: View {
+    static let maxMediaItems = 10
+    static let maxVideoDuration: Double = 60
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
@@ -25,6 +28,21 @@ struct EnhancedPostEditorView: View {
     let exercises: [CompletedExercise]  // Exercise names and sets from the workout
     let duration: Int
     var initialSong: Song? = nil
+    var preloadedMedia: [PostMedia] = []
+
+    // Navigation
+    private enum PostEditorPhase: Hashable { case customize }
+    @State private var navigationPath = NavigationPath()
+    @State private var didAutoNavigate = false
+    @State private var currentMediaIndex: Int = 0
+
+    // Media (Phase 1)
+    @State private var selectedMedia: PostMedia? = nil
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    #if canImport(UIKit)
+    @StateObject private var cameraVM = CameraViewModel()
+    @State private var previewImage: UIImage? = nil
+    #endif
 
     // Core state
     @State private var selectedEmotion: WorkoutEmotion? = nil
@@ -44,12 +62,10 @@ struct EnhancedPostEditorView: View {
     @State private var snippetStartTime: Double = 0
 
     // Sheet state
-    @State private var showMediaPicker = false
     @State private var showUserTagger = false
     @State private var showLocationPicker = false
     @State private var showSquadPicker = false
     @State private var showMusicPicker = false
-    @State private var selectedExerciseForMedia: String? = nil  // nil = general media
 
     // Voice note
     @State private var voiceNoteData: Data?
@@ -73,359 +89,810 @@ struct EnhancedPostEditorView: View {
     @StateObject private var musicService = MusicService.shared
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                // Post preview card — feels like composing a feed card
-                VStack(alignment: .leading, spacing: 0) {
+        NavigationStack(path: $navigationPath) {
+            mediaSelectionPhase
+                .navigationDestination(for: PostEditorPhase.self) { _ in
+                    postCustomizationPhase
+                }
+        }
+        .tint(GQColors.textPrimary)
+        .sheet(isPresented: $showUserTagger) {
+            UserTaggingView(taggedUsernames: $taggedUsernames)
+        }
+        .sheet(isPresented: $showLocationPicker) {
+            LocationTaggingView(
+                selectedLocation: $selectedLocation,
+                userId: profile.id
+            )
+        }
+        .sheet(isPresented: $showSquadPicker) {
+            SquadTaggingView(
+                taggedSquads: $taggedSquads,
+                userId: profile.id
+            )
+        }
+        .sheet(isPresented: $showMusicPicker) {
+            MusicPickerSheet(
+                selectedSong: $selectedSong,
+                activityType: workout?.type.rawValue
+            )
+        }
+        .sheet(isPresented: $showChallengeCreator) {
+            ChallengeCreatorSheet(attachedChallenge: $attachedChallenge)
+        }
+        .sheet(isPresented: $showWidgetPicker) {
+            PostWidgetPickerSheet(attachedWidget: $attachedWidget, profile: profile, workout: workout, exercises: exercises, duration: duration)
+        }
+        .onAppear {
+            if selectedSong == nil, let song = initialSong {
+                selectedSong = song
+            }
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage)
+        }
+        .overlay {
+            if showConfetti {
+                ConfettiOverlay()
+                    .allowsHitTesting(false)
+            }
+        }
+    }
 
-                    // ── Header (like feed card header) ──
-                    postHeader
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+    // MARK: - Phase 1: Media Selection (Live Camera)
 
-                    // ── Photo preview (shows first photo like feed) ──
-                    if let firstPhoto = mediaItems.first(where: { $0.exerciseName == nil })?.data ?? mediaItems.first?.data {
-                        #if canImport(UIKit)
-                        if let img = UIImage(data: firstPhoto) {
-                            ZStack {
-                                Image(uiImage: img)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(maxHeight: 300)
-                                    .clipped()
+    @ViewBuilder
+    private var capturedThumbnailStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Array(mediaItems.enumerated()), id: \.element.id) { idx, item in
+                    capturedThumbnail(item: item, index: idx)
+                }
+            }
+            .padding(.horizontal, 16)
+        }
+    }
 
-                                // Music overlay on preview (top center)
-                                if let song = selectedSong {
-                                    VStack {
-                                        HStack(spacing: 6) {
-                                            Image(systemName: "music.note")
-                                                .font(.system(size: 10))
-                                            Text("\(song.title) · \(song.artist)")
-                                                .font(.system(size: 11, weight: .medium))
-                                                .lineLimit(1)
-                                        }
-                                        .foregroundColor(.white)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 4)
-                                        .background(Capsule().fill(.black.opacity(0.35)))
-                                        .padding(.top, 10)
+    @ViewBuilder
+    private func capturedThumbnail(item: PostMedia, index: Int) -> some View {
+        ZStack(alignment: .topTrailing) {
+            #if canImport(UIKit)
+            if let data = item.thumbnailData ?? item.data, let thumb = UIImage(data: data) {
+                Image(uiImage: thumb)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                videoThumbnailPlaceholder
+            }
+            #endif
+            Button {
+                withAnimation { let _: PostMedia = mediaItems.remove(at: index) }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white)
+                    .background(Circle().fill(.black.opacity(0.5)).frame(width: 14, height: 14))
+            }
+            .offset(x: 4, y: -4)
+        }
+    }
 
-                                        Spacer()
+    @ViewBuilder
+    private var videoThumbnailPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(GQColors.overlayMedium)
+            .frame(width: 48, height: 48)
+            .overlay(Image(systemName: "video.fill").font(.system(size: 14)).foregroundColor(.white))
+    }
+
+    // MARK: - Media Reorder Strip
+
+    @ViewBuilder
+    private var mediaReorderStrip: some View {
+        VStack(spacing: 4) {
+            Text("Hold & drag to reorder")
+                .font(.system(size: 11))
+                .foregroundColor(GQColors.textTertiary)
+
+            HStack(spacing: 8) {
+                ForEach(mediaItems) { item in
+                    reorderThumbnail(item: item)
+                }
+            }
+            .padding(.horizontal, 14)
+        }
+    }
+
+    @ViewBuilder
+    private func reorderThumbnail(item: PostMedia) -> some View {
+        let idx = mediaItems.firstIndex(where: { $0.id == item.id }) ?? 0
+        let isActive = idx == currentMediaIndex
+        ZStack {
+            #if canImport(UIKit)
+            if let data = item.thumbnailData ?? item.data, let thumb = UIImage(data: data) {
+                Image(uiImage: thumb)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                videoThumbnailPlaceholder
+            }
+            #endif
+
+            if item.mediaType == .video {
+                Image(systemName: "play.fill")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white)
+                    .shadow(radius: 2)
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isActive ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(Color.clear), lineWidth: 2.5)
+        )
+        .onTapGesture { withAnimation { currentMediaIndex = idx } }
+        .draggable(item.id.uuidString) {
+            // Drag preview
+            RoundedRectangle(cornerRadius: 8)
+                .fill(GQColors.overlayMedium)
+                .frame(width: 56, height: 56)
+                .overlay(
+                    Text("\(idx + 1)")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                )
+        }
+        .dropDestination(for: String.self) { droppedIDs, _ in
+            guard let droppedID = droppedIDs.first,
+                  let fromUUID = UUID(uuidString: droppedID),
+                  let fromIdx = mediaItems.firstIndex(where: { $0.id == fromUUID }) else { return false }
+            let toIdx = mediaItems.firstIndex(where: { $0.id == item.id }) ?? 0
+            if fromIdx != toIdx {
+                moveMedia(from: fromIdx, to: toIdx)
+            }
+            return true
+        }
+    }
+
+    private func moveMedia(from source: Int, to destination: Int) {
+        withAnimation {
+            let item = mediaItems.remove(at: source)
+            mediaItems.insert(item, at: destination)
+            currentMediaIndex = destination
+        }
+    }
+
+    private func navigateToCustomize() {
+        selectedMedia = mediaItems.first
+        #if canImport(UIKit)
+        if let data = mediaItems.first?.data, let img = UIImage(data: data) {
+            previewImage = img
+        }
+        #endif
+        navigationPath.append(PostEditorPhase.customize)
+    }
+
+    @ViewBuilder
+    private var mediaSelectionPhase: some View {
+        ZStack {
+            GQColors.background.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Camera viewfinder
+                ZStack {
+                    #if canImport(UIKit)
+                    PostCameraPreviewView(cameraVM: cameraVM)
+                    #else
+                    Color.black
+                    #endif
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(GQColors.borderDefault, lineWidth: 1)
+                )
+                .padding(.horizontal, 12)
+                .padding(.top, 8)
+
+                // Captured media thumbnails + count
+                if !mediaItems.isEmpty {
+                    HStack {
+                        capturedThumbnailStrip
+                        Spacer()
+                        Text("\(mediaItems.count)/\(Self.maxMediaItems)")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(mediaItems.count >= Self.maxMediaItems ? GQColors.vividPurple : GQColors.textTertiary)
+                            .padding(.trailing, 16)
+                    }
+                    .padding(.top, 10)
+                }
+
+                Spacer()
+
+                // Controls
+                HStack(alignment: .center) {
+                    PhotosPicker(
+                        selection: $selectedPhotoItem,
+                        matching: .any(of: [.images, .videos])
+                    ) {
+                        VStack(spacing: 6) {
+                            Image(systemName: "photo.on.rectangle")
+                                .font(.system(size: 22))
+                                .foregroundColor(GQColors.textPrimary)
+                            Text("Library")
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+                        .frame(width: 56, height: 56)
+                    }
+
+                    Spacer()
+
+                    #if canImport(UIKit)
+                    ShutterButton(isRecording: cameraVM.isRecording) {
+                        guard mediaItems.count < Self.maxMediaItems else { return }
+                        cameraVM.capturePhoto { [self] data in
+                            guard let data = data,
+                                  let img = UIImage(data: data)?.fixedOrientation(),
+                                  let compressed = img.jpegData(compressionQuality: 0.8) else { return }
+                            let media = PostMedia(
+                                exerciseName: nil,
+                                exerciseIndex: nil,
+                                mediaType: .photo,
+                                data: compressed,
+                                thumbnailData: compressed
+                            )
+                            withAnimation { mediaItems.append(media) }
+                            // Enhance in background
+                            let itemIndex = mediaItems.count - 1
+                            Task.detached {
+                                let enhanced = cameraVM.applySubtleEnhancement(to: compressed)
+                                await MainActor.run {
+                                    if itemIndex < mediaItems.count {
+                                        mediaItems[itemIndex] = PostMedia(exerciseName: nil, exerciseIndex: nil, mediaType: .photo, data: enhanced, thumbnailData: enhanced)
                                     }
                                 }
+                            }
+                        }
+                    } onHoldStart: {
+                        guard mediaItems.count < Self.maxMediaItems else { return }
+                        cameraVM.startRecording()
+                    } onHoldEnd: { [self] in
+                        cameraVM.stopRecording { url in
+                            guard let url = url, let data = try? Data(contentsOf: url) else { return }
+                            let thumb = VideoThumbnailGenerator.generate(from: url)
+                            let thumbData = thumb?.jpegData(compressionQuality: 0.7)
+                            let media = PostMedia(
+                                exerciseName: nil,
+                                exerciseIndex: nil,
+                                mediaType: .video,
+                                data: data,
+                                thumbnailData: thumbData
+                            )
+                            withAnimation { mediaItems.append(media) }
+                            try? FileManager.default.removeItem(at: url)
+                        }
+                    }
+                    #endif
 
-                                // Add more photos button
-                                VStack {
-                                    Spacer()
-                                    HStack {
-                                        Spacer()
+                    Spacer()
+
+                    // Flip / Next button
+                    if mediaItems.isEmpty {
+                        Button {
+                            #if canImport(UIKit)
+                            cameraVM.flipCamera()
+                            #endif
+                        } label: {
+                            VStack(spacing: 6) {
+                                Image(systemName: "camera.rotate")
+                                    .font(.system(size: 22))
+                                    .foregroundColor(GQColors.textPrimary)
+                                Text("Flip")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                            .frame(width: 56, height: 56)
+                        }
+                    } else {
+                        Button { navigateToCustomize() } label: {
+                            VStack(spacing: 6) {
+                                ZStack {
+                                    Circle()
+                                        .fill(GQGradients.primary)
+                                        .frame(width: 48, height: 48)
+                                    Image(systemName: "arrow.right")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundColor(.white)
+                                }
+                                Text("Next")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(GQColors.textPrimary)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 40)
+                .padding(.bottom, 32)
+                .padding(.top, 16)
+            }
+        }
+        .navigationTitle("Share Workout")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Skip") { dismiss() }
+                    .foregroundColor(GQColors.textSecondary)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                if !mediaItems.isEmpty {
+                    Button {
+                        #if canImport(UIKit)
+                        cameraVM.flipCamera()
+                        #endif
+                    } label: {
+                        Image(systemName: "camera.rotate")
+                            .foregroundColor(GQColors.textPrimary)
+                    }
+                }
+            }
+        }
+        .onChange(of: selectedPhotoItem) { _, newValue in
+            loadMediaFromPhotosPicker(newValue)
+        }
+        .onAppear {
+            guard !didAutoNavigate, !preloadedMedia.isEmpty else { return }
+            didAutoNavigate = true
+            mediaItems = preloadedMedia
+            navigateToCustomize()
+        }
+    }
+
+    // MARK: - Phase 2: Post Customization
+
+    @ViewBuilder
+    private var postCustomizationPhase: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                // Post preview card
+                postPreviewCard
+                    .padding(.horizontal, 16)
+
+                // Add-ons row (music, extras) — horizontal compact pills
+                addOnsRow
+                    .padding(.horizontal, 16)
+
+                // Snippet scrubber (when song with preview is selected)
+                if selectedSong?.previewURL != nil {
+                    SnippetScrubber(snippetStart: $snippetStartTime, previewURL: selectedSong?.previewURL)
+                        .padding(.horizontal, 16)
+                }
+
+                // Options card (tag, location, squads, stats)
+                optionsCard
+                    .padding(.horizontal, 16)
+
+                // Tagged items preview
+                TaggedItemsPreview(
+                    usernames: taggedUsernames,
+                    location: selectedLocation,
+                    squads: taggedSquads,
+                    onRemoveUser: { username in taggedUsernames.removeAll { $0 == username } },
+                    onRemoveLocation: { selectedLocation = nil },
+                    onRemoveSquad: { squad in taggedSquads.removeAll { $0.id == squad.id } }
+                )
+                .padding(.horizontal, 16)
+
+                // Share button
+                Button { createPost() } label: { Text("Share to Feed") }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+
+                Spacer(minLength: 30)
+            }
+            .padding(.top, 8)
+        }
+        .scrollContentBackground(.hidden)
+        .gqPageBackground()
+        .navigationTitle("Customize Post")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Post Preview Card
+
+    @ViewBuilder
+    private var postPreviewCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        Text(String(profile.name.prefix(1)).uppercased())
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(profile.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    if let workout = workout {
+                        Text("\(workout.type.rawValue) \u{00B7} \(duration)m \u{00B7} \(workout.totalSets) sets")
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textSecondary)
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+
+            // Photo carousel
+            mediaPreview
+
+            // Reorderable thumbnail strip
+            if mediaItems.count > 1 {
+                mediaReorderStrip
+                    .padding(.top, 6)
+            }
+
+            // Caption bubble
+            HStack {
+                ZStack(alignment: .topLeading) {
+                    TextEditor(text: $caption)
+                        .scrollContentBackground(.hidden)
+                        .foregroundColor(.white)
+                        .font(.system(size: 15))
+                        .lineSpacing(2)
+                        .frame(minHeight: 38)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+
+                    if caption.isEmpty {
+                        Text("What's the highlight?")
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.5))
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 18)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .background(
+                    ChatBubbleShape(isFromCurrentUser: true)
+                        .fill(GQGradients.primary)
+                        .shadow(color: GQColors.deepBlue.opacity(0.25), radius: 6, y: 3)
+                )
+                Spacer(minLength: 40)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
+        }
+        .background(GQColors.surfaceBase)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(GQColors.borderDefault, lineWidth: 1)
+        )
+        .gqShadow(.card)
+    }
+
+    // MARK: - Music Add-on Pill
+
+    @ViewBuilder
+    private var musicAddOnPill: some View {
+        let isActive = selectedSong != nil
+        Button { showMusicPicker = true } label: {
+            HStack(spacing: 6) {
+                if let song = selectedSong, let artURL = song.albumArt {
+                    AsyncImage(url: artURL) { image in
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .frame(width: 22, height: 22)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                } else {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 12, weight: .medium))
+                }
+
+                Text(selectedSong?.title ?? "Music")
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+
+                if isActive {
+                    Button {
+                        withAnimation { selectedSong = nil }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+            }
+            .foregroundColor(isActive ? .white : GQColors.textSecondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isActive ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.surfaceBase))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isActive ? Color.clear : GQColors.borderDefault, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Add-ons Row (horizontal pills)
+
+    @ViewBuilder
+    private var addOnsRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                // Music pill with album art
+                musicAddOnPill
+
+                // Challenge pill
+                addOnPill(
+                    icon: "trophy.fill",
+                    label: attachedChallenge?.title ?? "Challenge",
+                    isActive: attachedChallenge != nil,
+                    onTap: { showChallengeCreator = true },
+                    onClear: attachedChallenge != nil ? { withAnimation { attachedChallenge = nil } } : nil
+                )
+
+                // Widget pill
+                addOnPill(
+                    icon: "square.grid.2x2.fill",
+                    label: attachedWidget != nil ? attachedWidget!.type.label : "Widget",
+                    isActive: attachedWidget != nil,
+                    onTap: { showWidgetPicker = true },
+                    onClear: attachedWidget != nil ? { withAnimation { attachedWidget = nil } } : nil
+                )
+            }
+        }
+    }
+
+    private func addOnPill(icon: String, label: String, isActive: Bool, onTap: @escaping () -> Void, onClear: (() -> Void)?) -> some View {
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .medium))
+                Text(label)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+
+                if let onClear = onClear {
+                    Button(action: onClear) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                }
+            }
+            .foregroundColor(isActive ? .white : GQColors.textSecondary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isActive ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.surfaceBase))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isActive ? Color.clear : GQColors.borderDefault, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Options Card (compact)
+
+    @ViewBuilder
+    private var optionsCard: some View {
+        VStack(spacing: 0) {
+            actionRow(icon: "at", title: "Tag People", count: taggedUsernames.count) { showUserTagger = true }
+            Divider().padding(.leading, 46)
+            actionRow(icon: "location.fill", title: selectedLocation?.name ?? "Location", count: selectedLocation != nil ? 1 : 0) { showLocationPicker = true }
+            Divider().padding(.leading, 46)
+            actionRow(icon: "person.3.fill", title: "Squads", count: taggedSquads.count) { showSquadPicker = true }
+            Divider().padding(.leading, 46)
+
+            // Stats toggle
+            HStack(spacing: 12) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textTertiary)
+                    .frame(width: 24)
+                Text("Include Stats")
+                    .font(.system(size: 14))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+
+                // Custom toggle pill
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                        includeStats.toggle()
+                    }
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    #endif
+                } label: {
+                    ZStack(alignment: includeStats ? .trailing : .leading) {
+                        Capsule()
+                            .fill(includeStats ? AnyShapeStyle(GQGradients.primary.opacity(0.2)) : AnyShapeStyle(GQColors.overlayMedium))
+                            .frame(width: 44, height: 26)
+                            .overlay(
+                                Capsule()
+                                    .stroke(includeStats ? AnyShapeStyle(GQGradients.primary.opacity(0.5)) : AnyShapeStyle(Color.clear), lineWidth: 1)
+                            )
+                        Circle()
+                            .fill(includeStats ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary))
+                            .frame(width: 22, height: 22)
+                            .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+                            .padding(.horizontal, 2)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(GQColors.surfaceBase)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(GQColors.borderDefault, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Carousel Item
+
+    @ViewBuilder
+    private func carouselItemView(item: PostMedia) -> some View {
+        #if canImport(UIKit)
+        if item.mediaType == .photo, let data = item.data, let img = UIImage(data: data) {
+            Image(uiImage: img)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(height: 300)
+                .clipped()
+        } else if item.mediaType == .video {
+            // Show thumbnail with play icon
+            ZStack {
+                if let thumbData = item.thumbnailData, let thumb = UIImage(data: thumbData) {
+                    Image(uiImage: thumb)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(height: 300)
+                        .clipped()
+                } else {
+                    Rectangle()
+                        .fill(GQColors.overlayMedium)
+                        .frame(height: 300)
+                }
+                // Play icon
+                Circle()
+                    .fill(.black.opacity(0.4))
+                    .frame(width: 56, height: 56)
+                    .overlay(
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(.white)
+                            .offset(x: 2)
+                    )
+            }
+        } else {
+            Rectangle()
+                .fill(GQColors.overlayMedium)
+                .frame(height: 300)
+        }
+        #endif
+    }
+
+    // MARK: - Media Carousel
+
+    @ViewBuilder
+    private var mediaPreview: some View {
+        #if canImport(UIKit)
+        if !mediaItems.isEmpty {
+            VStack(spacing: 6) {
+                // Swipeable carousel
+                TabView(selection: $currentMediaIndex) {
+                    ForEach(Array(mediaItems.enumerated()), id: \.element.id) { idx, item in
+                        ZStack {
+                            carouselItemView(item: item)
+
+                            // Overlay controls
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    // Delete current
+                                    if mediaItems.count > 1 {
                                         Button {
-                                            selectedExerciseForMedia = nil
-                                            showMediaPicker = true
+                                            withAnimation {
+                                                mediaItems.remove(at: idx)
+                                                if currentMediaIndex >= mediaItems.count {
+                                                    currentMediaIndex = max(0, mediaItems.count - 1)
+                                                }
+                                            }
                                         } label: {
-                                            Image(systemName: "plus.circle.fill")
-                                                .font(.system(size: 28))
+                                            Image(systemName: "trash.circle.fill")
+                                                .font(.system(size: 26))
                                                 .foregroundColor(.white)
                                                 .shadow(radius: 4)
                                         }
                                         .padding(12)
                                     }
+
+                                    Spacer()
+
+                                    // Change / add more
+                                    Button {
+                                        navigationPath.removeLast()
+                                    } label: {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "plus")
+                                                .font(.system(size: 12, weight: .semibold))
+                                            Text("Add More")
+                                                .font(.system(size: 12, weight: .semibold))
+                                        }
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(Capsule().fill(.black.opacity(0.5)))
+                                    }
+                                    .padding(12)
                                 }
                             }
                         }
-                        #endif
-                    } else {
-                        // No photos yet — show media gallery picker
-                        ExerciseMediaGalleryView(
-                            exercises: exercises,
-                            mediaItems: $mediaItems,
-                            onAddMedia: { exerciseName in
-                                selectedExerciseForMedia = exerciseName
-                                showMediaPicker = true
-                            }
-                        )
-                        .padding(.bottom, 4)
+                        .tag(idx)
                     }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: 300)
 
-                    // ── Caption bubble ──
-                    captionBubble
-                        .padding(.top, 8)
-
-                    // ── Widget bubble (iMessage style) ──
-                    if let widget = attachedWidget {
-                        HStack {
-                            PostWidgetInlineBubble(widget: widget)
-
-                            Button {
-                                withAnimation { attachedWidget = nil }
-                            } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.system(size: 16))
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
-
-                            Spacer(minLength: 40)
+                // Custom page dots
+                if mediaItems.count > 1 {
+                    HStack(spacing: 6) {
+                        ForEach(0..<mediaItems.count, id: \.self) { idx in
+                            Circle()
+                                .fill(idx == currentMediaIndex ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary.opacity(0.4)))
+                                .frame(width: idx == currentMediaIndex ? 8 : 6, height: idx == currentMediaIndex ? 8 : 6)
+                                .animation(.spring(response: 0.25), value: currentMediaIndex)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 4)
                     }
-
-                    // ── Music (only show selector when no photo preview) ──
-                    MusicSelectorSection(
-                        selectedSong: $selectedSong,
-                        showMusicPicker: $showMusicPicker,
-                        activityType: workout?.type.rawValue
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-
-                    if selectedSong?.previewURL != nil {
-                        SnippetScrubber(snippetStart: $snippetStartTime, previewURL: selectedSong?.previewURL)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 8)
-                    }
-                }
-                .background(GQColors.surfaceBase)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(GQColors.borderDefault, lineWidth: 1)
-                )
-                .gqShadow(.card)
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-
-                // ── Options below the card ──
-                VStack(spacing: 0) {
-                    actionsCard
-                        .padding(.top, 16)
-
-                    TaggedItemsPreview(
-                        usernames: taggedUsernames,
-                        location: selectedLocation,
-                        squads: taggedSquads,
-                        onRemoveUser: { username in taggedUsernames.removeAll { $0 == username } },
-                        onRemoveLocation: { selectedLocation = nil },
-                        onRemoveSquad: { squad in taggedSquads.removeAll { $0.id == squad.id } }
-                    )
-                    .padding(.top, 8)
-
-                    if FeatureFlags.shared.voiceNotesEnabled {
-                        VoiceNoteRecorderView(voiceNoteData: $voiceNoteData, voiceNoteDuration: $voiceNoteDuration)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 12)
-                    }
-
-                    // ── Share button ──
-                    Button { createPost() } label: { Text("Share to Feed") }
-                        .buttonStyle(PrimaryButtonStyle())
-                        .disabled(mediaItems.isEmpty)
-                        .opacity(mediaItems.isEmpty ? 0.5 : 1.0)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 20)
-
-                    Spacer(minLength: 30)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .gqPageBackground()
-            .navigationTitle("Share Workout")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Skip") { dismiss() }
-                        .foregroundColor(GQColors.textSecondary)
-                }
-            }
-            .sheet(isPresented: $showMediaPicker) {
-                MediaPickerSheet(
-                    exerciseName: selectedExerciseForMedia,
-                    onMediaSelected: { media in
-                        mediaItems.append(media)
-                    }
-                )
-            }
-            .sheet(isPresented: $showUserTagger) {
-                UserTaggingView(taggedUsernames: $taggedUsernames)
-            }
-            .sheet(isPresented: $showLocationPicker) {
-                LocationTaggingView(
-                    selectedLocation: $selectedLocation,
-                    userId: profile.id
-                )
-            }
-            .sheet(isPresented: $showSquadPicker) {
-                SquadTaggingView(
-                    taggedSquads: $taggedSquads,
-                    userId: profile.id
-                )
-            }
-            .sheet(isPresented: $showMusicPicker) {
-                MusicPickerSheet(
-                    selectedSong: $selectedSong,
-                    activityType: workout?.type.rawValue
-                )
-            }
-            .sheet(isPresented: $showChallengeCreator) {
-                ChallengeCreatorSheet(attachedChallenge: $attachedChallenge)
-            }
-            .sheet(isPresented: $showWidgetPicker) {
-                PostWidgetPickerSheet(attachedWidget: $attachedWidget, profile: profile, workout: workout, exercises: exercises, duration: duration)
-            }
-            .onAppear {
-                if selectedSong == nil, let song = initialSong {
-                    selectedSong = song
-                }
-            }
-            .alert("Error", isPresented: $showError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(errorMessage)
-            }
-            .overlay {
-                if showConfetti {
-                    ConfettiOverlay()
-                        .allowsHitTesting(false)
+                    .padding(.top, 2)
+                    .padding(.bottom, 4)
                 }
             }
         }
-    }
-
-    // MARK: - Post Header (feed card style)
-
-    @ViewBuilder
-    private var postHeader: some View {
-        HStack(spacing: 12) {
-            // Avatar circle
-            Circle()
-                .fill(GQGradients.primary)
-                .frame(width: 42, height: 42)
-                .overlay(
-                    Text(String(profile.name.prefix(1)).uppercased())
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                )
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
-                    Text(profile.name)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(GQColors.textPrimary)
-                    Text("@\(profile.username)")
-                        .font(.system(size: 13))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-
-                if let workout = workout {
-                    HStack(spacing: 4) {
-                        Text(workout.type.rawValue)
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textSecondary)
-                        Text("·")
-                            .foregroundColor(GQColors.textTertiary)
-                        Text("\(duration)m")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textTertiary)
-                        Text("·")
-                            .foregroundColor(GQColors.textTertiary)
-                        Text("\(workout.totalSets) sets")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-                }
-            }
-
-            Spacer()
-
-            if let workout = workout {
-                Text(workout.type.rawValue)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(GQColors.textTertiary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(GQColors.overlayMedium)
-                    .clipShape(Capsule())
-            }
-        }
-    }
-
-    // MARK: - Caption Bubble (iMessage style)
-
-    @ViewBuilder
-    private var captionBubble: some View {
-        HStack {
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: $caption)
-                    .scrollContentBackground(.hidden)
-                    .foregroundColor(.white)
-                    .font(.system(size: 15))
-                    .lineSpacing(2)
-                    .frame(minHeight: 38)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-
-                if caption.isEmpty {
-                    Text("What's the highlight?")
-                        .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.5))
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 18)
-                        .allowsHitTesting(false)
-                }
-            }
-            .background(
-                ChatBubbleShape(isFromCurrentUser: true)
-                    .fill(GQGradients.primary)
-                    .shadow(color: GQColors.deepBlue.opacity(0.35), radius: 8, y: 4)
-            )
-
-            Spacer(minLength: 40)
-        }
-        .padding(.horizontal, 16)
-    }
-
-    // MARK: - Actions Card
-
-    @ViewBuilder
-    private var actionsCard: some View {
-        VStack(spacing: 0) {
-            actionRow(icon: "at", title: "Tag People", count: taggedUsernames.count) { showUserTagger = true }
-            actionRow(icon: "location.fill", title: selectedLocation?.name ?? "Location", count: selectedLocation != nil ? 1 : 0) { showLocationPicker = true }
-            actionRow(icon: "person.3.fill", title: "Squads", count: taggedSquads.count) { showSquadPicker = true }
-            actionRow(icon: "trophy.fill", title: attachedChallenge?.title ?? "Challenge", count: attachedChallenge != nil ? 1 : 0) { showChallengeCreator = true }
-            actionRow(icon: "square.grid.2x2.fill", title: attachedWidget != nil ? (attachedWidget!.type.label + " Card") : "Add Widget", count: attachedWidget != nil ? 1 : 0) { showWidgetPicker = true }
-
-            // Stats toggle
-            HStack(spacing: 10) {
-                Image(systemName: "chart.bar.fill")
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textTertiary)
-                    .frame(width: 20)
-                Text("Include stats")
-                    .font(.system(size: 14))
-                    .foregroundColor(GQColors.textSecondary)
-                Spacer()
-                Toggle("", isOn: $includeStats)
-                    .labelsHidden()
-                    .tint(GQColors.deepBlue)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-        }
-        .padding(.horizontal, 16)
+        #endif
     }
 
     private func actionRow(icon: String, title: String, count: Int, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: icon)
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundColor(GQColors.textTertiary)
-                    .frame(width: 20)
+                    .frame(width: 24)
                 Text(title)
                     .font(.system(size: 14))
-                    .foregroundColor(GQColors.textSecondary)
+                    .foregroundColor(GQColors.textPrimary)
                 Spacer()
                 if count > 0 {
                     Text("\(count)")
@@ -436,19 +903,63 @@ struct EnhancedPostEditorView: View {
                         .clipShape(Circle())
                 }
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundColor(GQColors.textTertiary)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
+    private func loadMediaFromPhotosPicker(_ item: PhotosPickerItem?) {
+        guard let item = item, mediaItems.count < Self.maxMediaItems else { return }
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                #if canImport(UIKit)
+                if let uiImage = UIImage(data: data)?.fixedOrientation() {
+                    let compressed = uiImage.jpegData(compressionQuality: 0.8) ?? data
+                    let media = PostMedia(
+                        exerciseName: nil,
+                        exerciseIndex: nil,
+                        mediaType: .photo,
+                        data: compressed,
+                        thumbnailData: compressed
+                    )
+                    await MainActor.run {
+                        withAnimation { mediaItems.append(media) }
+                    }
+                    // Enhance in background
+                    let vm = await cameraVM
+                    let enhanced = vm.applySubtleEnhancement(to: compressed)
+                    await MainActor.run {
+                        if let idx = mediaItems.lastIndex(where: { $0.id == media.id }) {
+                            mediaItems[idx] = PostMedia(exerciseName: nil, exerciseIndex: nil, mediaType: .photo, data: enhanced, thumbnailData: enhanced)
+                        }
+                    }
+                } else {
+                    // Video
+                    let media = PostMedia(
+                        exerciseName: nil,
+                        exerciseIndex: nil,
+                        mediaType: .video,
+                        data: data,
+                        thumbnailData: nil
+                    )
+                    await MainActor.run {
+                        selectedMedia = media
+                        mediaItems = [media]
+                        navigationPath.append(PostEditorPhase.customize)
+                    }
+                }
+                #endif
+            }
+        }
+    }
+
     private func createPost() {
-        // Get the first general media for legacy fields
-        let generalMedia = mediaItems.first { $0.exerciseName == nil }
+        let generalMedia = mediaItems.first
 
         let post = Post(
             authorId: profile.id,
@@ -774,151 +1285,6 @@ struct CompletedExercise: Identifiable {
     let index: Int
 }
 
-// MARK: - Exercise Media Gallery View
-
-struct ExerciseMediaGalleryView: View {
-    let exercises: [CompletedExercise]
-    @Binding var mediaItems: [PostMedia]
-    let onAddMedia: (String?) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    // General media slot
-                    MediaSlot(
-                        title: "General",
-                        subtitle: "Cover photo",
-                        media: mediaItems.filter { $0.exerciseName == nil },
-                        onAdd: { onAddMedia(nil) },
-                        onRemove: { media in
-                            mediaItems.removeAll { $0.id == media.id }
-                        }
-                    )
-
-                    // Exercise-specific slots
-                    ForEach(exercises) { exercise in
-                        MediaSlot(
-                            title: exercise.name,
-                            subtitle: "\(exercise.sets) sets",
-                            media: mediaItems.filter { $0.exerciseName == exercise.name },
-                            onAdd: { onAddMedia(exercise.name) },
-                            onRemove: { media in
-                                mediaItems.removeAll { $0.id == media.id }
-                            }
-                        )
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-        }
-    }
-}
-
-// MARK: - Media Slot
-
-struct MediaSlot: View {
-    let title: String
-    let subtitle: String
-    let media: [PostMedia]
-    let onAdd: () -> Void
-    let onRemove: (PostMedia) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(GQColors.textPrimary)
-                .lineLimit(1)
-
-            Text(subtitle)
-                .font(.system(size: 11))
-                .foregroundColor(GQColors.textTertiary)
-
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(GQColors.surfaceBase)
-                    .frame(width: 80, height: 80)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(GQColors.borderDefault, lineWidth: 1)
-                    )
-
-                if let firstMedia = media.first {
-                    // Show thumbnail
-                    if let data = firstMedia.data ?? firstMedia.thumbnailData,
-                       let uiImage = UIImage(data: data) {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 80, height: 80)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                        // Media type badge
-                        VStack {
-                            HStack {
-                                Spacer()
-                                Image(systemName: firstMedia.mediaType == .video ? "video.fill" : "photo.fill")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.white)
-                                    .padding(4)
-                                    .background(Color.black.opacity(0.6))
-                                    .cornerRadius(4)
-                            }
-                            Spacer()
-                        }
-                        .frame(width: 80, height: 80)
-                        .padding(4)
-
-                        // Remove button
-                        Button {
-                            onRemove(firstMedia)
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 18))
-                                .foregroundColor(.white)
-                                .background(Circle().fill(Color.black.opacity(0.5)))
-                        }
-                        .offset(x: 30, y: -30)
-                    }
-                } else {
-                    // Add button
-                    Button(action: onAdd) {
-                        VStack(spacing: 4) {
-                            Image(systemName: "plus.circle")
-                                .font(.system(size: 22))
-                                .foregroundStyle(GQGradients.primary)
-                            Text("Add")
-                                .font(.system(size: 10))
-                                .foregroundColor(GQColors.textTertiary)
-                        }
-                    }
-                }
-
-                // Media count badge
-                if media.count > 1 {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            Text("+\(media.count - 1)")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(GQColors.textSecondary)
-                                .cornerRadius(8)
-                        }
-                    }
-                    .frame(width: 80, height: 80)
-                    .padding(4)
-                }
-            }
-        }
-        .frame(width: 80)
-    }
-}
-
 // MARK: - Tagged Items Preview
 
 struct TaggedItemsPreview: View {
@@ -1055,121 +1421,367 @@ struct PlaylistLinkSection: View {
     }
 }
 
-// MARK: - Media Picker Sheet
+// MARK: - Camera View Model & Preview
 
-struct MediaPickerSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let exerciseName: String?
-    let onMediaSelected: (PostMedia) -> Void
+#if canImport(UIKit)
+import AVFoundation
 
-    @State private var selectedItem: PhotosPickerItem?
-    @State private var showCamera = false
+@MainActor
+final class CameraViewModel: ObservableObject {
+    @Published var isRunning = false
+    @Published var permissionDenied = false
+    @Published var isRecording = false
+
+    let session = AVCaptureSession()
+    private var photoOutput = AVCapturePhotoOutput()
+    private var movieOutput = AVCaptureMovieFileOutput()
+    private var currentDevice: AVCaptureDevice?
+    private var usingFront = true
+
+    private let delegateHandler = PhotoCaptureDelegate()
+    private let videoDelegate = VideoCaptureDelegate()
+
+    func start() {
+        guard !isRunning else { return }
+        Task {
+            let status = AVCaptureDevice.authorizationStatus(for: .video)
+            switch status {
+            case .authorized:
+                break
+            case .notDetermined:
+                let granted = await AVCaptureDevice.requestAccess(for: .video)
+                if !granted { permissionDenied = true; return }
+            default:
+                permissionDenied = true
+                return
+            }
+            // Also request mic for video
+            if AVCaptureDevice.authorizationStatus(for: .audio) == .notDetermined {
+                _ = await AVCaptureDevice.requestAccess(for: .audio)
+            }
+            Task.detached(priority: .userInitiated) { [weak self] in
+                guard let self else { return }
+                await self.configureSession()
+                self.session.startRunning()
+                await MainActor.run { self.isRunning = true }
+            }
+        }
+    }
+
+    func stop() {
+        session.stopRunning()
+        isRunning = false
+    }
+
+    private func configureSession() {
+        session.beginConfiguration()
+        session.sessionPreset = .high
+
+        session.inputs.forEach { session.removeInput($0) }
+
+        let position: AVCaptureDevice.Position = usingFront ? .front : .back
+        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position),
+              let input = try? AVCaptureDeviceInput(device: device) else {
+            session.commitConfiguration()
+            return
+        }
+        currentDevice = device
+
+        if session.canAddInput(input) { session.addInput(input) }
+
+        // Add mic input for video audio
+        if let mic = AVCaptureDevice.default(for: .audio),
+           let micInput = try? AVCaptureDeviceInput(device: mic),
+           !session.inputs.contains(where: { ($0 as? AVCaptureDeviceInput)?.device.hasMediaType(.audio) == true }),
+           session.canAddInput(micInput) {
+            session.addInput(micInput)
+        }
+
+        if !session.outputs.contains(where: { $0 is AVCapturePhotoOutput }), session.canAddOutput(photoOutput) {
+            session.addOutput(photoOutput)
+        }
+        if !session.outputs.contains(where: { $0 is AVCaptureMovieFileOutput }), session.canAddOutput(movieOutput) {
+            session.addOutput(movieOutput)
+        }
+        session.commitConfiguration()
+    }
+
+    func flipCamera() {
+        usingFront.toggle()
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            await self.configureSession()
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    func capturePhoto(completion: @escaping (Data?) -> Void) {
+        guard isRunning, session.isRunning else { return }
+        delegateHandler.completion = completion
+        let settings = AVCapturePhotoSettings()
+        photoOutput.capturePhoto(with: settings, delegate: delegateHandler)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    func startRecording() {
+        guard isRunning, !movieOutput.isRecording else { return }
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mov")
+        videoDelegate.completion = nil
+        movieOutput.maxRecordedDuration = CMTime(seconds: 60, preferredTimescale: 600)
+        movieOutput.startRecording(to: tempURL, recordingDelegate: videoDelegate)
+        isRecording = true
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    func stopRecording(completion: @escaping (URL?) -> Void) {
+        guard movieOutput.isRecording else { completion(nil); return }
+        videoDelegate.completion = completion
+        movieOutput.stopRecording()
+        isRecording = false
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// Minimal post-capture enhancement: slight smoothing, warmth, and exposure lift.
+    /// Designed to be subtle — evens out skin without looking filtered.
+    nonisolated func applySubtleEnhancement(to data: Data) -> Data {
+        guard let ciImage = CIImage(data: data) else { return data }
+        let context = CIContext(options: [.useSoftwareRenderer: false])
+
+        var output = ciImage
+
+        // 1. Gentle skin smoothing via low-radius gaussian blur blended at low opacity
+        if let blur = CIFilter(name: "CIGaussianBlur") {
+            blur.setValue(output, forKey: kCIInputImageKey)
+            blur.setValue(1.8, forKey: kCIInputRadiusKey)  // very subtle
+            if let blurred = blur.outputImage,
+               let blend = CIFilter(name: "CISourceAtopCompositing") {
+                // Blend blurred at 25% over original — just enough to soften
+                let opacity = CIFilter(name: "CIColorMatrix")!
+                opacity.setValue(blurred, forKey: kCIInputImageKey)
+                opacity.setValue(CIVector(x: 0, y: 0, z: 0, w: 0.25), forKey: "inputAVector")
+                if let faded = opacity.outputImage {
+                    blend.setValue(faded, forKey: kCIInputImageKey)
+                    blend.setValue(output, forKey: kCIInputBackgroundImageKey)
+                    if let result = blend.outputImage {
+                        output = result
+                    }
+                }
+            }
+        }
+
+        // 2. Slight warmth + vibrance via CITemperatureAndTint + CIVibrance
+        if let temp = CIFilter(name: "CITemperatureAndTint") {
+            temp.setValue(output, forKey: kCIInputImageKey)
+            temp.setValue(CIVector(x: 6800, y: 0), forKey: "inputNeutral")  // slightly warm
+            temp.setValue(CIVector(x: 6500, y: 0), forKey: "inputTargetNeutral")
+            if let result = temp.outputImage { output = result }
+        }
+
+        // 3. Tiny exposure lift to brighten
+        if let exposure = CIFilter(name: "CIExposureAdjust") {
+            exposure.setValue(output, forKey: kCIInputImageKey)
+            exposure.setValue(0.08, forKey: kCIInputEVKey)  // barely noticeable
+            if let result = exposure.outputImage { output = result }
+        }
+
+        // Render back to JPEG
+        let extent = ciImage.extent  // use original extent to crop blur edge artifacts
+        if let cgImage = context.createCGImage(output, from: extent) {
+            return UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.85) ?? data
+        }
+        return data
+    }
+}
+
+// Non-isolated delegate for photo capture callbacks
+final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
+    var completion: ((Data?) -> Void)?
+
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        let data = photo.fileDataRepresentation()
+        DispatchQueue.main.async { [weak self] in
+            self?.completion?(data)
+        }
+    }
+}
+
+// Non-isolated delegate for video capture callbacks
+final class VideoCaptureDelegate: NSObject, AVCaptureFileOutputRecordingDelegate {
+    var completion: ((URL?) -> Void)?
+
+    func fileOutput(_ output: AVCaptureFileOutput, didFinishRecordingTo outputFileURL: URL, from connections: [AVCaptureConnection], error: Error?) {
+        // Video is valid even with some errors (e.g. "stopped due to no data" is an error but file exists)
+        let fileExists = FileManager.default.fileExists(atPath: outputFileURL.path)
+        DispatchQueue.main.async { [weak self] in
+            self?.completion?(fileExists ? outputFileURL : nil)
+        }
+    }
+}
+
+// MARK: - Shutter Button (tap = photo, hold = video)
+
+struct ShutterButton: View {
+    let isRecording: Bool
+    let onTap: () -> Void
+    let onHoldStart: () -> Void
+    let onHoldEnd: () -> Void
+
+    @State private var isPressed = false
+    @State private var holdTimer: Timer?
+    @State private var isHolding = false
+    @State private var recordingProgress: CGFloat = 0
+    @State private var progressTimer: Timer?
+
+    private let maxDuration: CGFloat = 60 // seconds
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Text(exerciseName != nil ? "Add media for \(exerciseName!)" : "Add general media")
-                    .font(.headline)
-                    .padding(.top)
+        ZStack {
+            // Outer ring — gradient when idle, red progress when recording
+            Circle()
+                .stroke(Color.white.opacity(0.3), lineWidth: 4)
+                .frame(width: 80, height: 80)
 
-                // Photo picker
-                PhotosPicker(selection: $selectedItem, matching: .any(of: [.images, .videos])) {
-                    HStack {
-                        Image(systemName: "photo.on.rectangle")
-                            .font(.system(size: 24))
-                        Text("Choose from Library")
-                            .font(.system(size: 16, weight: .medium))
+            if isRecording {
+                Circle()
+                    .trim(from: 0, to: recordingProgress / maxDuration)
+                    .stroke(GQColors.vividPurple, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 80, height: 80)
+                    .rotationEffect(.degrees(-90))
+            } else {
+                Circle()
+                    .stroke(GQGradients.primary, lineWidth: 4)
+                    .frame(width: 80, height: 80)
+            }
+
+            // Inner circle — shrinks to rounded square when recording
+            RoundedRectangle(cornerRadius: isRecording ? 8 : 34)
+                .fill(isRecording ? AnyShapeStyle(GQColors.vividPurple) : AnyShapeStyle(Color.white))
+                .frame(width: isRecording ? 32 : 68, height: isRecording ? 32 : 68)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isRecording)
+        }
+        .overlay(
+            Text(isRecording ? "" : "Hold for video")
+                .font(.system(size: 11))
+                .foregroundColor(GQColors.textTertiary)
+                .offset(y: 52)
+        )
+        .scaleEffect(isPressed ? 0.92 : 1.0)
+        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isPressed)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    guard !isPressed else { return }
+                    isPressed = true
+                    // Start a timer — if held > 0.3s, it's a video
+                    holdTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { _ in
+                        DispatchQueue.main.async {
+                            isHolding = true
+                            onHoldStart()
+                            startProgressTimer()
+                        }
                     }
-                    .foregroundColor(GQColors.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
                 }
-                .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.textSecondary))
-                .padding(.horizontal)
+                .onEnded { _ in
+                    isPressed = false
+                    holdTimer?.invalidate()
+                    holdTimer = nil
 
-                // Camera button
-                Button {
-                    showCamera = true
-                } label: {
-                    HStack {
-                        Image(systemName: "camera.fill")
-                            .font(.system(size: 24))
-                        Text("Take Photo/Video")
-                            .font(.system(size: 16, weight: .medium))
+                    if isHolding {
+                        // Was recording — stop
+                        isHolding = false
+                        stopProgressTimer()
+                        onHoldEnd()
+                    } else {
+                        // Quick tap — take photo
+                        onTap()
                     }
-                    .foregroundColor(GQColors.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
                 }
-                .buttonStyle(WorkoutFlowSecondaryButtonStyle())
-                .padding(.horizontal)
+        )
+    }
 
-                Spacer()
-            }
-            .gqPageBackground()
-            .navigationTitle("Add Media")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+    private func startProgressTimer() {
+        recordingProgress = 0
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            DispatchQueue.main.async {
+                recordingProgress += 0.1
+                if recordingProgress >= maxDuration {
+                    stopProgressTimer()
+                    onHoldEnd()
                 }
-            }
-            .onChange(of: selectedItem) { _, newValue in
-                loadMedia(from: newValue)
-            }
-            .fullScreenCover(isPresented: $showCamera) {
-                CameraCapture(exerciseName: exerciseName, onMediaCaptured: { media in
-                    onMediaSelected(media)
-                    dismiss()
-                })
             }
         }
     }
 
-    private func loadMedia(from item: PhotosPickerItem?) {
-        guard let item = item else { return }
+    private func stopProgressTimer() {
+        progressTimer?.invalidate()
+        progressTimer = nil
+        recordingProgress = 0
+    }
+}
 
-        Task {
-            if let data = try? await item.loadTransferable(type: Data.self) {
-                let isPhoto = UIImage(data: data) != nil
+struct PostCameraPreviewView: UIViewRepresentable {
+    @ObservedObject var cameraVM: CameraViewModel
 
-                let media = PostMedia(
-                    exerciseName: exerciseName,
-                    exerciseIndex: nil,
-                    mediaType: isPhoto ? .photo : .video,
-                    data: data,
-                    thumbnailData: isPhoto ? data : generateVideoThumbnail(from: data)
-                )
-                onMediaSelected(media)
-                dismiss()
-            }
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        let previewLayer = AVCaptureVideoPreviewLayer(session: cameraVM.session)
+        previewLayer.videoGravity = .resizeAspectFill
+        view.layer.addSublayer(previewLayer)
+        context.coordinator.previewLayer = previewLayer
+
+        cameraVM.start()
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async {
+            context.coordinator.previewLayer?.frame = uiView.bounds
         }
     }
 
-    private func generateVideoThumbnail(from data: Data) -> Data? {
-        // Placeholder - in real app would use AVAssetImageGenerator
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    class Coordinator {
+        var previewLayer: AVCaptureVideoPreviewLayer?
+    }
+}
+
+enum VideoThumbnailGenerator {
+    static func generate(from videoData: Data) -> UIImage? {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mov")
+        try? videoData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        return generate(from: tempURL)
+    }
+
+    static func generate(from url: URL) -> UIImage? {
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 800, height: 800)
+        let time = CMTime(seconds: 0.5, preferredTimescale: 600)
+        if let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) {
+            return UIImage(cgImage: cgImage)
+        }
+        // Fallback to first frame
+        if let cgImage = try? generator.copyCGImage(at: .zero, actualTime: nil) {
+            return UIImage(cgImage: cgImage)
+        }
         return nil
     }
 }
 
-// MARK: - Camera Capture (Placeholder)
-
-struct CameraCapture: View {
-    let exerciseName: String?
-    let onMediaCaptured: (PostMedia) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        VStack {
-            Text("Camera capture")
-                .foregroundColor(GQColors.textPrimary)
-            Button("Close") { dismiss() }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .gqPageBackground()
+extension UIImage {
+    func fixedOrientation() -> UIImage {
+        guard imageOrientation != .up else { return self }
+        UIGraphicsBeginImageContextWithOptions(size, false, scale)
+        draw(in: CGRect(origin: .zero, size: size))
+        let normalized = UIGraphicsGetImageFromCurrentImageContext() ?? self
+        UIGraphicsEndImageContext()
+        return normalized
     }
 }
+#endif
 
 // MARK: - Location Suggestion Model
 
@@ -1242,10 +1854,12 @@ struct UserTaggingView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
-                        .foregroundColor(GQColors.textSecondary)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(taggedUsernames.isEmpty ? AnyShapeStyle(GQColors.textSecondary) : AnyShapeStyle(GQGradients.primary))
                 }
             }
         }
+        .tint(GQColors.textPrimary)
     }
 
     private func toggleFriend(_ friend: Friend) {
@@ -1268,7 +1882,7 @@ struct FriendTagRow: View {
         Button(action: onToggle) {
             HStack {
                 Circle()
-                    .fill(GQColors.deepBlue.opacity(0.3))
+                    .fill(GQGradients.primary.opacity(0.8))
                     .frame(width: 40, height: 40)
                     .overlay(
                         Text(String(friend.odName.prefix(1)).uppercased())
@@ -1290,7 +1904,7 @@ struct FriendTagRow: View {
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 22))
-                    .foregroundColor(isSelected ? GQColors.textSecondary : GQColors.textTertiary)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary))
             }
             .padding(.vertical, 8)
         }
@@ -1425,6 +2039,7 @@ struct LocationTaggingView: View {
                 }
             }
         }
+        .tint(GQColors.textPrimary)
     }
 }
 
@@ -1488,7 +2103,7 @@ struct SquadTaggingView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "person.3.fill")
                             .font(.system(size: 48))
-                            .foregroundColor(GQColors.textTertiary)
+                            .foregroundStyle(GQGradients.primary.opacity(0.5))
 
                         Text("No Squads Yet")
                             .font(.headline)
@@ -1527,6 +2142,7 @@ struct SquadTaggingView: View {
                 }
             }
         }
+        .tint(GQColors.textPrimary)
     }
 
     private func toggleSquad(_ squad: Squad) {
@@ -1573,7 +2189,7 @@ struct SquadTagRow: View {
                 if squad.streakWeeks > 0 {
                     HStack(spacing: 3) {
                         Image(systemName: "flame.fill")
-                            .foregroundColor(GQColors.textSecondary)
+                            .foregroundStyle(GQGradients.primary)
                         Text("\(squad.streakWeeks)w")
                             .foregroundColor(GQColors.textSecondary)
                     }
@@ -1618,20 +2234,24 @@ struct ChallengeCreatorSheet: View {
                                 .tag(type)
                         }
                     }
+                    .tint(GQColors.textPrimary)
 
                     Stepper("Target: \(goalTarget)", value: $goalTarget, in: 1...1000)
+                        .tint(GQColors.vividPurple)
 
                     DatePicker("End Date", selection: $endDate, in: minDate..., displayedComponents: .date)
+                        .tint(GQColors.vividPurple)
                 }
                 .listRowBackground(GQColors.surfaceBase)
 
                 if let challenge = attachedChallenge {
                     Section {
-                        Button(role: .destructive) {
+                        Button {
                             attachedChallenge = nil
                             dismiss()
                         } label: {
                             Label("Remove Challenge", systemImage: "trash")
+                                .foregroundColor(GQColors.vividPurple)
                         }
                     }
                     .listRowBackground(GQColors.surfaceBase)
@@ -1659,6 +2279,7 @@ struct ChallengeCreatorSheet: View {
                         dismiss()
                     }
                     .fontWeight(.semibold)
+                    .foregroundStyle(title.trimmingCharacters(in: .whitespaces).isEmpty ? AnyShapeStyle(GQColors.textTertiary) : AnyShapeStyle(GQGradients.primary))
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -1671,6 +2292,7 @@ struct ChallengeCreatorSheet: View {
                 }
             }
         }
+        .tint(GQColors.textPrimary)
     }
 }
 
@@ -1752,11 +2374,12 @@ struct PostWidgetPickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                         .fontWeight(.semibold)
-                        .foregroundColor(attachedWidget != nil ? GQColors.deepBlue : GQColors.textTertiary)
+                        .foregroundStyle(attachedWidget != nil ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary))
                         .disabled(attachedWidget == nil)
                 }
             }
         }
+        .tint(GQColors.textPrimary)
     }
 
     private func widgetOption(_ type: PostWidgetType) -> some View {
@@ -1782,7 +2405,7 @@ struct PostWidgetPickerSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(isSelected ? GQColors.deepBlue : GQColors.borderDefault, lineWidth: isSelected ? 1.5 : 0.5)
+                    .stroke(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.borderDefault), lineWidth: isSelected ? 1.5 : 0.5)
             )
             .overlay(alignment: .topTrailing) {
                 if isSelected {
