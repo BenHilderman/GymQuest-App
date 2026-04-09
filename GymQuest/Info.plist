@@ -33,6 +33,8 @@
 	<string>1</string>
 	<key>GIDClientID</key>
 	<string>672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo.apps.googleusercontent.com</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Lift AI tracks your location during outdoor workouts to map your route.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>GymQuest uses your health data to track workouts, activity, and fitness progress.</string>
 	<key>NSHealthUpdateUsageDescription</key>

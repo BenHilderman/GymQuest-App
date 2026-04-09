@@ -18,7 +18,7 @@ private let profileNeutralAccent = GQColors.overlayMedium
 private let profilePrimaryAccent = GQColors.adaptiveOverlay(0.42)
 private let profileFireAccent = GQColors.textSecondary
 
-private enum PostGridTab: Hashable { case photos, clips, tagged }
+enum PostGridTab: Hashable { case photos, clips, tagged }
 
 struct ProfileView: View {
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
@@ -112,7 +112,7 @@ struct ProfileView: View {
 
                     // Posts grid — edge-to-edge like Instagram
                     postsContent
-                        .padding(.top, 12)
+                        .padding(.top, 4)
                         .padding(.bottom, GQLayout.pageBottom)
                 }
             }
@@ -146,10 +146,11 @@ struct ProfileView: View {
                 #endif
             }
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showingSettings) {
+            .navigationDestination(isPresented: $showingSettings) {
                 SettingsView(profile: profile)
             }
-            .sheet(
+            .tint(GQColors.textPrimary)
+            .fullScreenCover(
                 isPresented: Binding(
                     get: { selectedPost != nil },
                     set: { isPresented in
@@ -885,22 +886,12 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var postsContent: some View {
-        if userPosts.isEmpty {
-            ProfileEmptyState(
-                icon: "camera.on.rectangle",
-                title: "No posts yet",
-                subtitle: "Share your sessions and progress here."
-            )
-            .padding(.horizontal, 16)
-        } else {
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 // Tab bar
-                ZStack(alignment: .bottom) {
-                    // Background divider
+                VStack(spacing: 0) {
                     Rectangle()
-                        .fill(GQColors.overlayLight)
+                        .fill(GQColors.borderSubtle)
                         .frame(height: 0.5)
-                        .frame(maxWidth: .infinity)
 
                     HStack(spacing: 0) {
                         ForEach([PostGridTab.photos, .clips, .tagged], id: \.self) { tab in
@@ -913,20 +904,17 @@ struct ProfileView: View {
                                 #endif
                             } label: {
                                 VStack(spacing: 0) {
-                                    Spacer()
-                                    Image(systemName: tab == .photos ? "square.grid.3x3.fill" : tab == .clips ? "play.rectangle.fill" : "at")
+                                    Image(systemName: tab == .photos ? "square.grid.3x3" : tab == .clips ? "play.rectangle" : "at")
                                         .font(.system(size: 18))
-                                        .foregroundColor(postTab == tab ? GQColors.textPrimary : GQColors.textTertiary)
-                                    Spacer()
-                                    // Indicator
-                                    Capsule()
+                                        .foregroundColor(postTab == tab ? GQColors.textPrimary : GQColors.textTertiary.opacity(0.45))
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 40)
+                                        .contentShape(Rectangle())
+                                    Rectangle()
                                         .fill(GQColors.textPrimary)
-                                        .frame(width: 28, height: 1.5)
+                                        .frame(height: 0.5)
                                         .opacity(postTab == tab ? 1 : 0)
                                 }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 48)
-                                .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                         }
@@ -975,9 +963,6 @@ struct ProfileView: View {
             }
         }
     }
-}
-
-
 
 private struct ProfileEmptyState: View {
     let icon: String
@@ -1187,6 +1172,13 @@ struct ProfilePostThumbnail: View {
         post.mediaItems.count > 1
     }
 
+    private var thumbnailIcon: String? {
+        if let type = post.workoutType, let wt = WorkoutType(rawValue: type) {
+            return wt.icon
+        }
+        return nil
+    }
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -1261,20 +1253,30 @@ struct ProfilePostThumbnail: View {
                 }
             }
         }
-        // Top-right badge: multi-media or video
+        // Top-right badge: carousel or video (Instagram style)
         .overlay(alignment: .topTrailing) {
             if hasMultipleMedia {
-                Image(systemName: "square.fill.on.square.fill")
-                    .font(.system(size: 10))
+                Image(systemName: "square.on.square")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+                    .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
                     .padding(6)
             } else if hasVideo {
                 Image(systemName: "play.fill")
                     .font(.system(size: 10))
                     .foregroundColor(.white)
-                    .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+                    .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
                     .padding(6)
+            }
+        }
+        // Bottom-left: subtle workout type icon
+        .overlay(alignment: .bottomLeading) {
+            if let icon = thumbnailIcon {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+                    .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
+                    .padding(5)
             }
         }
     }
@@ -1677,276 +1679,216 @@ struct SettingsView: View {
     @AppStorage("appAppearance") private var appAppearance: String = AppAppearance.light.rawValue
     @AppStorage("hapticFeedbackEnabled") private var hapticEnabled = true
 
+    private var settingsDivider: some View {
+        Rectangle()
+            .fill(GQColors.adaptiveOverlay(0.08))
+            .frame(height: 0.33)
+            .padding(.vertical, 1)
+    }
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 8) {
+        ScrollView {
+            VStack(spacing: 6) {
 
-                    // MARK: Account
+                // MARK: Account
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Account")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    settingsTextField(title: "Name", text: $name)
+                    settingsTextField(title: "Username", text: $username)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .homeSocialCard(cornerRadius: 16)
+
+                settingsDivider
+
+                // MARK: Preferences
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Preferences")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+
                     VStack(alignment: .leading, spacing: 6) {
-                        sectionHeader("Account")
-                        settingsTextField(title: "Name", text: $name)
-                        settingsTextField(title: "Username", text: $username)
-                        if let email = profile.email, !email.isEmpty {
-                            settingsInfoRow(label: "Email", value: email)
-                        }
-                    }
-                    .padding(12)
-                    .homeSocialCard(accent: profileNeutralAccent)
-                    .gqScreenHorizontalPadding()
-
-                    // MARK: Preferences
-                    VStack(alignment: .leading, spacing: 6) {
-                        sectionHeader("Preferences")
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Theme")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(GQColors.textTertiary)
-                            settingsPillPicker(
-                                items: AppAppearance.allCases.map { $0.rawValue },
-                                selection: $appAppearance
-                            )
-                        }
-
-                        #if canImport(UIKit)
-                        settingsToggleRow(
-                            title: "Haptic Feedback",
-                            subtitle: "Vibration on taps and actions",
-                            isOn: $hapticEnabled
-                        )
-                        #endif
-
-                        settingsToggleRow(
-                            title: "Public Profile",
-                            subtitle: profile.isProfilePublic ? "Anyone can see your posts" : "Only mutual friends",
-                            isOn: Binding(
-                                get: { profile.isProfilePublic },
-                                set: { newValue in
-                                    profile.isProfilePublic = newValue
-                                    try? modelContext.save()
-                                }
-                            )
+                        Text("Theme")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(GQColors.textPrimary)
+                        settingsPillPicker(
+                            items: AppAppearance.allCases.map { $0.rawValue },
+                            selection: $appAppearance
                         )
                     }
-                    .padding(12)
-                    .homeSocialCard(accent: profileNeutralAccent)
-                    .gqScreenHorizontalPadding()
 
-                    // MARK: Gym Setup
-                    VStack(alignment: .leading, spacing: 6) {
-                        sectionHeader("Gym Setup")
+                    #if canImport(UIKit)
+                    settingsToggleRow(
+                        title: "Haptic Feedback",
+                        subtitle: "Vibration on taps and actions",
+                        isOn: $hapticEnabled
+                    )
+                    #endif
 
-                        settingsTextField(title: "Gym Name", text: $gymName)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Experience")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(GQColors.textTertiary)
-                            settingsPillPicker(
-                                items: ExperienceLevel.allCases.map { $0.rawValue },
-                                selection: Binding(
-                                    get: { experienceLevel.rawValue },
-                                    set: { newValue in
-                                        if let level = ExperienceLevel(rawValue: newValue) {
-                                            experienceLevel = level
-                                        }
-                                    }
-                                )
-                            )
-                        }
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Duration")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(GQColors.textTertiary)
-                            settingsPillPicker(
-                                items: ["30 min", "45 min", "60 min", "90 min"],
-                                selection: Binding(
-                                    get: { "\(preferredDuration) min" },
-                                    set: { newValue in
-                                        if let num = Int(newValue.replacingOccurrences(of: " min", with: "")) {
-                                            preferredDuration = num
-                                        }
-                                    }
-                                )
-                            )
-                        }
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Equipment")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(GQColors.textTertiary)
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], spacing: 6) {
-                                ForEach(EquipmentType.allCases, id: \.self) { equipment in
-                                    let isSelected = selectedEquipment.contains(equipment)
-                                    Button {
-                                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                                            if isSelected { selectedEquipment.remove(equipment) }
-                                            else { selectedEquipment.insert(equipment) }
-                                        }
-                                        #if canImport(UIKit)
-                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                        #endif
-                                    } label: {
-                                        Text(equipment.rawValue)
-                                            .font(.system(size: 11, weight: .medium))
-                                            .lineLimit(1)
-                                            .minimumScaleFactor(0.8)
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 6)
-                                            .frame(maxWidth: .infinity)
-                                            .foregroundColor(isSelected ? .white : GQColors.textPrimary)
-                                            .background(
-                                                RoundedRectangle(cornerRadius: 8)
-                                                    .fill(isSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.85)) : AnyShapeStyle(GQColors.surfaceSecondary))
-                                            )
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 8)
-                                                    .stroke(isSelected ? Color.clear : GQColors.overlayMedium, lineWidth: 1)
-                                            )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
+                    settingsToggleRow(
+                        title: "Public Profile",
+                        subtitle: profile.isProfilePublic ? "Anyone can see your posts" : "Only mutual friends",
+                        isOn: Binding(
+                            get: { profile.isProfilePublic },
+                            set: { newValue in
+                                profile.isProfilePublic = newValue
+                                try? modelContext.save()
                             }
-                        }
-                    }
-                    .padding(12)
-                    .homeSocialCard(accent: profileNeutralAccent)
-                    .gqScreenHorizontalPadding()
-
-                    // MARK: Links
-                    VStack(spacing: 0) {
-                        settingsNavRow(icon: "ruler", title: "Body Measurements", color: GQColors.success) {
-                            BodyMeasurementsView(profile: profile)
-                        }
-                        Divider().padding(.leading, 42)
-                        settingsNavRow(icon: "heart.circle.fill", title: "Apple Health & Watch", color: GQColors.deepBlue) {
-                            IntegrationsView(profile: profile)
-                        }
-                        Divider().padding(.leading, 42)
-                        settingsNavRow(icon: "music.note", title: "Music", color: GQColors.vividPurple) {
-                            IntegrationsView(profile: profile)
-                        }
-                        Divider().padding(.leading, 42)
-                        settingsNavRow(icon: "person.3.fill", title: "Squads", color: GQColors.cyanSpark) {
-                            SquadView(profile: profile)
-                        }
-                        Divider().padding(.leading, 42)
-                        settingsNavRow(icon: "bell.fill", title: "Notifications", color: GQColors.prGold) {
-                            NotificationSettingsView()
-                        }
-                    }
-                    .homeSocialCard(accent: profileNeutralAccent)
-                    .gqScreenHorizontalPadding()
-
-                    // Sign Out
-                    Button {
-                        showingLogoutAlert = true
-                    } label: {
-                        Text("Sign Out")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(GQColors.error)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 44)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(GQColors.error.opacity(0.06))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(GQColors.error.opacity(0.18), lineWidth: 1)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .gqScreenHorizontalPadding()
-
-                    Spacer(minLength: 24)
+                        )
+                    )
                 }
-                .padding(.top, 8)
-                .padding(.bottom, GQLayout.pageBottom)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .homeSocialCard(cornerRadius: 16)
+
+                settingsDivider
+
+                // MARK: Links
+
+                VStack(spacing: 0) {
+                    settingsNavRow(icon: "figure.arms.open", title: "Body Measurements", subtitle: "Track weight, body fat & more", color: GQColors.textSecondary) {
+                        BodyMeasurementsView(profile: profile)
+                    }
+                    Divider().padding(.leading, 70)
+                    settingsNavRow(icon: "heart.fill", title: "Apple Health & Watch", subtitle: "Sync data & integrations", color: GQColors.textSecondary) {
+                        IntegrationsView(profile: profile)
+                    }
+                    Divider().padding(.leading, 70)
+                    settingsNavRow(icon: "waveform", title: "Music", subtitle: "Spotify & Apple Music", color: GQColors.textSecondary) {
+                        IntegrationsView(profile: profile)
+                    }
+                    Divider().padding(.leading, 70)
+                    settingsNavRow(icon: "person.2.fill", title: "Squads", subtitle: "Teams & challenges", color: GQColors.textSecondary) {
+                        SquadView(profile: profile)
+                    }
+                    Divider().padding(.leading, 70)
+                    settingsNavRow(icon: "bell.badge", title: "Notifications", subtitle: "Reminders & alerts", color: GQColors.textSecondary) {
+                        NotificationSettingsView()
+                    }
+                }
+                .homeSocialCard(cornerRadius: 16)
+
+                settingsDivider
+
+                // Sign Out
+                Button {
+                    showingLogoutAlert = true
+                } label: {
+                    Text("Sign Out")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .buttonStyle(.plain)
             }
-            .gqPageBackground()
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(GQColors.textSecondary)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button {
-                        profile.name = name
-                        profile.username = username.isEmpty ? name.lowercased().replacingOccurrences(of: " ", with: "") : username
-                        profile.aiProvider = aiProvider
-                        profile.apiKey = apiKey
-                        if !apiKey.isEmpty {
-                            AIKeychain.save(key: apiKey, userId: profile.id.uuidString)
-                        }
-                        profile.ollamaModel = ollamaModel
-                        profile.ollamaHost = ollamaHost
-                        profile.gymName = gymName
-                        profile.preferredWorkoutDuration = preferredDuration
-                        profile.experienceLevel = experienceLevel
-                        profile.availableEquipment = Array(selectedEquipment)
-                        do {
-                            try modelContext.save()
-                            dismiss()
-                        } catch {
-                            showingSaveError = true
-                        }
-                    } label: {
-                        Text("Save")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(GQGradients.primary)
-                    }
-                }
-            }
-            .alert("Sign Out", isPresented: $showingLogoutAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Sign Out", role: .destructive) {
-                    authService.setModelContext(modelContext)
-                    authService.logout(profile: profile)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 100)
+        }
+        .scrollContentBackground(.hidden)
+        .gqPageBackground()
+        .navigationTitle("Settings")
+        .navigationBarBackButtonHidden(true)
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button {
                     dismiss()
-                    appState.authState = .notAuthenticated
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Back")
+                            .font(.system(size: 17))
+                    }
+                    .foregroundColor(GQColors.textPrimary)
                 }
-            } message: {
-                Text("Are you sure you want to sign out?")
             }
-            .alert("Ollama Connection", isPresented: $showingConnectionAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(connectionStatus ?? "Unknown status")
+            ToolbarItem(placement: .confirmationAction) {
+                Button {
+                    profile.name = name
+                    profile.username = username.isEmpty ? name.lowercased().replacingOccurrences(of: " ", with: "") : username
+                    profile.aiProvider = aiProvider
+                    profile.apiKey = apiKey
+                    if !apiKey.isEmpty {
+                        AIKeychain.save(key: apiKey, userId: profile.id.uuidString)
+                    }
+                    profile.ollamaModel = ollamaModel
+                    profile.ollamaHost = ollamaHost
+                    profile.gymName = gymName
+                    profile.preferredWorkoutDuration = preferredDuration
+                    profile.experienceLevel = experienceLevel
+                    profile.availableEquipment = Array(selectedEquipment)
+                    do {
+                        try modelContext.save()
+                        dismiss()
+                    } catch {
+                        showingSaveError = true
+                    }
+                } label: {
+                    Text("Save")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(GQGradients.primary)
+                }
             }
-            .alert("Save Failed", isPresented: $showingSaveError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("Could not save settings. Please try again.")
+        }
+        .alert("Sign Out", isPresented: $showingLogoutAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Sign Out", role: .destructive) {
+                authService.setModelContext(modelContext)
+                authService.logout(profile: profile)
+                dismiss()
+                appState.authState = .notAuthenticated
             }
-            .onAppear {
-                name = profile.name
-                username = profile.username
-                aiProvider = profile.aiProvider
-                apiKey = profile.apiKey
-                ollamaModel = profile.ollamaModel
-                ollamaHost = profile.ollamaHost
-                gymName = profile.gymName
-                preferredDuration = profile.preferredWorkoutDuration
-                experienceLevel = profile.experienceLevel ?? .intermediate
-                selectedEquipment = Set(profile.availableEquipment)
-            }
+        } message: {
+            Text("Are you sure you want to sign out?")
+        }
+        .alert("Ollama Connection", isPresented: $showingConnectionAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(connectionStatus ?? "Unknown status")
+        }
+        .alert("Save Failed", isPresented: $showingSaveError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Could not save settings. Please try again.")
+        }
+        .onAppear {
+            name = profile.name
+            username = profile.username
+            aiProvider = profile.aiProvider
+            apiKey = profile.apiKey
+            ollamaModel = profile.ollamaModel
+            ollamaHost = profile.ollamaHost
+            gymName = profile.gymName
+            preferredDuration = profile.preferredWorkoutDuration
+            experienceLevel = profile.experienceLevel ?? .intermediate
+            selectedEquipment = Set(profile.availableEquipment)
         }
     }
 
     @ViewBuilder
-    private func sectionHeader(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(.system(size: 10, weight: .bold))
-            .foregroundColor(GQColors.textTertiary)
-            .tracking(0.8)
+    private func settingsStat(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var settingsStatDivider: some View {
+        Rectangle()
+            .fill(GQColors.borderSubtle)
+            .frame(width: 0.5, height: 28)
     }
 
     @ViewBuilder
@@ -1963,26 +1905,34 @@ struct SettingsView: View {
     }
 
     @ViewBuilder
-    private func settingsNavRow<Destination: View>(icon: String, title: String, color: Color, @ViewBuilder destination: () -> Destination) -> some View {
+    private func settingsNavRow<Destination: View>(icon: String, title: String, subtitle: String = "", color: Color = GQColors.textSecondary, @ViewBuilder destination: () -> Destination) -> some View {
         NavigationLink(destination: destination) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(colors: [color, color.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    )
-                    .frame(width: 28, height: 28)
-                    .background(RoundedRectangle(cornerRadius: 7).fill(color.opacity(0.1)))
-                Text(title)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(GQColors.textPrimary)
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle()
+                        .fill(GQGradients.primary.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: icon)
+                        .font(.system(size: 17))
+                        .foregroundStyle(GQGradients.primary)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(GQColors.textPrimary)
+                    if !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(GQColors.textTertiary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -1991,12 +1941,12 @@ struct SettingsView: View {
     @ViewBuilder
     private func settingsToggleRow(title: String, subtitle: String, isOn: Binding<Bool>) -> some View {
         HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 14, weight: .medium))
                     .foregroundColor(GQColors.textPrimary)
                 Text(subtitle)
-                    .font(.system(size: 11))
+                    .font(.system(size: 12))
                     .foregroundColor(GQColors.textTertiary)
             }
             Spacer()
@@ -2010,15 +1960,11 @@ struct SettingsView: View {
             } label: {
                 ZStack(alignment: isOn.wrappedValue ? .trailing : .leading) {
                     Capsule()
-                        .fill(isOn.wrappedValue ? AnyShapeStyle(GQGradients.primary.opacity(0.2)) : AnyShapeStyle(GQColors.overlayMedium))
-                        .frame(width: 40, height: 24)
-                        .overlay(
-                            Capsule()
-                                .stroke(isOn.wrappedValue ? AnyShapeStyle(GQGradients.primary.opacity(0.5)) : AnyShapeStyle(Color.clear), lineWidth: 1)
-                        )
+                        .fill(isOn.wrappedValue ? AnyShapeStyle(GQGradients.primary.opacity(0.35)) : AnyShapeStyle(GQColors.adaptiveOverlay(0.12)))
+                        .frame(width: 44, height: 26)
                     Circle()
-                        .fill(isOn.wrappedValue ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary))
-                        .frame(width: 20, height: 20)
+                        .fill(isOn.wrappedValue ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(Color(white: 0.75)))
+                        .frame(width: 22, height: 22)
                         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
                         .padding(.horizontal, 2)
                 }
@@ -2029,35 +1975,29 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func settingsPillPicker(items: [String], selection: Binding<String>) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(items, id: \.self) { item in
-                    let isSelected = selection.wrappedValue == item
-                    Button {
-                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
-                            selection.wrappedValue = item
-                        }
-                        #if canImport(UIKit)
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        #endif
-                    } label: {
-                        Text(item)
-                            .font(.system(size: 12, weight: .medium))
-                            .lineLimit(1)
-                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.surfaceSecondary))
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(isSelected ? Color.clear : GQColors.overlayMedium, lineWidth: 1)
-                            )
+        HStack(spacing: 6) {
+            ForEach(items, id: \.self) { item in
+                let isSelected = selection.wrappedValue == item
+                Button {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        selection.wrappedValue = item
                     }
-                    .buttonStyle(.plain)
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    #endif
+                } label: {
+                    Text(item)
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .foregroundColor(isSelected ? GQColors.textPrimary : GQColors.textSecondary)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(isSelected ? GQColors.adaptiveOverlay(0.15) : GQColors.adaptiveOverlay(0.05))
+                        )
                 }
+                .buttonStyle(GQInteractiveStyle())
             }
         }
     }
@@ -2069,10 +2009,10 @@ struct SettingsView: View {
         placeholder: String? = nil,
         isURL: Bool = false
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.system(size: 12, weight: .medium))
-                .foregroundColor(GQColors.textSecondary)
+                .foregroundColor(GQColors.textTertiary)
             TextField(placeholder ?? title, text: text)
                 .autocorrectionDisabled(isURL)
                 #if os(iOS)
@@ -2080,8 +2020,8 @@ struct SettingsView: View {
                 .textInputAutocapitalization(isURL ? .never : .sentences)
                 #endif
                 .textFieldStyle(.plain)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
                         .fill(GQColors.surfaceSecondary)

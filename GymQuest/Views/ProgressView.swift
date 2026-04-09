@@ -150,12 +150,12 @@ struct ProgressAnalyticsView: View {
 
             VStack(alignment: .trailing, spacing: 4) {
                 HStack(spacing: 6) {
-                    Image(systemName: volumeTrend >= 0 ? "arrow.up.right" : "arrow.down.right")
+                    Image(systemName: abs(volumeTrend) < 1 ? "minus" : (volumeTrend > 0 ? "arrow.up.right" : "arrow.down.right"))
                         .font(.system(size: 14, weight: .bold))
                     Text(String(format: "%.0f%%", abs(volumeTrend)))
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                 }
-                .foregroundColor(volumeTrend >= 0 ? GQColors.success : GQColors.textSecondary)
+                .foregroundColor(abs(volumeTrend) < 1 ? GQColors.textSecondary : (volumeTrend > 0 ? GQColors.success : GQColors.textSecondary))
                 Text("volume trend")
                     .font(.system(size: 13))
                     .foregroundColor(GQColors.textTertiary)
@@ -240,14 +240,16 @@ struct ProgressAnalyticsView: View {
                 Circle()
                     .trim(from: 0, to: min(abs(volumeTrend) / 100, 1.0) * animateRings)
                     .stroke(
-                        volumeTrend >= 0 ? GQGradients.primary : LinearGradient(colors: [GQColors.textSecondary, GQColors.textTertiary], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        abs(volumeTrend) < 1
+                            ? LinearGradient(colors: [GQColors.textSecondary, GQColors.textTertiary], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            : (volumeTrend > 0 ? GQGradients.primary : LinearGradient(colors: [GQColors.textSecondary, GQColors.textTertiary], startPoint: .topLeading, endPoint: .bottomTrailing)),
                         style: StrokeStyle(lineWidth: 7, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                     .frame(width: 62, height: 62)
 
                 HStack(spacing: 1) {
-                    Image(systemName: volumeTrend >= 0 ? "arrow.up" : "arrow.down")
+                    Image(systemName: abs(volumeTrend) < 1 ? "minus" : (volumeTrend > 0 ? "arrow.up" : "arrow.down"))
                         .font(.system(size: 9, weight: .bold))
                     Text(String(format: "%.0f%%", abs(volumeTrend)))
                         .font(.system(size: 12, weight: .bold, design: .rounded))

@@ -30,7 +30,7 @@ struct SocialSeeder {
     ]
 
     static func seedIfNeeded(modelContext: ModelContext) {
-        let seederVersion = "socialSeeder_v11"
+        let seederVersion = "socialSeeder_v13"
         let needsReseed = !UserDefaults.standard.bool(forKey: seederVersion)
 
         let descriptor = FetchDescriptor<Post>()
@@ -189,6 +189,10 @@ struct SocialSeeder {
             ]
             p2.mediaItemsData = try? JSONEncoder().encode(items)
         }
+        // Widget: PR
+        p2.postWidgetData = try? JSONEncoder().encode(PostWidget(
+            type: .pr, prExercise: "Barbell Row", prValue: "175 lbs", prPrevious: "155 lbs", prImprovement: "+20 lbs"
+        ))
         modelContext.insert(p2)
         postIds.append(p2.id)
 
@@ -249,22 +253,12 @@ struct SocialSeeder {
         postIds.append(p3.id)
 
         // 4. Cardio + motivation (with route data)
-        let runRoute: [RoutePoint] = [
-            RoutePoint(latitude: 43.6532, longitude: -79.3832, altitude: 76, timestamp: 0, speed: 3.2, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6540, longitude: -79.3820, altitude: 77, timestamp: 60, speed: 3.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6555, longitude: -79.3805, altitude: 78, timestamp: 150, speed: 3.6, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6568, longitude: -79.3798, altitude: 79, timestamp: 240, speed: 3.4, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6580, longitude: -79.3810, altitude: 80, timestamp: 330, speed: 3.3, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6585, longitude: -79.3830, altitude: 81, timestamp: 420, speed: 3.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6578, longitude: -79.3850, altitude: 80, timestamp: 510, speed: 3.6, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6565, longitude: -79.3862, altitude: 79, timestamp: 600, speed: 3.4, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6550, longitude: -79.3868, altitude: 78, timestamp: 700, speed: 3.3, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6538, longitude: -79.3860, altitude: 77, timestamp: 800, speed: 3.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6528, longitude: -79.3848, altitude: 76, timestamp: 900, speed: 3.6, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6525, longitude: -79.3838, altitude: 76, timestamp: 1000, speed: 3.4, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6530, longitude: -79.3833, altitude: 76, timestamp: 1100, speed: 3.2, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6532, longitude: -79.3832, altitude: 76, timestamp: 1200, speed: 3.0, horizontalAccuracy: 5),
-        ]
+        // 5K loop around Kingston waterfront — dense points for smooth rendering
+        let runRoute: [RoutePoint] = SocialSeeder.generateSmoothRoute(
+            center: (44.2312, -76.4860),
+            radiusLat: 0.008, radiusLng: 0.012,
+            points: 80, durationSeconds: 1500
+        )
         let runWorkoutData = SharedWorkoutData(
             title: "Outdoor Run",
             workoutType: "Cardio",
@@ -305,6 +299,10 @@ struct SocialSeeder {
             p4.mediaItemsData = try? JSONEncoder().encode(items)
         }
         p4.albumArtData = bundledAlbumArt("run_this_town")
+        // Widget: Cardio stats
+        p4.postWidgetData = try? JSONEncoder().encode(PostWidget(
+            type: .cardio, distance: 5.2, pace: "4:45"
+        ))
         modelContext.insert(p4)
         postIds.append(p4.id)
 
@@ -518,6 +516,10 @@ struct SocialSeeder {
             p7.mediaItemsData = try? JSONEncoder().encode(items)
         }
         p7.albumArtData = bundledAlbumArt("sicko_mode")
+        // Widget: Streak
+        p7.postWidgetData = try? JSONEncoder().encode(PostWidget(
+            type: .streak, streakDays: 14, milestoneLabel: "Day Streak"
+        ))
         modelContext.insert(p7)
         postIds.append(p7.id)
 
@@ -564,6 +566,10 @@ struct SocialSeeder {
             authorUsername: fakeUsers[7].username
         )
         p8.sharedWorkoutData = try? JSONEncoder().encode(p8Workout)
+        // Widget: Macros
+        p8.postWidgetData = try? JSONEncoder().encode(PostWidget(
+            type: .macros, calories: 2450, protein: 185, carbs: 280, fat: 65
+        ))
         modelContext.insert(p8)
         postIds.append(p8.id)
 
@@ -1459,22 +1465,11 @@ struct SocialSeeder {
             ]
             p25.mediaItemsData = try? JSONEncoder().encode(items)
         }
-        let cycleRoute: [RoutePoint] = [
-            RoutePoint(latitude: 43.6426, longitude: -79.3871, altitude: 75, timestamp: 0, speed: 7.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6400, longitude: -79.3820, altitude: 75, timestamp: 120, speed: 8.0, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6380, longitude: -79.3760, altitude: 74, timestamp: 300, speed: 8.2, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6365, longitude: -79.3700, altitude: 74, timestamp: 480, speed: 7.8, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6358, longitude: -79.3640, altitude: 74, timestamp: 660, speed: 8.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6370, longitude: -79.3580, altitude: 75, timestamp: 840, speed: 8.0, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6395, longitude: -79.3530, altitude: 75, timestamp: 1020, speed: 7.6, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6420, longitude: -79.3500, altitude: 76, timestamp: 1200, speed: 8.1, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6450, longitude: -79.3520, altitude: 76, timestamp: 1400, speed: 7.9, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6460, longitude: -79.3570, altitude: 75, timestamp: 1600, speed: 8.3, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6450, longitude: -79.3630, altitude: 75, timestamp: 1800, speed: 7.7, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6440, longitude: -79.3700, altitude: 75, timestamp: 2000, speed: 8.0, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6430, longitude: -79.3780, altitude: 75, timestamp: 2200, speed: 7.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6426, longitude: -79.3871, altitude: 75, timestamp: 2400, speed: 7.0, horizontalAccuracy: 5),
-        ]
+        let cycleRoute: [RoutePoint] = SocialSeeder.generateSmoothRoute(
+            center: (44.2280, -76.4950),
+            radiusLat: 0.015, radiusLng: 0.022,
+            points: 100, durationSeconds: 3600, baseSpeed: 7.5
+        )
         let p25Workout = SharedWorkoutData(
             title: "Waterfront Ride",
             workoutType: "Cardio",
@@ -1513,18 +1508,11 @@ struct SocialSeeder {
             ]
             p26.mediaItemsData = try? JSONEncoder().encode(items)
         }
-        let rowRoute: [RoutePoint] = [
-            RoutePoint(latitude: 43.6510, longitude: -79.3700, altitude: 75, timestamp: 0, speed: 4.0, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6520, longitude: -79.3680, altitude: 75, timestamp: 60, speed: 4.2, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6535, longitude: -79.3665, altitude: 75, timestamp: 120, speed: 4.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6548, longitude: -79.3655, altitude: 75, timestamp: 200, speed: 4.3, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6560, longitude: -79.3660, altitude: 75, timestamp: 280, speed: 4.1, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6565, longitude: -79.3680, altitude: 75, timestamp: 350, speed: 4.4, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6555, longitude: -79.3695, altitude: 75, timestamp: 420, speed: 4.2, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6540, longitude: -79.3705, altitude: 75, timestamp: 500, speed: 4.0, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6525, longitude: -79.3710, altitude: 75, timestamp: 580, speed: 4.3, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6510, longitude: -79.3700, altitude: 75, timestamp: 660, speed: 3.8, horizontalAccuracy: 5),
-        ]
+        let rowRoute: [RoutePoint] = SocialSeeder.generateSmoothRoute(
+            center: (44.2250, -76.4800),
+            radiusLat: 0.004, radiusLng: 0.006,
+            points: 40, durationSeconds: 660, baseSpeed: 4.0
+        )
         let p26Workout = SharedWorkoutData(
             title: "Row Challenge",
             workoutType: "Cardio",
@@ -1541,20 +1529,11 @@ struct SocialSeeder {
         postIds.append(p26.id)
 
         // 27. Hiking cardio post with route
-        let hikeRoute: [RoutePoint] = [
-            RoutePoint(latitude: 43.6700, longitude: -79.4100, altitude: 85, timestamp: 0, speed: 1.4, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6715, longitude: -79.4085, altitude: 92, timestamp: 180, speed: 1.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6730, longitude: -79.4065, altitude: 105, timestamp: 400, speed: 1.3, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6748, longitude: -79.4050, altitude: 118, timestamp: 620, speed: 1.2, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6760, longitude: -79.4038, altitude: 130, timestamp: 850, speed: 1.1, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6775, longitude: -79.4045, altitude: 142, timestamp: 1080, speed: 1.0, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6782, longitude: -79.4060, altitude: 148, timestamp: 1300, speed: 1.2, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6778, longitude: -79.4080, altitude: 140, timestamp: 1520, speed: 1.4, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6760, longitude: -79.4092, altitude: 125, timestamp: 1740, speed: 1.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6740, longitude: -79.4098, altitude: 110, timestamp: 1960, speed: 1.6, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6720, longitude: -79.4100, altitude: 95, timestamp: 2180, speed: 1.5, horizontalAccuracy: 5),
-            RoutePoint(latitude: 43.6700, longitude: -79.4100, altitude: 85, timestamp: 2400, speed: 1.3, horizontalAccuracy: 5),
-        ]
+        let hikeRoute: [RoutePoint] = SocialSeeder.generateSmoothRoute(
+            center: (44.2350, -76.5100),
+            radiusLat: 0.006, radiusLng: 0.008,
+            points: 60, durationSeconds: 2400, baseSpeed: 1.3, elevation: (85, 148)
+        )
         let hikeWorkoutData = SharedWorkoutData(
             title: "Morning Hike",
             workoutType: "Cardio",
@@ -1851,22 +1830,11 @@ struct SocialSeeder {
             myPostIds.append(myPost2.id)
 
             // ── Post C: Cycling ride with GPS route ─────────────────────
-            let cycleRoute: [RoutePoint] = [
-                RoutePoint(latitude: 43.6426, longitude: -79.3871, altitude: 76, timestamp: 0, speed: 6.5, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6450, longitude: -79.3820, altitude: 77, timestamp: 300, speed: 7.0, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6490, longitude: -79.3780, altitude: 78, timestamp: 600, speed: 7.2, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6540, longitude: -79.3750, altitude: 79, timestamp: 900, speed: 6.8, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6590, longitude: -79.3730, altitude: 80, timestamp: 1200, speed: 7.1, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6630, longitude: -79.3760, altitude: 81, timestamp: 1500, speed: 6.9, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6650, longitude: -79.3800, altitude: 80, timestamp: 1800, speed: 7.3, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6640, longitude: -79.3840, altitude: 79, timestamp: 2100, speed: 7.0, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6610, longitude: -79.3870, altitude: 78, timestamp: 2400, speed: 6.7, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6570, longitude: -79.3890, altitude: 77, timestamp: 2700, speed: 6.5, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6520, longitude: -79.3900, altitude: 77, timestamp: 3000, speed: 6.8, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6480, longitude: -79.3895, altitude: 76, timestamp: 3150, speed: 6.6, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6450, longitude: -79.3880, altitude: 76, timestamp: 3200, speed: 6.4, horizontalAccuracy: 5),
-                RoutePoint(latitude: 43.6426, longitude: -79.3871, altitude: 76, timestamp: 3300, speed: 6.0, horizontalAccuracy: 5),
-            ]
+            let cycleRoute: [RoutePoint] = SocialSeeder.generateSmoothRoute(
+                center: (44.2320, -76.5000),
+                radiusLat: 0.018, radiusLng: 0.025,
+                points: 90, durationSeconds: 3300, baseSpeed: 6.5
+            )
             let cycleWorkoutData = SharedWorkoutData(
                 title: "Evening Ride",
                 workoutType: "Cardio",
@@ -1900,18 +1868,11 @@ struct SocialSeeder {
             myPostIds.append(myPost3.id)
 
             // ── Post D: Running 5K with GPS route ───────────────────────
-            let runRoute5K: [RoutePoint] = [
-                RoutePoint(latitude: 44.2253, longitude: -76.4951, altitude: 90, timestamp: 0, speed: 3.0, horizontalAccuracy: 5),
-                RoutePoint(latitude: 44.2270, longitude: -76.4930, altitude: 91, timestamp: 180, speed: 3.3, horizontalAccuracy: 5),
-                RoutePoint(latitude: 44.2290, longitude: -76.4910, altitude: 92, timestamp: 360, speed: 3.4, horizontalAccuracy: 5),
-                RoutePoint(latitude: 44.2310, longitude: -76.4895, altitude: 93, timestamp: 540, speed: 3.5, horizontalAccuracy: 5),
-                RoutePoint(latitude: 44.2325, longitude: -76.4910, altitude: 92, timestamp: 720, speed: 3.3, horizontalAccuracy: 5),
-                RoutePoint(latitude: 44.2315, longitude: -76.4935, altitude: 91, timestamp: 900, speed: 3.4, horizontalAccuracy: 5),
-                RoutePoint(latitude: 44.2298, longitude: -76.4955, altitude: 90, timestamp: 1080, speed: 3.2, horizontalAccuracy: 5),
-                RoutePoint(latitude: 44.2278, longitude: -76.4965, altitude: 90, timestamp: 1260, speed: 3.3, horizontalAccuracy: 5),
-                RoutePoint(latitude: 44.2260, longitude: -76.4958, altitude: 90, timestamp: 1440, speed: 3.5, horizontalAccuracy: 5),
-                RoutePoint(latitude: 44.2253, longitude: -76.4951, altitude: 90, timestamp: 1620, speed: 3.0, horizontalAccuracy: 5),
-            ]
+            let runRoute5K: [RoutePoint] = SocialSeeder.generateSmoothRoute(
+                center: (44.2290, -76.4930),
+                radiusLat: 0.007, radiusLng: 0.010,
+                points: 70, durationSeconds: 1620
+            )
             let run5KWorkoutData = SharedWorkoutData(
                 title: "5K Run",
                 workoutType: "Cardio",
@@ -2331,5 +2292,53 @@ struct SocialSeeder {
             timestamp: Date().addingTimeInterval(-h * 3600)
         )
         ctx.insert(comment)
+    }
+
+    /// Generates a smooth, organic-looking loop route with many points.
+    /// Uses a figure-8 / organic shape with slight randomness for natural GPS feel.
+    static func generateSmoothRoute(
+        center: (Double, Double),
+        radiusLat: Double,
+        radiusLng: Double,
+        points: Int,
+        durationSeconds: Double,
+        baseSpeed: Double = 3.3,
+        elevation: (Double, Double) = (75, 85)
+    ) -> [RoutePoint] {
+        var route: [RoutePoint] = []
+        let dt = durationSeconds / Double(points)
+
+        for i in 0..<points {
+            let t = Double(i) / Double(points) * 2 * .pi
+            // Organic shape: mix of sin/cos harmonics for a non-circular path
+            let latOffset = radiusLat * (sin(t) + 0.3 * sin(2 * t) + 0.15 * cos(3 * t))
+            let lngOffset = radiusLng * (cos(t) + 0.25 * cos(2 * t) - 0.1 * sin(3 * t))
+            // Tiny jitter for GPS realism
+            let jitterLat = Double.random(in: -0.00005...0.00005)
+            let jitterLng = Double.random(in: -0.00005...0.00005)
+            let alt = elevation.0 + (elevation.1 - elevation.0) * (0.5 + 0.5 * sin(t * 1.5))
+            let speed = baseSpeed + Double.random(in: -0.3...0.3)
+
+            route.append(RoutePoint(
+                latitude: center.0 + latOffset + jitterLat,
+                longitude: center.1 + lngOffset + jitterLng,
+                altitude: alt,
+                timestamp: Double(i) * dt,
+                speed: max(speed, 0.5),
+                horizontalAccuracy: Double.random(in: 3...8)
+            ))
+        }
+        // Close the loop
+        if let first = route.first {
+            route.append(RoutePoint(
+                latitude: first.latitude,
+                longitude: first.longitude,
+                altitude: first.altitude,
+                timestamp: durationSeconds,
+                speed: baseSpeed * 0.8,
+                horizontalAccuracy: 5
+            ))
+        }
+        return route
     }
 }

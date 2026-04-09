@@ -65,23 +65,30 @@ struct BodyMeasurementsView: View {
                 }
 
                 // All measurements by type
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
                     Text("ALL MEASUREMENTS")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(GQColors.textTertiary)
-                        .tracking(0.5)
+                        .tracking(0.8)
                         .padding(.horizontal)
 
-                    ForEach(MeasurementType.allCases, id: \.self) { type in
-                        MeasurementTypeRow(
-                            type: type,
-                            latest: latestMeasurements[type],
-                            trend: calculateTrend(for: type)
-                        )
-                        .onTapGesture {
-                            selectedType = type
+                    VStack(spacing: 0) {
+                        ForEach(Array(MeasurementType.allCases.enumerated()), id: \.element) { index, type in
+                            MeasurementTypeRow(
+                                type: type,
+                                latest: latestMeasurements[type],
+                                trend: calculateTrend(for: type)
+                            )
+                            .onTapGesture {
+                                selectedType = type
+                            }
+                            if index < MeasurementType.allCases.count - 1 {
+                                Divider().padding(.leading, 68)
+                            }
                         }
                     }
+                    .workoutFlowCard()
+                    .padding(.horizontal)
                 }
                 .padding(.top, 8)
 
@@ -219,19 +226,7 @@ struct MeasurementChartCard: View {
             .frame(height: 180)
         }
         .padding(16)
-        .background(GQColors.surfaceBase)
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(
-                    LinearGradient(
-                        colors: [Color.black.opacity(0.06), Color.black.opacity(0.03)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ),
-                    lineWidth: 1
-                )
-        )
+        .workoutFlowCard()
     }
 }
 
@@ -245,12 +240,12 @@ struct MeasurementTypeRow: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                Circle()
-                    .fill(GQColors.deepBlue.opacity(0.2))
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(GQColors.deepBlue.opacity(0.15))
                     .frame(width: 40, height: 40)
 
                 Image(systemName: type.icon)
-                    .font(.system(size: 16))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(GQColors.deepBlue)
             }
 
@@ -297,7 +292,7 @@ struct MeasurementTypeRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color.black.opacity(0.03))
+        .contentShape(Rectangle())
     }
 }
 

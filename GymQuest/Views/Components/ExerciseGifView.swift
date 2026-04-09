@@ -57,7 +57,7 @@ struct ExerciseGifView: View {
         case .thumbnail, .medium:
             AnimatedImage(url: url, isAnimating: .constant(true))
                 .customLoopCount(0)
-                .playbackRate(1.5)
+                .playbackRate(1.0)
                 .resizable()
                 .scaledToFill()
                 .frame(width: size.dimension, height: size.dimension)
@@ -69,7 +69,7 @@ struct ExerciseGifView: View {
         case .detail:
             AnimatedImage(url: url, isAnimating: .constant(true))
                 .customLoopCount(0)
-                .playbackRate(1.5)
+                .playbackRate(1.0)
                 .resizable()
                 .scaledToFit()
                 .frame(width: size.dimension, height: size.dimension)
@@ -81,7 +81,7 @@ struct ExerciseGifView: View {
         case .large:
             AnimatedImage(url: url, isAnimating: .constant(true))
                 .customLoopCount(0)
-                .playbackRate(1.5)
+                .playbackRate(1.0)
                 .resizable()
                 .scaledToFit()
                 .frame(maxWidth: .infinity)
@@ -226,7 +226,7 @@ struct OverlayExerciseGifStrip: View {
     var body: some View {
         GeometryReader { geo in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: 6) {
                     ForEach(exercises) { exercise in
                         OverlayExerciseGifItem(exercise: exercise)
                     }
@@ -235,37 +235,40 @@ struct OverlayExerciseGifStrip: View {
                 .frame(minWidth: geo.size.width)
             }
         }
-        .frame(height: 66)
+        .frame(height: 72)
     }
 }
 
 struct OverlayExerciseGifItem: View {
     let exercise: SharedWorkoutData.SharedExercise
 
-    private var setSummary: String {
-        let count = exercise.sets.count
-        let topWeight = exercise.sets.map(\.weight).max() ?? 0
-        if topWeight > 0 { return "\(count)s · \(Int(topWeight))lb" }
-        return "\(count) sets"
+    private var topWeight: Int {
+        Int(exercise.sets.map(\.weight).max() ?? 0)
     }
 
     var body: some View {
         VStack(spacing: 2) {
             ExerciseGifView(exerciseName: exercise.name, size: .detail)
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 2)
-            Text(exercise.name)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.white.opacity(0.9))
-                .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 1)
-                .lineLimit(1)
-                .frame(maxWidth: 52)
-            Text(setSummary)
-                .font(.system(size: 9, weight: .regular))
-                .foregroundColor(.white.opacity(0.85))
-                .shadow(color: .black.opacity(0.4), radius: 4, x: 0, y: 1)
-                .lineLimit(1)
+                .frame(width: 50, height: 50)
+                .clipShape(RoundedRectangle(cornerRadius: 11))
+                .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+            if topWeight > 0 {
+                HStack(spacing: 0) {
+                    Text("\(exercise.sets.count)×\(topWeight)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.85))
+                    Text("lb")
+                        .font(.system(size: 7, weight: .medium))
+                        .foregroundColor(.white.opacity(0.45))
+                        .baselineOffset(2)
+                }
+                .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+            } else {
+                Text("\(exercise.sets.count) sets")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+                    .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+            }
         }
     }
 }

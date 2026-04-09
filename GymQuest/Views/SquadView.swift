@@ -105,56 +105,54 @@ struct EmptySquadView: View {
     let onJoinSquad: () -> Void
 
     var body: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "person.3.fill")
-                .font(.system(size: 60))
-                .foregroundColor(GQColors.deepBlue.opacity(0.5))
-                .padding(.top, 40)
+        VStack(spacing: 20) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(GQColors.textTertiary.opacity(0.08))
+                    .frame(width: 52, height: 52)
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+            }
+            .padding(.top, 8)
 
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
                 Text("No Squads Yet")
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
 
-                Text("Create or join a squad to train with friends and compete in weekly challenges")
-                    .font(.subheadline)
-                    .foregroundColor(GQColors.textTertiary)
+                Text("Train with friends and compete in weekly challenges")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
             }
 
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 Button(action: onCreateSquad) {
-                    HStack {
+                    HStack(spacing: 8) {
                         Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 15))
                         Text("Create a Squad")
                     }
-                    .font(.headline)
-                    .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(GQColors.cardBackground)
-                    .cornerRadius(GQRadius.md)
                 }
+                .buttonStyle(PrimaryButtonStyle())
 
                 Button(action: onJoinSquad) {
-                    HStack {
+                    HStack(spacing: 8) {
                         Image(systemName: "person.badge.plus")
+                            .font(.system(size: 15))
                         Text("Join with Code")
                     }
-                    .font(.headline)
-                    .foregroundColor(GQColors.textPrimary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(GQColors.deepBlue.opacity(0.12))
-                    .cornerRadius(GQRadius.md)
                 }
+                .buttonStyle(SecondaryButtonStyle())
             }
-            .padding(.horizontal, 40)
-            .padding(.top, 8)
         }
-        .buttonStyle(GQInteractiveStyle())
+        .padding(20)
+        .workoutFlowCard()
+        .gqScreenHorizontalPadding()
+        .padding(.top, 40)
     }
 }
 

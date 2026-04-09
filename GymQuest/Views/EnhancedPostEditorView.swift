@@ -644,21 +644,27 @@ struct EnhancedPostEditorView: View {
                 // Music pill with album art
                 musicAddOnPill
 
-                // Challenge pill
+                // Challenge pill (clears widget if selected)
                 addOnPill(
                     icon: "trophy.fill",
                     label: attachedChallenge?.title ?? "Challenge",
                     isActive: attachedChallenge != nil,
-                    onTap: { showChallengeCreator = true },
+                    onTap: {
+                        withAnimation { attachedWidget = nil }
+                        showChallengeCreator = true
+                    },
                     onClear: attachedChallenge != nil ? { withAnimation { attachedChallenge = nil } } : nil
                 )
 
-                // Widget pill
+                // Widget pill (clears challenge if selected)
                 addOnPill(
                     icon: "square.grid.2x2.fill",
                     label: attachedWidget != nil ? attachedWidget!.type.label : "Widget",
                     isActive: attachedWidget != nil,
-                    onTap: { showWidgetPicker = true },
+                    onTap: {
+                        withAnimation { attachedChallenge = nil }
+                        showWidgetPicker = true
+                    },
                     onClear: attachedWidget != nil ? { withAnimation { attachedWidget = nil } } : nil
                 )
             }

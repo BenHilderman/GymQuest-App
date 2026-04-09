@@ -10,26 +10,29 @@ import SwiftUI
 struct NotificationSettingsView: View {
     @StateObject private var notificationService = NotificationService.shared
 
-    @State private var showingTimePicker = false
-
     var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(spacing: 12) {
                 if !notificationService.isAuthorized {
                     // Authorization needed
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
+                    VStack(spacing: 16) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(GQColors.deepBlue.opacity(0.1))
+                                .frame(width: 40, height: 40)
                             Image(systemName: "bell.badge")
-                                .font(.title2)
-                                .foregroundColor(GQColors.textSecondary)
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(GQColors.deepBlue.opacity(0.7))
+                        }
 
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Enable Notifications")
-                                    .font(.headline)
-                                Text("Get reminded to work out")
-                                    .font(.caption)
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
+                        VStack(spacing: 4) {
+                            Text("Enable Notifications")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(GQColors.textPrimary)
+                            Text("Get reminded to work out and stay consistent")
+                                .font(.system(size: 13))
+                                .foregroundColor(GQColors.textSecondary)
+                                .multilineTextAlignment(.center)
                         }
 
                         Button {
@@ -38,86 +41,128 @@ struct NotificationSettingsView: View {
                             }
                         } label: {
                             Text("Allow Notifications")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                                .background(GQColors.deepBlue)
-                                .cornerRadius(10)
                         }
-                        .buttonStyle(GQInteractiveStyle())
+                        .buttonStyle(PrimaryButtonStyle())
                     }
-                    .padding(.vertical, 8)
+                    .padding(20)
+                    .workoutFlowCard()
+                    .gqScreenHorizontalPadding()
                 } else {
-                    Toggle(isOn: $notificationService.reminderEnabled) {
-                        Label("Workout Reminders", systemImage: "bell.fill")
-                    }
-                    .onChange(of: notificationService.reminderEnabled) { _, _ in
-                        notificationService.saveSettings()
-                    }
-                }
-            } header: {
-                Text("Reminders")
-            } footer: {
-                Text("Get a daily reminder to keep your training consistent.")
-            }
-
-            if notificationService.isAuthorized && notificationService.reminderEnabled {
-                Section {
-                    // Time picker
-                    DatePicker(
-                        "Reminder Time",
-                        selection: $notificationService.reminderTime,
-                        displayedComponents: .hourAndMinute
-                    )
-                    .onChange(of: notificationService.reminderTime) { _, _ in
-                        notificationService.saveSettings()
-                    }
-                } header: {
-                    Text("Time")
-                }
-
-                Section {
-                    // Day selection
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Remind me on these days:")
-                            .font(.subheadline)
+                    // MARK: Reminders
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("REMINDERS")
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundColor(GQColors.textTertiary)
+                            .tracking(0.8)
 
-                        HStack(spacing: 8) {
-                            ForEach(1...7, id: \.self) { day in
-                                DayButton(
-                                    day: day,
-                                    isSelected: notificationService.isDayEnabled(day),
-                                    action: {
-                                        notificationService.toggleDay(day)
-                                    }
-                                )
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Workout Reminders")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(GQColors.textPrimary)
+                                Text("Daily reminder to keep training")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+                            Spacer()
+                            Toggle("", isOn: $notificationService.reminderEnabled)
+                                .labelsHidden()
+                                .tint(GQColors.deepBlue)
+                                .onChange(of: notificationService.reminderEnabled) { _, _ in
+                                    notificationService.saveSettings()
+                                }
+                        }
+                    }
+                    .padding(14)
+                    .workoutFlowCard()
+                    .gqScreenHorizontalPadding()
+
+                    if notificationService.reminderEnabled {
+                        // MARK: Time
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("TIME")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(GQColors.textTertiary)
+                                .tracking(0.8)
+
+                            DatePicker(
+                                "Reminder Time",
+                                selection: $notificationService.reminderTime,
+                                displayedComponents: .hourAndMinute
+                            )
+                            .font(.system(size: 14))
+                            .onChange(of: notificationService.reminderTime) { _, _ in
+                                notificationService.saveSettings()
                             }
                         }
+                        .padding(14)
+                        .workoutFlowCard()
+                        .gqScreenHorizontalPadding()
+
+                        // MARK: Days
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("DAYS")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(GQColors.textTertiary)
+                                .tracking(0.8)
+
+                            Text("Remind me on these days:")
+                                .font(.system(size: 13))
+                                .foregroundColor(GQColors.textSecondary)
+
+                            HStack(spacing: 6) {
+                                ForEach(1...7, id: \.self) { day in
+                                    DayButton(
+                                        day: day,
+                                        isSelected: notificationService.isDayEnabled(day),
+                                        action: {
+                                            notificationService.toggleDay(day)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        .padding(14)
+                        .workoutFlowCard()
+                        .gqScreenHorizontalPadding()
+
+                        // MARK: Update
+                        Button {
+                            notificationService.scheduleReminders()
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.system(size: 14, weight: .semibold))
+                                Text("Update Reminders")
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .gqScreenHorizontalPadding()
+
+                        // Summary
+                        HStack(spacing: 6) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.textTertiary)
+                            let daysText = notificationService.reminderDays.isEmpty
+                                ? "No days selected"
+                                : "\(notificationService.reminderDays.count) day\(notificationService.reminderDays.count > 1 ? "s" : "") per week"
+                            let timeText = notificationService.reminderTime.formatted(date: .omitted, time: .shortened)
+                            Text("\(daysText) at \(timeText)")
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 4)
                     }
-                    .padding(.vertical, 8)
-                } header: {
-                    Text("Days")
                 }
 
-                Section {
-                    Button {
-                        notificationService.scheduleReminders()
-                    } label: {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Update Reminders")
-                        }
-                    }
-                } footer: {
-                    let daysText = notificationService.reminderDays.isEmpty
-                        ? "No days selected"
-                        : "\(notificationService.reminderDays.count) day(s) per week"
-                    let timeText = notificationService.reminderTime.formatted(date: .omitted, time: .shortened)
-                    Text("Currently set: \(daysText) at \(timeText)")
-                }
+                Spacer(minLength: 40)
             }
+            .padding(.top, 12)
+            .padding(.bottom, GQLayout.pageBottom)
         }
         .scrollContentBackground(.hidden)
         .gqPageBackground()
@@ -144,11 +189,12 @@ struct DayButton: View {
         Button(action: action) {
             Text(String(dayName.prefix(1)))
                 .font(.system(size: 13, weight: isSelected ? .bold : .medium))
-                .foregroundColor(isSelected ? .white : .gray)
-                .frame(width: 36, height: 36)
+                .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                .frame(maxWidth: .infinity)
+                .aspectRatio(1, contentMode: .fit)
                 .background(
                     Circle()
-                        .fill(isSelected ? GQColors.deepBlue : Color.black.opacity(0.06))
+                        .fill(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.surfaceSecondary))
                 )
         }
         .buttonStyle(GQInteractiveStyle())

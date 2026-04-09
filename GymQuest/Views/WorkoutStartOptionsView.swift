@@ -70,7 +70,7 @@ struct WorkoutStartOptionsView: View {
                                 accent: GQColors.deepBlue,
                                 useGradient: true
                             ) {
-                                AIGeneratedPlaceholderView()
+                                AIGeneratedPlaceholderView(profile: profile)
                             }
                         }
 
@@ -473,51 +473,228 @@ struct SavedWorkoutsListView: View {
 // MARK: - AI Generated Placeholder
 
 struct AIGeneratedPlaceholderView: View {
+    let profile: UserProfile
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject var appState: AppState
+
+    @State private var experienceLevel: ExperienceLevel = .intermediate
+    @State private var preferredDuration: Int = 60
+    @State private var selectedEquipment: Set<EquipmentType> = []
+    @State private var showSettings = false
+    @State private var isGenerating = false
+
+    private var settingsDivider: some View {
+        Rectangle()
+            .fill(GQColors.adaptiveOverlay(0.08))
+            .frame(height: 0.33)
+            .padding(.vertical, 1)
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        ScrollView {
+            VStack(spacing: 6) {
 
-            VStack(spacing: 16) {
-                Circle()
-                    .fill(GQColors.deepBlue.opacity(0.08))
-                    .frame(width: 72, height: 72)
-                    .overlay(
-                        Image(systemName: "brain.head.profile")
-                            .font(.system(size: 40))
+                // MARK: Summary
+                VStack(spacing: 8) {
+                    HStack(spacing: 0) {
+                        aiStat(experienceLevel.rawValue, "level")
+                        aiStatDivider
+                        aiStat("\(preferredDuration)m", "duration")
+                        aiStatDivider
+                        aiStat("\(selectedEquipment.count)", "equipment")
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .homeSocialCard(cornerRadius: 16)
+
+                settingsDivider
+
+                // MARK: Generate Button
+                Button {
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    #endif
+                    isGenerating = true
+                    // TODO: Call AI service to generate workout
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        isGenerating = false
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isGenerating {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 15, weight: .semibold))
+                        }
+                        Text(isGenerating ? "Generating..." : "Generate Workout")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(GQGradients.primary)
+                    )
+                }
+                .buttonStyle(GQInteractiveStyle())
+                .disabled(isGenerating)
+
+                settingsDivider
+
+                // MARK: Settings Toggle
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showSettings.toggle()
+                    }
+                } label: {
+                    HStack {
+                        Text("Workout Settings")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary.opacity(0.6))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundColor(GQColors.textTertiary)
-                    )
+                            .rotationEffect(.degrees(showSettings ? 90 : 0))
+                    }
+                }
+                .buttonStyle(.plain)
 
-                Text("Coming Soon")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(GQColors.textSecondary)
+                if showSettings {
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Experience
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Experience")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(GQColors.textTertiary)
+                            HStack(spacing: 6) {
+                                ForEach(ExperienceLevel.allCases, id: \.self) { level in
+                                    let isSelected = experienceLevel == level
+                                    Button {
+                                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                            experienceLevel = level
+                                        }
+                                    } label: {
+                                        Text(level.rawValue)
+                                            .font(.system(size: 12, weight: .medium))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 7)
+                                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(isSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.7)) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                            )
+                                    }
+                                    .buttonStyle(GQInteractiveStyle())
+                                }
+                            }
+                        }
 
-                Text("AI-powered workout recommendations are on the way.")
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textTertiary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 260)
+                        // Duration
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Duration")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(GQColors.textTertiary)
+                            HStack(spacing: 6) {
+                                ForEach([30, 45, 60, 90], id: \.self) { mins in
+                                    let isSelected = preferredDuration == mins
+                                    Button {
+                                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                            preferredDuration = mins
+                                        }
+                                    } label: {
+                                        Text("\(mins) min")
+                                            .font(.system(size: 12, weight: .medium))
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 7)
+                                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(isSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.7)) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                            )
+                                    }
+                                    .buttonStyle(GQInteractiveStyle())
+                                }
+                            }
+                        }
+
+                        // Equipment
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Equipment")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(GQColors.textTertiary)
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 90), spacing: 6)], spacing: 6) {
+                                ForEach(EquipmentType.allCases, id: \.self) { equipment in
+                                    let isSelected = selectedEquipment.contains(equipment)
+                                    Button {
+                                        withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                                            if isSelected { selectedEquipment.remove(equipment) }
+                                            else { selectedEquipment.insert(equipment) }
+                                        }
+                                    } label: {
+                                        Text(equipment.rawValue)
+                                            .font(.system(size: 12, weight: .medium))
+                                            .lineLimit(1)
+                                            .minimumScaleFactor(0.8)
+                                            .frame(maxWidth: .infinity)
+                                            .padding(.vertical, 7)
+                                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .fill(isSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.7)) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                            )
+                                    }
+                                    .buttonStyle(GQInteractiveStyle())
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .homeSocialCard(cornerRadius: 16)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
-            .padding(24)
-            .homeSocialCard(cornerRadius: 14)
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(
-                        LinearGradient(
-                            colors: [GQColors.deepBlue.opacity(0.3), GQColors.deepBlue.opacity(0.1)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
             .padding(.horizontal, 16)
-
-            Spacer()
+            .padding(.bottom, 100)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .scrollContentBackground(.hidden)
         .gqPageBackground()
         .navigationTitle("AI Generated")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .onAppear {
+            experienceLevel = profile.experienceLevel ?? .intermediate
+            preferredDuration = profile.preferredWorkoutDuration
+            selectedEquipment = Set(profile.availableEquipment)
+        }
+    }
+
+    @ViewBuilder
+    private func aiStat(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var aiStatDivider: some View {
+        Rectangle()
+            .fill(GQColors.borderSubtle)
+            .frame(width: 0.5, height: 28)
     }
 }
 

@@ -9,6 +9,7 @@
 import SwiftUI
 import SwiftData
 import PhotosUI
+import MapKit
 
 // MARK: - Live Workout Status
 
@@ -248,41 +249,48 @@ struct ActiveWorkoutView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
-                // Live GPS stats bar for cardio tracking
-                if isTrackingLocation {
+                // Live GPS stats bar for non-cardio GPS workouts (e.g. HIIT)
+                if isTrackingLocation && workoutType != .cardio {
                     LiveGPSStatsBar(
                         distance: locationService.currentDistance,
-                        pace: locationService.currentPace
+                        pace: locationService.currentPace,
+                        routePoints: locationService.routePoints,
+                        elevationGain: locationService.currentElevationGain
                     )
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
-                // Exercise list
-                ScrollView {
-                    LazyVStack(spacing: 16) {
-                        ForEach(Array($exercises.enumerated()), id: \.element.id) { index, $exercise in
-                            ActiveExerciseCard(
-                                exercise: $exercise,
-                                workoutTypeColors: workoutTypeColors,
-                                onShowDemo: { showFormPeek(for: exercise.name) },
-                                onSetCompleted: { exerciseName in
-                                    startRestTimer(exerciseName: exerciseName)
-                                    WorkoutDraft.save(workoutType: workoutType, customTitle: customTitle, startTime: workoutStartTime, exercises: exercises)
-                                },
-                                overloadSuggestion: overloadSuggestions[exercise.name],
-                                onPRDetected: { pr in
-                                    handleLivePR(pr)
-                                }
-                            )
-                            .staggeredAppear(index: index, stagger: 0.06)
-                        }
+                if workoutType == .cardio {
+                    // Cardio-specific view — big timer + stats
+                    cardioLiveView
+                } else {
+                    // Exercise list (strength workouts)
+                    ScrollView {
+                        LazyVStack(spacing: 16) {
+                            ForEach(Array($exercises.enumerated()), id: \.element.id) { index, $exercise in
+                                ActiveExerciseCard(
+                                    exercise: $exercise,
+                                    workoutTypeColors: workoutTypeColors,
+                                    onShowDemo: { showFormPeek(for: exercise.name) },
+                                    onSetCompleted: { exerciseName in
+                                        startRestTimer(exerciseName: exerciseName)
+                                        WorkoutDraft.save(workoutType: workoutType, customTitle: customTitle, startTime: workoutStartTime, exercises: exercises)
+                                    },
+                                    overloadSuggestion: overloadSuggestions[exercise.name],
+                                    onPRDetected: { pr in
+                                        handleLivePR(pr)
+                                    }
+                                )
+                                .staggeredAppear(index: index, stagger: 0.06)
+                            }
 
-                        // Add exercise button
-                        addExerciseButton
+                            // Add exercise button
+                            addExerciseButton
+                        }
+                        .padding(16)
+                        .padding(.bottom, 16)
+                        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: exercises.count)
                     }
-                    .padding(16)
-                    .padding(.bottom, 16)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: exercises.count)
                 }
 
                 // Bottom bar
@@ -741,6 +749,117 @@ struct ActiveWorkoutView: View {
     }
 
     // MARK: - Bottom Bar
+
+    // MARK: - Cardio Live View
+
+    @ViewBuilder
+    private var cardioLiveView: some View {
+        VStack(spacing: 6) {
+            // Hero timer
+            VStack(spacing: 2) {
+                Text(formatElapsedTime(elapsedTime))
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundStyle(GQGradients.primary)
+                    .monospacedDigit()
+                Text(customTitle ?? "Cardio")
+                    .font(.system(size: 13))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+
+            cardioSectionDivider
+
+            // Stats row — same as TodayDashboardSection pattern
+            HStack(spacing: 0) {
+                cardioStatItem(
+                    value: String(format: "%.2f", locationService.currentDistance / 1000.0),
+                    label: "km"
+                )
+                cardioStatColumnDivider
+                cardioStatItem(
+                    value: formatPace(locationService.currentPace),
+                    label: "/km"
+                )
+                cardioStatColumnDivider
+                cardioStatItem(
+                    value: String(format: "%.0f", locationService.currentElevationGain),
+                    label: "m ↑"
+                )
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .homeSocialCard(cornerRadius: 16)
+
+            cardioSectionDivider
+
+            // Live map
+            if locationService.routePoints.count >= 2 {
+                LiveMiniRouteMap(routePoints: locationService.routePoints)
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .homeSocialCard(cornerRadius: 16)
+            } else {
+                // Waiting for GPS
+                VStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        ProgressView().scaleEffect(0.7)
+                        Text("Acquiring GPS signal...")
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 80)
+                .homeSocialCard(cornerRadius: 16)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+    }
+
+    private func cardioStatItem(value: String, label: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var cardioStatColumnDivider: some View {
+        Rectangle()
+            .fill(GQColors.borderSubtle)
+            .frame(width: 0.5, height: 28)
+    }
+
+    private var cardioSectionDivider: some View {
+        Rectangle()
+            .fill(GQColors.adaptiveOverlay(0.08))
+            .frame(height: 0.33)
+            .padding(.vertical, 1)
+    }
+
+    private func formatPace(_ pace: Double) -> String {
+        guard pace > 0 && pace < 3600 else { return "--:--" }
+        let minutes = Int(pace) / 60
+        let seconds = Int(pace) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private func formatElapsedTime(_ seconds: Int) -> String {
+        let h = seconds / 3600
+        let m = (seconds % 3600) / 60
+        let s = seconds % 60
+        if h > 0 { return String(format: "%d:%02d:%02d", h, m, s) }
+        return String(format: "%02d:%02d", m, s)
+    }
 
     private var bottomBar: some View {
         Button { finishWorkout() } label: {
@@ -3791,6 +3910,8 @@ struct WorkoutStatItem: View {
 struct LiveGPSStatsBar: View {
     let distance: Double  // meters
     let pace: Double      // seconds per kilometer
+    var routePoints: [RoutePoint] = []
+    var elevationGain: Double = 0
 
     private var distanceKm: String {
         String(format: "%.2f", distance / 1000.0)
@@ -3804,6 +3925,7 @@ struct LiveGPSStatsBar: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
         HStack(spacing: 20) {
             HStack(spacing: 6) {
                 Image(systemName: "map")
@@ -3842,6 +3964,68 @@ struct LiveGPSStatsBar: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color.black.opacity(0.3))
+
+        // Mini live map
+        if routePoints.count >= 2 {
+            LiveMiniRouteMap(routePoints: routePoints)
+                .frame(height: 160)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+        }
+        } // VStack
+    }
+}
+
+// MARK: - Live Mini Route Map
+
+struct LiveMiniRouteMap: View {
+    let routePoints: [RoutePoint]
+
+    @State private var position: MapCameraPosition = .automatic
+
+    private var coordinates: [CLLocationCoordinate2D] {
+        routePoints.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+    }
+
+    var body: some View {
+        Map(position: $position, interactionModes: []) {
+            MapPolyline(coordinates: coordinates)
+                .stroke(
+                    LinearGradient(
+                        colors: [GQColors.deepBlue, GQColors.vividPurple],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: 3
+                )
+            if let last = coordinates.last {
+                Annotation("", coordinate: last) {
+                    Circle()
+                        .fill(GQGradients.primary)
+                        .frame(width: 8, height: 8)
+                        .overlay(Circle().stroke(.white, lineWidth: 2))
+                }
+            }
+        }
+        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        .onChange(of: routePoints.count) { _, _ in
+            guard let last = coordinates.last else { return }
+            withAnimation(.easeInOut(duration: 0.5)) {
+                position = .region(MKCoordinateRegion(
+                    center: last,
+                    span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+                ))
+            }
+        }
+        .onAppear {
+            if let last = coordinates.last {
+                position = .region(MKCoordinateRegion(
+                    center: last,
+                    span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008)
+                ))
+            }
+        }
     }
 }
 

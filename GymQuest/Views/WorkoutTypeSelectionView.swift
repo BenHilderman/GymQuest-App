@@ -73,6 +73,7 @@ struct WorkoutTypeSelectionView: View {
     @State private var selectedType: WorkoutType?
     @State private var customName: String = ""
     @State private var tapScale: WorkoutType?
+    @State private var showCardioSubTypePicker = false
 
     private let splitTypes: [WorkoutTypeOption] = [
         .init(type: .push, description: "Chest, shoulders, triceps"),
@@ -152,6 +153,12 @@ struct WorkoutTypeSelectionView: View {
         .gqPageBackground()
         .navigationTitle("Custom Workout")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showCardioSubTypePicker) {
+            CardioSubTypePickerSheet { subType in
+                startCardioWorkout(subType: subType)
+            }
+            .presentationDetents([.medium, .large])
+        }
     }
 
     // MARK: - Section Label
@@ -175,6 +182,8 @@ struct WorkoutTypeSelectionView: View {
             HapticManager.shared.select()
             if option.type == .custom {
                 selectedType = .custom
+            } else if option.type == .cardio {
+                showCardioSubTypePicker = true
             } else {
                 tapScale = option.type
                 withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {}
@@ -197,5 +206,111 @@ struct WorkoutTypeSelectionView: View {
         } else {
             appState.startWorkout(type: selectedType)
         }
+    }
+
+    private func startCardioWorkout(subType: CardioSubType) {
+        HapticManager.shared.impact(.medium)
+        appState.startWorkout(type: .cardio, customTitle: subType.rawValue)
+    }
+}
+
+// MARK: - Cardio Sub-Type Picker
+
+struct CardioSubTypePickerSheet: View {
+    let onSelect: (CardioSubType) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    private let outdoorTypes: [CardioSubType] = [.outdoorRun, .cycling, .hiking]
+    private let indoorTypes: [CardioSubType] = [.treadmill, .rowing, .stairClimber, .elliptical, .jumpRope, .swimming]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Outdoor (GPS)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 9))
+                                .foregroundColor(GQColors.textTertiary)
+                            Text("OUTDOOR · GPS")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(GQColors.textTertiary)
+                                .tracking(0.5)
+                        }
+
+                        ForEach(outdoorTypes, id: \.self) { subType in
+                            cardioRow(subType)
+                        }
+                    }
+
+                    // Indoor
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("INDOOR")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(GQColors.textTertiary)
+                            .tracking(0.5)
+
+                        ForEach(indoorTypes, id: \.self) { subType in
+                            cardioRow(subType)
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
+            }
+            .gqPageBackground()
+            .navigationTitle("Cardio")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 24))
+                            .symbolRenderingMode(.hierarchical)
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+            }
+        }
+    }
+
+    private func cardioRow(_ subType: CardioSubType) -> some View {
+        Button {
+            onSelect(subType)
+            dismiss()
+        } label: {
+            HStack(spacing: 14) {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.06))
+                    .frame(width: 42, height: 42)
+                    .overlay(
+                        Image(systemName: subType.icon)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(GQGradients.primary)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(subType.rawValue)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    if subType.isOutdoor {
+                        Text("Route tracking enabled")
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(14)
+            .homeSocialCard(cornerRadius: 14)
+        }
+        .buttonStyle(GQInteractiveStyle())
     }
 }

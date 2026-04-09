@@ -10,6 +10,7 @@ import SwiftUI
 import SwiftData
 import AVKit
 import MapKit
+import CoreLocation
 import PhotosUI
 import SDWebImageSwiftUI
 #if canImport(UIKit)
@@ -40,6 +41,7 @@ struct PostCardV2: View {
     @State private var cachedTopComment: Comment?
     // Emoji reactions handled via action bar reaction picker
     @State private var showFullRouteMap = false
+    @State private var selectedLocationName: String?
     @State private var profileUserId: IdentifiableUUID?
     @State private var cachedWorkout: SharedWorkoutData?
     @State private var cachedPRs: [FeedPR] = []
@@ -130,13 +132,18 @@ struct PostCardV2: View {
         .onAppear {
             hasAppeared = true
             fetchTopComment()
-            if post.songTitle != nil {
+            if post.songTitle != nil, let previewURL = post.songPreviewURL {
+                MusicPreviewService.shared.playURL(
+                    postId: post.id,
+                    previewURL: previewURL,
+                    snippetStart: post.musicSnippetStart ?? 0
+                )
                 isPlayingMusic = true
             }
-            // No-op: emoji reactions are in the action bar
         }
         .onDisappear {
-            if post.songTitle != nil {
+            if post.songTitle != nil && !showWorkoutDetail && !showComments {
+                MusicPreviewService.shared.stop()
                 isPlayingMusic = false
             }
         }
@@ -168,7 +175,10 @@ struct PostCardV2: View {
                         if appState.activeWorkout != nil {
                             appState.activeWorkout?.exercises.append(active)
                         }
-                    }
+                    },
+                    locationName: post.locationName,
+                    songTitle: post.songTitle,
+                    artistName: post.artistName
                 )
             }
         }
@@ -177,27 +187,25 @@ struct PostCardV2: View {
                 WorkoutCopySheet(workoutData: workout, profile: userProfile)
             }
         }
-        .fullScreenCover(isPresented: $showFullRouteMap) {
+        .sheet(isPresented: Binding(
+            get: { selectedLocationName != nil },
+            set: { if !$0 { selectedLocationName = nil } }
+        )) {
+            if let location = selectedLocationName {
+                PostLocationMapView(locationName: location)
+                    .presentationDetents([.medium])
+            }
+        }
+        .sheet(isPresented: $showFullRouteMap) {
             if let points = sharedWorkout?.routePoints {
-                NavigationStack {
-                    PostRouteMapView(
-                        routePoints: points,
-                        distance: "5.00 km",
-                        pace: "4:31 /km",
-                        height: .infinity
-                    )
-                    .ignoresSafeArea()
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button { showFullRouteMap = false } label: {
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.white.opacity(0.8))
-                            }
-                        }
-                    }
-                    .toolbarBackground(.hidden, for: .navigationBar)
-                }
+                PostRouteMapSheet(
+                    routePoints: points,
+                    distance: cardioDistanceKm,
+                    pace: cardioPace,
+                    activityName: post.exerciseHighlight ?? post.workoutType ?? "Run",
+                    locationName: post.locationName
+                )
+                .presentationDetents([.medium, .large])
             }
         }
         .sheet(item: $profileUserId) { wrapped in
@@ -216,7 +224,11 @@ struct PostCardV2: View {
                 post: post,
                 activityType: detectedActivityType,
                 locationName: post.locationName,
-                onTapUser: { profileUserId = IdentifiableUUID(id: post.authorId) }
+                onTapUser: { profileUserId = IdentifiableUUID(id: post.authorId) },
+                onTapLocation: { location in selectedLocationName = location },
+                onTapSong: { song, artist in
+                    openMusicSearch(song: song, artist: artist, service: post.musicSource == "Spotify" ? .spotify : .appleMusic)
+                }
             )
 
             if post.authorId == currentUserId {
@@ -227,6 +239,20 @@ struct PostCardV2: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    @ViewBuilder
+    private var headerMusicRow: some View {
+        if post.songTitle != nil && post.artistName != nil,
+           post.photoData != nil || post.videoData != nil || !post.mediaItems.isEmpty {
+            HStack {
+                Spacer()
+                photoMusicPill
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 6)
+        }
     }
 
     @ViewBuilder
@@ -439,7 +465,31 @@ struct PostCardV2: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
-                .onTapGesture { isPlayingMusic.toggle() }
+                .onTapGesture {
+                    if isPlayingMusic {
+                        MusicPreviewService.shared.stop()
+                        isPlayingMusic = false
+                    } else if let previewURL = post.songPreviewURL {
+                        MusicPreviewService.shared.playURL(
+                            postId: post.id,
+                            previewURL: previewURL,
+                            snippetStart: post.musicSnippetStart ?? 0
+                        )
+                        isPlayingMusic = true
+                    }
+                }
+                .contextMenu {
+                    Button {
+                        openMusicSearch(song: songTitle, artist: artistName, service: .spotify)
+                    } label: {
+                        Label("Open in Spotify", systemImage: "arrow.up.right")
+                    }
+                    Button {
+                        openMusicSearch(song: songTitle, artist: artistName, service: .appleMusic)
+                    } label: {
+                        Label("Open in Apple Music", systemImage: "arrow.up.right")
+                    }
+                }
 
                 // Playlist links row
                 if hasPlaylist {
@@ -580,23 +630,25 @@ struct PostCardV2: View {
                 PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
             }
 
-            // Top-right: music pill (discrete)
-            VStack {
-                HStack {
+            // Top-center: widget overlay
+            if let widget = post.getPostWidget() {
+                VStack {
+                    photoWidgetHero(widget)
+                        .padding(.top, 10)
                     Spacer()
-                    photoMusicPill
                 }
-                .padding(.trailing, 10)
-                .padding(.top, 10)
-                Spacer()
             }
 
-            // Bottom: GIFs only
+            // Bottom: GIFs / route map
             VStack(spacing: 0) {
+                if isCardioWithRoute {
+                    Spacer()
+                    Spacer()
+                }
                 Spacer()
                 photoWorkoutGifs
                     .padding(.horizontal, 12)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, isCardioWithRoute ? 20 : 10)
             }
 
             // Double-tap heart burst
@@ -640,18 +692,8 @@ struct PostCardV2: View {
 
         if hasMusic, let song = post.songTitle, let artist = post.artistName {
             Button {
-                // Tap = toggle snippet playback
-                if isPlayingMusic {
-                    MusicPreviewService.shared.stop()
-                    isPlayingMusic = false
-                } else if let previewURL = post.songPreviewURL {
-                    MusicPreviewService.shared.playURL(
-                        postId: post.id,
-                        previewURL: previewURL,
-                        snippetStart: post.musicSnippetStart ?? 0
-                    )
-                    isPlayingMusic = true
-                }
+                // Tap = open in music app
+                openMusicSearch(song: song, artist: artist, service: post.musicSource == "Spotify" ? .spotify : .appleMusic)
             } label: {
                 HStack(spacing: 5) {
                     AlbumArtImage(urlString: post.albumArtURL, serviceColor: tintColor, onColorExtracted: { color in
@@ -661,16 +703,24 @@ struct PostCardV2: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
 
                     Text(song)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundColor(.white.opacity(0.9))
+                        .lineLimit(1)
+
+                    Text("·")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.5))
+
+                    Text(artist)
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.7))
                         .lineLimit(1)
 
                     MusicEQBars(barCount: 3, barWidth: 1.5, maxHeight: 7, color: .white.opacity(0.6), isPlaying: isPlayingMusic)
                         .frame(width: 10, height: 7)
                 }
-                .padding(.leading, 3)
-                .padding(.trailing, 8)
-                .padding(.vertical, 3)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
                 .background(
                     Capsule().fill(.black.opacity(0.35))
                 )
@@ -695,6 +745,167 @@ struct PostCardV2: View {
 
     @ViewBuilder
     private func photoWidgetHero(_ widget: PostWidget) -> some View {
+        HStack(spacing: 8) {
+            widgetVisualIcon(widget)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(widgetTitle(widget))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.black.opacity(0.85))
+                Text(widgetSubtitle(widget))
+                    .font(.system(size: 10))
+                    .foregroundColor(.black.opacity(0.45))
+            }
+        }
+        .padding(.leading, 4)
+        .padding(.trailing, 12)
+        .padding(.vertical, 5)
+        .background(
+            Capsule()
+                .fill(.white)
+                .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+        )
+    }
+
+    @State private var widgetAnimated = false
+
+    @ViewBuilder
+    private func widgetVisualIcon(_ w: PostWidget) -> some View {
+        switch w.type {
+        case .goal:
+            let prog = min(CGFloat((w.goalCurrent ?? 0) / max(w.goalTarget ?? 1, 1)), 1.0)
+            ZStack {
+                Circle()
+                    .stroke(Color.black.opacity(0.06), lineWidth: 2.5)
+                    .frame(width: 26, height: 26)
+                Circle()
+                    .trim(from: 0, to: widgetAnimated ? prog : 0)
+                    .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 26, height: 26)
+                    .animation(.easeOut(duration: 0.8).delay(0.5), value: widgetAnimated)
+                Text("\(Int(prog * 100))")
+                    .font(.system(size: 8, weight: .bold, design: .rounded))
+                    .foregroundStyle(GQGradients.primary)
+            }
+            .onAppear { widgetAnimated = true }
+        case .pr:
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.12))
+                    .frame(width: 26, height: 26)
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(GQGradients.primary)
+            }
+        case .macros:
+            let total = max(Double((w.protein ?? 0) + (w.carbs ?? 0) + (w.fat ?? 0)), 1)
+            let frac = Double(w.protein ?? 0) / total
+            ZStack {
+                Circle()
+                    .stroke(Color.black.opacity(0.06), lineWidth: 2.5)
+                    .frame(width: 26, height: 26)
+                Circle()
+                    .trim(from: 0, to: widgetAnimated ? frac : 0)
+                    .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 26, height: 26)
+                    .animation(.easeOut(duration: 0.8).delay(0.5), value: widgetAnimated)
+            }
+            .onAppear { widgetAnimated = true }
+        case .body:
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.12))
+                    .frame(width: 26, height: 26)
+                Image(systemName: "scalemass.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(GQGradients.primary)
+            }
+        case .streak:
+            ZStack {
+                Circle()
+                    .fill(Color.orange.opacity(0.12))
+                    .frame(width: 26, height: 26)
+                Text("🔥")
+                    .font(.system(size: 13))
+            }
+        case .cardio:
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.12))
+                    .frame(width: 26, height: 26)
+                Image(systemName: "figure.run")
+                    .font(.system(size: 12))
+                    .foregroundStyle(GQGradients.primary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func widgetRingContent(_ w: PostWidget) -> some View {
+        switch w.type {
+        case .goal:
+            let prog = min(CGFloat((w.goalCurrent ?? 0) / max(w.goalTarget ?? 1, 1)), 1.0)
+            Circle()
+                .trim(from: 0, to: prog)
+                .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: 38, height: 38)
+            Text("\(Int(prog * 100))%")
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(GQGradients.primary)
+        case .pr:
+            Image(systemName: "trophy.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(GQGradients.primary)
+        case .macros:
+            let total = max(Double((w.protein ?? 0) + (w.carbs ?? 0) + (w.fat ?? 0)), 1)
+            Circle()
+                .trim(from: 0, to: Double(w.protein ?? 0) / total)
+                .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: 38, height: 38)
+            Text("\(w.calories ?? 0)")
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textSecondary)
+        case .body:
+            Image(systemName: "scalemass.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(GQGradients.primary)
+        case .streak:
+            Text("🔥")
+                .font(.system(size: 16))
+        case .cardio:
+            Image(systemName: "figure.run")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(GQGradients.primary)
+        }
+    }
+
+    private func widgetTitle(_ w: PostWidget) -> String {
+        switch w.type {
+        case .goal: return w.goalExercise ?? "Goal"
+        case .pr: return "\(w.prExercise ?? "") PR"
+        case .macros: return "\(w.calories ?? 0) cal"
+        case .body: return String(format: "%.1f lbs", w.bodyWeight ?? 0)
+        case .streak: return "\(w.streakDays ?? 0) Day Streak"
+        case .cardio: return String(format: "%.1f km", w.distance ?? 0)
+        }
+    }
+
+    private func widgetSubtitle(_ w: PostWidget) -> String {
+        switch w.type {
+        case .goal: return "\(Int(w.goalCurrent ?? 0))/\(Int(w.goalTarget ?? 0)) \(w.goalUnit ?? "lbs")"
+        case .pr: return w.prValue ?? ""
+        case .macros: return "P:\(w.protein ?? 0)g · C:\(w.carbs ?? 0)g · F:\(w.fat ?? 0)g"
+        case .body: return w.bodyChange.map { String(format: "%+.1f lbs", $0) } ?? "Body weight"
+        case .streak: return w.milestoneLabel ?? "Keep it going"
+        case .cardio: return "\(w.pace ?? "0:00") /km"
+        }
+    }
+
+    // Dead code — replaced above
+    private func _oldWidgetHero(_ widget: PostWidget) -> some View {
         HStack(spacing: 10) {
             switch widget.type {
             case .goal:
@@ -806,14 +1017,13 @@ struct PostCardV2: View {
                 }
             }
 
-            Spacer()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.white)
-                .shadow(color: .black.opacity(0.12), radius: 8, y: 4)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.white.opacity(0.92))
+                .shadow(color: .black.opacity(0.1), radius: 8, y: 3)
         )
     }
 
@@ -984,7 +1194,10 @@ struct PostCardV2: View {
         if isCardioWithRoute, let points = sharedWorkout?.routePoints {
             MiniRouteMapOverlay(
                 routePoints: points,
-                gradientColors: cardioGradientColors
+                gradientColors: cardioGradientColors,
+                distance: cardioDistanceKm,
+                pace: cardioPace,
+                duration: post.duration
             )
             .onTapGesture { showFullRouteMap = true }
         } else {
@@ -1081,14 +1294,6 @@ struct PostCardV2: View {
                 }
             }
 
-            // Widget as second bubble
-            if let widget = post.getPostWidget() {
-                HStack {
-                    widgetMiniMessage(widget)
-                    Spacer(minLength: 60)
-                }
-            }
-
             // Reactions right below
             PostActionsRowCompact(
                 post: post,
@@ -1102,9 +1307,10 @@ struct PostCardV2: View {
                 currentUserName: currentUserName
             )
             .padding(.leading, 2)
+            .padding(.top, -2)
         }
         .padding(.horizontal, 16)
-        .padding(.top, 6)
+        .padding(.top, 4)
         .padding(.bottom, 4)
     }
 
@@ -2114,6 +2320,9 @@ struct WorkoutHeroCard: View {
 struct MiniRouteMapOverlay: View {
     let routePoints: [RoutePoint]
     var gradientColors: [Color] = [GQColors.textSecondary, GQColors.textSecondary]
+    var distance: Double = 0
+    var pace: String = "--:--"
+    var duration: Int? = nil
 
     private var coordinates: [CLLocationCoordinate2D] {
         routePoints.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
@@ -2129,32 +2338,74 @@ struct MiniRouteMapOverlay: View {
             longitude: (lngs.min()! + lngs.max()!) / 2
         )
         let span = MKCoordinateSpan(
-            latitudeDelta: (lats.max()! - lats.min()!) * 1.6 + 0.005,
-            longitudeDelta: (lngs.max()! - lngs.min()!) * 1.6 + 0.005
+            latitudeDelta: (lats.max()! - lats.min()!) * 2.2 + 0.008,
+            longitudeDelta: (lngs.max()! - lngs.min()!) * 2.2 + 0.008
         )
         return .region(MKCoordinateRegion(center: center, span: span))
     }
 
     var body: some View {
-        Map(initialPosition: cameraPosition, interactionModes: []) {
-            MapPolyline(coordinates: coordinates)
-                .stroke(
-                    LinearGradient(
-                        colors: gradientColors,
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 2.5
-                )
+        HStack(spacing: 8) {
+            // Map
+            Map(initialPosition: cameraPosition, interactionModes: []) {
+                // Segmented gradient
+                ForEach(Array(stride(from: 0, to: max(coordinates.count - 1, 0), by: max(coordinates.count / 20, 1))), id: \.self) { i in
+                    let end = min(i + max(coordinates.count / 20, 1) + 1, coordinates.count)
+                    MapPolyline(coordinates: Array(coordinates[i..<end]))
+                        .stroke(
+                            Color(
+                                red: 0.24 + 0.55 * Double(i) / Double(max(coordinates.count - 1, 1)),
+                                green: 0.49 - 0.13 * Double(i) / Double(max(coordinates.count - 1, 1)),
+                                blue: 1.0
+                            ),
+                            style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                        )
+                }
+                if let start = coordinates.first {
+                    Annotation("", coordinate: start) {
+                        Circle().fill(.white).frame(width: 6, height: 6)
+                            .overlay(Circle().stroke(GQColors.deepBlue, lineWidth: 1))
+                    }
+                }
+                if let end = coordinates.last, coordinates.count > 1 {
+                    Annotation("", coordinate: end) {
+                        Circle().fill(.white).frame(width: 6, height: 6)
+                            .overlay(Circle().stroke(GQColors.vividPurple, lineWidth: 1))
+                    }
+                }
+            }
+            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+            .frame(width: 70, height: 70)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            // Stats
+            VStack(alignment: .leading, spacing: 3) {
+                Text(String(format: "%.1f km", distance))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+                HStack(spacing: 8) {
+                    HStack(spacing: 2) {
+                        Image(systemName: "timer")
+                            .font(.system(size: 9))
+                        Text(duration.map { "\($0)m" } ?? "--")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    HStack(spacing: 2) {
+                        Image(systemName: "speedometer")
+                            .font(.system(size: 9))
+                        Text("\(pace)/km")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                }
+                .foregroundColor(GQColors.textTertiary)
+            }
         }
-        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
-        .frame(width: 100, height: 100)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.white.opacity(0.3), lineWidth: 1)
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(.white)
+                .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
         )
-        .shadow(color: .black.opacity(0.5), radius: 8, x: 0, y: 3)
     }
 }
 
@@ -2213,8 +2464,8 @@ struct CardioRouteView: View {
             longitude: (lngs.min()! + lngs.max()!) / 2
         )
         let span = MKCoordinateSpan(
-            latitudeDelta: (lats.max()! - lats.min()!) * 1.6 + 0.005,
-            longitudeDelta: (lngs.max()! - lngs.min()!) * 1.6 + 0.005
+            latitudeDelta: (lats.max()! - lats.min()!) * 2.2 + 0.008,
+            longitudeDelta: (lngs.max()! - lngs.min()!) * 2.2 + 0.008
         )
         return .region(MKCoordinateRegion(center: center, span: span))
     }
@@ -2226,47 +2477,44 @@ struct CardioRouteView: View {
             ZStack {
                 Map(initialPosition: mapCameraPosition, interactionModes: []) {
                     if showRoute {
-                        MapPolyline(coordinates: coords)
-                            .stroke(
-                                LinearGradient(
-                                    colors: gradientColors,
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                ),
-                                lineWidth: 3
-                            )
+                        ForEach(Array(0..<max(coords.count - 1, 0)), id: \.self) { i in
+                            MapPolyline(coordinates: [coords[i], coords[min(i + 1, coords.count - 1)]])
+                                .stroke(
+                                    Color(
+                                        red: 0.24 + 0.55 * Double(i) / Double(max(coords.count - 1, 1)),
+                                        green: 0.49 - 0.13 * Double(i) / Double(max(coords.count - 1, 1)),
+                                        blue: 1.0
+                                    ),
+                                    style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                                )
+                        }
                     }
 
                     // Start marker
                     if let first = coords.first {
                         Annotation("", coordinate: first) {
-                            Circle()
-                                .fill(GQColors.textSecondary)
-                                .frame(width: 14, height: 14)
-                                .overlay(
-                                    Text("S")
-                                        .font(.system(size: 7, weight: .bold))
-                                        .foregroundColor(.white)
-                                )
+                            ZStack {
+                                Circle().fill(.white).frame(width: 14, height: 14)
+                                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                Circle().fill(GQGradients.primary).frame(width: 8, height: 8)
+                            }
                         }
                     }
 
                     // End marker
                     if let last = coords.last {
                         Annotation("", coordinate: last) {
-                            Circle()
-                                .fill(GQColors.textSecondary)
-                                .frame(width: 14, height: 14)
-                                .overlay(
-                                    Text("F")
-                                        .font(.system(size: 7, weight: .bold))
-                                        .foregroundColor(.white)
-                                )
+                            ZStack {
+                                Circle().fill(.white).frame(width: 14, height: 14)
+                                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                Image(systemName: "flag.fill")
+                                    .font(.system(size: 7))
+                                    .foregroundStyle(GQGradients.primary)
+                            }
                         }
                     }
                 }
                 .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
-                .colorScheme(.dark)
             }
             .frame(height: 160)
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -2429,19 +2677,19 @@ struct PostActionsRowCompact: View {
                     }
                 } label: {
                     let count = reactionCounts.first(where: { $0.0 == reaction })?.1 ?? 0
-                    VStack(spacing: 0) {
+                    HStack(spacing: 2) {
                         ZStack {
                             if rippleReaction == reaction {
                                 Circle()
                                     .fill(Color.white.opacity(0.25))
-                                    .frame(width: 36, height: 36)
+                                    .frame(width: 28, height: 28)
                                     .scaleEffect(rippleReaction == reaction ? 1.4 : 0.5)
                                     .opacity(rippleReaction == reaction ? 0 : 0.6)
                                     .animation(.easeOut(duration: 0.4), value: rippleReaction)
                             }
 
                             Text(reaction.emoji)
-                                .font(.system(size: 26))
+                                .font(.system(size: 20))
                                 .scaleEffect(tappedReaction == reaction ? 1.3 : 1.0)
                         }
 
@@ -2675,6 +2923,8 @@ struct PostHeaderEnhanced: View {
     let activityType: DetectedActivity?
     var locationName: String? = nil
     var onTapUser: (() -> Void)? = nil
+    var onTapLocation: ((String) -> Void)? = nil
+    var onTapSong: ((String, String) -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -2718,13 +2968,38 @@ struct PostHeaderEnhanced: View {
                         Text("·")
                             .font(.system(size: 13))
                             .foregroundColor(GQColors.textTertiary)
-                        Image(systemName: "location.fill")
-                            .font(.system(size: 9))
+                        Button {
+                            onTapLocation?(location)
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 9))
+                                Text(location)
+                                    .font(.system(size: 13))
+                                    .lineLimit(1)
+                            }
                             .foregroundColor(GQColors.textTertiary)
-                        Text(location)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if let song = post.songTitle, let artist = post.artistName {
+                        Text("·")
                             .font(.system(size: 13))
                             .foregroundColor(GQColors.textTertiary)
-                            .lineLimit(1)
+                        Button {
+                            onTapSong?(song, artist)
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "music.note")
+                                    .font(.system(size: 9))
+                                Text(song)
+                                    .font(.system(size: 13))
+                                    .lineLimit(1)
+                            }
+                            .foregroundColor(GQColors.textTertiary)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -4339,6 +4614,255 @@ extension Date {
             return minutes == 1 ? "1m" : "\(minutes)m"
         }
         return "now"
+    }
+}
+
+// MARK: - Post Location Map View
+
+struct PostLocationMapView: View {
+    let locationName: String
+    @State private var position: MapCameraPosition = .region(MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 44.225, longitude: -76.490),
+        span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
+    ))
+    @State private var coordinate: CLLocationCoordinate2D?
+    @State private var resolvedName: String = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(locationName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    if !resolvedName.isEmpty {
+                        Text(resolvedName)
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Map(position: $position) {
+                if let coord = coordinate {
+                    Annotation(locationName, coordinate: coord) {
+                        ZStack {
+                            Circle()
+                                .fill(GQGradients.primary)
+                                .frame(width: 28, height: 28)
+                            Image(systemName: "figure.strengthtraining.traditional")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        .shadow(color: GQColors.deepBlue.opacity(0.3), radius: 4, y: 2)
+                    }
+                }
+            }
+            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+        .background(GQColors.background)
+        .task {
+            await geocodeLocation()
+        }
+    }
+
+    private func geocodeLocation() async {
+        let geocoder = CLGeocoder()
+        // Try the full name first
+        if let placemarks = try? await geocoder.geocodeAddressString(locationName),
+           let loc = placemarks.first?.location {
+            await applyResult(loc, placemarks.first)
+            return
+        }
+        // Try just the part before any dash/hyphen
+        let simplified = locationName.components(separatedBy: CharacterSet(charactersIn: "-–")).first?.trimmingCharacters(in: .whitespaces) ?? locationName
+        if simplified != locationName,
+           let placemarks = try? await geocoder.geocodeAddressString(simplified),
+           let loc = placemarks.first?.location {
+            await applyResult(loc, placemarks.first)
+            return
+        }
+        // Try appending a known city context
+        let withCity = "\(locationName), Kingston, ON"
+        if let placemarks = try? await geocoder.geocodeAddressString(withCity),
+           let loc = placemarks.first?.location {
+            await applyResult(loc, placemarks.first)
+        }
+    }
+
+    @MainActor
+    private func applyResult(_ location: CLLocation, _ placemark: CLPlacemark?) {
+        coordinate = location.coordinate
+        position = .region(MKCoordinateRegion(
+            center: location.coordinate,
+            span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
+        ))
+        if let city = placemark?.locality, let region = placemark?.administrativeArea {
+            resolvedName = "\(city), \(region)"
+        }
+    }
+}
+
+// MARK: - Post Route Map Sheet
+
+struct PostRouteMapSheet: View {
+    let routePoints: [RoutePoint]
+    let distance: Double
+    let pace: String
+    let activityName: String
+    var locationName: String? = nil
+
+    @State private var position: MapCameraPosition = .automatic
+
+    private var coordinates: [CLLocationCoordinate2D] {
+        routePoints.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(activityName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    HStack(spacing: 8) {
+                        Text(String(format: "%.1f km", distance))
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textSecondary)
+                        Text("·")
+                            .foregroundColor(GQColors.textTertiary)
+                        Text("\(pace) /km")
+                            .font(.system(size: 13))
+                            .foregroundColor(GQColors.textSecondary)
+                        if let loc = locationName {
+                            Text("·")
+                                .foregroundColor(GQColors.textTertiary)
+                            HStack(spacing: 3) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 9))
+                                Text(loc)
+                                    .font(.system(size: 13))
+                                    .lineLimit(1)
+                            }
+                            .foregroundColor(GQColors.textTertiary)
+                        }
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+
+            Map(position: $position) {
+                // Segmented gradient line
+                ForEach(routeSegmentIndices, id: \.self) { idx in
+                    if idx + 1 < coordinates.count {
+                        MapPolyline(coordinates: [coordinates[idx], coordinates[idx + 1]])
+                            .stroke(
+                                segmentColor(at: idx),
+                                style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                            )
+                    }
+                }
+
+                // Direction arrows
+                ForEach(directionArrowIndices, id: \.self) { idx in
+                    if idx + 1 < coordinates.count {
+                        Annotation("", coordinate: coordinates[idx]) {
+                            Image(systemName: "arrowtriangle.forward.fill")
+                                .font(.system(size: 6))
+                                .foregroundColor(.white)
+                                .shadow(color: .black.opacity(0.3), radius: 1, y: 0.5)
+                                .rotationEffect(.degrees(bearing(from: coordinates[idx], to: coordinates[idx + 1]) - 90))
+                        }
+                    }
+                }
+
+                // Start
+                if let start = coordinates.first {
+                    Annotation("", coordinate: start) {
+                        ZStack {
+                            Circle().fill(GQColors.deepBlue).frame(width: 16, height: 16)
+                                .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
+                            Text("S")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
+                // End
+                if let end = coordinates.last, coordinates.count > 1 {
+                    Annotation("", coordinate: end) {
+                        ZStack {
+                            Circle().fill(GQColors.vividPurple).frame(width: 16, height: 16)
+                                .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
+                            Text("F")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
+            }
+            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 16)
+        }
+        .background(GQColors.background)
+        .onAppear {
+            guard !coordinates.isEmpty else { return }
+            let lats = coordinates.map(\.latitude)
+            let lons = coordinates.map(\.longitude)
+            let center = CLLocationCoordinate2D(
+                latitude: ((lats.min() ?? 0) + (lats.max() ?? 0)) / 2,
+                longitude: ((lons.min() ?? 0) + (lons.max() ?? 0)) / 2
+            )
+            let region = MKCoordinateRegion(
+                center: center,
+                span: MKCoordinateSpan(
+                    latitudeDelta: ((lats.max() ?? 0) - (lats.min() ?? 0)) * 1.6 + 0.005,
+                    longitudeDelta: ((lons.max() ?? 0) - (lons.min() ?? 0)) * 1.6 + 0.005
+                )
+            )
+            position = .region(region)
+        }
+    }
+
+    private var routeSegmentIndices: [Int] {
+        Array(0..<max(coordinates.count - 1, 0))
+    }
+
+    private func segmentColor(at index: Int) -> Color {
+        let total = max(coordinates.count - 1, 1)
+        let t = Double(index) / Double(total)
+        return Color(
+            red: 0.24 + (0.79 - 0.24) * t,
+            green: 0.49 + (0.36 - 0.49) * t,
+            blue: 1.0
+        )
+    }
+
+    /// Indices for direction arrows — evenly spaced along the route
+    private var directionArrowIndices: [Int] {
+        guard coordinates.count > 10 else { return [] }
+        let step = max(coordinates.count / 6, 1)
+        return stride(from: step, to: coordinates.count - step, by: step).map { $0 }
+    }
+
+    /// Bearing in degrees between two coordinates
+    private func bearing(from a: CLLocationCoordinate2D, to b: CLLocationCoordinate2D) -> Double {
+        let dLon = (b.longitude - a.longitude) * .pi / 180
+        let lat1 = a.latitude * .pi / 180
+        let lat2 = b.latitude * .pi / 180
+        let y = sin(dLon) * cos(lat2)
+        let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
+        return atan2(y, x) * 180 / .pi
     }
 }
 

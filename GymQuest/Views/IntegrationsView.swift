@@ -19,15 +19,7 @@ struct IntegrationsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
-                GQScreenTitleBlock(
-                    title: "Integrations",
-                    subtitle: "Manage data sources and sync status.",
-                    accent: GQColors.textSecondary
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-
+            VStack(spacing: 12) {
                 IntegrationStatusHeader(
                     activeCount: integrationManager.activeSourceCount
                 )
@@ -39,7 +31,7 @@ struct IntegrationsView: View {
                     icon: "heart.fill",
                     name: "Apple Health",
                     description: "Steps, heart rate, sleep, workouts",
-                    iconColor: .red,
+                    iconColor: Color(red: 0.95, green: 0.35, blue: 0.4),
                     isConnected: integrationManager.healthKit.isAuthorized && featureFlags.healthKitImportEnabled,
                     isSyncing: integrationManager.healthKit.isSyncing,
                     lastSync: integrationManager.healthKit.lastSyncDate,
@@ -49,16 +41,11 @@ struct IntegrationsView: View {
                         HealthKitSettingsView(profile: profile)
                     } label: {
                         Text(featureFlags.healthKitImportEnabled ? "Open Health Settings" : "Connect Apple Health")
+                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(
-                        WorkoutFlowPrimaryButtonStyle(
-                            accent: featureFlags.healthKitImportEnabled ? GQColors.textSecondary : GQColors.deepBlue
-                        )
-                    )
+                    .buttonStyle(PrimaryButtonStyle())
                 }
                 .padding(.horizontal, 16)
-
-                // WHOOP and Strava integrations removed
 
                 // Sync all button
                 if integrationManager.hasAnyConnection {
@@ -71,39 +58,32 @@ struct IntegrationsView: View {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .font(.system(size: 14, weight: .semibold))
                             Text("Sync All Sources")
-                                .font(.system(size: 15, weight: .semibold))
                         }
+                        .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(WorkoutFlowPrimaryButtonStyle(accent: GQColors.deepBlue))
+                    .buttonStyle(PrimaryButtonStyle())
                     .padding(.horizontal, 16)
                 }
 
-                VStack(spacing: 8) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "lock.shield.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(GQColors.success)
-                        Text("Your data stays on your device")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(GQColors.textSecondary)
-                    }
-                    Text("Health data is encrypted and never sold. You control which sources are connected.")
+                // Privacy footer
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.shield.fill")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.success)
+                    Text("Health data is encrypted and stays on your device.")
                         .font(.system(size: 11))
                         .foregroundColor(GQColors.textTertiary)
-                        .multilineTextAlignment(.center)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .workoutFlowCard(accent: GQColors.success)
-                .padding(.horizontal, 16)
                 .padding(.top, 8)
+                .padding(.horizontal, 20)
 
                 Spacer(minLength: 40)
             }
-            .padding(.bottom, 120)
+            .padding(.bottom, GQLayout.pageBottom)
         }
         .scrollContentBackground(.hidden)
         .gqPageBackground()
+        .navigationTitle("Integrations")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -141,27 +121,27 @@ private struct IntegrationStatusHeader: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                Circle()
-                    .fill(activeCount > 0 ? GQColors.success.opacity(0.18) : Color.black.opacity(0.05))
-                    .frame(width: 44, height: 44)
-                Image(systemName: activeCount > 0 ? "checkmark.circle.fill" : "link.badge.plus")
-                    .font(.system(size: 20))
-                    .foregroundColor(activeCount > 0 ? GQColors.success : GQColors.textTertiary)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(GQColors.deepBlue.opacity(0.1))
+                    .frame(width: 40, height: 40)
+                Image(systemName: activeCount > 0 ? "checkmark.circle" : "link.badge.plus")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(GQColors.deepBlue.opacity(0.7))
             }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(activeCount > 0 ? "\(activeCount) Source\(activeCount > 1 ? "s" : "") Connected" : "No Sources Connected")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(GQColors.textPrimary)
                 Text(activeCount > 0 ? "Your data is syncing" : "Connect a device to get started")
-                    .font(.system(size: 13))
+                    .font(.system(size: 12))
                     .foregroundColor(GQColors.textSecondary)
             }
 
             Spacer()
         }
-        .padding(16)
-        .workoutFlowCard(accent: activeCount > 0 ? GQColors.success : GQColors.textSecondary)
+        .padding(14)
+        .workoutFlowCard()
     }
 }
 
@@ -201,11 +181,11 @@ private struct IntegrationCard<Action: View>: View {
                     // Name & status
                     VStack(alignment: .leading, spacing: 2) {
                         Text(name)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(GQColors.textPrimary)
                         Text(isConnected ? "Connected" : description)
                             .font(.system(size: 12))
-                            .foregroundColor(isConnected ? GQColors.success : GQColors.textTertiary)
+                            .foregroundColor(isConnected ? GQColors.textSecondary : GQColors.textTertiary)
                     }
 
                     Spacer()
@@ -215,8 +195,8 @@ private struct IntegrationCard<Action: View>: View {
                             .scaleEffect(0.8)
                     } else {
                         Circle()
-                            .fill(isConnected ? GQColors.success : Color.black.opacity(0.12))
-                            .frame(width: 8, height: 8)
+                            .fill(isConnected ? GQColors.deepBlue.opacity(0.5) : GQColors.textTertiary.opacity(0.3))
+                            .frame(width: 7, height: 7)
                     }
 
                     Image(systemName: "chevron.right")
@@ -269,10 +249,7 @@ private struct IntegrationCard<Action: View>: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .workoutFlowCard(
-            accent: isConnected ? iconColor : GQColors.textSecondary,
-            emphasized: isConnected
-        )
+        .workoutFlowCard()
     }
 }
 

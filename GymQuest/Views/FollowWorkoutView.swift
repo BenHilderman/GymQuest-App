@@ -16,6 +16,9 @@ struct WorkoutDetailSheet: View {
     let workoutData: SharedWorkoutData
     let onFollow: () -> Void
     var onAddExercise: ((SharedWorkoutData.SharedExercise) -> Void)? = nil
+    var locationName: String? = nil
+    var songTitle: String? = nil
+    var artistName: String? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject var appState: AppState
@@ -83,6 +86,36 @@ struct WorkoutDetailSheet: View {
                 Text(workoutData.authorName + "  ·  @" + workoutData.authorUsername)
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundColor(GQColors.textSecondary)
+
+                if locationName != nil || songTitle != nil {
+                    HStack(spacing: 6) {
+                        if let location = locationName {
+                            HStack(spacing: 3) {
+                                Image(systemName: "location.fill")
+                                    .font(.system(size: 9))
+                                Text(location)
+                                    .font(.system(size: 12))
+                            }
+                            .foregroundColor(GQColors.textTertiary)
+                        }
+                        if locationName != nil && songTitle != nil {
+                            Text("·")
+                                .font(.system(size: 12))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        if let song = songTitle {
+                            HStack(spacing: 3) {
+                                Image(systemName: "music.note")
+                                    .font(.system(size: 9))
+                                Text(song)
+                                    .font(.system(size: 12))
+                                    .lineLimit(1)
+                            }
+                            .foregroundColor(GQColors.textTertiary)
+                        }
+                    }
+                    .padding(.top, 2)
+                }
             }
         }
         .frame(maxWidth: .infinity)

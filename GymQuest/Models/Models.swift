@@ -346,7 +346,7 @@ enum PostWidgetType: String, Codable, CaseIterable {
         case .goal: return "target"
         case .pr: return "trophy.fill"
         case .macros: return "chart.pie.fill"
-        case .body: return "scalemass.fill"
+        case .body: return "figure.stand"
         case .streak: return "flame.fill"
         case .cardio: return "figure.run"
         }
@@ -3991,7 +3991,7 @@ enum MeasurementType: String, Codable, CaseIterable {
 
     var icon: String {
         switch self {
-        case .weight: return "scalemass"
+        case .weight: return "figure.stand"
         case .bodyFat: return "percent"
         case .chest: return "figure.arms.open"
         case .waist: return "circle.dashed"
