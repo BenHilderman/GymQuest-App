@@ -132,6 +132,7 @@ struct PostCardV2: View {
         .onAppear {
             hasAppeared = true
             fetchTopComment()
+            EngagementTrackingService.shared.trackPostAppeared(postId: post.id, userId: currentUserId)
             if post.songTitle != nil, let previewURL = post.songPreviewURL {
                 MusicPreviewService.shared.playURL(
                     postId: post.id,
@@ -142,6 +143,7 @@ struct PostCardV2: View {
             }
         }
         .onDisappear {
+            EngagementTrackingService.shared.trackPostDisappeared(postId: post.id, userId: currentUserId)
             if post.songTitle != nil && !showWorkoutDetail && !showComments {
                 MusicPreviewService.shared.stop()
                 isPlayingMusic = false
@@ -166,7 +168,13 @@ struct PostCardV2: View {
                     workoutData: workout,
                     onFollow: {
                         showWorkoutDetail = false
-                        launchFollowWorkout(workout)
+                        if let points = workout.routePoints, !points.isEmpty {
+                            // Cardio: start workout with reference route
+                            let title = post.exerciseHighlight ?? post.workoutType ?? "Outdoor Run"
+                            appState.startWorkout(type: .cardio, customTitle: title, referenceRoute: points)
+                        } else {
+                            launchFollowWorkout(workout)
+                        }
                     },
                     onAddExercise: { exercise in
                         let mg = MuscleGroup(rawValue: exercise.muscleGroup) ?? .chest
@@ -203,7 +211,9 @@ struct PostCardV2: View {
                     distance: cardioDistanceKm,
                     pace: cardioPace,
                     activityName: post.exerciseHighlight ?? post.workoutType ?? "Run",
-                    locationName: post.locationName
+                    locationName: post.locationName,
+                    duration: post.duration,
+                    elevationGain: RunAnalysis.computeElevationGain(from: points)
                 )
                 .presentationDetents([.medium, .large])
             }
@@ -2361,16 +2371,22 @@ struct MiniRouteMapOverlay: View {
                             style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
                         )
                 }
-                if let start = coordinates.first {
-                    Annotation("", coordinate: start) {
-                        Circle().fill(.white).frame(width: 6, height: 6)
-                            .overlay(Circle().stroke(GQColors.deepBlue, lineWidth: 1))
-                    }
-                }
-                if let end = coordinates.last, coordinates.count > 1 {
-                    Annotation("", coordinate: end) {
-                        Circle().fill(.white).frame(width: 6, height: 6)
-                            .overlay(Circle().stroke(GQColors.vividPurple, lineWidth: 1))
+                if let start = coordinates.first, let end = coordinates.last {
+                    let isLoop = abs(start.latitude - end.latitude) < 0.0003 && abs(start.longitude - end.longitude) < 0.0003
+                    if isLoop {
+                        Annotation("", coordinate: start) {
+                            Circle().fill(GQGradients.primary).frame(width: 6, height: 6)
+                                .overlay(Circle().stroke(.white, lineWidth: 1))
+                        }
+                    } else {
+                        Annotation("", coordinate: start) {
+                            Circle().fill(GQColors.deepBlue).frame(width: 5, height: 5)
+                                .overlay(Circle().stroke(.white, lineWidth: 1))
+                        }
+                        Annotation("", coordinate: end) {
+                            Circle().fill(GQColors.vividPurple).frame(width: 5, height: 5)
+                                .overlay(Circle().stroke(.white, lineWidth: 1))
+                        }
                     }
                 }
             }
@@ -2490,26 +2506,36 @@ struct CardioRouteView: View {
                         }
                     }
 
-                    // Start marker
-                    if let first = coords.first {
-                        Annotation("", coordinate: first) {
-                            ZStack {
-                                Circle().fill(.white).frame(width: 14, height: 14)
-                                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
-                                Circle().fill(GQGradients.primary).frame(width: 8, height: 8)
+                    // Start & End markers
+                    if let first = coords.first, let last = coords.last {
+                        let isLoop = abs(first.latitude - last.latitude) < 0.0003 && abs(first.longitude - last.longitude) < 0.0003
+                        if isLoop {
+                            Annotation("", coordinate: first) {
+                                ZStack {
+                                    Circle().fill(.white).frame(width: 16, height: 16)
+                                        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                    Circle().fill(GQGradients.primary).frame(width: 10, height: 10)
+                                    Image(systemName: "arrow.trianglehead.2.counterclockwise")
+                                        .font(.system(size: 6, weight: .bold))
+                                        .foregroundColor(.white)
+                                }
                             }
-                        }
-                    }
-
-                    // End marker
-                    if let last = coords.last {
-                        Annotation("", coordinate: last) {
-                            ZStack {
-                                Circle().fill(.white).frame(width: 14, height: 14)
-                                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
-                                Image(systemName: "flag.fill")
-                                    .font(.system(size: 7))
-                                    .foregroundStyle(GQGradients.primary)
+                        } else {
+                            Annotation("", coordinate: first) {
+                                ZStack {
+                                    Circle().fill(.white).frame(width: 14, height: 14)
+                                        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                    Circle().fill(GQColors.deepBlue).frame(width: 8, height: 8)
+                                }
+                            }
+                            Annotation("", coordinate: last) {
+                                ZStack {
+                                    Circle().fill(.white).frame(width: 14, height: 14)
+                                        .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                    Image(systemName: "flag.fill")
+                                        .font(.system(size: 7))
+                                        .foregroundStyle(GQGradients.primary)
+                                }
                             }
                         }
                     }
@@ -3133,6 +3159,12 @@ struct PostMediaView: View {
                 #endif
             } else if post.videoData != nil {
                 InlineFeedVideoPlayer(videoData: post.videoData!, showVideoPlayer: $showVideoPlayer)
+                    .overlay {
+                        if let metadata = post.getClipMetadata(), !metadata.overlays.isEmpty {
+                            ClipOverlayLayer(metadata: metadata)
+                                .allowsHitTesting(true)
+                        }
+                    }
             }
         }
         .task {
@@ -4717,8 +4749,11 @@ struct PostRouteMapSheet: View {
     let pace: String
     let activityName: String
     var locationName: String? = nil
+    var duration: Int? = nil
+    var elevationGain: Double? = nil
 
     @State private var position: MapCameraPosition = .automatic
+    @State private var currentSpan: Double = 0.02
 
     private var coordinates: [CLLocationCoordinate2D] {
         routePoints.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
@@ -4726,47 +4761,51 @@ struct PostRouteMapSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(spacing: 8) {
+                HStack {
                     Text(activityName)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(GQColors.textPrimary)
-                    HStack(spacing: 8) {
-                        Text(String(format: "%.1f km", distance))
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textSecondary)
-                        Text("·")
-                            .foregroundColor(GQColors.textTertiary)
-                        Text("\(pace) /km")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textSecondary)
-                        if let loc = locationName {
-                            Text("·")
-                                .foregroundColor(GQColors.textTertiary)
-                            HStack(spacing: 3) {
-                                Image(systemName: "location.fill")
-                                    .font(.system(size: 9))
-                                Text(loc)
-                                    .font(.system(size: 13))
-                                    .lineLimit(1)
-                            }
-                            .foregroundColor(GQColors.textTertiary)
+                    Spacer()
+                    if let loc = locationName {
+                        HStack(spacing: 3) {
+                            Image(systemName: "location.fill")
+                                .font(.system(size: 9))
+                            Text(loc)
+                                .font(.system(size: 12))
+                                .lineLimit(1)
                         }
+                        .foregroundColor(GQColors.textTertiary)
                     }
                 }
-                Spacer()
+
+                HStack(spacing: 0) {
+                    routeStatItem(value: String(format: "%.1f", distance), unit: "km", icon: "map")
+                    routeStatDivider
+                    routeStatItem(value: pace, unit: "/km", icon: "speedometer")
+                    routeStatDivider
+                    if let dur = duration {
+                        routeStatItem(value: "\(dur)", unit: "min", icon: "timer")
+                        routeStatDivider
+                    }
+                    routeStatItem(value: avgSpeed, unit: "km/h", icon: "gauge.with.needle")
+                    if let elev = elevationGain, elev > 0 {
+                        routeStatDivider
+                        routeStatItem(value: String(format: "%.0f", elev), unit: "m ↑", icon: "arrow.up.right")
+                    }
+                }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
 
-            Map(position: $position) {
-                // Segmented gradient line
+            Map(position: $position, bounds: routeMapBounds, interactionModes: [.zoom, .pan]) {
+                // Segmented gradient line — width scales with zoom
                 ForEach(routeSegmentIndices, id: \.self) { idx in
                     if idx + 1 < coordinates.count {
                         MapPolyline(coordinates: [coordinates[idx], coordinates[idx + 1]])
                             .stroke(
                                 segmentColor(at: idx),
-                                style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                                style: StrokeStyle(lineWidth: dynamicLineWidth, lineCap: .round, lineJoin: .round)
                             )
                     }
                 }
@@ -4784,32 +4823,58 @@ struct PostRouteMapSheet: View {
                     }
                 }
 
-                // Start
-                if let start = coordinates.first {
-                    Annotation("", coordinate: start) {
-                        ZStack {
-                            Circle().fill(GQColors.deepBlue).frame(width: 16, height: 16)
-                                .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
-                            Text("S")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(.white)
+                // Start & End markers
+                if let start = coordinates.first, let end = coordinates.last, coordinates.count > 1 {
+                    let isLoop = abs(start.latitude - end.latitude) < 0.0003 && abs(start.longitude - end.longitude) < 0.0003
+
+                    if isLoop {
+                        // Start and end overlap — show single combined marker
+                        Annotation("", coordinate: start) {
+                            ZStack {
+                                Circle()
+                                    .fill(.white)
+                                    .frame(width: 20, height: 20)
+                                    .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                                Circle()
+                                    .fill(GQGradients.primary)
+                                    .frame(width: 12, height: 12)
+                                Image(systemName: "arrow.trianglehead.2.counterclockwise")
+                                    .font(.system(size: 7, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
                         }
-                    }
-                }
-                // End
-                if let end = coordinates.last, coordinates.count > 1 {
-                    Annotation("", coordinate: end) {
-                        ZStack {
-                            Circle().fill(GQColors.vividPurple).frame(width: 16, height: 16)
-                                .shadow(color: .black.opacity(0.2), radius: 3, y: 1)
-                            Text("F")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundColor(.white)
+                    } else {
+                        // Start marker
+                        Annotation("", coordinate: start) {
+                            ZStack {
+                                Circle()
+                                    .fill(.white)
+                                    .frame(width: 18, height: 18)
+                                    .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                                Circle()
+                                    .fill(GQColors.deepBlue)
+                                    .frame(width: 10, height: 10)
+                            }
+                        }
+                        // End marker
+                        Annotation("", coordinate: end) {
+                            ZStack {
+                                Circle()
+                                    .fill(.white)
+                                    .frame(width: 18, height: 18)
+                                    .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+                                Image(systemName: "flag.fill")
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(GQGradients.primary)
+                            }
                         }
                     }
                 }
             }
             .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+            .onMapCameraChange(frequency: .continuous) { context in
+                currentSpan = context.region.span.latitudeDelta
+            }
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
@@ -4823,19 +4888,65 @@ struct PostRouteMapSheet: View {
                 latitude: ((lats.min() ?? 0) + (lats.max() ?? 0)) / 2,
                 longitude: ((lons.min() ?? 0) + (lons.max() ?? 0)) / 2
             )
+            let spanLat = ((lats.max() ?? 0) - (lats.min() ?? 0)) * 1.6 + 0.005
+            let altitude = spanLat * 111000 * 1.2 // rough meters for camera distance
+            currentSpan = spanLat
             let region = MKCoordinateRegion(
                 center: center,
-                span: MKCoordinateSpan(
-                    latitudeDelta: ((lats.max() ?? 0) - (lats.min() ?? 0)) * 1.6 + 0.005,
-                    longitudeDelta: ((lons.max() ?? 0) - (lons.min() ?? 0)) * 1.6 + 0.005
-                )
+                span: MKCoordinateSpan(latitudeDelta: spanLat, longitudeDelta: spanLat)
             )
             position = .region(region)
         }
     }
 
+    private var avgSpeed: String {
+        guard let dur = duration, dur > 0, distance > 0 else { return "--" }
+        let kmh = distance / (Double(dur) / 60.0)
+        return String(format: "%.1f", kmh)
+    }
+
+    private func routeStatItem(value: String, unit: String, icon: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+            Text(unit)
+                .font(.system(size: 9))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var routeStatDivider: some View {
+        Rectangle()
+            .fill(GQColors.borderSubtle)
+            .frame(width: 0.5, height: 24)
+    }
+
+    private var routeMapBounds: MapCameraBounds {
+        guard !coordinates.isEmpty else { return MapCameraBounds() }
+        let lats = coordinates.map(\.latitude)
+        let lngs = coordinates.map(\.longitude)
+        let padding = max((lats.max()! - lats.min()!), (lngs.max()! - lngs.min()!)) * 1.5 + 0.01
+        let center = CLLocationCoordinate2D(
+            latitude: (lats.min()! + lats.max()!) / 2,
+            longitude: (lngs.min()! + lngs.max()!) / 2
+        )
+        return MapCameraBounds(
+            centerCoordinateBounds: MKCoordinateRegion(center: center, span: MKCoordinateSpan(latitudeDelta: padding, longitudeDelta: padding)),
+            minimumDistance: 200,
+            maximumDistance: 50000
+        )
+    }
+
     private var routeSegmentIndices: [Int] {
         Array(0..<max(coordinates.count - 1, 0))
+    }
+
+    /// Line width scales with zoom — stays road-proportional
+    private var dynamicLineWidth: CGFloat {
+        let zoomFactor = 0.02 / max(currentSpan, 0.0005)
+        return min(max(3 * sqrt(zoomFactor), 2), 6)
     }
 
     private func segmentColor(at index: Int) -> Color {
@@ -4863,6 +4974,48 @@ struct PostRouteMapSheet: View {
         let y = sin(dLon) * cos(lat2)
         let x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
         return atan2(y, x) * 180 / .pi
+    }
+}
+
+// MARK: - Clip Overlay Layer (Living Stat Overlays at Playback)
+//
+// Renders ClipMetadata overlays as positioned, animated, interactive SwiftUI views
+// over a video. Overlays are *not* burned into pixels — they appear at playback time
+// and remain queryable, re-renderable, and interactive.
+
+struct ClipOverlayLayer: View {
+    let metadata: ClipMetadata
+    @State private var hasAppeared = false
+
+    var body: some View {
+        ZStack {
+            ForEach(metadata.overlays) { overlay in
+                ClipOverlayChip(overlay: overlay)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignmentFor(overlay.position))
+                    .scaleEffect(hasAppeared ? 1.0 : 0.6)
+                    .opacity(hasAppeared ? 1.0 : 0.0)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.7).delay(overlay.startTime * 0.5), value: hasAppeared)
+            }
+        }
+        .padding(8)
+        .onAppear {
+            withAnimation { hasAppeared = true }
+        }
+    }
+
+    private func alignmentFor(_ position: ClipOverlayPosition) -> Alignment {
+        switch position {
+        case .topLeading: return .topLeading
+        case .topCenter: return .top
+        case .topTrailing: return .topTrailing
+        case .middleLeading: return .leading
+        case .middleCenter: return .center
+        case .middleTrailing: return .trailing
+        case .bottomLeading: return .bottomLeading
+        case .bottomCenter: return .bottom
+        case .bottomTrailing: return .bottomTrailing
+        }
     }
 }
 

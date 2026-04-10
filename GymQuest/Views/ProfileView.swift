@@ -159,7 +159,14 @@ struct ProfileView: View {
                 )
             ) {
                 if let selectedPost {
-                    PostDetailView(post: selectedPost, profile: profile)
+                    ProfilePostBrowserView(
+                        profile: profile,
+                        photoPosts: photoPosts,
+                        clipPosts: clipPosts,
+                        taggedPosts: taggedPosts,
+                        initialTab: postTab,
+                        initialPostId: selectedPost.id
+                    )
                 }
             }
             .sheet(isPresented: $showingCoach) {
@@ -572,13 +579,14 @@ struct ProfileView: View {
     private var profileHeader: some View {
         VStack(alignment: .leading, spacing: 10) {
             // Avatar + stat columns row
-            HStack(spacing: 20) {
+            HStack(spacing: 16) {
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                     profileAvatar
                         .overlay(alignment: .bottomTrailing) {
                             Image(systemName: "camera.circle.fill")
-                                .font(.system(size: 22))
-                                .foregroundStyle(.white, GQColors.deepBlue)
+                                .font(.system(size: 24))
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, Color(white: 0.4))
                                 .offset(x: 2, y: 2)
                         }
                 }
@@ -742,7 +750,7 @@ struct ProfileView: View {
         ZStack {
             Circle()
                 .stroke(GQGradients.primary, lineWidth: 2.5)
-                .frame(width: 86, height: 86)
+                .frame(width: 88, height: 88)
 
             Group {
                 #if canImport(UIKit)
@@ -765,7 +773,7 @@ struct ProfileView: View {
                 avatarInitial
                 #endif
             }
-            .frame(width: 80, height: 80)
+            .frame(width: 82, height: 82)
             .clipShape(Circle())
         }
     }
@@ -887,7 +895,7 @@ struct ProfileView: View {
     @ViewBuilder
     private var postsContent: some View {
         VStack(spacing: 0) {
-                // Tab bar
+                // Tab bar (same sliding underline as Feed tabs)
                 VStack(spacing: 0) {
                     Rectangle()
                         .fill(GQColors.borderSubtle)
@@ -895,30 +903,44 @@ struct ProfileView: View {
 
                     HStack(spacing: 0) {
                         ForEach([PostGridTab.photos, .clips, .tagged], id: \.self) { tab in
-                            Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                                    postTab = tab
+                            Image(systemName: tab == .photos ? "square.grid.3x3" : tab == .clips ? "play.rectangle" : "at")
+                                .font(.system(size: 18))
+                                .foregroundColor(postTab == tab ? GQColors.textPrimary : GQColors.textTertiary.opacity(0.45))
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 40)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        postTab = tab
+                                    }
+                                    #if canImport(UIKit)
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    #endif
                                 }
-                                #if canImport(UIKit)
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                #endif
-                            } label: {
-                                VStack(spacing: 0) {
-                                    Image(systemName: tab == .photos ? "square.grid.3x3" : tab == .clips ? "play.rectangle" : "at")
-                                        .font(.system(size: 18))
-                                        .foregroundColor(postTab == tab ? GQColors.textPrimary : GQColors.textTertiary.opacity(0.45))
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 40)
-                                        .contentShape(Rectangle())
-                                    Rectangle()
-                                        .fill(GQColors.textPrimary)
-                                        .frame(height: 0.5)
-                                        .opacity(postTab == tab ? 1 : 0)
-                                }
-                            }
-                            .buttonStyle(.plain)
                         }
                     }
+
+                    // Background line + sliding gradient underline
+                    ZStack(alignment: .leading) {
+                        // Full-width faded grey line
+                        Rectangle()
+                            .fill(GQColors.borderSubtle)
+                            .frame(height: 0.5)
+
+                        // Sliding gradient underline (narrower, centered per tab)
+                        GeometryReader { geometry in
+                            let tabs: [PostGridTab] = [.photos, .clips, .tagged]
+                            let tabWidth = geometry.size.width / CGFloat(tabs.count)
+                            let tabIndex = tabs.firstIndex(of: postTab) ?? 0
+                            Rectangle()
+                                .fill(GQGradients.primary)
+                                .frame(width: tabWidth, height: 1.5)
+                                .clipShape(RoundedRectangle(cornerRadius: 0.75))
+                                .offset(x: tabWidth * CGFloat(tabIndex))
+                                .animation(.easeInOut(duration: 0.3), value: tabIndex)
+                        }
+                    }
+                    .frame(height: 1.5)
                 }
 
                 // Filtered grid
@@ -2122,6 +2144,112 @@ struct SettingsView: View {
                     isTestingConnection = false
                 }
             }
+        }
+    }
+}
+
+// MARK: - Profile Post Browser (scrollable feed from thumbnail tap)
+
+struct ProfilePostBrowserView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var appState: AppState
+
+    let profile: UserProfile
+    let photoPosts: [Post]
+    let clipPosts: [Post]
+    let taggedPosts: [Post]
+    let initialTab: PostGridTab
+    let initialPostId: UUID
+
+    @State private var currentTab: PostGridTab
+
+    init(profile: UserProfile, photoPosts: [Post], clipPosts: [Post],
+         taggedPosts: [Post], initialTab: PostGridTab, initialPostId: UUID) {
+        self.profile = profile
+        self.photoPosts = photoPosts
+        self.clipPosts = clipPosts
+        self.taggedPosts = taggedPosts
+        self.initialTab = initialTab
+        self.initialPostId = initialPostId
+        self._currentTab = State(initialValue: initialTab)
+    }
+
+    private func postsForTab(_ tab: PostGridTab) -> [Post] {
+        switch tab {
+        case .photos: return photoPosts
+        case .clips: return clipPosts
+        case .tagged: return taggedPosts
+        }
+    }
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            GQColors.background.ignoresSafeArea()
+
+            // Scrollable post feed
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(spacing: 0) {
+                    // Spacer for top bar
+                    Color.clear.frame(height: 50)
+
+                    ForEach(postsForTab(currentTab)) { post in
+                        PostCardV2(
+                            post: post,
+                            currentUserId: profile.id,
+                            currentUserName: profile.name,
+                            profile: profile
+                        )
+                        .id(post.id)
+                        Rectangle()
+                            .fill(GQColors.borderSubtle)
+                            .frame(height: 1)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollPosition(id: Binding<UUID?>(
+                get: { nil },
+                set: { _ in }
+            ))
+
+            // Top bar
+            HStack {
+                HStack(spacing: 0) {
+                    ForEach([PostGridTab.photos, .clips, .tagged], id: \.self) { tab in
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                currentTab = tab
+                            }
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: tab == .photos ? "square.grid.3x3" : tab == .clips ? "play.rectangle" : "at")
+                                    .font(.system(size: 16, weight: currentTab == tab ? .semibold : .regular))
+                                    .foregroundColor(currentTab == tab ? GQColors.textPrimary : GQColors.textTertiary.opacity(0.45))
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 36)
+                                Rectangle()
+                                    .fill(GQColors.textPrimary)
+                                    .frame(height: 0.5)
+                                    .opacity(currentTab == tab ? 1 : 0)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .frame(width: 28, height: 28)
+                        .background(GQColors.surfaceSecondary, in: Circle())
+                }
+                .padding(.trailing, 4)
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 6)
+            .background(GQColors.background)
         }
     }
 }

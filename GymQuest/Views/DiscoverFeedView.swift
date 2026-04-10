@@ -182,7 +182,10 @@ struct DiscoverFeedView: View {
             authorBoosts: service.sessionAuthorBoosts,
             hashtagBoosts: service.sessionHashtagBoosts,
             skippedPostIds: service.sessionSkippedPostIds,
-            notInterestedPostIds: service.sessionNotInterestedPostIds
+            notInterestedPostIds: service.sessionNotInterestedPostIds,
+            mutualFriendIds: cachedMutualFriendIds,
+            sessionMomentum: service.sessionMomentum,
+            currentHour: Calendar.current.component(.hour, from: Date())
         )
 
         cachedRankedPosts = FeedRankingService.shared.rankPosts(
@@ -631,6 +634,11 @@ struct PostMediaBackground: View {
                 DiscoverVideoPlayer(post: post, isVisible: isVisible, userId: userId)
                     .frame(width: size.width, height: size.height)
                     .clipped()
+                    .overlay {
+                        if let metadata = post.getClipMetadata(), !metadata.overlays.isEmpty {
+                            ClipOverlayLayer(metadata: metadata)
+                        }
+                    }
             } else if let photoData = post.photoData {
                 #if canImport(UIKit)
                 if let uiImage = UIImage(data: photoData) {

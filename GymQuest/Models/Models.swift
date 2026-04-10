@@ -396,6 +396,88 @@ struct PostWidget: Codable {
     var elevation: Double?
 }
 
+// MARK: - Quick Clip Models (Living Stat Overlays)
+
+/// Categories of overlays the app can auto-generate from workout data.
+/// These are not pixels — they render at playback time as interactive SwiftUI views.
+enum ClipOverlayType: String, Codable, CaseIterable {
+    case prBadge        // Trophy + value (auto-detected PR)
+    case setCard        // Exercise + sets/reps/weight
+    case runStats       // Distance + pace + elevation
+    case volumeCounter  // Total volume moved
+    case streakFlame    // Days streak
+    case workoutTag     // Workout type chip
+    case durationStamp  // Total time
+    case heartRatePill  // BPM (if available)
+}
+
+enum ClipOverlayPosition: String, Codable, CaseIterable {
+    case topLeading, topCenter, topTrailing
+    case middleLeading, middleCenter, middleTrailing
+    case bottomLeading, bottomCenter, bottomTrailing
+}
+
+enum ClipOverlayStyle: String, Codable, CaseIterable {
+    case glass    // Semi-transparent glass card
+    case neon     // Glow accent
+    case minimal  // Text only
+    case solid    // Solid color
+}
+
+/// A living stat overlay attached to a clip post. Stored as metadata, not pixels.
+struct ClipOverlay: Codable, Identifiable, Hashable {
+    var id: UUID = UUID()
+    var type: ClipOverlayType
+    var position: ClipOverlayPosition = .topCenter
+    var style: ClipOverlayStyle = .glass
+    var startTime: Double = 0    // Seconds from clip start to fade in
+    var endTime: Double? = nil   // nil = remain visible
+
+    // Display payload — only relevant fields populated per type
+    var title: String?      // e.g., "Bench Press"
+    var primary: String?    // e.g., "225 lb × 5"
+    var secondary: String?  // e.g., "+10 lb PR"
+    var iconSF: String?     // SF symbol override
+
+    // Interactive deep-link payload
+    var linkedExerciseName: String?
+    var linkedWorkoutId: UUID?
+}
+
+struct ClipMetadata: Codable {
+    var lengthSec: Double = 0
+    var preset: String = "30s"           // Display label of chosen preset
+    var musicSnippetStart: Double = 0    // Where in song to start playback
+    var overlays: [ClipOverlay] = []
+    var autoCaption: String? = nil
+    var version: Int = 1
+}
+
+/// Length presets aligned with Instagram Reels and TikTok engagement data
+enum ClipLengthPreset: String, CaseIterable {
+    case fifteen = "15s"
+    case thirty = "30s"
+    case sixty = "60s"
+    case custom = "Custom"
+
+    var seconds: Double? {
+        switch self {
+        case .fifteen: return 15
+        case .thirty: return 30
+        case .sixty: return 60
+        case .custom: return nil
+        }
+    }
+
+    /// Recommended max — feed slightly downranks longer clips
+    static let recommendedMax: Double = 60
+    /// Hard cap matching Instagram Reels
+    static let hardMax: Double = 90
+    /// Sweet spot range from TikTok engagement data
+    static let optimalMin: Double = 21
+    static let optimalMax: Double = 34
+}
+
 // MARK: - Feed Motivation Types
 
 enum MotivationType: String, CaseIterable {
@@ -1514,6 +1596,7 @@ final class Post {
     var saveCount: Int
     var avgWatchTimeSec: Double
     var engagementScore: Double
+    var avgCompletionCount: Double = 0  // average rewatches per viewer (addiction signal)
 
     // Enhanced media (GymQuest 2.0 - exercise-aligned media)
     var mediaItemsData: Data?           // JSON-encoded [PostMedia]
@@ -1556,6 +1639,9 @@ final class Post {
 
     // Interactive widget card (ONE per post)
     var postWidgetData: Data?           // JSON-encoded PostWidget
+
+    // Quick Clip — living stat overlays for short-form video posts
+    var clipMetadataData: Data?         // JSON-encoded ClipMetadata
 
     init(
         id: UUID = UUID(),
@@ -1680,6 +1766,16 @@ final class Post {
     func getPostWidget() -> PostWidget? {
         guard let data = postWidgetData else { return nil }
         return try? JSONDecoder().decode(PostWidget.self, from: data)
+    }
+
+    /// Decode living stat overlays for short-form clip posts
+    func getClipMetadata() -> ClipMetadata? {
+        guard let data = clipMetadataData else { return nil }
+        return try? JSONDecoder().decode(ClipMetadata.self, from: data)
+    }
+
+    var isQuickClip: Bool {
+        clipMetadataData != nil && (videoData != nil || mediaItems.contains { $0.mediaType == .video })
     }
 
     /// Get/set decoded media items for exercise-aligned media
@@ -4413,6 +4509,7 @@ final class UserInterestProfile {
     var emotionWeightsJSON: String = "{}"
     var negativeWorkoutTypeWeightsJSON: String = "{}"
     var negativeAuthorWeightsJSON: String = "{}"
+    var videoCompletionWeightsJSON: String = "{}"  // per-workout-type avg completion ratio
     var avgSessionTimeSec: Double
     var lastUpdated: Date
 
@@ -4449,6 +4546,11 @@ final class UserInterestProfile {
     var negativeAuthorWeights: [String: Double] {
         get { Self.decodeWeights(negativeAuthorWeightsJSON) }
         set { negativeAuthorWeightsJSON = Self.encodeWeights(newValue) }
+    }
+
+    var videoCompletionWeights: [String: Double] {
+        get { Self.decodeWeights(videoCompletionWeightsJSON) }
+        set { videoCompletionWeightsJSON = Self.encodeWeights(newValue) }
     }
 
     init(

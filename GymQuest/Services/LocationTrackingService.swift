@@ -19,6 +19,7 @@ final class LocationTrackingService: NSObject {
     // MARK: - Public State
 
     private(set) var isTracking = false
+    var pendingStart = false
     private(set) var routePoints: [RoutePoint] = []
     private(set) var currentDistance: Double = 0    // meters
     private(set) var currentPace: Double = 0        // seconds per kilometer
@@ -165,6 +166,11 @@ extension LocationTrackingService: CLLocationManagerDelegate {
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        // Authorization changes are observed via hasPermission/needsPermission
+        Task { @MainActor in
+            // Auto-start tracking if permission was just granted and we're not already tracking
+            if hasPermission && !isTracking && pendingStart {
+                startTracking()
+            }
+        }
     }
 }

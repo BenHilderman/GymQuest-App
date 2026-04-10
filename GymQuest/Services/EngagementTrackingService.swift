@@ -23,6 +23,24 @@ final class EngagementTrackingService: ObservableObject {
     var sessionSkippedPostIds: Set<UUID> = []
     var sessionNotInterestedPostIds: Set<UUID> = []
 
+    /// Sliding window of recent positive interaction timestamps (for flow-state detection)
+    private var recentPositiveInteractions: [Date] = []
+    private let momentumWindow: TimeInterval = 300 // 5 minutes
+
+    /// Number of positive interactions in the last 5 minutes — drives flow-state ranking amp
+    var sessionMomentum: Double {
+        let cutoff = Date().addingTimeInterval(-momentumWindow)
+        return Double(recentPositiveInteractions.filter { $0 > cutoff }.count)
+    }
+
+    private func recordPositiveInteraction() {
+        let now = Date()
+        recentPositiveInteractions.append(now)
+        // Trim old entries
+        let cutoff = now.addingTimeInterval(-momentumWindow)
+        recentPositiveInteractions.removeAll { $0 < cutoff }
+    }
+
     // MARK: - Setup
 
     func configure(modelContext: ModelContext) {
@@ -90,6 +108,15 @@ final class EngagementTrackingService: ObservableObject {
                     sessionWorkoutBoosts[workoutType, default: 0] += 0.3
                 }
                 sessionAuthorBoosts[post.authorId.uuidString, default: 0] += 0.2
+                // Linger bonus: 5+ seconds is a strong positive signal — counts toward flow state
+                recordPositiveInteraction()
+            }
+            // Deep linger (>10s) is doubly meaningful
+            if watchTime >= 10.0 {
+                if let workoutType = post.workoutType {
+                    sessionWorkoutBoosts[workoutType, default: 0] += 0.2
+                }
+                sessionAuthorBoosts[post.authorId.uuidString, default: 0] += 0.15
             }
         }
 
@@ -102,6 +129,18 @@ final class EngagementTrackingService: ObservableObject {
     func trackVideoLoop(postId: UUID, userId: UUID) {
         let engagement = getOrCreateEngagement(postId: postId, userId: userId)
         engagement.completionCount += 1
+
+        // Update post-level avgCompletionCount (running mean across all viewers)
+        if let ctx = modelContext {
+            let descriptor = FetchDescriptor<Post>(predicate: #Predicate { $0.id == postId })
+            if let post = try? ctx.fetch(descriptor).first {
+                let viewers = max(Double(post.viewCount), 1.0)
+                post.avgCompletionCount = ((post.avgCompletionCount * (viewers - 1)) + 1.0) / viewers
+            }
+        }
+
+        // Strong positive signal — counts toward flow state momentum
+        recordPositiveInteraction()
         try? modelContext?.save()
     }
 
@@ -133,18 +172,21 @@ final class EngagementTrackingService: ObservableObject {
     func trackLike(postId: UUID, userId: UUID) {
         let engagement = getOrCreateEngagement(postId: postId, userId: userId)
         engagement.liked = true
+        recordPositiveInteraction()
         saveAndTrackInteraction(userId: userId)
     }
 
     func trackComment(postId: UUID, userId: UUID) {
         let engagement = getOrCreateEngagement(postId: postId, userId: userId)
         engagement.commented = true
+        recordPositiveInteraction()
         saveAndTrackInteraction(userId: userId)
     }
 
     func trackShare(postId: UUID, userId: UUID) {
         let engagement = getOrCreateEngagement(postId: postId, userId: userId)
         engagement.shared = true
+        recordPositiveInteraction()
 
         // Increment share count on the post
         incrementShareCount(postId: postId)
@@ -154,6 +196,7 @@ final class EngagementTrackingService: ObservableObject {
     func trackSave(postId: UUID, userId: UUID) {
         let engagement = getOrCreateEngagement(postId: postId, userId: userId)
         engagement.saved = true
+        recordPositiveInteraction()
 
         // Increment save count on the post
         incrementSaveCount(postId: postId)
@@ -163,6 +206,7 @@ final class EngagementTrackingService: ObservableObject {
     func trackFollow(postId: UUID, userId: UUID) {
         let engagement = getOrCreateEngagement(postId: postId, userId: userId)
         engagement.followed = true
+        recordPositiveInteraction()
         saveAndTrackInteraction(userId: userId)
     }
 
@@ -197,6 +241,8 @@ final class EngagementTrackingService: ObservableObject {
         var emotionCounts: [String: Double] = [:]
         var negativeWorkoutScores: [String: Double] = [:]
         var negativeAuthorScores: [String: Double] = [:]
+        var completionRatioSums: [String: Double] = [:]
+        var completionRatioCounts: [String: Double] = [:]
         var totalWatchTime: Double = 0
 
         // Fetch posts for engagement context
@@ -228,6 +274,12 @@ final class EngagementTrackingService: ObservableObject {
             if let workoutType = post.workoutType {
                 workoutScores[workoutType, default: 0] += interactionWeight
                 workoutCounts[workoutType, default: 0] += 1
+
+                // Per-workout-type completion ratio (TikTok's strongest signal)
+                if engagement.maxCompletionRatio > 0 {
+                    completionRatioSums[workoutType, default: 0] += engagement.maxCompletionRatio
+                    completionRatioCounts[workoutType, default: 0] += 1
+                }
             }
 
             // Author affinity
@@ -265,6 +317,13 @@ final class EngagementTrackingService: ObservableObject {
         let newNegativeWorkoutWeights = normalizeNegativeWeights(scores: negativeWorkoutScores)
         let newNegativeAuthorWeights = normalizeNegativeWeights(scores: negativeAuthorScores)
 
+        // Compute per-workout-type avg completion ratios (raw, no normalization needed — already 0..1)
+        var newCompletionWeights: [String: Double] = [:]
+        for (key, sum) in completionRatioSums {
+            let count = completionRatioCounts[key] ?? 1
+            newCompletionWeights[key] = sum / count
+        }
+
         profile.workoutTypeWeights = emaBlend(old: profile.workoutTypeWeights, new: newWorkoutWeights)
         profile.authorWeights = emaBlend(old: profile.authorWeights, new: newAuthorWeights)
         profile.contentFormatWeights = emaBlend(old: profile.contentFormatWeights, new: newFormatWeights)
@@ -272,6 +331,7 @@ final class EngagementTrackingService: ObservableObject {
         profile.emotionWeights = emaBlend(old: profile.emotionWeights, new: newEmotionWeights)
         profile.negativeWorkoutTypeWeights = emaBlend(old: profile.negativeWorkoutTypeWeights, new: newNegativeWorkoutWeights)
         profile.negativeAuthorWeights = emaBlend(old: profile.negativeAuthorWeights, new: newNegativeAuthorWeights)
+        profile.videoCompletionWeights = emaBlend(old: profile.videoCompletionWeights, new: newCompletionWeights)
         profile.avgSessionTimeSec = totalWatchTime / Double(max(engagements.count, 1))
         profile.lastUpdated = Date()
 
@@ -296,10 +356,15 @@ final class EngagementTrackingService: ObservableObject {
 
         for post in posts {
             let views = max(Double(post.viewCount), 1.0)
-            let rawRate = (Double(post.likeCount) + Double(post.commentCount) * 3.0 + Double(post.shareCount) * 5.0 + Double(post.saveCount) * 4.0) / views
+            let rawRate = (Double(post.likeCount) + Double(post.commentCount) * 5.0 + Double(post.shareCount) * 5.0 + Double(post.saveCount) * 5.0) / views
             let sigmoid = 1.0 / (1.0 + exp(-30.0 * (rawRate - 0.08)))
             let watchBonus = min(post.avgWatchTimeSec / 30.0, 1.0) * 0.3
-            post.engagementScore = min(sigmoid + watchBonus, 1.0)
+            var score = min(sigmoid + watchBonus, 1.0)
+            let viralRate = (Double(post.likeCount) + Double(post.commentCount) * 3.0) / max(Double(post.viewCount), 10.0)
+            if viralRate > 0.5 {
+                score = min(score + 0.3, 1.0)
+            }
+            post.engagementScore = score
         }
 
         try? ctx.save()
@@ -394,9 +459,9 @@ final class EngagementTrackingService: ObservableObject {
 
         // Action weights
         if engagement.liked { weight += 1.0 }
-        if engagement.commented { weight += 3.0 }
+        if engagement.commented { weight += 5.0 }
         if engagement.shared { weight += 5.0 }
-        if engagement.saved { weight += 4.0 }
+        if engagement.saved { weight += 5.0 }
         if engagement.followed { weight += 6.0 }
 
         return weight

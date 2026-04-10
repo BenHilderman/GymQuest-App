@@ -258,8 +258,8 @@ class AppState: ObservableObject {
 
     var isWorkoutActive: Bool { activeWorkout != nil }
 
-    func startWorkout(type: WorkoutType, exercises: [ActiveExercise] = [], customTitle: String? = nil) {
-        activeWorkout = ActiveWorkoutState(workoutType: type, exercises: exercises, startTime: Date(), customTitle: customTitle)
+    func startWorkout(type: WorkoutType, exercises: [ActiveExercise] = [], customTitle: String? = nil, referenceRoute: [RoutePoint]? = nil) {
+        activeWorkout = ActiveWorkoutState(workoutType: type, exercises: exercises, startTime: Date(), customTitle: customTitle, referenceRoute: referenceRoute)
         isWorkoutPaused = false
         selectedTab = .home
         showingWorkoutStartOptions = false
@@ -325,6 +325,7 @@ struct ActiveWorkoutState {
     var startTime: Date
     var elapsedTime: Int = 0
     var customTitle: String?
+    var referenceRoute: [RoutePoint]?
 }
 
 // MARK: - Onboarding Data

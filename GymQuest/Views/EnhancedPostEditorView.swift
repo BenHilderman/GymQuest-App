@@ -965,15 +965,16 @@ struct EnhancedPostEditorView: View {
     }
 
     private func createPost() {
-        let generalMedia = mediaItems.first
+        let firstPhoto = mediaItems.first(where: { $0.mediaType == .photo })
+        let firstVideo = mediaItems.first(where: { $0.mediaType == .video })
 
         let post = Post(
             authorId: profile.id,
             authorName: profile.name,
             authorUsername: profile.username,
             caption: caption,
-            photoData: generalMedia?.mediaType == .photo ? generalMedia?.data : nil,
-            videoData: generalMedia?.mediaType == .video ? generalMedia?.data : nil,
+            photoData: firstPhoto?.data ?? mediaItems.first?.data,
+            videoData: firstVideo?.data,
             workoutType: includeStats ? workout?.type.rawValue : nil,
             duration: includeStats ? duration : nil,
             setCount: includeStats ? workout?.totalSets : nil,
@@ -2506,5 +2507,809 @@ struct PostWidgetPickerSheet: View {
         let paceMin = duration > 0 && dist > 0 ? Double(duration) / dist : 5.0
         let pace = "\(Int(paceMin)):\(String(format: "%02d", Int(paceMin.truncatingRemainder(dividingBy: 1) * 60)))"
         return PostWidget(type: .cardio, distance: dist, pace: pace, elevation: 0)
+    }
+}
+
+// MARK: - Quick Clip Composer
+//
+// Post-workout short-video composer optimized for Reels/TikTok-style sharing.
+// Unique angle: "Living Stat Overlays" — overlays are stored as structured metadata,
+// not burned into pixels. They render at playback time as interactive SwiftUI views,
+// stay queryable, and update when underlying data changes (e.g., a PR is broken later).
+
+struct QuickClipComposerView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let profile: UserProfile
+    let workout: Workout
+    let detectedPRs: [PRMoment]
+    let exercises: [CompletedExercise]
+    let durationMinutes: Int
+
+    // Video state
+    @State private var videoData: Data? = nil
+    @State private var videoDurationSec: Double = 0
+    @State private var videoThumbnail: Data? = nil
+    @State private var videoPickerItem: PhotosPickerItem? = nil
+    @State private var lengthError: String? = nil
+    @State private var lengthWarning: String? = nil
+
+    // Composition state
+    @State private var selectedOverlays: [ClipOverlay] = []
+    @State private var availableOverlays: [ClipOverlay] = []
+    @State private var selectedSong: Song? = nil
+    @State private var snippetStart: Double = 0
+    @State private var caption: String = ""
+    @State private var isPublishing = false
+
+    // Sheets
+    @State private var showMusicPicker = false
+    @State private var showVideoPicker = false
+    @State private var showOverlaySheet = false
+
+    @StateObject private var musicService = MusicService.shared
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        previewArea
+                        lengthGuidelinesSection
+                        if videoData != nil {
+                            overlaysSection
+                            musicSection
+                            captionSection
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 100)
+                }
+
+                VStack {
+                    Spacer()
+                    publishBar
+                }
+            }
+            .navigationTitle("Quick Clip")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(.white)
+                }
+            }
+            .photosPicker(isPresented: $showVideoPicker, selection: $videoPickerItem, matching: .videos)
+            .onChange(of: videoPickerItem) { _, item in
+                loadVideo(from: item)
+            }
+            .sheet(isPresented: $showMusicPicker) {
+                MusicPickerSheet(selectedSong: $selectedSong, activityType: workout.type.rawValue)
+            }
+            .sheet(isPresented: $showOverlaySheet) {
+                ClipOverlayPickerSheet(
+                    available: availableOverlays,
+                    selected: $selectedOverlays
+                )
+                .presentationDetents([.medium, .large])
+            }
+            .onAppear { setupAutoSuggestions() }
+        }
+    }
+
+    // MARK: - Sections
+
+    private var previewArea: some View {
+        ZStack {
+            // 9:16 vertical aspect frame
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color(white: 0.08))
+                .aspectRatio(9.0/16.0, contentMode: .fit)
+                .overlay {
+                    if let thumb = videoThumbnail, let img = uiImage(from: thumb) {
+                        Image(uiImage: img)
+                            .resizable()
+                            .scaledToFill()
+                            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    } else if videoData != nil {
+                        Image(systemName: "video.fill")
+                            .font(.system(size: 60))
+                            .foregroundStyle(.white.opacity(0.4))
+                    } else {
+                        VStack(spacing: 14) {
+                            Image(systemName: "video.badge.plus")
+                                .font(.system(size: 56))
+                                .foregroundStyle(.white.opacity(0.5))
+                            Text("Tap to add a video")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.9))
+                            Text("Up to 90 seconds — sweet spot 21–34s")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.white.opacity(0.5))
+                        }
+                    }
+                }
+                .overlay(alignment: .top) {
+                    // Render selected overlays in their anchored positions (preview)
+                    ZStack {
+                        ForEach(selectedOverlays) { overlay in
+                            ClipOverlayChip(overlay: overlay)
+                                .padding(8)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignmentFor(overlay.position))
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .padding(8)
+                }
+                .overlay(alignment: .bottom) {
+                    if videoDurationSec > 0 {
+                        durationBadge
+                            .padding(10)
+                    }
+                }
+                .onTapGesture {
+                    showVideoPicker = true
+                }
+
+            if videoData == nil {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 44))
+                    .foregroundStyle(.white)
+                    .shadow(radius: 8)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private var durationBadge: some View {
+        HStack(spacing: 6) {
+            Image(systemName: durationBadgeIcon)
+                .font(.system(size: 11, weight: .bold))
+            Text("\(Int(videoDurationSec))s")
+                .font(.system(size: 12, weight: .semibold))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(durationBadgeColor.opacity(0.85))
+        .foregroundStyle(.white)
+        .clipShape(Capsule())
+    }
+
+    private var durationBadgeIcon: String {
+        if videoDurationSec >= ClipLengthPreset.optimalMin && videoDurationSec <= ClipLengthPreset.optimalMax {
+            return "sparkles"
+        } else if videoDurationSec > ClipLengthPreset.recommendedMax {
+            return "exclamationmark.triangle.fill"
+        }
+        return "clock.fill"
+    }
+
+    private var durationBadgeColor: Color {
+        if videoDurationSec >= ClipLengthPreset.optimalMin && videoDurationSec <= ClipLengthPreset.optimalMax {
+            return GQColors.success
+        } else if videoDurationSec > ClipLengthPreset.recommendedMax {
+            return Color.orange
+        }
+        return Color.black
+    }
+
+    private var lengthGuidelinesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Length", systemImage: "ruler")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                Spacer()
+                if videoDurationSec > 0 {
+                    Text(lengthVerdict)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(lengthVerdictColor)
+                }
+            }
+
+            HStack(spacing: 8) {
+                ForEach(ClipLengthPreset.allCases.filter { $0 != .custom }, id: \.self) { preset in
+                    presetChip(preset)
+                }
+            }
+
+            if let err = lengthError {
+                Label(err, systemImage: "xmark.octagon.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.red)
+            } else if let warn = lengthWarning {
+                Label(warn, systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.orange)
+            } else {
+                Text("TikTok's data shows 21–34s clips get the most engagement.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+        }
+        .padding(14)
+        .background(Color(white: 0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func presetChip(_ preset: ClipLengthPreset) -> some View {
+        let isMatch = videoDurationSec > 0 && abs(videoDurationSec - (preset.seconds ?? 0)) < 3
+        return Text(preset.rawValue)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(isMatch ? .black : .white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(isMatch ? Color.white : Color(white: 0.18))
+            .clipShape(Capsule())
+    }
+
+    private var lengthVerdict: String {
+        if videoDurationSec > ClipLengthPreset.hardMax { return "Too long" }
+        if videoDurationSec > ClipLengthPreset.recommendedMax { return "Long — feed favors shorter" }
+        if videoDurationSec >= ClipLengthPreset.optimalMin && videoDurationSec <= ClipLengthPreset.optimalMax { return "Sweet spot" }
+        if videoDurationSec < ClipLengthPreset.optimalMin { return "Quick hit" }
+        return "Good"
+    }
+
+    private var lengthVerdictColor: Color {
+        if videoDurationSec > ClipLengthPreset.hardMax { return .red }
+        if videoDurationSec > ClipLengthPreset.recommendedMax { return .orange }
+        if videoDurationSec >= ClipLengthPreset.optimalMin && videoDurationSec <= ClipLengthPreset.optimalMax { return GQColors.success }
+        return .white.opacity(0.7)
+    }
+
+    private var overlaysSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Living Stats", systemImage: "sparkles.rectangle.stack")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                Spacer()
+                Button {
+                    showOverlaySheet = true
+                } label: {
+                    Text(selectedOverlays.isEmpty ? "Add" : "Edit")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(GQColors.vividPurple)
+                }
+            }
+
+            if selectedOverlays.isEmpty {
+                Text("Tap to overlay PRs, sets, distance — they stay interactive in the feed.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.5))
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(selectedOverlays) { overlay in
+                            ClipOverlayChip(overlay: overlay)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(Color(white: 0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var musicSection: some View {
+        Button {
+            showMusicPicker = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: selectedSong == nil ? "music.note.list" : "music.note")
+                    .font(.system(size: 18))
+                    .foregroundStyle(GQColors.vividPurple)
+                    .frame(width: 32, height: 32)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(selectedSong?.title ?? "Add music")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(selectedSong?.artist ?? "Boost engagement with sound")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .lineLimit(1)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+            .padding(14)
+            .background(Color(white: 0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var captionSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Caption", systemImage: "text.bubble")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                Spacer()
+                if !caption.isEmpty {
+                    Text("\(caption.count)/2200")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+            }
+            TextField("", text: $caption, axis: .vertical)
+                .lineLimit(2...5)
+                .font(.system(size: 13))
+                .foregroundStyle(.white)
+                .padding(10)
+                .background(Color(white: 0.14))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .padding(14)
+        .background(Color(white: 0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var publishBar: some View {
+        HStack {
+            Button {
+                publish()
+            } label: {
+                HStack(spacing: 8) {
+                    if isPublishing {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "paperplane.fill")
+                    }
+                    Text(isPublishing ? "Sharing..." : "Share Clip")
+                        .font(.system(size: 16, weight: .bold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(canPublish ? GQGradients.primary : LinearGradient(colors: [Color.gray, Color.gray], startPoint: .leading, endPoint: .trailing))
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            .disabled(!canPublish || isPublishing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 24)
+        .background(LinearGradient(colors: [Color.black.opacity(0), Color.black], startPoint: .top, endPoint: .bottom))
+    }
+
+    private var canPublish: Bool {
+        videoData != nil && lengthError == nil
+    }
+
+    // MARK: - Logic
+
+    private func setupAutoSuggestions() {
+        // Auto-generate the menu of overlays the user can pick from
+        var available: [ClipOverlay] = []
+
+        // 1. PR badges (one per detected PR)
+        for pr in detectedPRs.prefix(3) {
+            available.append(
+                ClipOverlay(
+                    type: .prBadge,
+                    position: .topCenter,
+                    style: .neon,
+                    title: pr.exerciseName ?? pr.prType.rawValue,
+                    primary: pr.value,
+                    secondary: pr.improvement,
+                    iconSF: "trophy.fill",
+                    linkedExerciseName: pr.exerciseName
+                )
+            )
+        }
+
+        // 2. Top set card (highest-volume exercise)
+        if let topExercise = exercises.first {
+            available.append(
+                ClipOverlay(
+                    type: .setCard,
+                    position: .bottomLeading,
+                    style: .glass,
+                    title: topExercise.name,
+                    primary: "\(topExercise.sets) sets",
+                    iconSF: "dumbbell.fill",
+                    linkedExerciseName: topExercise.name
+                )
+            )
+        }
+
+        // 3. Workout type tag
+        available.append(
+            ClipOverlay(
+                type: .workoutTag,
+                position: .topLeading,
+                style: .minimal,
+                title: workout.type.rawValue,
+                iconSF: "figure.strengthtraining.traditional"
+            )
+        )
+
+        // 4. Duration stamp
+        available.append(
+            ClipOverlay(
+                type: .durationStamp,
+                position: .topTrailing,
+                style: .glass,
+                title: "Duration",
+                primary: "\(durationMinutes) min",
+                iconSF: "timer"
+            )
+        )
+
+        // 5. Run stats (cardio only)
+        if workout.type == .cardio, let dist = workout.totalDistance, dist > 0 {
+            let km = dist / 1000.0
+            let pace = workout.averagePace.map { secPerKm -> String in
+                let mins = Int(secPerKm) / 60
+                let secs = Int(secPerKm) % 60
+                return String(format: "%d:%02d/km", mins, secs)
+            } ?? "—"
+            available.append(
+                ClipOverlay(
+                    type: .runStats,
+                    position: .bottomCenter,
+                    style: .glass,
+                    title: "Run",
+                    primary: String(format: "%.2f km", km),
+                    secondary: pace,
+                    iconSF: "figure.run"
+                )
+            )
+        }
+
+        // 6. Total volume
+        let totalVolume = workout.totalVolume
+        if totalVolume > 0 {
+            available.append(
+                ClipOverlay(
+                    type: .volumeCounter,
+                    position: .bottomTrailing,
+                    style: .glass,
+                    title: "Volume",
+                    primary: "\(Int(totalVolume)) lb",
+                    iconSF: "scalemass.fill"
+                )
+            )
+        }
+
+        availableOverlays = available
+
+        // Auto-select the most impactful: PR badge if exists, else workout tag + set card
+        if let prOverlay = available.first(where: { $0.type == .prBadge }) {
+            selectedOverlays = [prOverlay, available.first(where: { $0.type == .setCard }) ?? available[0]]
+        } else if available.count >= 2 {
+            selectedOverlays = Array(available.prefix(2))
+        } else {
+            selectedOverlays = available
+        }
+
+        // Auto-caption
+        caption = autoGenerateCaption()
+
+        // Auto-suggest music
+        if selectedSong == nil, !musicService.suggestedSongs.isEmpty {
+            selectedSong = musicService.suggestedSongs.first
+        }
+    }
+
+    private func autoGenerateCaption() -> String {
+        var parts: [String] = []
+        if let pr = detectedPRs.first, let ex = pr.exerciseName {
+            parts.append("\(ex) PR \u{1F3C6} \(pr.value)")
+        } else {
+            parts.append("\(workout.type.rawValue) Day \u{1F4AA}")
+        }
+        if let topExercise = exercises.first {
+            parts.append(topExercise.name)
+        }
+        parts.append("#liftai #\(workout.type.rawValue.lowercased().replacingOccurrences(of: " ", with: ""))")
+        return parts.joined(separator: " · ")
+    }
+
+    private func loadVideo(from item: PhotosPickerItem?) {
+        guard let item else { return }
+        Task {
+            guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+            let duration = await videoDuration(from: data) ?? 0
+            await MainActor.run {
+                self.videoData = data
+                self.videoDurationSec = duration
+                validateLength(duration)
+                generateThumbnail(from: data)
+            }
+        }
+    }
+
+    private func validateLength(_ seconds: Double) {
+        lengthError = nil
+        lengthWarning = nil
+        if seconds > ClipLengthPreset.hardMax {
+            lengthError = "Clip is \(Int(seconds))s. Max length is 90s — please trim before sharing."
+        } else if seconds > ClipLengthPreset.recommendedMax {
+            lengthWarning = "Long clip — the feed favors clips under 60s."
+        }
+    }
+
+    private func videoDuration(from data: Data) async -> Double? {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("clip-\(UUID().uuidString).mov")
+        do {
+            try data.write(to: tmp)
+            let asset = AVURLAsset(url: tmp)
+            let duration = try await asset.load(.duration)
+            try? FileManager.default.removeItem(at: tmp)
+            return CMTimeGetSeconds(duration)
+        } catch {
+            return nil
+        }
+    }
+
+    private func generateThumbnail(from data: Data) {
+        Task.detached {
+            let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("thumb-\(UUID().uuidString).mov")
+            try? data.write(to: tmp)
+            let asset = AVURLAsset(url: tmp)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 720, height: 1280)
+            do {
+                let cgImage = try await generator.image(at: CMTime(seconds: 0.5, preferredTimescale: 600)).image
+                #if canImport(UIKit)
+                let ui = UIImage(cgImage: cgImage)
+                if let jpeg = ui.jpegData(compressionQuality: 0.85) {
+                    await MainActor.run {
+                        self.videoThumbnail = jpeg
+                    }
+                }
+                #endif
+                try? FileManager.default.removeItem(at: tmp)
+            } catch {
+                try? FileManager.default.removeItem(at: tmp)
+            }
+        }
+    }
+
+    private func uiImage(from data: Data) -> UIImage? {
+        UIImage(data: data)
+    }
+
+    private func alignmentFor(_ position: ClipOverlayPosition) -> Alignment {
+        switch position {
+        case .topLeading: return .topLeading
+        case .topCenter: return .top
+        case .topTrailing: return .topTrailing
+        case .middleLeading: return .leading
+        case .middleCenter: return .center
+        case .middleTrailing: return .trailing
+        case .bottomLeading: return .bottomLeading
+        case .bottomCenter: return .bottom
+        case .bottomTrailing: return .bottomTrailing
+        }
+    }
+
+    private func publish() {
+        guard let videoData, lengthError == nil else { return }
+        isPublishing = true
+
+        // Build clip metadata (overlays + length + music snippet)
+        let metadata = ClipMetadata(
+            lengthSec: videoDurationSec,
+            preset: matchedPresetLabel(),
+            musicSnippetStart: snippetStart,
+            overlays: selectedOverlays,
+            autoCaption: caption,
+            version: 1
+        )
+
+        let media = PostMedia(
+            mediaType: .video,
+            data: videoData,
+            thumbnailData: videoThumbnail
+        )
+
+        let post = Post(
+            authorId: profile.id,
+            authorName: profile.name,
+            authorUsername: profile.username,
+            caption: caption,
+            videoData: videoData,
+            workoutType: workout.type.rawValue,
+            duration: durationMinutes,
+            setCount: workout.totalSets,
+            exerciseHighlight: exercises.first?.name,
+            songTitle: selectedSong?.title,
+            artistName: selectedSong?.artist,
+            songPreviewURL: selectedSong?.previewURL,
+            albumArtURL: selectedSong?.albumArtURL,
+            musicSource: selectedSong?.source.rawValue,
+            playlistId: selectedSong?.playlistId,
+            mediaItemsData: try? JSONEncoder().encode([media]),
+            spotifyPlaylistURL: selectedSong?.spotifyURL,
+            appleMusicPlaylistURL: selectedSong?.appleMusicURL,
+            videoAspectRatio: 9.0/16.0,
+            postWidgetData: nil
+        )
+        post.clipMetadataData = try? JSONEncoder().encode(metadata)
+
+        if let song = selectedSong {
+            musicService.addToRecent(song)
+        }
+
+        modelContext.insert(post)
+        try? modelContext.save()
+
+        isPublishing = false
+        dismiss()
+    }
+
+    private func matchedPresetLabel() -> String {
+        if videoDurationSec <= 16 { return "15s" }
+        if videoDurationSec <= 32 { return "30s" }
+        if videoDurationSec <= 62 { return "60s" }
+        return "Custom"
+    }
+}
+
+// MARK: - Clip Overlay Chip (renders a single living overlay)
+
+struct ClipOverlayChip: View {
+    let overlay: ClipOverlay
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let icon = overlay.iconSF {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .bold))
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                if let title = overlay.title {
+                    Text(title)
+                        .font(.system(size: 11, weight: .semibold))
+                        .opacity(0.85)
+                }
+                if let primary = overlay.primary {
+                    Text(primary)
+                        .font(.system(size: 14, weight: .heavy))
+                }
+                if let secondary = overlay.secondary {
+                    Text(secondary)
+                        .font(.system(size: 10, weight: .semibold))
+                        .opacity(0.85)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .foregroundStyle(.white)
+        .background(backgroundView)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(borderColor, lineWidth: overlay.style == .neon ? 1.5 : 0)
+        )
+        .shadow(color: shadowColor, radius: overlay.style == .neon ? 12 : 4, x: 0, y: 2)
+    }
+
+    @ViewBuilder
+    private var backgroundView: some View {
+        switch overlay.style {
+        case .glass:
+            Color.black.opacity(0.55).background(.ultraThinMaterial)
+        case .neon:
+            LinearGradient(colors: [GQColors.deepBlue.opacity(0.85), GQColors.vividPurple.opacity(0.85)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        case .minimal:
+            Color.black.opacity(0.4)
+        case .solid:
+            GQColors.vividPurple
+        }
+    }
+
+    private var borderColor: Color {
+        switch overlay.style {
+        case .neon: return Color.white.opacity(0.4)
+        default: return .clear
+        }
+    }
+
+    private var shadowColor: Color {
+        switch overlay.style {
+        case .neon: return GQColors.vividPurple.opacity(0.6)
+        default: return Color.black.opacity(0.4)
+        }
+    }
+}
+
+// MARK: - Overlay Picker Sheet
+
+struct ClipOverlayPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let available: [ClipOverlay]
+    @Binding var selected: [ClipOverlay]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 12) {
+                    Text("Tap to add or remove overlays. They stay interactive in the feed.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        ForEach(available) { overlay in
+                            overlayCard(overlay)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+            .background(Color.black.ignoresSafeArea())
+            .navigationTitle("Living Stats")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(.white)
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    private func overlayCard(_ overlay: ClipOverlay) -> some View {
+        let isSelected = selected.contains(where: { $0.id == overlay.id })
+        return Button {
+            if isSelected {
+                selected.removeAll { $0.id == overlay.id }
+            } else if selected.count < 4 {
+                selected.append(overlay)
+            }
+        } label: {
+            VStack(spacing: 10) {
+                ClipOverlayChip(overlay: overlay)
+                Text(typeLabel(overlay.type))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            .frame(maxWidth: .infinity, minHeight: 110)
+            .padding(.vertical, 12)
+            .background(Color(white: isSelected ? 0.16 : 0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .strokeBorder(isSelected ? GQColors.vividPurple : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func typeLabel(_ type: ClipOverlayType) -> String {
+        switch type {
+        case .prBadge: return "PR Badge"
+        case .setCard: return "Set Card"
+        case .runStats: return "Run Stats"
+        case .volumeCounter: return "Volume"
+        case .streakFlame: return "Streak"
+        case .workoutTag: return "Workout Tag"
+        case .durationStamp: return "Duration"
+        case .heartRatePill: return "Heart Rate"
+        }
     }
 }

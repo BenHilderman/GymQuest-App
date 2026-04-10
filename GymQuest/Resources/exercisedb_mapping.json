@@ -95,7 +95,15 @@
     "Seated Calf Raise": "1380",
     "Seated Concentration Curl": "1437",
     "Dumbbell Romanian Deadlift": "1757",
-    "Standing Calf Raise Machine": "1766"
+    "Standing Calf Raise Machine": "1766",
+    "Cable Fly": "0151",
+    "Cable Curls": "0148",
+    "Front Raises": "0299",
+    "Lateral Raises": "0311",
+    "Concentration Curls": "0353",
+    "Hip Thrust": "0262",
+    "Single-Leg RDL": "1757",
+    "Step-Ups": "0295"
   },
   "gif_url_pattern": "https://v2.exercisedb.io/image/{id}"
 }

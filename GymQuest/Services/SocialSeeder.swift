@@ -30,7 +30,7 @@ struct SocialSeeder {
     ]
 
     static func seedIfNeeded(modelContext: ModelContext) {
-        let seederVersion = "socialSeeder_v13"
+        let seederVersion = "socialSeeder_v15"
         let needsReseed = !UserDefaults.standard.bool(forKey: seederVersion)
 
         let descriptor = FetchDescriptor<Post>()
@@ -1755,7 +1755,9 @@ struct SocialSeeder {
         let profileDescriptorEarly = FetchDescriptor<UserProfile>()
         let profilesEarly = (try? modelContext.fetch(profileDescriptorEarly)) ?? []
         var myPostIds: [UUID] = []
-        if let myProfile = profilesEarly.first {
+        // Find the actual logged-in user (not a fake user)
+        let fakeIds = Set(fakeUsers.map(\.id))
+        if let myProfile = profilesEarly.first(where: { !fakeIds.contains($0.id) }) ?? profilesEarly.first {
 
             // ── Post A: Bench press session (enriched) ──────────────────
             let myPost1 = Post(
@@ -2032,6 +2034,136 @@ struct SocialSeeder {
             myPost8.albumArtData = bundledAlbumArt("eye_of_the_tiger")
             modelContext.insert(myPost8)
             myPostIds.append(myPost8.id)
+
+            // ── Post I: Video post (clip) ────────────────────────────────
+            let myPost9 = Post(
+                authorId: myProfile.id,
+                authorName: myProfile.name,
+                authorUsername: myProfile.username,
+                timestamp: hoursAgo(14),
+                caption: "Form check on deadlifts — finally nailing the hip hinge. 225 for reps felt smooth today.",
+                workoutType: "Pull",
+                duration: 55,
+                setCount: 12,
+                exerciseHighlight: "Deadlift",
+                likeCount: 22,
+                commentCount: 5,
+                locationName: "The ARC - Queen's",
+                workoutEmotion: "Strong"
+            )
+            // Use photo data as thumbnail but mark as video via mediaItems
+            myPost9.photoData = demoPhotoData
+            if let photoData = demoPhotoData {
+                myPost9.videoData = photoData // simulate video presence
+                let items: [PostMedia] = [
+                    PostMedia(exerciseName: nil, mediaType: .video, data: photoData),
+                ]
+                myPost9.mediaItemsData = try? JSONEncoder().encode(items)
+            }
+            modelContext.insert(myPost9)
+            myPostIds.append(myPost9.id)
+
+            // ── Post J: Another video clip ──────────────────────────────
+            let myPost10 = Post(
+                authorId: myProfile.id,
+                authorName: myProfile.name,
+                authorUsername: myProfile.username,
+                timestamp: hoursAgo(50),
+                caption: "Squat PR attempt — 275 for a single. Depth was good, grind was real.",
+                workoutType: "Legs",
+                duration: 60,
+                setCount: 20,
+                exerciseHighlight: "Squat",
+                likeCount: 31,
+                commentCount: 8,
+                locationName: "The ARC - Queen's",
+                workoutEmotion: "Fired Up"
+            )
+            myPost10.photoData = demoPhotoData
+            if let photoData = demoPhotoData {
+                myPost10.videoData = photoData
+                let items: [PostMedia] = [
+                    PostMedia(exerciseName: nil, mediaType: .video, data: photoData),
+                ]
+                myPost10.mediaItemsData = try? JSONEncoder().encode(items)
+            }
+            myPost10.postWidgetData = try? JSONEncoder().encode(PostWidget(
+                type: .pr, prExercise: "Squat", prValue: "275 lbs", prPrevious: "255 lbs", prImprovement: "+20 lbs"
+            ))
+            modelContext.insert(myPost10)
+            myPostIds.append(myPost10.id)
+
+            // ── Tagged posts (other users tagging myProfile) ────────────
+            let taggedPost1 = Post(
+                authorId: fakeUsers[0].id,
+                authorName: fakeUsers[0].name,
+                authorUsername: fakeUsers[0].username,
+                timestamp: hoursAgo(8),
+                caption: "Great session with @\(myProfile.username) today. Pushed each other hard on chest day.",
+                workoutType: "Push",
+                duration: 55,
+                setCount: 16,
+                taggedUsernames: [myProfile.username],
+                likeCount: 18,
+                commentCount: 3,
+                locationName: "The ARC - Queen's",
+                workoutEmotion: "Strong"
+            )
+            taggedPost1.photoData = demoPhotoData
+            if let photoData = demoPhotoData {
+                let items: [PostMedia] = [
+                    PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                ]
+                taggedPost1.mediaItemsData = try? JSONEncoder().encode(items)
+            }
+            modelContext.insert(taggedPost1)
+
+            let taggedPost2 = Post(
+                authorId: fakeUsers[2].id,
+                authorName: fakeUsers[2].name,
+                authorUsername: fakeUsers[2].username,
+                timestamp: hoursAgo(30),
+                caption: "Leg day crew @\(myProfile.username) @\(fakeUsers[1].username). Nobody skips legs in this group.",
+                workoutType: "Legs",
+                duration: 70,
+                setCount: 22,
+                taggedUsernames: [myProfile.username, fakeUsers[1].username],
+                likeCount: 25,
+                commentCount: 6,
+                locationName: "The ARC - Queen's",
+                workoutEmotion: "Grinding"
+            )
+            taggedPost2.photoData = demoPhotoData
+            if let photoData = demoPhotoData {
+                let items: [PostMedia] = [
+                    PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                ]
+                taggedPost2.mediaItemsData = try? JSONEncoder().encode(items)
+            }
+            modelContext.insert(taggedPost2)
+
+            let taggedPost3 = Post(
+                authorId: fakeUsers[4].id,
+                authorName: fakeUsers[4].name,
+                authorUsername: fakeUsers[4].username,
+                timestamp: hoursAgo(60),
+                caption: "Sunday morning run with @\(myProfile.username). 5K around the waterfront, perfect weather.",
+                workoutType: "Cardio",
+                duration: 28,
+                exerciseHighlight: "Outdoor Run",
+                taggedUsernames: [myProfile.username],
+                likeCount: 12,
+                commentCount: 2,
+                workoutEmotion: "Calm"
+            )
+            taggedPost3.photoData = demoPhotoData
+            if let photoData = demoPhotoData {
+                let items: [PostMedia] = [
+                    PostMedia(exerciseName: nil, mediaType: .photo, data: photoData),
+                ]
+                taggedPost3.mediaItemsData = try? JSONEncoder().encode(items)
+            }
+            modelContext.insert(taggedPost3)
 
             // ── Likes on user's posts ───────────────────────────────────
             // Post A: 11 likes (users 0-9 + user 0 again)

@@ -9,6 +9,8 @@
 
 import SwiftUI
 import SwiftData
+import MapKit
+import CoreLocation
 
 // MARK: - Workout Detail Sheet (Preview mode)
 
@@ -39,16 +41,25 @@ struct WorkoutDetailSheet: View {
             ScrollView {
                 VStack(spacing: 24) {
                     headerSection
-                    statsSection
-                    exercisesSection
-                    actionsSection
+                    if let points = workoutData.routePoints, !points.isEmpty {
+                        routeStatsSection(points: points)
+                        routeMapSection(points: points)
+                        routeActionsSection
+                    } else {
+                        statsSection
+                        exercisesSection
+                        actionsSection
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
                 .padding(.bottom, 40)
             }
+            .scrollContentBackground(.hidden)
             .background(GQColors.background)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(GQColors.background, for: .navigationBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button { dismiss() } label: {
@@ -174,6 +185,216 @@ struct WorkoutDetailSheet: View {
             )
             .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
         }
+    }
+
+    // MARK: - Route Stats (same design as statsSection)
+
+    @ViewBuilder
+    private func routeStatsSection(points: [RoutePoint]) -> some View {
+        let distM = routeDistance(points)
+        let elev = RunAnalysis.computeElevationGain(from: points)
+        HStack(spacing: 0) {
+            workoutStat(value: String(format: "%.1f", distM / 1000), label: "km", icon: "map")
+            workoutStat(value: formatPace(duration: workoutData.estimatedDuration, distKm: distM / 1000), label: "Pace", icon: "speedometer")
+            workoutStat(value: "\(workoutData.estimatedDuration)", label: "Minutes", icon: "clock.fill")
+            if elev > 0 {
+                workoutStat(value: String(format: "%.0f", elev), label: "Elev (m)", icon: "arrow.up.right")
+            }
+        }
+        .padding(.vertical, 16)
+        .background(GQColors.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(GQColors.borderDefault, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+    }
+
+    // MARK: - Route Actions (same design as actionsSection)
+
+    @ViewBuilder
+    private var routeActionsSection: some View {
+        VStack(spacing: 12) {
+            Button {
+                onFollow()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 14))
+                    Text("Follow This Route")
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(GQGradients.primary)
+                )
+            }
+            .buttonStyle(WorkoutDetailButtonStyle())
+
+            Button {
+                saveAsTemplate()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: savedAsTemplate ? "checkmark.circle.fill" : "square.and.arrow.down")
+                        .font(.system(size: 14))
+                    Text(savedAsTemplate ? "Saved to Workouts" : "Save to My Workouts")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                }
+                .foregroundColor(savedAsTemplate ? GQColors.success : GQColors.textSecondary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: 14)
+                        .fill(GQColors.cardBackground)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(GQColors.borderDefault, lineWidth: 1)
+                )
+            }
+            .buttonStyle(WorkoutDetailButtonStyle())
+            .disabled(savedAsTemplate)
+        }
+    }
+
+    // MARK: - Route Map
+
+    @ViewBuilder
+    private func routeMapSection(points: [RoutePoint]) -> some View {
+        let coords = points.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+
+        VStack(alignment: .leading, spacing: 10) {
+            Text("ROUTE")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textTertiary)
+                .tracking(0.5)
+                .padding(.leading, 4)
+
+            Map(initialPosition: routeCameraPosition(coords), bounds: routeBounds(coords), interactionModes: [.zoom, .pan]) {
+                ForEach(Array(0..<max(coords.count - 1, 0)), id: \.self) { i in
+                    let c = routeGradientColor(index: i, total: coords.count)
+                    MapPolyline(coordinates: [coords[i], coords[min(i + 1, coords.count - 1)]])
+                        .stroke(c, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                }
+
+                if let start = coords.first, let end = coords.last {
+                    let isLoop = abs(start.latitude - end.latitude) < 0.0003 && abs(start.longitude - end.longitude) < 0.0003
+                    if isLoop {
+                        Annotation("", coordinate: start) {
+                            ZStack {
+                                Circle().fill(.white).frame(width: 16, height: 16)
+                                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                Circle().fill(GQGradients.primary).frame(width: 10, height: 10)
+                            }
+                        }
+                    } else {
+                        Annotation("", coordinate: start) {
+                            ZStack {
+                                Circle().fill(.white).frame(width: 14, height: 14)
+                                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                Circle().fill(GQColors.deepBlue).frame(width: 8, height: 8)
+                            }
+                        }
+                        Annotation("", coordinate: end) {
+                            ZStack {
+                                Circle().fill(.white).frame(width: 14, height: 14)
+                                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
+                                Image(systemName: "flag.fill")
+                                    .font(.system(size: 7))
+                                    .foregroundStyle(GQGradients.primary)
+                            }
+                        }
+                    }
+                }
+            }
+            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+            .frame(height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+
+        }
+    }
+
+    private func routeGradientColor(index: Int, total: Int) -> Color {
+        let t = Double(index) / Double(max(total - 1, 1))
+        return Color(red: 0.24 + 0.55 * t, green: 0.49 - 0.13 * t, blue: 1.0)
+    }
+
+    private func routeBounds(_ coords: [CLLocationCoordinate2D]) -> MapCameraBounds {
+        guard !coords.isEmpty else { return MapCameraBounds() }
+        let lats = coords.map(\.latitude)
+        let lngs = coords.map(\.longitude)
+        let padding = max((lats.max()! - lats.min()!), (lngs.max()! - lngs.min()!)) * 1.5 + 0.01
+        let center = CLLocationCoordinate2D(
+            latitude: ((lats.min()! + lats.max()!) / 2),
+            longitude: ((lngs.min()! + lngs.max()!) / 2)
+        )
+        let boundRegion = MKCoordinateRegion(
+            center: center,
+            span: MKCoordinateSpan(latitudeDelta: padding, longitudeDelta: padding)
+        )
+        return MapCameraBounds(centerCoordinateBounds: boundRegion, minimumDistance: 200, maximumDistance: 50000)
+    }
+
+    private func routeCameraPosition(_ coords: [CLLocationCoordinate2D]) -> MapCameraPosition {
+        guard !coords.isEmpty else { return .automatic }
+        let lats = coords.map(\.latitude)
+        let lngs = coords.map(\.longitude)
+        let center = CLLocationCoordinate2D(
+            latitude: ((lats.min() ?? 0) + (lats.max() ?? 0)) / 2,
+            longitude: ((lngs.min() ?? 0) + (lngs.max() ?? 0)) / 2
+        )
+        return .region(MKCoordinateRegion(
+            center: center,
+            span: MKCoordinateSpan(
+                latitudeDelta: ((lats.max() ?? 0) - (lats.min() ?? 0)) * 2.0 + 0.005,
+                longitudeDelta: ((lngs.max() ?? 0) - (lngs.min() ?? 0)) * 2.0 + 0.005
+            )
+        ))
+    }
+
+    private func routeOverlayStat(value: String, label: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+            Text(label)
+                .font(.system(size: 9))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var routeOverlayDivider: some View {
+        Rectangle()
+            .fill(GQColors.borderSubtle)
+            .frame(width: 0.5, height: 24)
+    }
+
+    private func routeDistance(_ points: [RoutePoint]) -> Double {
+        var total: Double = 0
+        for i in 1..<points.count {
+            let a = CLLocation(latitude: points[i-1].latitude, longitude: points[i-1].longitude)
+            let b = CLLocation(latitude: points[i].latitude, longitude: points[i].longitude)
+            total += a.distance(from: b)
+        }
+        return total
+    }
+
+    private func formatPace(duration: Int, distKm: Double) -> String {
+        guard distKm > 0 else { return "--:--" }
+        let paceMinPerKm = Double(duration) / distKm
+        let mins = Int(paceMinPerKm)
+        let secs = Int((paceMinPerKm - Double(mins)) * 60)
+        return String(format: "%d:%02d", mins, secs)
     }
 
     // MARK: - Actions

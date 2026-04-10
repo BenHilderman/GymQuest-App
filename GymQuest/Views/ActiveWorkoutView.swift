@@ -106,6 +106,8 @@ struct ActiveWorkoutView: View {
     @State private var showingCancelConfirmation = false
     @State private var showingCompletionChoice = false
     @State private var showingPostEditor = false
+    @State private var showingQuickClipComposer = false
+    @State private var showingShareChoice = false
     @State private var savedWorkout: Workout?
     @State private var workoutMedia: [PostMedia] = []
     @State private var showingWorkoutCamera = false
@@ -201,6 +203,8 @@ struct ActiveWorkoutView: View {
 
     var body: some View {
         ZStack {
+            GQColors.background.ignoresSafeArea()
+
             // Visual distinction: subtle accent gradient (Apple HIG workout indicator)
             VStack(spacing: 0) {
                 LinearGradient(
@@ -214,9 +218,11 @@ struct ActiveWorkoutView: View {
             }
 
             VStack(spacing: 0) {
-                // Header with timer and progress
-                workoutHeader
-                    .padding(.horizontal, GQLayout.screenHorizontal)
+                // Header with timer and progress (hidden for cardio)
+                if workoutType != .cardio {
+                    workoutHeader
+                        .padding(.horizontal, GQLayout.screenHorizontal)
+                }
 
                 // Workout Party bar (visible when broadcasting)
                 if isSharingLive && partyService.isActive && FeatureFlags.shared.workoutPartyEnabled {
@@ -293,9 +299,11 @@ struct ActiveWorkoutView: View {
                     }
                 }
 
-                // Bottom bar
-                bottomBar
-                    .zIndex(1)
+                // Bottom bar (hidden for cardio — controls are in the map overlay)
+                if workoutType != .cardio {
+                    bottomBar
+                        .zIndex(1)
+                }
             }
 
             // Floating reactions overlay
@@ -386,6 +394,9 @@ struct ActiveWorkoutView: View {
         }
         .gqPageBackground()
         .onAppear {
+            #if canImport(UIKit)
+            UIApplication.shared.isIdleTimerDisabled = true
+            #endif
             initializeFromAppState()
             startTimer()
             loadOverloadSuggestions()
@@ -400,11 +411,18 @@ struct ActiveWorkoutView: View {
                     locationService.startTracking()
                     isTrackingLocation = true
                 } else if locationService.needsPermission {
+                    locationService.pendingStart = true
                     locationService.requestPermission()
                 }
             }
         }
+        .onChange(of: locationService.isTracking) { _, tracking in
+            if tracking { isTrackingLocation = true }
+        }
         .onDisappear {
+            #if canImport(UIKit)
+            UIApplication.shared.isIdleTimerDisabled = false
+            #endif
             timer?.invalidate()
             restTimer?.invalidate()
             prBannerTimer?.invalidate()
@@ -453,6 +471,54 @@ struct ActiveWorkoutView: View {
                     preloadedMedia: workoutMedia
                 )
             }
+        }
+        .fullScreenCover(isPresented: $showingQuickClipComposer, onDismiss: {
+            WorkoutDraft.clear()
+            if !hasSeenPostWorkoutPaywall {
+                hasSeenPostWorkoutPaywall = true
+                showingPostWorkoutPaywall = true
+            } else {
+                appState.selectedTab = .feed
+                appState.endWorkout()
+            }
+        }) {
+            if let workout = savedWorkout {
+                QuickClipComposerView(
+                    profile: profile,
+                    workout: workout,
+                    detectedPRs: detectedPRMoments,
+                    exercises: makeCompletedExercises(),
+                    durationMinutes: elapsedTime / 60
+                )
+            }
+        }
+        .confirmationDialog(
+            "Share your workout",
+            isPresented: $showingShareChoice,
+            titleVisibility: .visible
+        ) {
+            Button {
+                showingQuickClipComposer = true
+            } label: {
+                Label("Quick Clip — Share a highlight video", systemImage: "video.fill.badge.plus")
+            }
+            Button {
+                showingPostEditor = true
+            } label: {
+                Label("Full Post — Photos, captions, more", systemImage: "square.and.pencil")
+            }
+            Button("Skip", role: .cancel) {
+                WorkoutDraft.clear()
+                if !hasSeenPostWorkoutPaywall {
+                    hasSeenPostWorkoutPaywall = true
+                    showingPostWorkoutPaywall = true
+                } else {
+                    appState.selectedTab = .feed
+                    appState.endWorkout()
+                }
+            }
+        } message: {
+            Text("Workout saved 💪 How do you want to share it?")
         }
         .confirmationDialog(
             "Workout Options",
@@ -754,69 +820,137 @@ struct ActiveWorkoutView: View {
 
     @ViewBuilder
     private var cardioLiveView: some View {
-        VStack(spacing: 6) {
-            // Hero timer
-            VStack(spacing: 2) {
-                Text(formatElapsedTime(elapsedTime))
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .foregroundStyle(GQGradients.primary)
-                    .monospacedDigit()
-                Text(customTitle ?? "Cardio")
-                    .font(.system(size: 13))
-                    .foregroundColor(GQColors.textTertiary)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+        ZStack {
+            // Full-screen map
+            LiveMiniRouteMap(
+                routePoints: locationService.routePoints,
+                referenceRoute: appState.activeWorkout?.referenceRoute
+            )
+            .ignoresSafeArea()
 
-            cardioSectionDivider
+            // Overlays
+            VStack(spacing: 0) {
+                // Top: white card widget floating over map
+                VStack(spacing: 6) {
+                    Text(customTitle ?? "Outdoor Run")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
 
-            // Stats row — same as TodayDashboardSection pattern
-            HStack(spacing: 0) {
-                cardioStatItem(
-                    value: String(format: "%.2f", locationService.currentDistance / 1000.0),
-                    label: "km"
-                )
-                cardioStatColumnDivider
-                cardioStatItem(
-                    value: formatPace(locationService.currentPace),
-                    label: "/km"
-                )
-                cardioStatColumnDivider
-                cardioStatItem(
-                    value: String(format: "%.0f", locationService.currentElevationGain),
-                    label: "m ↑"
-                )
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .homeSocialCard(cornerRadius: 16)
+                    Text(formatElapsedTime(elapsedTime))
+                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .foregroundStyle(GQGradients.primary)
+                        .monospacedDigit()
 
-            cardioSectionDivider
-
-            // Live map
-            if locationService.routePoints.count >= 2 {
-                LiveMiniRouteMap(routePoints: locationService.routePoints)
-                    .frame(height: 200)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .homeSocialCard(cornerRadius: 16)
-            } else {
-                // Waiting for GPS
-                VStack(spacing: 8) {
-                    HStack(spacing: 6) {
-                        ProgressView().scaleEffect(0.7)
-                        Text("Acquiring GPS signal...")
-                            .font(.system(size: 13))
-                            .foregroundColor(GQColors.textTertiary)
+                    HStack(spacing: 0) {
+                        VStack(spacing: 1) {
+                            Text(String(format: "%.2f", locationService.currentDistance / 1000.0))
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(GQColors.textPrimary)
+                            Text("km")
+                                .font(.system(size: 10))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        Rectangle().fill(GQColors.borderSubtle).frame(width: 0.5, height: 22)
+                        VStack(spacing: 1) {
+                            Text(formatPace(locationService.currentPace))
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(GQColors.textPrimary)
+                            Text("/km")
+                                .font(.system(size: 10))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        Rectangle().fill(GQColors.borderSubtle).frame(width: 0.5, height: 22)
+                        VStack(spacing: 1) {
+                            Text(String(format: "%.0f", locationService.currentElevationGain))
+                                .font(.system(size: 16, weight: .bold, design: .rounded))
+                                .foregroundColor(GQColors.textPrimary)
+                            Text("m ↑")
+                                .font(.system(size: 10))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 80)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 16)
                 .homeSocialCard(cornerRadius: 16)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+
+                Spacer()
+
+                // Bottom: controls
+                cardioControls
+                    .padding(.bottom, 40)
             }
 
-            Spacer()
+            // GPS acquiring indicator
+            if locationService.routePoints.count < 2 && appState.activeWorkout?.referenceRoute == nil {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 6) {
+                        ProgressView().scaleEffect(0.7).tint(.white)
+                        Text("Acquiring GPS...")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(.black.opacity(0.4)))
+                    Spacer()
+                }
+            }
         }
-        .padding(.horizontal, 16)
+    }
+
+    @ViewBuilder
+    private var cardioControls: some View {
+        if appState.isWorkoutPaused {
+            // Paused: Resume + Stop
+            HStack(spacing: 24) {
+                Button {
+                    appState.isWorkoutPaused = false
+                    #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    #endif
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                        .frame(width: 64, height: 64)
+                        .background(Circle().fill(Color.green))
+                        .shadow(color: .green.opacity(0.4), radius: 8, y: 3)
+                }
+
+                Button {
+                    finishWorkout()
+                } label: {
+                    Image(systemName: "stop.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                        .frame(width: 64, height: 64)
+                        .background(Circle().fill(Color.red))
+                        .shadow(color: .red.opacity(0.4), radius: 8, y: 3)
+                }
+            }
+        } else {
+            // Running: Pause button
+            Button {
+                appState.pauseWorkout()
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                #endif
+            } label: {
+                Image(systemName: "pause.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(.white)
+                    .frame(width: 70, height: 70)
+                    .background(Circle().fill(.white.opacity(0.2)))
+                    .overlay(Circle().stroke(.white.opacity(0.3), lineWidth: 2))
+            }
+        }
     }
 
     private func cardioStatItem(value: String, label: String) -> some View {
@@ -993,7 +1127,7 @@ struct ActiveWorkoutView: View {
         detectedPRMoments = prResult.moments
 
         savedWorkout = workout
-        showingPostEditor = true
+        showingShareChoice = true
     }
 
     private func makeCompletedExercises() -> [CompletedExercise] {
@@ -3981,6 +4115,7 @@ struct LiveGPSStatsBar: View {
 
 struct LiveMiniRouteMap: View {
     let routePoints: [RoutePoint]
+    var referenceRoute: [RoutePoint]? = nil
 
     @State private var position: MapCameraPosition = .automatic
 
@@ -3988,8 +4123,27 @@ struct LiveMiniRouteMap: View {
         routePoints.map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
     }
 
+    private var refCoordinates: [CLLocationCoordinate2D] {
+        (referenceRoute ?? []).map { CLLocationCoordinate2D(latitude: $0.latitude, longitude: $0.longitude) }
+    }
+
+    /// Only show reference route if user is within ~2km of it
+    private var isNearReference: Bool {
+        guard let userLoc = coordinates.last, let refFirst = refCoordinates.first else { return false }
+        let user = CLLocation(latitude: userLoc.latitude, longitude: userLoc.longitude)
+        let ref = CLLocation(latitude: refFirst.latitude, longitude: refFirst.longitude)
+        return user.distance(from: ref) < 2000
+    }
+
     var body: some View {
-        Map(position: $position, interactionModes: []) {
+        Map(position: $position) {
+            // Ghost reference route (only if nearby)
+            if !refCoordinates.isEmpty && isNearReference {
+                MapPolyline(coordinates: refCoordinates)
+                    .stroke(Color.gray.opacity(0.3), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round, dash: [8, 6]))
+            }
+
+            // Live route — gradient
             MapPolyline(coordinates: coordinates)
                 .stroke(
                     LinearGradient(
@@ -3997,16 +4151,24 @@ struct LiveMiniRouteMap: View {
                         startPoint: .leading,
                         endPoint: .trailing
                     ),
-                    lineWidth: 3
+                    lineWidth: 3.5
                 )
+
+            // User position dot
             if let last = coordinates.last {
                 Annotation("", coordinate: last) {
-                    Circle()
-                        .fill(GQGradients.primary)
-                        .frame(width: 8, height: 8)
-                        .overlay(Circle().stroke(.white, lineWidth: 2))
+                    ZStack {
+                        Circle()
+                            .fill(.white)
+                            .frame(width: 16, height: 16)
+                            .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+                        Circle()
+                            .fill(GQGradients.primary)
+                            .frame(width: 10, height: 10)
+                    }
                 }
             }
+
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .onChange(of: routePoints.count) { _, _ in
