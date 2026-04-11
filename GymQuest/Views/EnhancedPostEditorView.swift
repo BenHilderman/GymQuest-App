@@ -1101,6 +1101,15 @@ struct EnhancedPostEditorView: View {
         let firstPhoto = mediaItems.first(where: { $0.mediaType == .photo })
         let firstVideo = mediaItems.first(where: { $0.mediaType == .video })
 
+        // Serialize the workout into the post so other users can tap "Use this
+        // workout" and start the same session. This is the memo's actionable
+        // feed primitive — every workout post is copyable.
+        let sharedWorkoutPayload: Data? = {
+            guard includeStats, let workout else { return nil }
+            let shared = SharedWorkoutData.from(workout: workout, author: profile)
+            return try? JSONEncoder().encode(shared)
+        }()
+
         let post = Post(
             authorId: profile.id,
             authorName: profile.name,
@@ -1117,6 +1126,7 @@ struct EnhancedPostEditorView: View {
             songPreviewURL: selectedSong?.previewURL,
             musicSource: selectedSong?.source.rawValue,
             playlistId: selectedSong?.playlistId,
+            sharedWorkoutData: sharedWorkoutPayload,
             taggedUsernames: taggedUsernames,
             mediaItemsData: try? JSONEncoder().encode(mediaItems),
             locationName: selectedLocation?.name,

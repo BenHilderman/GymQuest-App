@@ -476,6 +476,39 @@ struct ProofCardMeta: Codable {
     var linkedWorkoutId: UUID? = nil
 }
 
+// MARK: - Used Workout Event
+//
+// Fires whenever a user taps "Use this workout" on another user's post.
+// Feeds two systems: the action-from-feed ranking metric (memo directive:
+// "rank by use-rate, not engagement") and the "X used your workout"
+// notification back to the original author (the loop-closing notification).
+
+@Model
+final class UsedWorkoutEvent {
+    var id: UUID
+    var sourcePostId: UUID
+    var sourceAuthorId: UUID
+    var actorId: UUID
+    var workoutType: String
+    var createdAt: Date
+
+    init(
+        id: UUID = UUID(),
+        sourcePostId: UUID = UUID(),
+        sourceAuthorId: UUID = UUID(),
+        actorId: UUID = UUID(),
+        workoutType: String = "",
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.sourcePostId = sourcePostId
+        self.sourceAuthorId = sourceAuthorId
+        self.actorId = actorId
+        self.workoutType = workoutType
+        self.createdAt = createdAt
+    }
+}
+
 /// Who can see a post. Default is friends — public is an explicit opt-in.
 enum PostAudience: String, Codable, CaseIterable {
     case friends  // Default — your squad and followers only
@@ -1647,6 +1680,12 @@ final class Post {
     var avgWatchTimeSec: Double
     var engagementScore: Double
     var avgCompletionCount: Double = 0  // average rewatches per viewer (addiction signal)
+
+    // "Use this workout" action-from-feed tracking.
+    // Counts how many times another user has copied this post's workout into
+    // their own session. This is the action-from-feed metric that the memo
+    // demands feed ranking be based on — use-rate, not dwell time.
+    var timesUsed: Int = 0
 
     // Enhanced media (GymQuest 2.0 - exercise-aligned media)
     var mediaItemsData: Data?           // JSON-encoded [PostMedia]

@@ -51,6 +51,14 @@ struct ProfileView: View {
     @State private var cachedVolume: String = "0"
     @State private var cachedDuration: String = "0h"
     @State private var cachedWorkoutCount: Int = 0
+    /// Total reactions received across all of this user's posts. The memo's
+    /// "social proof that others saw it" signal — the witness count.
+    @State private var cachedWitnessCount: Int = 0
+    /// Count of distinct calendar days the user has logged a workout.
+    /// This is the "days shown up" metric the memo names explicitly.
+    @State private var cachedDaysShownUp: Int = 0
+    /// Count of times other users have copied this user's workouts into a live session.
+    @State private var cachedUsedCount: Int = 0
 
     private var profileAccent: Color {
         profileNeutralAccent
@@ -344,6 +352,20 @@ struct ProfileView: View {
         } else {
             cachedDuration = "\(hours)h"
         }
+
+        // Days shown up — distinct calendar days with at least one logged workout.
+        // Unlike "total workouts," this naturally caps at 1 per day and matches
+        // the memo's consistency framing.
+        let distinctDays = Set(nonRest.map { Calendar.current.startOfDay(for: $0.date) })
+        cachedDaysShownUp = distinctDays.count
+
+        // Witness count — total reactions received across all of this user's posts.
+        // This is the "social proof that others saw it" signal the memo names.
+        cachedWitnessCount = userPosts.reduce(0) { $0 + $1.likeCount }
+
+        // Used count — sum of times any of this user's workouts has been copied
+        // into another user's session. The highest-signal recognition.
+        cachedUsedCount = userPosts.reduce(0) { $0 + $1.timesUsed }
     }
 
     private var recentPRs: [PREvent] {
@@ -595,11 +617,42 @@ struct ProfileView: View {
                     handleProfilePhotoSelection(newItem)
                 }
 
+                // Living-record stats. Memo directive: profile is a living record
+                // of training self, not a vanity portfolio. Show days shown up,
+                // current streak, and the witness signal — "others saw it."
                 HStack(spacing: 0) {
-                    igStatColumn(value: "\(userPosts.count)", label: "Posts")
-                    igStatColumn(value: "\(profile.followerCount)", label: "Followers")
-                    igStatColumn(value: "\(profile.followingCount)", label: "Following")
+                    igStatColumn(value: "\(cachedDaysShownUp)", label: cachedDaysShownUp == 1 ? "Day" : "Days")
+                    igStatColumn(value: "\(cachedStreak)", label: cachedStreak == 1 ? "Streak" : "Streak")
+                    igStatColumn(value: "\(cachedWitnessCount)", label: cachedWitnessCount == 1 ? "Witness" : "Witnesses")
                 }
+            }
+
+            // "Show up for" anchor — the mission-aligned identity statement.
+            // Set during onboarding, surfaced here as a quiet line under the name.
+            if !profile.showUpFor.trimmingCharacters(in: .whitespaces).isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "figure.2.arms.open")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.vividPurple)
+                    Text("Showing up for \(profile.showUpFor)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+                .padding(.top, 2)
+            }
+
+            // Used-by signal — only shows if someone has actually copied one of
+            // this user's workouts. The highest-potency recognition line in the app.
+            if cachedUsedCount > 0 {
+                HStack(spacing: 6) {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.success)
+                    Text("\(cachedUsedCount) workout\(cachedUsedCount == 1 ? "" : "s") used by others")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+                .padding(.top, 1)
             }
 
             // Name + level + member since

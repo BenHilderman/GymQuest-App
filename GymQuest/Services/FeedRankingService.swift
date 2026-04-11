@@ -123,16 +123,28 @@ final class FeedRankingService: ObservableObject {
     // MARK: - Engagement (global popularity)
 
     private func engagementScore(for post: Post) -> Double {
-        // Bayesian-smoothed interaction rate (prevents 1-view gaming)
+        // Bayesian-smoothed interaction rate (prevents 1-view gaming).
+        // "timesUsed" is weighted highest because it's the memo's action-from-feed
+        // signal — someone copied this workout into a live session, which is the
+        // most valuable engagement a post can produce.
         let interactions =
             Double(post.likeCount) * 1.0 +
             Double(post.commentCount) * 5.0 +
             Double(post.shareCount) * 5.0 +
-            Double(post.saveCount) * 5.0
+            Double(post.saveCount) * 5.0 +
+            Double(post.timesUsed) * 12.0   // action-from-feed — the gold signal
         let views = Double(post.viewCount)
         let smoothedRate = (interactions + engagementPriorViews * engagementPriorRate) / (views + engagementPriorViews)
 
         var score = sigmoid(smoothedRate, midpoint: 0.08, steepness: 30)
+
+        // Action-from-feed boost: if anyone has actually *done* this workout
+        // after seeing it, that alone lifts the post above decorative content.
+        if post.timesUsed >= 3 {
+            score = min(score + 0.35, 1.5)
+        } else if post.timesUsed >= 1 {
+            score = min(score + 0.18, 1.5)
+        }
 
         // Watch time bonus: 30s = full bonus
         let watchBonus = min(post.avgWatchTimeSec / 30.0, 1.0) * 0.3

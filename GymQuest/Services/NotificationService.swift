@@ -237,6 +237,28 @@ class NotificationService: ObservableObject {
 
         UNUserNotificationCenter.current().add(request)
     }
+
+    /// The most potent notification in the compounding loop: "X used your workout."
+    /// Fires back to the original post author when someone copies their workout
+    /// into a live session. This is recognition-in-action — the purest form of
+    /// the "effort produced something that produced more effort" feedback.
+    func sendUsedWorkoutNotification(actorName: String, workoutType: String, recipientId: UUID) {
+        guard isAuthorized else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Noticed."
+        content.body = "\(actorName) is using your \(workoutType.lowercased()) workout."
+        content.sound = .default
+        content.userInfo = ["recipientId": recipientId.uuidString, "type": "usedWorkout"]
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "usedWorkout_\(UUID().uuidString)",
+            content: content,
+            trigger: trigger
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
 }
 
 // MARK: - Day Picker Helper

@@ -11,6 +11,80 @@ import SwiftData
 import PhotosUI
 import MapKit
 
+// MARK: - Use This Workout Service
+//
+// The memo's core actionable-feed primitive: every workout post must let any
+// viewer tap "Use this workout" and immediately be in the same session.
+// This service handles: decode → start → track usage → notify author.
+//
+// Why it lives here: new files require pbxproj entries. ActiveWorkoutView is
+// already in the project and is the natural owner since this is the bridge
+// between a post and a fresh active workout.
+
+@MainActor
+enum UseWorkoutService {
+    /// Start a workout sourced from a post. Returns true if the session was launched.
+    @discardableResult
+    static func use(
+        post: Post,
+        currentUserId: UUID,
+        appState: AppState,
+        modelContext: ModelContext
+    ) -> Bool {
+        // Require serialized workout data — without it, there's nothing to copy.
+        guard let shared = post.getSharedWorkout() else { return false }
+
+        let exercises = shared.toActiveExercises()
+        let workoutType = WorkoutType(rawValue: shared.workoutType) ?? .push
+
+        // Record the action-from-feed event on the source post.
+        post.timesUsed += 1
+
+        // Create a UsedWorkoutEvent so the author can be notified and the
+        // feed ranking engine can weight action-rate properly.
+        let event = UsedWorkoutEvent(
+            sourcePostId: post.id,
+            sourceAuthorId: post.authorId,
+            actorId: currentUserId,
+            workoutType: shared.workoutType,
+            createdAt: Date()
+        )
+        modelContext.insert(event)
+        try? modelContext.save()
+
+        // Post a local notification back to the author — the most potent reinforcement
+        // in the compounding loop: "Mike used your workout." Suppressed if the user
+        // is using their own post (no self-notification).
+        if post.authorId != currentUserId {
+            NotificationService.shared.sendUsedWorkoutNotification(
+                actorName: currentActorName(userId: currentUserId, modelContext: modelContext),
+                workoutType: shared.workoutType,
+                recipientId: post.authorId
+            )
+        }
+
+        // Launch the session. Small async delay so any enclosing sheet can dismiss first.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            appState.startWorkout(
+                type: workoutType,
+                exercises: exercises,
+                customTitle: shared.title
+            )
+        }
+
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+
+        return true
+    }
+
+    private static func currentActorName(userId: UUID, modelContext: ModelContext) -> String {
+        let descriptor = FetchDescriptor<UserProfile>(predicate: #Predicate { $0.id == userId })
+        return (try? modelContext.fetch(descriptor).first?.name) ?? "Someone"
+    }
+}
+
 // MARK: - Live Workout Status
 
 struct LiveWorkoutStatus {
@@ -4763,6 +4837,11 @@ struct ProofCardView: View {
         guard let meta, !isSending, !didSend else { return }
         isSending = true
 
+        // Serialize the workout into the post so other users can "Use this workout"
+        // without needing access to the author's local Workout record.
+        let sharedWorkout = SharedWorkoutData.from(workout: workout, author: profile)
+        let sharedWorkoutData = try? JSONEncoder().encode(sharedWorkout)
+
         let post = Post(
             authorId: profile.id,
             authorName: profile.name,
@@ -4771,7 +4850,8 @@ struct ProofCardView: View {
             workoutType: workout.type.rawValue,
             duration: elapsedSeconds / 60,
             setCount: workout.totalSets,
-            exerciseHighlight: workout.exercises.first?.name
+            exerciseHighlight: workout.exercises.first?.name,
+            sharedWorkoutData: sharedWorkoutData
         )
         post.proofCardData = try? JSONEncoder().encode(meta)
         post.audience = PostAudience.friends.rawValue

@@ -62,6 +62,7 @@ struct LiftAIApp: App {
             Like.self,
             Comment.self,
             PostEngagement.self,
+            UsedWorkoutEvent.self,
             UserInterestProfile.self,
             WorkoutCard.self,
             PRMoment.self,

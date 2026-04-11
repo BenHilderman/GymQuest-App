@@ -84,6 +84,7 @@ struct PostCardV2: View {
         VStack(alignment: .leading, spacing: 0) {
             if let proofMeta = post.getProofCard() {
                 proofCardLayout(meta: proofMeta)
+                useThisWorkoutBar
             } else if isCompactPost {
                 compactTextOnlyLayout
                 inlineCommentPreview
@@ -93,6 +94,7 @@ struct PostCardV2: View {
                 workoutIdentityBadge
                 heroSection
                 inlineMusicRow
+                useThisWorkoutBar
                 captionAndReactions
             }
         }
@@ -228,6 +230,54 @@ struct PostCardV2: View {
     }
 
     // MARK: - Extracted ViewBuilders
+
+    /// The memo's core actionable-feed primitive: one-tap to start the same workout.
+    /// Appears on every post that carries serialized workout data. This is how
+    /// passive viewing converts into the next session — the feed becomes a catalog
+    /// of next workouts, not a scroll of decoration.
+    @ViewBuilder
+    private var useThisWorkoutBar: some View {
+        if sharedWorkout != nil, post.authorId != currentUserId {
+            Button {
+                useThisWorkout()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 13, weight: .bold))
+                    Text("Use this workout")
+                        .font(.system(size: 14, weight: .bold))
+                    if post.timesUsed > 0 {
+                        Text("· \(post.timesUsed) used")
+                            .font(.system(size: 11, weight: .semibold))
+                            .opacity(0.7)
+                    }
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .opacity(0.7)
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(GQGradients.primary)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 10, x: 0, y: 4)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
+            .padding(.top, 6)
+            .padding(.bottom, 2)
+        }
+    }
+
+    private func useThisWorkout() {
+        UseWorkoutService.use(
+            post: post,
+            currentUserId: currentUserId,
+            appState: appState,
+            modelContext: modelContext
+        )
+    }
 
     /// Proof Card post layout — the signature ritual artifact, rendered as a dedicated
     /// post type. No media row, no workout identity badge — just the card itself plus
