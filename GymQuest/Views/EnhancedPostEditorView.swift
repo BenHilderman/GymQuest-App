@@ -95,6 +95,9 @@ struct EnhancedPostEditorView: View {
     @State private var clipLengthError: String? = nil
     @State private var clipLengthWarning: String? = nil
 
+    // Audience scope — defaults to friends. Public is an explicit opt-in.
+    @State private var selectedAudience: PostAudience = .friends
+
     @StateObject private var musicService = MusicService.shared
 
     private var hasVideo: Bool {
@@ -678,6 +681,35 @@ struct EnhancedPostEditorView: View {
     private var addOnsRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
+                // Audience pill — cycles Friends → Squad → Public → Friends
+                // Friends is the default; Public is an explicit opt-in tap.
+                Button {
+                    cycleAudience()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: selectedAudience.iconSF)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(selectedAudience.label)
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundColor(selectedAudience == .public ? .white : GQColors.textPrimary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        Capsule()
+                            .fill(
+                                selectedAudience == .public
+                                    ? AnyShapeStyle(GQGradients.primary)
+                                    : AnyShapeStyle(GQColors.surfaceBase)
+                            )
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(selectedAudience == .public ? Color.clear : GQColors.borderDefault, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+
                 // Music pill with album art
                 musicAddOnPill
 
@@ -1122,6 +1154,9 @@ struct EnhancedPostEditorView: View {
             post.challengeData = try? JSONEncoder().encode(challengeInfo)
         }
 
+        // Audience scope — defaults to friends, never public unless user explicitly selected
+        post.audience = selectedAudience.rawValue
+
         // Attach widget if set
         if let widget = attachedWidget {
             post.postWidgetData = try? JSONEncoder().encode(widget)
@@ -1308,6 +1343,19 @@ struct EnhancedPostEditorView: View {
         if videoDurationSec <= 32 { return "30s" }
         if videoDurationSec <= 62 { return "60s" }
         return "Custom"
+    }
+
+    private func cycleAudience() {
+        withAnimation(.easeInOut(duration: 0.15)) {
+            switch selectedAudience {
+            case .friends: selectedAudience = .squad
+            case .squad: selectedAudience = .public
+            case .public: selectedAudience = .friends
+            }
+        }
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
     }
 }
 

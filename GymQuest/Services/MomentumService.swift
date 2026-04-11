@@ -99,15 +99,18 @@ class MomentumService: ObservableObject {
     func handleStateTransition(userId: UUID, from: ConsistencyState, to: ConsistencyState) {
         guard let ctx = modelContext else { return }
 
+        // Memo directive: no guilt loops. No "at risk", no "falling behind",
+        // no "we miss you" — these are loss-aversion levers that spike DAU in
+        // week 2 and kill retention by month 3. Noticing-style copy only.
         switch to {
         case .slipping:
             let nudge = AccountabilityNudge(
                 userId: userId,
                 sourceType: .ai,
                 nudgeType: .streakRisk,
-                title: "Falling behind",
-                message: "You're a bit behind your weekly pace. A quick session today keeps your streak alive.",
-                actionLabel: "Plan a Workout"
+                title: "Rest day?",
+                message: "No pressure — a light session or a walk both count.",
+                actionLabel: "See Options"
             )
             ctx.insert(nudge)
 
@@ -116,9 +119,9 @@ class MomentumService: ObservableObject {
                 userId: userId,
                 sourceType: .ai,
                 nudgeType: .missedWorkout,
-                title: "Streak at risk",
-                message: "You're falling behind this week. One workout today makes a big difference.",
-                actionLabel: "Get Back On Track"
+                title: "Here when you're ready.",
+                message: "Show up however you can today.",
+                actionLabel: "Open Workout"
             )
             ctx.insert(nudge)
 
@@ -134,9 +137,9 @@ class MomentumService: ObservableObject {
                 userId: userId,
                 sourceType: .ai,
                 nudgeType: .comeback,
-                title: "We miss you!",
-                message: "It's been \(daysSince) days. A quick 20-minute session is all it takes to get back on track.",
-                actionLabel: "Start Comeback"
+                title: "Welcome back.",
+                message: "Whenever you're ready, a short session is waiting.",
+                actionLabel: "Open Workout"
             )
             ctx.insert(nudge)
 
@@ -146,8 +149,8 @@ class MomentumService: ObservableObject {
                 suggestedWorkoutType: "Full Body",
                 suggestedDuration: daysSince >= 7 ? 20 : 30,
                 encouragement: daysSince >= 7
-                    ? "No judgment. Everyone takes breaks. Let's ease back in with a short session."
-                    : "Missing a few days is normal. Let's pick up where you left off."
+                    ? "No judgment. Rest was rest. A short session is a soft landing."
+                    : "Pick up wherever. Short sessions count just as much."
             )
             ctx.insert(plan)
 
@@ -159,9 +162,9 @@ class MomentumService: ObservableObject {
                 userId: userId,
                 sourceType: .ai,
                 nudgeType: .weeklyGoal,
-                title: "Rebuilding momentum",
-                message: "Welcome back! Your weekly target is reduced while you rebuild. Hit it for 2 weeks to return to full pace.",
-                actionLabel: "View Plan"
+                title: "Soft return.",
+                message: "Lighter week. Show up how you can.",
+                actionLabel: "Open Workout"
             )
             ctx.insert(nudge)
 
@@ -170,8 +173,8 @@ class MomentumService: ObservableObject {
                 createMilestone(
                     userId: userId,
                     type: .comebackComplete,
-                    title: "Fully Back On Track!",
-                    description: "Two solid weeks of rebuilding. You've earned your full pace back.",
+                    title: "Noticed.",
+                    description: "Two weeks in a row after a break.",
                     context: ctx
                 )
             }

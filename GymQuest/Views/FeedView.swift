@@ -138,12 +138,12 @@ struct FeedCurator {
     }
 
     private static func generateMotivationPrompt() -> FeedItem {
+        // Noticing-style prompts only. No comparison, no "your friends are ahead",
+        // no "only bad workout" guilt, no "crush" drill-sergeant tone.
         let prompts: [(String, MotivationType)] = [
-            ("Consistency beats intensity. Show up today.", .general),
-            ("Your friends crushed 47 workouts this week. Join them.", .streak),
-            ("The only bad workout is the one that didn't happen.", .general),
-            ("You're closer to your next PR than you think.", .milestone),
-            ("Rest day? Perfect. Recovery is part of the process.", .comeback),
+            ("Show up however you can today.", .general),
+            ("Rest days count too.", .comeback),
+            ("Whenever you're ready.", .general),
         ]
         let selected = prompts[Int.random(in: 0..<prompts.count)]
         return .motivationPrompt(message: selected.0, type: selected.1)

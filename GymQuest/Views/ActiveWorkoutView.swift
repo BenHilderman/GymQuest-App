@@ -4498,6 +4498,7 @@ struct ProofCardView: View {
     @State private var meta: ProofCardMeta? = nil
     @State private var isSending = false
     @State private var didSend = false
+    @State private var showSocialGraphGate = false
 
     var body: some View {
         ZStack {
@@ -4601,6 +4602,17 @@ struct ProofCardView: View {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             #endif
         }
+        .sheet(isPresented: $showSocialGraphGate) {
+            SocialGraphGateSheet(
+                profile: profile,
+                onCompleted: {
+                    showSocialGraphGate = false
+                    // After user connects with 3+, proceed with the send
+                    actuallySend()
+                }
+            )
+            .presentationDetents([.large])
+        }
     }
 
     // MARK: - Meta Construction (the "noticing" engine)
@@ -4609,6 +4621,9 @@ struct ProofCardView: View {
         let headline = generateNoticing()
         let variant = inferVariant()
         let summary = "\(workout.type.rawValue) · \(elapsedSeconds / 60)m · \(workout.totalSets) sets"
+        // Deep-link payload: link to whichever exercise was the hardest moment,
+        // or the overall workout for post-hoc navigation.
+        let linkedExercise = heaviestExerciseName()
         return ProofCardMeta(
             headline: headline,
             hardestMoment: findHardestMoment(),
@@ -4616,8 +4631,22 @@ struct ProofCardView: View {
             workoutTypeRaw: workout.type.rawValue,
             signedName: profile.name,
             createdAt: Date(),
-            variant: variant
+            variant: variant,
+            linkedExerciseName: linkedExercise,
+            linkedWorkoutId: workout.id
         )
+    }
+
+    private func heaviestExerciseName() -> String? {
+        var heaviest: Double = 0
+        var name: String? = nil
+        for exercise in workout.exercises {
+            for set in exercise.sets where set.weight > heaviest {
+                heaviest = set.weight
+                name = exercise.name
+            }
+        }
+        return name ?? workout.exercises.first?.name
     }
 
     private func inferVariant() -> String {
@@ -4717,6 +4746,20 @@ struct ProofCardView: View {
     // MARK: - Sending
 
     private func sendToSquad() {
+        guard !isSending, !didSend else { return }
+
+        // Gate: before the user's first share, require at least 3 real connections.
+        // This is the memo's activation-loop prerequisite — you can't have a witnessed
+        // workout without someone to witness it.
+        let friendCount = friendCountFor(userId: profile.id)
+        if friendCount < 3 {
+            showSocialGraphGate = true
+            return
+        }
+        actuallySend()
+    }
+
+    private func actuallySend() {
         guard let meta, !isSending, !didSend else { return }
         isSending = true
 
@@ -4731,6 +4774,7 @@ struct ProofCardView: View {
             exerciseHighlight: workout.exercises.first?.name
         )
         post.proofCardData = try? JSONEncoder().encode(meta)
+        post.audience = PostAudience.friends.rawValue
 
         modelContext.insert(post)
         try? modelContext.save()
@@ -4748,6 +4792,11 @@ struct ProofCardView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
             onDone()
         }
+    }
+
+    private func friendCountFor(userId: UUID) -> Int {
+        let descriptor = FetchDescriptor<Friend>(predicate: #Predicate { $0.userId == userId })
+        return (try? modelContext.fetch(descriptor).count) ?? 0
     }
 }
 
@@ -4870,6 +4919,236 @@ struct ProofCardBody: View {
         case "streak": return "CONSISTENCY"
         case "longest": return "DEEPEST"
         default: return "PROOF"
+        }
+    }
+}
+
+// MARK: - Social Graph Gate
+//
+// The memo's activation-loop prerequisite: before a user can share their first
+// Proof Card, they must have at least 3 real connections. No social graph =
+// no witnesses = no witnessed effort loop.
+//
+// This sheet presents a curated list of users to follow. In production it would
+// start with contacts import; for v1 we surface seeded users from the app so the
+// user can build their graph without granting Contacts permission.
+
+struct SocialGraphGateSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let profile: UserProfile
+    let onCompleted: () -> Void
+
+    @Query private var allProfiles: [UserProfile]
+    @Query private var allFriends: [Friend]
+
+    @State private var selectedIds: Set<UUID> = []
+
+    private let minimumRequired = 3
+
+    private var existingFollowingIds: Set<UUID> {
+        Set(allFriends.filter { $0.userId == profile.id }.map(\.odId))
+    }
+
+    private var suggestions: [UserProfile] {
+        // Exclude self and people already followed
+        allProfiles
+            .filter { $0.id != profile.id && !existingFollowingIds.contains($0.id) }
+            .prefix(12)
+            .map { $0 }
+    }
+
+    private var totalConnectedCount: Int {
+        existingFollowingIds.count + selectedIds.count
+    }
+
+    private var canContinue: Bool {
+        totalConnectedCount >= minimumRequired
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    // Header
+                    VStack(spacing: 10) {
+                        Image(systemName: "figure.2.arms.open")
+                            .font(.system(size: 40))
+                            .foregroundStyle(GQGradients.primary)
+
+                        Text("Who will witness your work?")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+
+                        Text("Pick at least \(minimumRequired) people. Your effort is wasted if no one sees it.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
+                    .padding(.top, 20)
+                    .padding(.bottom, 16)
+
+                    // Progress indicator
+                    HStack(spacing: 8) {
+                        ForEach(0..<minimumRequired, id: \.self) { idx in
+                            Capsule()
+                                .fill(idx < totalConnectedCount ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(Color.white.opacity(0.12)))
+                                .frame(height: 4)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 12)
+
+                    // Suggestion list
+                    if suggestions.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "person.3.sequence.fill")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.white.opacity(0.4))
+                            Text("No one to connect with yet")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(.white.opacity(0.75))
+                            Text("Invite your friends from Settings to unlock sharing.")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.white.opacity(0.5))
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
+                        }
+                        .padding(.top, 40)
+                        Spacer()
+                    } else {
+                        ScrollView {
+                            LazyVStack(spacing: 10) {
+                                ForEach(suggestions, id: \.id) { candidate in
+                                    suggestionRow(for: candidate)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 6)
+                            .padding(.bottom, 120)
+                        }
+                    }
+                }
+
+                // Footer CTA
+                VStack {
+                    Spacer()
+                    Button(action: commit) {
+                        Text(canContinue ? "Continue" : "Pick \(minimumRequired - totalConnectedCount) more")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                canContinue
+                                    ? AnyShapeStyle(GQGradients.primary)
+                                    : AnyShapeStyle(Color.white.opacity(0.12))
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+                    .disabled(!canContinue)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 24)
+                }
+            }
+            .navigationTitle("Build your circle")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+        }
+    }
+
+    @ViewBuilder
+    private func suggestionRow(for candidate: UserProfile) -> some View {
+        let isSelected = selectedIds.contains(candidate.id)
+        Button {
+            withAnimation(.easeInOut(duration: 0.12)) {
+                if isSelected {
+                    selectedIds.remove(candidate.id)
+                } else {
+                    selectedIds.insert(candidate.id)
+                }
+            }
+            #if canImport(UIKit)
+            UISelectionFeedbackGenerator().selectionChanged()
+            #endif
+        } label: {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(GQGradients.primary)
+                    .frame(width: 42, height: 42)
+                    .overlay(
+                        Text(String(candidate.name.prefix(1)).uppercased())
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(candidate.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Text("@\(candidate.username)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+                Spacer()
+                ZStack {
+                    Circle()
+                        .strokeBorder(isSelected ? Color.clear : Color.white.opacity(0.3), lineWidth: 1.5)
+                        .frame(width: 26, height: 26)
+                    if isSelected {
+                        Circle()
+                            .fill(GQGradients.primary)
+                            .frame(width: 26, height: 26)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isSelected ? Color.white.opacity(0.08) : Color.white.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(isSelected ? GQColors.vividPurple.opacity(0.5) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func commit() {
+        // Create Friend records for each selected candidate
+        for id in selectedIds {
+            guard let candidate = allProfiles.first(where: { $0.id == id }) else { continue }
+            let friendship = Friend(
+                userId: profile.id,
+                odId: candidate.id,
+                odName: candidate.name,
+                odUsername: candidate.username
+            )
+            modelContext.insert(friendship)
+            profile.followingCount += 1
+            candidate.followerCount += 1
+        }
+        try? modelContext.save()
+
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+
+        dismiss()
+        // Slight delay so dismiss animation finishes before proceeding with send
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            onCompleted()
         }
     }
 }

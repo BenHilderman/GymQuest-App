@@ -470,6 +470,33 @@ struct ProofCardMeta: Codable {
     var signedName: String        // Author display name baked in for deterministic rendering
     var createdAt: Date
     var variant: String = "default" // "first", "pr", "comeback", "streak", "longest", "default"
+
+    // Interactive deep-link payload — lets the feed tap through to the linked exercise
+    var linkedExerciseName: String? = nil
+    var linkedWorkoutId: UUID? = nil
+}
+
+/// Who can see a post. Default is friends — public is an explicit opt-in.
+enum PostAudience: String, Codable, CaseIterable {
+    case friends  // Default — your squad and followers only
+    case squad    // Scoped to a specific squad (via taggedSquadIds)
+    case `public` // App-wide discovery (explicit opt-in)
+
+    var label: String {
+        switch self {
+        case .friends: return "Friends"
+        case .squad: return "Squad"
+        case .public: return "Public"
+        }
+    }
+
+    var iconSF: String {
+        switch self {
+        case .friends: return "person.2.fill"
+        case .squad: return "person.3.fill"
+        case .public: return "globe"
+        }
+    }
 }
 
 /// Length presets aligned with Instagram Reels and TikTok engagement data
@@ -1669,6 +1696,12 @@ final class Post {
     // Proof Card — the signature post-workout ritual artifact
     var proofCardData: Data?            // JSON-encoded ProofCardMeta
 
+    // Audience scope — who can see this post.
+    // "friends": only followers/squad (default for new posts, memo directive)
+    // "squad": scoped to specifically tagged squads
+    // "public": visible app-wide (explicit opt-in only)
+    var audience: String = "friends"
+
     init(
         id: UUID = UUID(),
         authorId: UUID = UUID(),
@@ -1802,6 +1835,11 @@ final class Post {
 
     var isQuickClip: Bool {
         clipMetadataData != nil && (videoData != nil || mediaItems.contains { $0.mediaType == .video })
+    }
+
+    /// Typed accessor for audience scope
+    var audienceScope: PostAudience {
+        PostAudience(rawValue: audience) ?? .friends
     }
 
     /// Decode the Proof Card metadata (the signature post-workout artifact)

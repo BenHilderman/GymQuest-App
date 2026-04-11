@@ -140,6 +140,23 @@ class NotificationService: ObservableObject {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: identifiers)
     }
 
+    // MARK: - System Push Throttle
+    //
+    // Memo directive: maximum 1 system-authored push per 24 hours. Celebrations
+    // tied directly to a user action (workout complete, PR hit) are human-triggered
+    // and bypass the throttle. Scheduled or ambient pushes must respect it.
+
+    private let lastSystemPushKey = "lastSystemPushAt"
+
+    private func canSendAmbientPush() -> Bool {
+        let last = UserDefaults.standard.object(forKey: lastSystemPushKey) as? Date ?? .distantPast
+        return Date().timeIntervalSince(last) > 24 * 60 * 60
+    }
+
+    private func markAmbientPushSent() {
+        UserDefaults.standard.set(Date(), forKey: lastSystemPushKey)
+    }
+
     // MARK: - Immediate Notifications
 
     func sendWorkoutCompleteNotification(workoutTitle: String, xpEarned: Int) {

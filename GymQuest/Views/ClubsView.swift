@@ -1705,8 +1705,9 @@ enum ClubSection: String, CaseIterable {
     case pods = "Pods"
     case challenges = "Challenges"
     case events = "Events"
-    case leaderboard = "Leaderboard"
     case members = "Members"
+    // Leaderboard removed — memo directive: clubs are community, not ranking.
+    // Squad-scale leaderboards still exist for opt-in small groups.
 }
 
 struct ClubDetailView: View {
@@ -2323,8 +2324,6 @@ struct ClubDetailView: View {
             clubChallengesSection
         case .events:
             clubEventsSection
-        case .leaderboard:
-            clubLeaderboardSection
         case .members:
             clubMembersSection
         }
