@@ -106,8 +106,7 @@ struct ActiveWorkoutView: View {
     @State private var showingCancelConfirmation = false
     @State private var showingCompletionChoice = false
     @State private var showingPostEditor = false
-    @State private var showingQuickClipComposer = false
-    @State private var showingShareChoice = false
+    @State private var showingProofCard = false
     @State private var savedWorkout: Workout?
     @State private var workoutMedia: [PostMedia] = []
     @State private var showingWorkoutCamera = false
@@ -452,6 +451,39 @@ struct ActiveWorkoutView: View {
                     .presentationDragIndicator(.visible)
             }
         }
+        .fullScreenCover(isPresented: $showingProofCard, onDismiss: {
+            // Only route forward if we didn't just pivot to the post editor
+            if !showingPostEditor {
+                WorkoutDraft.clear()
+                if !hasSeenPostWorkoutPaywall {
+                    hasSeenPostWorkoutPaywall = true
+                    showingPostWorkoutPaywall = true
+                } else {
+                    appState.selectedTab = .feed
+                    appState.endWorkout()
+                }
+            }
+        }) {
+            if let workout = savedWorkout {
+                ProofCardView(
+                    profile: profile,
+                    workout: workout,
+                    detectedPRs: detectedPRMoments,
+                    elapsedSeconds: elapsedTime,
+                    allPriorWorkouts: (try? modelContext.fetch(FetchDescriptor<Workout>())) ?? [],
+                    onAddClip: {
+                        showingProofCard = false
+                        // Tiny delay so fullScreenCover dismiss animation finishes before the next one opens
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showingPostEditor = true
+                        }
+                    },
+                    onDone: {
+                        showingProofCard = false
+                    }
+                )
+            }
+        }
         .fullScreenCover(isPresented: $showingPostEditor, onDismiss: {
             WorkoutDraft.clear()
             if !hasSeenPostWorkoutPaywall {
@@ -468,57 +500,10 @@ struct ActiveWorkoutView: View {
                     workout: workout,
                     exercises: makeCompletedExercises(),
                     duration: elapsedTime / 60,
-                    preloadedMedia: workoutMedia
+                    preloadedMedia: workoutMedia,
+                    detectedPRs: detectedPRMoments
                 )
             }
-        }
-        .fullScreenCover(isPresented: $showingQuickClipComposer, onDismiss: {
-            WorkoutDraft.clear()
-            if !hasSeenPostWorkoutPaywall {
-                hasSeenPostWorkoutPaywall = true
-                showingPostWorkoutPaywall = true
-            } else {
-                appState.selectedTab = .feed
-                appState.endWorkout()
-            }
-        }) {
-            if let workout = savedWorkout {
-                QuickClipComposerView(
-                    profile: profile,
-                    workout: workout,
-                    detectedPRs: detectedPRMoments,
-                    exercises: makeCompletedExercises(),
-                    durationMinutes: elapsedTime / 60
-                )
-            }
-        }
-        .confirmationDialog(
-            "Share your workout",
-            isPresented: $showingShareChoice,
-            titleVisibility: .visible
-        ) {
-            Button {
-                showingQuickClipComposer = true
-            } label: {
-                Label("Quick Clip — Share a highlight video", systemImage: "video.fill.badge.plus")
-            }
-            Button {
-                showingPostEditor = true
-            } label: {
-                Label("Full Post — Photos, captions, more", systemImage: "square.and.pencil")
-            }
-            Button("Skip", role: .cancel) {
-                WorkoutDraft.clear()
-                if !hasSeenPostWorkoutPaywall {
-                    hasSeenPostWorkoutPaywall = true
-                    showingPostWorkoutPaywall = true
-                } else {
-                    appState.selectedTab = .feed
-                    appState.endWorkout()
-                }
-            }
-        } message: {
-            Text("Workout saved 💪 How do you want to share it?")
         }
         .confirmationDialog(
             "Workout Options",
@@ -1127,7 +1112,7 @@ struct ActiveWorkoutView: View {
         detectedPRMoments = prResult.moments
 
         savedWorkout = workout
-        showingShareChoice = true
+        showingProofCard = true
     }
 
     private func makeCompletedExercises() -> [CompletedExercise] {
@@ -4477,4 +4462,414 @@ struct WorkoutCameraSheet: View {
 #Preview {
     ActiveWorkoutView(profile: UserProfile(), workoutType: .push)
         .environmentObject(AppState())
+}
+
+// MARK: - Proof Card
+//
+// The signature post-workout ritual. Every finished workout lands here — one screen,
+// one primary action, a single concrete sentence naming what the user just did.
+//
+// The Proof Card is the atomic unit of witnessed effort. Design intent:
+// - Screenshot-legible: a stranger who sees a screenshot should know it's Lift AI
+// - Concrete, not emotional: describes past actions, never attributes feelings
+// - Co-equal treatment of consistency and PRs — showing up is as worthy as max lifts
+// - One path forward: Send. No stats dashboard, no mood slider, no "reflect"
+//
+// Variants (`ProofCardMeta.variant`):
+// - "first"     — first workout of this type ("Your first push day.")
+// - "pr"        — a PR was detected ("Heaviest bench yet +10 lb.")
+// - "comeback"  — gap >= 7 days ("You came back.")
+// - "streak"    — 3+ workouts this week ("Third workout this week.")
+// - "longest"   — longest session yet ("Longest session in a month.")
+// - "default"   — ("You showed up.")
+
+struct ProofCardView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    let profile: UserProfile
+    let workout: Workout
+    let detectedPRs: [PRMoment]
+    let elapsedSeconds: Int
+    let allPriorWorkouts: [Workout]
+    let onAddClip: () -> Void
+    let onDone: () -> Void
+
+    @State private var meta: ProofCardMeta? = nil
+    @State private var isSending = false
+    @State private var didSend = false
+
+    var body: some View {
+        ZStack {
+            // Background — warm, not stark
+            LinearGradient(
+                colors: [Color.black, GQColors.deepBlue.opacity(0.35), Color.black],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                // Header — minimal, dismissable
+                HStack {
+                    Button(action: onDone) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Circle())
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+
+                Spacer()
+
+                // The card itself
+                if let meta {
+                    ProofCardBody(meta: meta)
+                        .padding(.horizontal, 28)
+                        .transition(.scale(scale: 0.9).combined(with: .opacity))
+                }
+
+                Spacer()
+
+                // Actions
+                VStack(spacing: 10) {
+                    Button(action: sendToSquad) {
+                        HStack(spacing: 10) {
+                            if isSending {
+                                ProgressView().tint(.white)
+                            } else if didSend {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 16, weight: .bold))
+                            } else {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 15, weight: .bold))
+                            }
+                            Text(didSend ? "Sent to your people" : "Send to your people")
+                                .font(.system(size: 17, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 17)
+                        .background(
+                            didSend
+                                ? LinearGradient(colors: [GQColors.success, GQColors.success], startPoint: .leading, endPoint: .trailing)
+                                : GQGradients.primary
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 16, y: 8)
+                    }
+                    .disabled(isSending || didSend)
+
+                    Button(action: onAddClip) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "video.badge.plus")
+                                .font(.system(size: 13))
+                            Text("Add a clip")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundStyle(.white.opacity(0.78))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 13)
+                        .background(Color.white.opacity(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14)
+                                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                        )
+                    }
+
+                    Button(action: onDone) {
+                        Text("Later")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.white.opacity(0.45))
+                    }
+                    .padding(.top, 2)
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 36)
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.75)) {
+                meta = buildMeta()
+            }
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            #endif
+        }
+    }
+
+    // MARK: - Meta Construction (the "noticing" engine)
+
+    private func buildMeta() -> ProofCardMeta {
+        let headline = generateNoticing()
+        let variant = inferVariant()
+        let summary = "\(workout.type.rawValue) · \(elapsedSeconds / 60)m · \(workout.totalSets) sets"
+        return ProofCardMeta(
+            headline: headline,
+            hardestMoment: findHardestMoment(),
+            summaryLine: summary,
+            workoutTypeRaw: workout.type.rawValue,
+            signedName: profile.name,
+            createdAt: Date(),
+            variant: variant
+        )
+    }
+
+    private func inferVariant() -> String {
+        if !detectedPRs.isEmpty { return "pr" }
+        let othersOfSameType = allPriorWorkouts.filter { $0.type == workout.type && $0.id != workout.id }
+        if othersOfSameType.isEmpty { return "first" }
+        let sortedByDate: [Workout] = allPriorWorkouts.filter { $0.id != workout.id }.sorted(by: { (a: Workout, b: Workout) -> Bool in a.date > b.date })
+        if let mostRecent = sortedByDate.first,
+           Date().timeIntervalSince(mostRecent.date) > 7 * 86400 {
+            return "comeback"
+        }
+        let thisWeekStart = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        let thisWeekCount = allPriorWorkouts.filter { $0.date >= thisWeekStart }.count
+        if thisWeekCount >= 3 { return "streak" }
+        let longestPrior = othersOfSameType.map(\.duration).max() ?? 0
+        if workout.duration > longestPrior && workout.duration >= 30 { return "longest" }
+        return "default"
+    }
+
+    /// The core "noticing" generator: specific past-tense sentence, no emotion.
+    private func generateNoticing() -> String {
+        // Priority 1: PR (heaviest signal)
+        if let pr = detectedPRs.first {
+            let ex = pr.exerciseName ?? "lift"
+            if let improvement = pr.improvement, !improvement.isEmpty {
+                return "Heaviest \(ex.lowercased()) yet. \(improvement)."
+            }
+            return "\(ex) PR. \(pr.value)."
+        }
+
+        // Priority 2: First-ever workout of this type
+        let othersOfSameType = allPriorWorkouts.filter { $0.type == workout.type && $0.id != workout.id }
+        if othersOfSameType.isEmpty {
+            return "Your first \(workout.type.rawValue.lowercased()) day."
+        }
+
+        // Priority 3: Comeback (>7 days since last workout)
+        let sortedByDate: [Workout] = allPriorWorkouts.filter { $0.id != workout.id }.sorted(by: { (a: Workout, b: Workout) -> Bool in a.date > b.date })
+        if let mostRecent = sortedByDate.first {
+            let days = Int(Date().timeIntervalSince(mostRecent.date) / 86400)
+            if days >= 7 {
+                return "You came back."
+            }
+        }
+
+        // Priority 4: Multi-workout week
+        let thisWeekStart = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        let thisWeekCount = allPriorWorkouts.filter { $0.date >= thisWeekStart }.count + 1  // include current
+        if thisWeekCount >= 3 {
+            return "\(ordinal(thisWeekCount)) workout this week."
+        }
+
+        // Priority 5: Longest session of this type
+        let longestPrior = othersOfSameType.map(\.duration).max() ?? 0
+        if workout.duration > longestPrior && workout.duration >= 30 {
+            return "Longest \(workout.type.rawValue.lowercased()) yet."
+        }
+
+        // Default: the quietest but most important noticing
+        return "You showed up."
+    }
+
+    private func ordinal(_ n: Int) -> String {
+        switch n {
+        case 1: return "First"
+        case 2: return "Second"
+        case 3: return "Third"
+        case 4: return "Fourth"
+        case 5: return "Fifth"
+        case 6: return "Sixth"
+        case 7: return "Seventh"
+        default: return "\(n)th"
+        }
+    }
+
+    private func findHardestMoment() -> String? {
+        // Find the heaviest completed set across all exercises
+        var heaviestWeight: Double = 0
+        var heaviestLabel: String? = nil
+        for exercise in workout.exercises {
+            for (index, set) in exercise.sets.enumerated() where set.weight > heaviestWeight {
+                heaviestWeight = set.weight
+                heaviestLabel = "Set \(index + 1) · \(exercise.name) · \(Int(set.weight)) × \(set.reps)"
+            }
+        }
+        if let heaviestLabel {
+            return heaviestLabel
+        }
+        // Fallback for cardio: hardest = total distance
+        if let dist = workout.totalDistance, dist > 0 {
+            let km = dist / 1000.0
+            return String(format: "Covered %.2f km", km)
+        }
+        return nil
+    }
+
+    // MARK: - Sending
+
+    private func sendToSquad() {
+        guard let meta, !isSending, !didSend else { return }
+        isSending = true
+
+        let post = Post(
+            authorId: profile.id,
+            authorName: profile.name,
+            authorUsername: profile.username,
+            caption: meta.headline,
+            workoutType: workout.type.rawValue,
+            duration: elapsedSeconds / 60,
+            setCount: workout.totalSets,
+            exerciseHighlight: workout.exercises.first?.name
+        )
+        post.proofCardData = try? JSONEncoder().encode(meta)
+
+        modelContext.insert(post)
+        try? modelContext.save()
+
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            isSending = false
+            didSend = true
+        }
+
+        // Brief confirmation, then exit
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            onDone()
+        }
+    }
+}
+
+// MARK: - Proof Card Body (the reusable visual artifact)
+//
+// This view is the "card" itself — the screenshot-legible visual. It's reused both
+// in the Proof Card screen and in the feed (when a post is a Proof Card post).
+
+struct ProofCardBody: View {
+    let meta: ProofCardMeta
+    var compact: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: compact ? 12 : 18) {
+            // Signature row
+            HStack {
+                Image(systemName: variantIcon)
+                    .font(.system(size: 10, weight: .heavy))
+                Text("LIFT AI · " + variantLabel)
+                    .font(.system(size: 10, weight: .heavy, design: .rounded))
+                    .tracking(1.8)
+                Spacer()
+                Text(meta.createdAt, format: .dateTime.month(.abbreviated).day())
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+            .foregroundStyle(.white.opacity(0.65))
+
+            // The noticing — the headline
+            Text(meta.headline)
+                .font(.system(size: compact ? 22 : 30, weight: .heavy, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(compact ? 3 : nil)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Divider
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.2), Color.white.opacity(0.04)],
+                        startPoint: .leading, endPoint: .trailing
+                    )
+                )
+                .frame(height: 1)
+
+            // Summary line
+            Text(meta.summaryLine)
+                .font(.system(size: compact ? 12 : 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.78))
+
+            // Hardest moment
+            if let hardest = meta.hardestMoment {
+                HStack(spacing: 10) {
+                    Image(systemName: "flame.fill")
+                        .font(.system(size: compact ? 11 : 13, weight: .bold))
+                        .foregroundStyle(Color.orange.opacity(0.95))
+                    Text(hardest)
+                        .font(.system(size: compact ? 11 : 13, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.88))
+                        .lineLimit(1)
+                    Spacer()
+                }
+                .padding(.vertical, compact ? 8 : 11)
+                .padding(.horizontal, compact ? 10 : 13)
+                .background(Color.white.opacity(0.055))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+
+            // Signed by
+            HStack(spacing: 6) {
+                Text(meta.signedName)
+                    .font(.system(size: compact ? 11 : 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.78))
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: compact ? 10 : 12))
+                    .foregroundStyle(GQColors.vividPurple)
+                Spacer()
+            }
+        }
+        .padding(compact ? 16 : 22)
+        .background(
+            LinearGradient(
+                colors: [Color(white: 0.11), Color(white: 0.05)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: compact ? 16 : 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: compact ? 16 : 22, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            GQColors.deepBlue.opacity(0.75),
+                            GQColors.vividPurple.opacity(0.75)
+                        ],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.5
+                )
+        )
+        .shadow(color: GQColors.vividPurple.opacity(compact ? 0.12 : 0.28), radius: compact ? 14 : 24, y: compact ? 6 : 12)
+    }
+
+    private var variantIcon: String {
+        switch meta.variant {
+        case "pr": return "trophy.fill"
+        case "first": return "sparkles"
+        case "comeback": return "arrow.counterclockwise"
+        case "streak": return "flame.fill"
+        case "longest": return "clock.fill"
+        default: return "checkmark.seal.fill"
+        }
+    }
+
+    private var variantLabel: String {
+        switch meta.variant {
+        case "pr": return "NEW PR"
+        case "first": return "FIRST TIME"
+        case "comeback": return "COMEBACK"
+        case "streak": return "CONSISTENCY"
+        case "longest": return "DEEPEST"
+        default: return "PROOF"
+        }
+    }
 }

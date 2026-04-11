@@ -1723,19 +1723,19 @@ struct SocialSeeder {
 
         let socialReactions: [(Int, Int, ReactionType, Double)] = [
             // Post 1 (Marcus push day)
-            (0, 1, .fire, 0.3), (0, 2, .strong, 0.4), (0, 3, .clap, 0.5), (0, 5, .heart, 0.6), (0, 6, .fire, 0.7),
+            (0, 1, .fire, 0.3), (0, 2, .strong, 0.4), (0, 3, .raisedHands, 0.5), (0, 5, .raisedHands, 0.6), (0, 6, .fire, 0.7),
             // Post 2 (Olivia pull)
-            (1, 0, .strong, 0.9), (1, 4, .fire, 1.0), (1, 6, .thumbsUp, 1.1), (1, 8, .clap, 1.2),
+            (1, 0, .strong, 0.9), (1, 4, .fire, 1.0), (1, 6, .eyes, 1.1), (1, 8, .raisedHands, 1.2),
             // Post 3 (Jake leg day PR)
-            (2, 0, .fire, 2.0), (2, 1, .shocked, 2.1), (2, 3, .strong, 2.2), (2, 5, .clap, 2.3), (2, 7, .fire, 2.4), (2, 9, .heart, 2.5),
+            (2, 0, .fire, 2.0), (2, 1, .eyes, 2.1), (2, 3, .strong, 2.2), (2, 5, .raisedHands, 2.3), (2, 7, .fire, 2.4), (2, 9, .raisedHands, 2.5),
             // Post 5 (Tyler push)
-            (4, 0, .strong, 5.0), (4, 2, .fire, 5.1), (4, 7, .clap, 5.2), (4, 9, .heart, 5.3),
+            (4, 0, .strong, 5.0), (4, 2, .fire, 5.1), (4, 7, .raisedHands, 5.2), (4, 9, .raisedHands, 5.3),
             // Post 10 (Ava comeback)
-            (9, 0, .heart, 13.5), (9, 1, .clap, 13.6), (9, 3, .strong, 13.7), (9, 5, .heart, 13.8), (9, 6, .fire, 13.9),
+            (9, 0, .raisedHands, 13.5), (9, 1, .raisedHands, 13.6), (9, 3, .strong, 13.7), (9, 5, .raisedHands, 13.8), (9, 6, .fire, 13.9),
             // Post 28 (cycling premium)
-            (27, 0, .fire, 48.0), (27, 1, .strong, 48.1), (27, 3, .shocked, 48.2), (27, 5, .clap, 48.3), (27, 7, .heart, 48.4), (27, 9, .fire, 48.5),
+            (27, 0, .fire, 48.0), (27, 1, .strong, 48.1), (27, 3, .eyes, 48.2), (27, 5, .raisedHands, 48.3), (27, 7, .raisedHands, 48.4), (27, 9, .fire, 48.5),
             // Post 29 (trail run PR)
-            (28, 0, .fire, 2.0), (28, 1, .shocked, 2.1), (28, 2, .strong, 2.2), (28, 3, .clap, 2.3), (28, 5, .fire, 2.4), (28, 7, .heart, 2.5), (28, 8, .strong, 2.6), (28, 9, .fire, 2.7),
+            (28, 0, .fire, 2.0), (28, 1, .eyes, 2.1), (28, 2, .strong, 2.2), (28, 3, .raisedHands, 2.3), (28, 5, .fire, 2.4), (28, 7, .raisedHands, 2.5), (28, 8, .strong, 2.6), (28, 9, .fire, 2.7),
         ]
         for (postIdx, userIdx, rType, hrs) in socialReactions {
             guard postIdx < postIds.count else { continue }
@@ -2258,21 +2258,21 @@ struct SocialSeeder {
             // ── Reactions on user's posts ────────────────────────────────
             let allReactions: [(Int, Int, ReactionType, Double)] = [
                 // Post A
-                (0, 0, .fire, 0.8), (0, 1, .strong, 1.2), (0, 2, .heart, 2.0), (0, 5, .clap, 3.5),
+                (0, 0, .fire, 0.8), (0, 1, .strong, 1.2), (0, 2, .raisedHands, 2.0), (0, 5, .raisedHands, 3.5),
                 // Post B
-                (1, 3, .strong, 10.0), (1, 4, .fire, 13.0), (1, 6, .thumbsUp, 14.0),
+                (1, 3, .strong, 10.0), (1, 4, .fire, 13.0), (1, 6, .eyes, 14.0),
                 // Post C
-                (2, 1, .heart, 22.0), (2, 3, .clap, 23.0), (2, 5, .thumbsUp, 24.0),
+                (2, 1, .raisedHands, 22.0), (2, 3, .raisedHands, 23.0), (2, 5, .eyes, 24.0),
                 // Post D
-                (3, 0, .fire, 36.0), (3, 2, .strong, 37.0), (3, 6, .clap, 38.0), (3, 8, .heart, 39.0),
+                (3, 0, .fire, 36.0), (3, 2, .strong, 37.0), (3, 6, .raisedHands, 38.0), (3, 8, .raisedHands, 39.0),
                 // Post E
-                (4, 0, .fire, 46.0), (4, 1, .strong, 47.0), (4, 2, .shocked, 47.5), (4, 4, .fire, 48.0), (4, 7, .clap, 49.0),
+                (4, 0, .fire, 46.0), (4, 1, .strong, 47.0), (4, 2, .eyes, 47.5), (4, 4, .fire, 48.0), (4, 7, .raisedHands, 49.0),
                 // Post F
                 (5, 3, .fire, 56.0), (5, 7, .strong, 58.0),
                 // Post G
-                (6, 1, .heart, 68.0), (6, 5, .clap, 70.0),
+                (6, 1, .raisedHands, 68.0), (6, 5, .raisedHands, 70.0),
                 // Post H
-                (7, 0, .strong, 76.0), (7, 2, .fire, 77.0), (7, 9, .clap, 78.0), (7, 4, .heart, 79.0),
+                (7, 0, .strong, 76.0), (7, 2, .fire, 77.0), (7, 9, .raisedHands, 78.0), (7, 4, .raisedHands, 79.0),
             ]
             for (postIdx, userIdx, rType, hrs) in allReactions {
                 let reaction = Reaction(

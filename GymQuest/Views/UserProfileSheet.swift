@@ -105,11 +105,11 @@ struct UserProfileSheet: View {
 
     // MARK: - Stats
 
+    // Viewing another user: no follower/following counts — the memo's comparison-machine
+    // ban. Just show how many posts they've shared. Their own profile keeps the rest.
     private var statsRow: some View {
         HStack(spacing: 0) {
-            statColumn(value: "\(userPosts.count)", label: "Posts")
-            statColumn(value: "\(followerCount)", label: "Followers")
-            statColumn(value: "\(followingCount)", label: "Following")
+            statColumn(value: "\(userPosts.count)", label: userPosts.count == 1 ? "Post" : "Posts")
         }
         .padding(.horizontal, 16)
     }

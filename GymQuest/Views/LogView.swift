@@ -938,7 +938,7 @@ struct LogView: View {
                         Image(systemName: "camera")
                             .font(.system(size: 24))
                             .foregroundColor(GQColors.textTertiary)
-                        Text("Track your transformation")
+                        Text("Log a moment")
                             .font(.system(size: 13))
                             .foregroundColor(GQColors.textTertiary)
                     }

@@ -82,7 +82,9 @@ struct PostCardV2: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if isCompactPost {
+            if let proofMeta = post.getProofCard() {
+                proofCardLayout(meta: proofMeta)
+            } else if isCompactPost {
                 compactTextOnlyLayout
                 inlineCommentPreview
             } else {
@@ -226,6 +228,24 @@ struct PostCardV2: View {
     }
 
     // MARK: - Extracted ViewBuilders
+
+    /// Proof Card post layout — the signature ritual artifact, rendered as a dedicated
+    /// post type. No media row, no workout identity badge — just the card itself plus
+    /// header and the warm-only reaction row.
+    @ViewBuilder
+    private func proofCardLayout(meta: ProofCardMeta) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            headerRow
+                .padding(.top, 4)
+
+            ProofCardBody(meta: meta, compact: true)
+                .padding(.horizontal, 14)
+                .padding(.top, 2)
+                .padding(.bottom, 6)
+
+            captionAndReactions
+        }
+    }
 
     @ViewBuilder
     private var headerRow: some View {

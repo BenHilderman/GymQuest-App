@@ -273,7 +273,7 @@ struct ProductionSeeder {
         if let existing = try? modelContext.fetch(descriptor), !existing.isEmpty { return }
 
         let notifications: [(UUID, String, String)] = [
-            (notifIds[0], "welcome", "Welcome to Lift AI! Your journey starts now."),
+            (notifIds[0], "welcome", "Welcome. Log what you did whenever you're ready."),
             (notifIds[1], "pod", "You've been matched with a Pod. Say hi to your accountability crew!"),
             (notifIds[2], "tip", "Tip: Tap the form check icon during a set to get real-time feedback on your technique."),
         ]

@@ -27,9 +27,13 @@ struct OnboardingView: View {
     @State private var name = ""
     @State private var username = ""
     @State private var dateOfBirth = Calendar.current.date(byAdding: .year, value: -18, to: Date()) ?? Date()
-    @State private var selectedGoal: FitnessGoal = .hypertrophy
+    // Goal is silently defaulted — memo bans goal-setting questionnaires in onboarding.
+    // The field remains for downstream systems but is never surfaced to the user here.
+    @State private var selectedGoal: FitnessGoal = .general
     @State private var selectedExperience: ExperienceLevel = .intermediate
     @State private var selectedEquipment: Set<EquipmentType> = []
+    // The mission question that replaces the goal step
+    @State private var showUpFor: String = ""
 
     // Password is now passed in directly, not stored in UserDefaults
     private var storedPassword: String {
@@ -69,7 +73,7 @@ struct OnboardingView: View {
                     case 2:
                         BirthdayStepView(dateOfBirth: $dateOfBirth)
                     case 3:
-                        GoalStepView(selectedGoal: $selectedGoal)
+                        ShowUpForStepView(showUpFor: $showUpFor)
                     case 4:
                         ExperienceStepView(selectedExperience: $selectedExperience)
                     case 5:
@@ -139,7 +143,7 @@ struct OnboardingView: View {
         case 0: return !name.trimmingCharacters(in: .whitespaces).isEmpty
         case 1: return !username.trimmingCharacters(in: .whitespaces).isEmpty
         case 2: return true
-        case 3: return true
+        case 3: return !showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
         case 4: return true
         case 5: return !selectedEquipment.isEmpty
         default: return true
@@ -188,6 +192,7 @@ struct OnboardingView: View {
             profile.goal = selectedGoal
             profile.experienceLevel = selectedExperience
             profile.availableEquipment = Array(selectedEquipment)
+            profile.showUpFor = showUpFor.trimmingCharacters(in: .whitespaces)
             try? modelContext.save()
 
             // Sync onboarding profile to Supabase
@@ -316,64 +321,68 @@ struct BirthdayStepView: View {
     }
 }
 
-struct GoalStepView: View {
-    @Binding var selectedGoal: FitnessGoal
+// The mission-aligned first question. Replaces the old "What's your goal?" step.
+// Memo directive: onboarding is permission to show up, not a contract about outcomes.
+// No lose-10-lbs, no before/after, no "how ambitious are you" — just a reason.
+struct ShowUpForStepView: View {
+    @Binding var showUpFor: String
+    @FocusState private var isFocused: Bool
+
+    // Soft chip suggestions — users can tap one or type anything
+    private let suggestions = ["Myself", "My future self", "My kids", "My health", "My crew"]
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "target")
+        VStack(spacing: 18) {
+            Image(systemName: "figure.2.arms.open")
                 .font(.system(size: 48))
                 .foregroundStyle(GQGradients.primary)
 
-            Text("What's your goal?")
+            Text("Who do you want to show up for?")
                 .font(.title)
                 .fontWeight(.bold)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
 
-            Text("We'll tailor your experience")
+            Text("One answer. You can always change it.")
                 .font(.subheadline)
                 .foregroundColor(GQColors.textTertiary)
 
-            VStack(spacing: 12) {
-                ForEach(FitnessGoal.allCases, id: \.self) { goal in
-                    Button {
-                        selectedGoal = goal
-                    } label: {
-                        HStack {
-                            Image(systemName: goalIcon(goal))
-                                .font(.title3)
-                                .frame(width: 28)
-                            Text(goal.rawValue)
-                                .font(.body.weight(.medium))
-                            Spacer()
-                            if selectedGoal == goal {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(GQGradients.primary)
-                            }
-                        }
-                        .padding(14)
-                        .background(selectedGoal == goal ? GQColors.deepBlue.opacity(0.1) : Color.black.opacity(0.03))
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(selectedGoal == goal ? GQColors.deepBlue.opacity(0.4) : Color.clear, lineWidth: 1.5)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundColor(GQColors.textPrimary)
-                }
-            }
-            .padding(.horizontal, 32)
-            .padding(.top, 8)
-        }
-    }
+            TextField("", text: $showUpFor)
+                .textFieldStyle(LiftAITextFieldStyle())
+                .focused($isFocused)
+                .submitLabel(.done)
+                .padding(.horizontal, 32)
+                .padding(.top, 4)
 
-    private func goalIcon(_ goal: FitnessGoal) -> String {
-        switch goal {
-        case .hypertrophy: return "figure.strengthtraining.traditional"
-        case .strength: return "dumbbell.fill"
-        case .performance: return "bolt.fill"
-        case .general: return "heart.fill"
-        case .musclePreservation: return "figure.walk"
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(suggestions, id: \.self) { suggestion in
+                        Button {
+                            showUpFor = suggestion
+                            isFocused = false
+                        } label: {
+                            Text(suggestion)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(showUpFor == suggestion ? .white : GQColors.textSecondary)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .fill(showUpFor == suggestion ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.surfaceBase))
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(showUpFor == suggestion ? Color.clear : GQColors.borderDefault, lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 32)
+            }
+        }
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { isFocused = true }
         }
     }
 }

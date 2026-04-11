@@ -96,15 +96,16 @@ class NotificationService: ObservableObject {
         let hour = calendar.component(.hour, from: reminderTime)
         let minute = calendar.component(.minute, from: reminderTime)
 
+        // Warm, noticing-style copy only. Memo directive: no shame, no guilt,
+        // no "future-self" moralizing, no "no excuses" drill-sergeant tone.
+        // These are opt-in reminders — the app is a spotter, not a drill sergeant.
         let motivationalMessages = [
-            "Time to crush your workout! 💪",
-            "Your body is ready. Let's go!",
-            "Champions train when they don't feel like it.",
-            "Today's workout = Tomorrow's results.",
-            "Your future self will thank you.",
-            "No excuses. Just gains.",
-            "Consistency beats intensity. Show up!",
-            "Another day, another opportunity to grow."
+            "Your gym bag is by the door.",
+            "Whenever you're ready.",
+            "Show up however you can today.",
+            "Even ten minutes counts.",
+            "Lace up when you feel like it.",
+            "Quiet nudge — no pressure."
         ]
 
         for weekday in reminderDays {
@@ -114,8 +115,8 @@ class NotificationService: ObservableObject {
             dateComponents.weekday = weekday
 
             let content = UNMutableNotificationContent()
-            content.title = "Workout Reminder"
-            content.body = motivationalMessages.randomElement() ?? "Time to train!"
+            content.title = "Lift AI"
+            content.body = motivationalMessages.randomElement() ?? "Whenever you're ready."
             content.sound = .default
             content.badge = 1
 
@@ -162,9 +163,10 @@ class NotificationService: ObservableObject {
     func sendStreakNotification(streakDays: Int) {
         guard isAuthorized else { return }
 
+        // Noticing language, past-tense. No loss-aversion "keep it going" nag.
         let content = UNMutableNotificationContent()
-        content.title = "Streak Alert! 🔥"
-        content.body = "You're on a \(streakDays)-day streak! Keep it going!"
+        content.title = "Noticed."
+        content.body = "\(streakDays) days in a row."
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)

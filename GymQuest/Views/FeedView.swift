@@ -22,10 +22,12 @@ import AppKit
 
 // MARK: - Feed Tab
 
+// Home-tab filters. Memo directive: Friends (your people) is the default.
+// Discover/algorithmic feed is a secondary "Explore" surface — inspiration only.
 enum FeedFilter: String, CaseIterable {
-    case discover = "Discover"
     case friends = "Friends"
     case clubs = "Clubs"
+    case discover = "Explore"
 }
 
 typealias FeedTab = FeedFilter
@@ -191,7 +193,7 @@ struct FeedView: View {
 
     let profile: UserProfile
 
-    @State private var selectedFeedTab: FeedFilter = .discover
+    @State private var selectedFeedTab: FeedFilter = .friends
     @State private var showLearnPanel = false
     @State private var selectedExerciseForLearn: String?
     @State private var activeSquad: Squad?

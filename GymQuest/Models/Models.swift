@@ -453,6 +453,25 @@ struct ClipMetadata: Codable {
     var version: Int = 1
 }
 
+// MARK: - Proof Card (the signature post-workout ritual artifact)
+//
+// The Proof Card is what every workout ends on. It is a single, visually unmistakable
+// artifact that names what the user just did in a concrete past-tense sentence.
+// It is the atomic unit of witnessed effort — the thing friends react to.
+//
+// Stored as metadata on Post so it can render with a dedicated layout in the feed,
+// remain searchable, and update as the user's context changes.
+
+struct ProofCardMeta: Codable {
+    var headline: String          // "Your first squat day." / "Heaviest bench yet (+10 lb)."
+    var hardestMoment: String?    // "Set 4 · 185 × 5 @ RPE 9"
+    var summaryLine: String       // "Push · 47m · 16 sets"
+    var workoutTypeRaw: String
+    var signedName: String        // Author display name baked in for deterministic rendering
+    var createdAt: Date
+    var variant: String = "default" // "first", "pr", "comeback", "streak", "longest", "default"
+}
+
 /// Length presets aligned with Instagram Reels and TikTok engagement data
 enum ClipLengthPreset: String, CaseIterable {
     case fifteen = "15s"
@@ -1103,6 +1122,10 @@ final class UserProfile {
     var gymName: String = ""
     var subscriptionExpiryDate: Date?
 
+    /// The mission question answer — "Who do you want to show up for?"
+    /// Set during onboarding, visible in profile header. Pure motivation anchor.
+    var showUpFor: String = ""
+
     // Nutrition & body goals
     var dailyCalorieGoal: Int = 2000
     var proteinGoalGrams: Int = 150
@@ -1643,6 +1666,9 @@ final class Post {
     // Quick Clip — living stat overlays for short-form video posts
     var clipMetadataData: Data?         // JSON-encoded ClipMetadata
 
+    // Proof Card — the signature post-workout ritual artifact
+    var proofCardData: Data?            // JSON-encoded ProofCardMeta
+
     init(
         id: UUID = UUID(),
         authorId: UUID = UUID(),
@@ -1777,6 +1803,14 @@ final class Post {
     var isQuickClip: Bool {
         clipMetadataData != nil && (videoData != nil || mediaItems.contains { $0.mediaType == .video })
     }
+
+    /// Decode the Proof Card metadata (the signature post-workout artifact)
+    func getProofCard() -> ProofCardMeta? {
+        guard let data = proofCardData else { return nil }
+        return try? JSONDecoder().decode(ProofCardMeta.self, from: data)
+    }
+
+    var isProofCard: Bool { proofCardData != nil }
 
     /// Get/set decoded media items for exercise-aligned media
     var mediaItems: [PostMedia] {
@@ -3304,24 +3338,25 @@ final class SquadChallenge {
     }
 }
 
-// MARK: - Reaction System (Positive-only)
+// MARK: - Reaction System (Warm-only)
+//
+// Deliberately narrow palette: only reactions that celebrate effort without
+// comparison, competition, or sarcasm. No hearts (wrong valence for fitness),
+// no thumbs (bland), no laugh-crying (can sting), no shock (implies "that's
+// impossible for me"). These four are the only sanctioned reactions.
 
 enum ReactionType: String, Codable, CaseIterable {
-    case heart = "Love"
-    case fire = "Fire"
-    case thumbsUp = "Nice"
-    case strong = "Strong"
-    case clap = "Props"
-    case shocked = "Wow"
+    case strong = "Strong"        // 💪 — "I see the effort"
+    case raisedHands = "Hands"    // 🙌 — "yes, keep going"
+    case eyes = "Seen"            // 👀 — "I'm watching, you're showing up"
+    case fire = "Fire"            // 🔥 — "going hard"
 
     var emoji: String {
         switch self {
-        case .heart: return "❤️"
-        case .fire: return "🔥"
-        case .thumbsUp: return "👍"
         case .strong: return "💪"
-        case .clap: return "👏"
-        case .shocked: return "😮"
+        case .raisedHands: return "🙌"
+        case .eyes: return "👀"
+        case .fire: return "🔥"
         }
     }
 }
@@ -3343,7 +3378,7 @@ final class Reaction {
         odUsername: String = "",
         targetType: String = "post",
         targetId: UUID = UUID(),
-        reactionType: ReactionType = .heart,
+        reactionType: ReactionType = .strong,
         createdAt: Date = Date()
     ) {
         self.id = id

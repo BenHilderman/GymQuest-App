@@ -1179,10 +1179,8 @@ struct ReactionPickerBubble: View {
     let profileUsername: String
     var onSelect: (ReactionType) -> Void
 
-    private let reactions: [(ReactionType, String)] = [
-        (.heart, "❤️"), (.fire, "🔥"), (.thumbsUp, "👍"),
-        (.strong, "💪"), (.clap, "👏"), (.shocked, "😮")
-    ]
+    // Warm-only palette — memo directive. No hearts, no thumbs, no shocked.
+    private let reactions: [(ReactionType, String)] = ReactionType.allCases.map { ($0, $0.emoji) }
 
     var body: some View {
         HStack(spacing: 10) {
