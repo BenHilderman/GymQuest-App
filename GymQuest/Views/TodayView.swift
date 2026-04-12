@@ -1536,66 +1536,56 @@ struct WeeklyScheduleEditorSheet: View {
             ScrollView {
                 VStack(spacing: 16) {
 
-                    // MARK: - Split Picker
-                    VStack(alignment: .leading, spacing: 8) {
+                    // MARK: - Split Picker + Full Day Editor
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("YOUR SPLIT")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(GQColors.textTertiary)
                             .tracking(1)
 
-                        HStack(spacing: 8) {
-                            ForEach(splits, id: \.name) { split in
-                                let isActive = profile.weeklySchedule == split.schedule
-                                Button {
-                                    applySplit(split.schedule)
-                                } label: {
-                                    Text(split.name)
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(isActive ? .white : GQColors.textSecondary)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .background(
-                                            isActive
-                                                ? AnyShapeStyle(GQGradients.primary)
-                                                : AnyShapeStyle(GQColors.surfaceSecondary)
-                                        )
-                                        .clipShape(Capsule())
+                        // Quick-start presets (fill the editor below)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(splits, id: \.name) { split in
+                                    Button { applySplit(split.schedule) } label: {
+                                        Text(split.name)
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundColor(profile.weeklySchedule == split.schedule ? .white : GQColors.textSecondary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 7)
+                                            .background(
+                                                profile.weeklySchedule == split.schedule
+                                                    ? AnyShapeStyle(GQGradients.primary)
+                                                    : AnyShapeStyle(GQColors.surfaceSecondary)
+                                            )
+                                            .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+
+                                Button { suggestPlan() } label: {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "sparkles")
+                                            .font(.system(size: 9, weight: .bold))
+                                        Text("Suggest")
+                                            .font(.system(size: 11, weight: .semibold))
+                                    }
+                                    .foregroundColor(GQColors.vividPurple)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(GQColors.vividPurple.opacity(0.1))
+                                    .clipShape(Capsule())
                                 }
                                 .buttonStyle(.plain)
                             }
-
-                            Button { suggestPlan() } label: {
-                                HStack(spacing: 3) {
-                                    Image(systemName: "sparkles")
-                                        .font(.system(size: 9, weight: .bold))
-                                    Text("Suggest")
-                                        .font(.system(size: 12, weight: .semibold))
-                                }
-                                .foregroundColor(GQColors.vividPurple)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(GQColors.vividPurple.opacity(0.1))
-                                .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
                         }
 
-                        // Week preview
-                        if !profile.weeklySchedule.isEmpty {
-                            HStack(spacing: 0) {
-                                ForEach([2, 3, 4, 5, 6, 7, 1], id: \.self) { wd in
-                                    VStack(spacing: 2) {
-                                        Text(["", "S", "M", "T", "W", "T", "F", "S"][wd])
-                                            .font(.system(size: 9, weight: .semibold))
-                                            .foregroundColor(GQColors.textTertiary)
-                                        Text(pShort(profile.weeklySchedule[wd] ?? ""))
-                                            .font(.system(size: 8, weight: .bold))
-                                            .foregroundColor(pColor(profile.weeklySchedule[wd] ?? ""))
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                }
+                        // Full 7-day editor — always visible, fully customizable
+                        // Presets just fill this in. Change any day to anything.
+                        VStack(spacing: 4) {
+                            ForEach([(2, "Mon"), (3, "Tue"), (4, "Wed"), (5, "Thu"), (6, "Fri"), (7, "Sat"), (1, "Sun")], id: \.0) { wd, name in
+                                splitDayRow(weekday: wd, name: name)
                             }
-                            .padding(.top, 4)
                         }
                     }
                     .padding(14)
@@ -1767,6 +1757,57 @@ struct WeeklyScheduleEditorSheet: View {
                 .presentationDetents([.height(260)])
             }
         }
+    }
+
+    private let dayTypes: [WorkoutType?] = [nil, .push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .rest]
+
+    @ViewBuilder
+    private func splitDayRow(weekday: Int, name: String) -> some View {
+        let current = profile.weeklySchedule[weekday]
+        HStack(spacing: 0) {
+            Text(name)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(GQColors.textPrimary)
+                .frame(width: 36, alignment: .leading)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 5) {
+                    ForEach(dayTypes, id: \.self) { type in
+                        let label = type?.rawValue ?? "Off"
+                        let isSelected = (type == nil && current == nil) ||
+                            (type != nil && type?.rawValue == current)
+
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.1)) {
+                                if let type {
+                                    profile.weeklySchedule[weekday] = type.rawValue
+                                } else {
+                                    profile.weeklySchedule.removeValue(forKey: weekday)
+                                }
+                                try? modelContext.save()
+                            }
+                            #if canImport(UIKit)
+                            UISelectionFeedbackGenerator().selectionChanged()
+                            #endif
+                        } label: {
+                            Text(label)
+                                .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                                .foregroundColor(isSelected ? .white : GQColors.textTertiary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(
+                                    isSelected
+                                        ? AnyShapeStyle(GQGradients.primary)
+                                        : AnyShapeStyle(GQColors.adaptiveOverlay(0.04))
+                                )
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 2)
     }
 
     private func changeMonth(_ by: Int) {
