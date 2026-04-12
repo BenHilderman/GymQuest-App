@@ -915,7 +915,7 @@ struct AppTourOverlay: View {
     }
 
     private let steps: [TourStep] = [
-        TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 58, cardAbove: true, contentY: nil),
+        TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 55, cardAbove: true, contentY: nil),
         TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", tabIndex: 1, ringSize: 52, cardAbove: true, contentY: nil),
         TourStep(title: "Friends", description: "Your people's workouts. React\nwith 💪🙌👀🔥 to support them.", tabIndex: 0, ringSize: 52, cardAbove: true, contentY: nil),
         // Explore is a sub-tab inside Feed (top of page), not a bottom tab bar icon.
@@ -944,8 +944,8 @@ struct AppTourOverlay: View {
             }
             // Tab icon Y: empirically measured from device screenshots.
             // Using fractions of full screen height (with .ignoresSafeArea).
-            let tabIconY = screenH * 0.930   // Feed/Today/Activity/You ICON centers
-            let plusY = screenH * 0.922       // + button icon center
+            let tabIconY = screenH * 0.932
+            let plusY = screenH * 0.925
 
             // Ring center for current step
             let topSafe = geo.safeAreaInsets.top
