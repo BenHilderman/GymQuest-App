@@ -891,117 +891,173 @@ struct WorkoutIslandPill: View {
         .modelContainer(for: [Workout.self, UserProfile.self], inMemory: true)
 }
 
-// MARK: - App Tour Overlay
+// MARK: - App Tour Overlay (Spotlight-style)
 //
-// First-time guided tour. 6 steps, each switches the real tab behind a
-// dimmed overlay + floating card. Clean, minimal, ~15 seconds total.
+// Highlights real UI elements with a cutout in the dim overlay. The spotlight
+// animates smoothly between positions. Tooltip cards appear near the highlighted
+// element with a connecting line. Engaging, clean, directly on the app.
 
 struct AppTourOverlay: View {
     @Binding var step: Int
     let onNext: () -> Void
     let onSkip: () -> Void
 
-    private let steps: [(icon: String, title: String, description: String)] = [
-        ("plus.circle.fill", "Start a Workout", "Tap + to log a workout. When you finish, you'll get a Proof Card to share."),
-        ("calendar", "Today", "Your daily challenges, progress rings, and what to do next."),
-        ("person.2.fill", "Friends", "Your people's workouts. React with 💪🙌👀🔥 to support them."),
-        ("magnifyingglass", "Explore", "Discover workouts, search by type, and use any session in one tap."),
-        ("bell.fill", "Activity", "Reactions, follows, and when someone uses your workout."),
-        ("person.fill", "Your Profile", "Your training record and achievements. Complete your profile to get started."),
-    ]
-
-    private var current: (icon: String, title: String, description: String) {
-        steps[min(step, steps.count - 1)]
+    private struct TourStep {
+        let title: String
+        let description: String
+        /// Spotlight center as fraction of screen (0-1)
+        let spotX: CGFloat
+        let spotY: CGFloat
+        /// Spotlight size
+        let spotW: CGFloat
+        let spotH: CGFloat
+        let spotRadius: CGFloat
+        /// Tooltip appears above (true) or below (false) the spotlight
+        let tooltipAbove: Bool
     }
 
+    private let steps: [TourStep] = [
+        // 0: + button (center bottom of tab bar)
+        TourStep(title: "Start a Workout", description: "Tap + to log a workout.\nWhen you finish, you'll get a\nProof Card to share.", spotX: 0.5, spotY: 0.945, spotW: 56, spotH: 56, spotRadius: 28, tooltipAbove: true),
+        // 1: Today tab (2nd from left)
+        TourStep(title: "Today", description: "Your daily challenges,\nprogress rings, and what to do next.", spotX: 0.27, spotY: 0.955, spotW: 60, spotH: 44, spotRadius: 12, tooltipAbove: true),
+        // 2: Feed tab (1st from left) — friends
+        TourStep(title: "Friends", description: "Your people's workouts.\nReact with 💪🙌👀🔥 to support them.", spotX: 0.1, spotY: 0.955, spotW: 60, spotH: 44, spotRadius: 12, tooltipAbove: true),
+        // 3: Explore — upper content area
+        TourStep(title: "Explore", description: "Discover workouts, search by type,\nand use any session in one tap.", spotX: 0.5, spotY: 0.25, spotW: 340, spotH: 200, spotRadius: 20, tooltipAbove: false),
+        // 4: Activity tab (4th from left)
+        TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", spotX: 0.73, spotY: 0.955, spotW: 60, spotH: 44, spotRadius: 12, tooltipAbove: true),
+        // 5: You tab (5th)
+        TourStep(title: "Your Profile", description: "Your training record and achievements.\nComplete your profile to get started.", spotX: 0.9, spotY: 0.955, spotW: 60, spotH: 44, spotRadius: 12, tooltipAbove: true),
+    ]
+
+    private var current: TourStep { steps[min(step, steps.count - 1)] }
     private var isLastStep: Bool { step >= steps.count - 1 }
 
     var body: some View {
-        ZStack {
-            // Dim background — real app visible behind
-            Color.black.opacity(0.6)
-                .ignoresSafeArea()
-                .onTapGesture { onNext() }
+        GeometryReader { geo in
+            let screenW = geo.size.width
+            let screenH = geo.size.height
+            let spotCenter = CGPoint(x: screenW * current.spotX, y: screenH * current.spotY)
 
-            VStack(spacing: 0) {
-                // Skip button
-                HStack {
-                    Spacer()
-                    Button(action: onSkip) {
-                        Text("Skip")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white.opacity(0.7))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
+            ZStack {
+                // Dimmed overlay with spotlight cutout
+                Color.black.opacity(0.55)
+                    .ignoresSafeArea()
+                    .reverseMask {
+                        RoundedRectangle(cornerRadius: current.spotRadius)
+                            .frame(width: current.spotW, height: current.spotH)
+                            .position(spotCenter)
                     }
-                }
-                .padding(.top, 8)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: step)
 
-                Spacer()
+                // Pulsing ring around spotlight
+                RoundedRectangle(cornerRadius: current.spotRadius + 4)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [GQColors.deepBlue.opacity(0.6), GQColors.vividPurple.opacity(0.6)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 2
+                    )
+                    .frame(width: current.spotW + 8, height: current.spotH + 8)
+                    .position(spotCenter)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: step)
 
-                // Card
-                VStack(spacing: 18) {
-                    // Icon
-                    ZStack {
-                        Circle()
-                            .fill(AnyShapeStyle(GQGradients.primary.opacity(0.15)))
-                            .frame(width: 64, height: 64)
-                        Image(systemName: current.icon)
-                            .font(.system(size: 28, weight: .semibold))
-                            .foregroundStyle(AnyShapeStyle(GQGradients.primary))
-                    }
+                // Tooltip card
+                let tooltipY = current.tooltipAbove
+                    ? spotCenter.y - current.spotH / 2 - 140
+                    : spotCenter.y + current.spotH / 2 + 140
 
-                    // Title
+                VStack(spacing: 10) {
                     Text(current.title)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(GQColors.textPrimary)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
 
-                    // Description
                     Text(current.description)
-                        .font(.system(size: 14))
-                        .foregroundColor(GQColors.textSecondary)
+                        .font(.system(size: 13))
+                        .foregroundColor(.white.opacity(0.75))
                         .multilineTextAlignment(.center)
                         .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 12)
 
-                    // Step dots
-                    HStack(spacing: 6) {
-                        ForEach(0..<steps.count, id: \.self) { i in
-                            Circle()
-                                .fill(i == step ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(Color.white.opacity(0.25)))
-                                .frame(width: i == step ? 8 : 6, height: i == step ? 8 : 6)
-                                .animation(.easeInOut(duration: 0.2), value: step)
+                    // Step dots + Next
+                    HStack(spacing: 16) {
+                        HStack(spacing: 5) {
+                            ForEach(0..<steps.count, id: \.self) { i in
+                                Circle()
+                                    .fill(i == step ? Color.white : Color.white.opacity(0.3))
+                                    .frame(width: i == step ? 7 : 5, height: i == step ? 7 : 5)
+                            }
                         }
+
+                        Spacer()
+
+                        Button(action: onNext) {
+                            Text(isLastStep ? "Get Started" : "Next")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 9)
+                                .background(GQGradients.primary)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(.top, 4)
-
-                    // Next / Get Started button
-                    Button(action: onNext) {
-                        Text(isLastStep ? "Get Started" : "Next")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(GQGradients.primary)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
                 }
-                .padding(24)
-                .frame(maxWidth: 320)
-                .background(GQColors.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(GQColors.borderDefault, lineWidth: 1)
+                .padding(20)
+                .frame(maxWidth: 300)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+                        )
                 )
-                .shadow(color: Color.black.opacity(0.3), radius: 20, y: 10)
+                .shadow(color: Color.black.opacity(0.3), radius: 16, y: 6)
+                .position(x: screenW * 0.5, y: min(max(tooltipY, 120), screenH - 120))
+                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: step)
+                .transition(.opacity)
 
-                Spacer()
-                Spacer()
+                // Skip button (top right)
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button(action: onSkip) {
+                            Text("Skip")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.6))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.white.opacity(0.1))
+                                .clipShape(Capsule())
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.top, 12)
+                    }
+                    Spacer()
+                }
             }
+            .contentShape(Rectangle())
+            .onTapGesture { onNext() }
         }
+    }
+}
+
+// MARK: - Reverse Mask (spotlight cutout helper)
+
+extension View {
+    func reverseMask<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        self.mask(
+            Rectangle()
+                .ignoresSafeArea()
+                .overlay(
+                    content()
+                        .blendMode(.destinationOut)
+                )
+                .compositingGroup()
+        )
     }
 }
 
