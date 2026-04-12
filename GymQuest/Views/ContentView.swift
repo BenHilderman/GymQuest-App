@@ -931,15 +931,15 @@ struct AppTourOverlay: View {
 
     private let steps: [TourStep] = [
         // 0: + button
-        TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 55, cardAbove: true, contentY: nil),
+        TourStep(title: "Start a Workout", description: "Tap + to start logging.\nShare your session when you're done.", tabIndex: 2, ringSize: 55, cardAbove: true, contentY: nil),
         // 1: Today bottom tab
-        TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", tabIndex: 1, ringSize: 52, cardAbove: true, contentY: nil),
+        TourStep(title: "Today", description: "Daily progress, challenges,\nand your training at a glance.", tabIndex: 1, ringSize: 52, cardAbove: true, contentY: nil),
         // 2: Activity bottom tab
-        TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", tabIndex: 3, ringSize: 52, cardAbove: true, contentY: nil),
+        TourStep(title: "Activity", description: "See who reacted, followed you,\nor used your workout.", tabIndex: 3, ringSize: 52, cardAbove: true, contentY: nil),
         // 3: You bottom tab
-        TourStep(title: "Your Profile", description: "Your training record. Complete\nyour profile to get started.", tabIndex: 4, ringSize: 52, cardAbove: true, contentY: nil),
+        TourStep(title: "You", description: "Your profile, achievements,\nand training history.", tabIndex: 4, ringSize: 52, cardAbove: true, contentY: nil),
         // 4: Feed last — so user lands on the feed ready to engage
-        TourStep(title: "Feed", description: "Friends: your people's workouts\nClubs: gym communities & challenges\nExplore: discover & use any workout", tabIndex: 0, ringSize: 52, cardAbove: true, contentY: nil),
+        TourStep(title: "Feed", description: "Friends: workouts from people you follow\nClubs: join communities and challenges\nExplore: browse and try any workout", tabIndex: 0, ringSize: 52, cardAbove: true, contentY: nil),
     ]
 
     private var current: TourStep { steps[min(step, steps.count - 1)] }
