@@ -46,7 +46,7 @@ struct LoginView: View {
                         .font(.system(size: 36, weight: .bold))
                         .foregroundColor(GQColors.textPrimary)
 
-                    Text("Train smarter. Lift stronger.")
+                    Text("Earned progress, not performed perfection.")
                         .font(.subheadline)
                         .foregroundColor(GQColors.textTertiary)
                 }
