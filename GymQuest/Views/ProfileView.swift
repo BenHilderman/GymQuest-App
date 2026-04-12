@@ -732,21 +732,34 @@ struct ProfileView: View {
 
     // MARK: - Achievement Badges
 
-    private var achievementBadgesSection: some View {
-        let allBadges: [(icon: String, title: String, unlocked: Bool)] = [
-            ("figure.walk", "First Workout", totalWorkoutCount >= 1),
-            ("flame.fill", "7-Day Streak", profile.xp >= 500),
-            ("flame.circle.fill", "30-Day Streak", profile.xp >= 3000),
-            ("trophy.fill", "100 Workouts", totalWorkoutCount >= 100),
-            ("star.fill", "PR Machine", prEvents.count >= 10),
-            ("bubble.left.and.bubble.right.fill", "Social Butterfly", userPosts.count >= 10),
-        ]
-        let sorted = allBadges.sorted { lhs, rhs in
-            if lhs.unlocked == rhs.unlocked { return false }
-            return lhs.unlocked
-        }
+    @State private var selectedAchievement: AchievementInfo? = nil
 
-        return VStack(alignment: .leading, spacing: 8) {
+    struct AchievementInfo: Identifiable {
+        let id = UUID()
+        let icon: String
+        let title: String
+        let description: String
+        let current: Int
+        let target: Int
+        var unlocked: Bool { current >= target }
+        var progress: Double { target > 0 ? min(Double(current) / Double(target), 1.0) : 0 }
+    }
+
+    private var achievements: [AchievementInfo] {
+        [
+            AchievementInfo(icon: "figure.walk", title: "First Workout", description: "Log your first workout.", current: min(totalWorkoutCount, 1), target: 1),
+            AchievementInfo(icon: "flame.fill", title: "7-Day Streak", description: "Train 7 days with no more than 1 rest day between.", current: min(cachedStreak, 7), target: 7),
+            AchievementInfo(icon: "flame.circle.fill", title: "30-Day Streak", description: "Maintain a 30-day training streak.", current: min(cachedStreak, 30), target: 30),
+            AchievementInfo(icon: "trophy.fill", title: "100 Workouts", description: "Log 100 total workouts.", current: min(totalWorkoutCount, 100), target: 100),
+            AchievementInfo(icon: "star.fill", title: "PR Machine", description: "Hit 10 personal records across any exercise.", current: min(prEvents.count, 10), target: 10),
+            AchievementInfo(icon: "bubble.left.and.bubble.right.fill", title: "Social Butterfly", description: "Share 10 workout posts to the feed.", current: min(userPosts.count, 10), target: 10),
+            AchievementInfo(icon: "person.2.fill", title: "Spotter", description: "Have 5 of your workouts used by others.", current: min(cachedUsedCount, 5), target: 5),
+            AchievementInfo(icon: "calendar.badge.checkmark", title: "Month Strong", description: "Show up on 20 distinct days.", current: min(cachedDaysShownUp, 20), target: 20),
+        ].sorted { $0.unlocked && !$1.unlocked }
+    }
+
+    private var achievementBadgesSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text("ACHIEVEMENTS")
                 .font(.system(size: 11, weight: .bold))
                 .foregroundColor(GQColors.textSecondary)
@@ -754,43 +767,43 @@ struct ProfileView: View {
                 .padding(.horizontal, 4)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                let badges: [(icon: String, title: String, unlocked: Bool)] = [
-                    ("figure.walk", "First Workout", totalWorkoutCount >= 1),
-                    ("flame.fill", "7-Day Streak", profile.xp >= 500),
-                    ("flame.circle.fill", "30-Day Streak", profile.xp >= 3000),
-                    ("trophy.fill", "100 Workouts", totalWorkoutCount >= 100),
-                    ("star.fill", "PR Machine", prEvents.count >= 10),
-                    ("bubble.left.and.bubble.right.fill", "Social Butterfly", userPosts.count >= 10),
-                ].sorted { $0.unlocked && !$1.unlocked }
-
                 HStack(spacing: 10) {
-                    ForEach(badges, id: \.title) { badge in
-                        achievementBadge(icon: badge.icon, title: badge.title, unlocked: badge.unlocked)
+                    ForEach(achievements) { badge in
+                        Button {
+                            selectedAchievement = badge
+                        } label: {
+                            achievementBadge(badge: badge)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
         }
         .padding(.horizontal, 4)
+        .sheet(item: $selectedAchievement) { badge in
+            AchievementDetailSheet(badge: badge)
+                .presentationDetents([.medium])
+        }
     }
 
     @ViewBuilder
-    private func achievementBadge(icon: String, title: String, unlocked: Bool) -> some View {
+    private func achievementBadge(badge: AchievementInfo) -> some View {
         VStack(spacing: 6) {
             ZStack {
                 Circle()
-                    .fill(unlocked ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
+                    .fill(badge.unlocked ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
                     .frame(width: 48, height: 48)
-                Image(systemName: icon)
+                Image(systemName: badge.icon)
                     .font(.system(size: 20))
-                    .foregroundStyle(unlocked ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary.opacity(0.5)))
+                    .foregroundStyle(badge.unlocked ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary.opacity(0.5)))
             }
-            Text(title)
+            Text(badge.title)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(unlocked ? GQColors.textPrimary : GQColors.textTertiary)
+                .foregroundColor(badge.unlocked ? GQColors.textPrimary : GQColors.textTertiary)
                 .lineLimit(1)
         }
         .frame(width: 72)
-        .opacity(unlocked ? 1 : 0.5)
+        .opacity(badge.unlocked ? 1 : 0.5)
     }
 
     // MARK: - (Top tab picker removed — single-level tabs now)
@@ -2329,6 +2342,69 @@ struct ProfilePostBrowserView: View {
 #Preview {
     ProfileView(profile: UserProfile())
         .environmentObject(AppState())
+}
+
+// MARK: - Achievement Detail Sheet
+
+struct AchievementDetailSheet: View {
+    let badge: ProfileView.AchievementInfo
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 20) {
+            // Icon
+            ZStack {
+                Circle()
+                    .fill(badge.unlocked ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
+                    .frame(width: 72, height: 72)
+                Image(systemName: badge.icon)
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(badge.unlocked ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary))
+            }
+
+            // Title + status
+            VStack(spacing: 4) {
+                Text(badge.title)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text(badge.unlocked ? "Unlocked" : "In progress")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(badge.unlocked ? GQColors.success : GQColors.textTertiary)
+            }
+
+            // Description
+            Text(badge.description)
+                .font(.system(size: 13))
+                .foregroundColor(GQColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            // Progress bar + count
+            VStack(spacing: 8) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(GQColors.adaptiveOverlay(0.08))
+                            .frame(height: 8)
+                        Capsule()
+                            .fill(AnyShapeStyle(GQGradients.primary))
+                            .frame(width: geo.size.width * badge.progress, height: 8)
+                    }
+                }
+                .frame(height: 8)
+                .padding(.horizontal, 40)
+
+                Text("\(badge.current) / \(badge.target)")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+
+            Spacer()
+        }
+        .padding(.top, 28)
+        .frame(maxWidth: .infinity)
+        .background(GQColors.background.ignoresSafeArea())
+    }
 }
 
 // MARK: - Founder Dashboard Section
