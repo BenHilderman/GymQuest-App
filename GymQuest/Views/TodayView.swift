@@ -222,10 +222,6 @@ struct TodayView: View {
 
             sectionDivider
 
-            startWorkoutHeroButton
-
-            sectionDivider
-
             // Pod / Find a Pod card
             podOrOnboardingCard
                 .featureGated(FeatureFlags.shared.podSystemEnabled)

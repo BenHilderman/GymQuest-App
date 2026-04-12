@@ -779,9 +779,9 @@ struct ProfileView: View {
                                     Circle()
                                         .fill(badge.isComplete ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
                                         .frame(width: 48, height: 48)
-                                    Image(systemName: badge.isComplete ? "checkmark" : badge.icon)
-                                        .font(.system(size: badge.isComplete ? 16 : 20, weight: .bold))
-                                        .foregroundStyle(badge.isComplete ? AnyShapeStyle(GQColors.success) : AnyShapeStyle(GQColors.textTertiary.opacity(0.5)))
+                                    Image(systemName: badge.icon)
+                                        .font(.system(size: 20))
+                                        .foregroundStyle(badge.isComplete ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary.opacity(0.5)))
                                 }
                                 Text(badge.title)
                                     .font(.system(size: 10, weight: .medium))
