@@ -891,11 +891,11 @@ struct WorkoutIslandPill: View {
         .modelContainer(for: [Workout.self, UserProfile.self], inMemory: true)
 }
 
-// MARK: - App Tour Overlay (Spotlight-style)
+// MARK: - App Tour Overlay (Callout-style)
 //
-// Highlights real UI elements with a cutout in the dim overlay. The spotlight
-// animates smoothly between positions. Tooltip cards appear near the highlighted
-// element with a connecting line. Engaging, clean, directly on the app.
+// Clean callout system: a gradient ring around the real element + a frosted
+// tooltip card with a triangular pointer connecting them. No heavy dim.
+// The triangle is part of the card — same fill, visually connected.
 
 struct AppTourOverlay: View {
     @Binding var step: Int
@@ -905,159 +905,173 @@ struct AppTourOverlay: View {
     private struct TourStep {
         let title: String
         let description: String
-        /// Spotlight center as fraction of screen (0-1)
-        let spotX: CGFloat
-        let spotY: CGFloat
-        /// Spotlight size
-        let spotW: CGFloat
-        let spotH: CGFloat
-        let spotRadius: CGFloat
-        /// Tooltip appears above (true) or below (false) the spotlight
-        let tooltipAbove: Bool
+        let ringX: CGFloat      // center X as fraction of screen
+        let ringY: CGFloat      // center Y as fraction of screen
+        let ringSize: CGFloat   // diameter of ring
+        let cardAbove: Bool     // card appears above the ring (true) or below (false)
     }
 
     private let steps: [TourStep] = [
-        // 0: + button (center bottom of tab bar)
-        TourStep(title: "Start a Workout", description: "Tap + to log a workout.\nWhen you finish, you'll get a\nProof Card to share.", spotX: 0.5, spotY: 0.945, spotW: 56, spotH: 56, spotRadius: 28, tooltipAbove: true),
-        // 1: Today tab (2nd from left)
-        TourStep(title: "Today", description: "Your daily challenges,\nprogress rings, and what to do next.", spotX: 0.27, spotY: 0.955, spotW: 60, spotH: 44, spotRadius: 12, tooltipAbove: true),
-        // 2: Feed tab (1st from left) — friends
-        TourStep(title: "Friends", description: "Your people's workouts.\nReact with 💪🙌👀🔥 to support them.", spotX: 0.1, spotY: 0.955, spotW: 60, spotH: 44, spotRadius: 12, tooltipAbove: true),
-        // 3: Explore — upper content area
-        TourStep(title: "Explore", description: "Discover workouts, search by type,\nand use any session in one tap.", spotX: 0.5, spotY: 0.25, spotW: 340, spotH: 200, spotRadius: 20, tooltipAbove: false),
-        // 4: Activity tab (4th from left)
-        TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", spotX: 0.73, spotY: 0.955, spotW: 60, spotH: 44, spotRadius: 12, tooltipAbove: true),
-        // 5: You tab (5th)
-        TourStep(title: "Your Profile", description: "Your training record and achievements.\nComplete your profile to get started.", spotX: 0.9, spotY: 0.955, spotW: 60, spotH: 44, spotRadius: 12, tooltipAbove: true),
+        TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", ringX: 0.5, ringY: 0.93, ringSize: 58, cardAbove: true),
+        TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", ringX: 0.28, ringY: 0.96, ringSize: 48, cardAbove: true),
+        TourStep(title: "Friends", description: "Your people's workouts. React\nwith 💪🙌👀🔥 to support them.", ringX: 0.1, ringY: 0.96, ringSize: 48, cardAbove: true),
+        TourStep(title: "Explore", description: "Discover workouts, search by type,\nand use any session in one tap.", ringX: 0.5, ringY: 0.2, ringSize: 48, cardAbove: false),
+        TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", ringX: 0.72, ringY: 0.96, ringSize: 48, cardAbove: true),
+        TourStep(title: "Your Profile", description: "Your training record. Complete\nyour profile to get started.", ringX: 0.9, ringY: 0.96, ringSize: 48, cardAbove: true),
     ]
 
     private var current: TourStep { steps[min(step, steps.count - 1)] }
     private var isLastStep: Bool { step >= steps.count - 1 }
 
+    @State private var ringPulse = false
+
     var body: some View {
         GeometryReader { geo in
-            let screenW = geo.size.width
-            let screenH = geo.size.height
-            let spotCenter = CGPoint(x: screenW * current.spotX, y: screenH * current.spotY)
+            let w = geo.size.width
+            let h = geo.size.height
+            let ringCenter = CGPoint(x: w * current.ringX, y: h * current.ringY)
+            let arrowTipY = current.cardAbove
+                ? ringCenter.y - current.ringSize / 2 - 6
+                : ringCenter.y + current.ringSize / 2 + 6
 
             ZStack {
-                // Dimmed overlay with spotlight cutout
-                Color.black.opacity(0.55)
+                // Very subtle dim — barely perceptible, keeps focus
+                Color.black.opacity(0.08)
                     .ignoresSafeArea()
-                    .reverseMask {
-                        RoundedRectangle(cornerRadius: current.spotRadius)
-                            .frame(width: current.spotW, height: current.spotH)
-                            .position(spotCenter)
-                    }
-                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: step)
+                    .allowsHitTesting(false)
 
-                // Pulsing ring around spotlight
-                RoundedRectangle(cornerRadius: current.spotRadius + 4)
+                // Gradient ring around the element
+                Circle()
                     .strokeBorder(
                         LinearGradient(
-                            colors: [GQColors.deepBlue.opacity(0.6), GQColors.vividPurple.opacity(0.6)],
+                            colors: [GQColors.deepBlue, GQColors.vividPurple],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         ),
-                        lineWidth: 2
+                        lineWidth: 2.5
                     )
-                    .frame(width: current.spotW + 8, height: current.spotH + 8)
-                    .position(spotCenter)
-                    .animation(.spring(response: 0.6, dampingFraction: 0.8), value: step)
+                    .frame(width: current.ringSize, height: current.ringSize)
+                    .scaleEffect(ringPulse ? 1.08 : 1.0)
+                    .opacity(ringPulse ? 0.7 : 1.0)
+                    .position(ringCenter)
+                    .animation(.spring(response: 0.7, dampingFraction: 0.85), value: step)
+                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: ringPulse)
 
-                // Tooltip card
-                let tooltipY = current.tooltipAbove
-                    ? spotCenter.y - current.spotH / 2 - 140
-                    : spotCenter.y + current.spotH / 2 + 140
+                // Callout card with pointer triangle
+                let cardX = clamp(w * current.ringX, min: 160, max: w - 160)
+                let cardY = current.cardAbove ? arrowTipY - 100 : arrowTipY + 100
 
-                VStack(spacing: 10) {
-                    Text(current.title)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.white)
+                VStack(spacing: 0) {
+                    if !current.cardAbove {
+                        // Triangle pointing UP (card is below)
+                        TourPointerTriangle(pointsUp: true)
+                            .fill(.ultraThinMaterial)
+                            .frame(width: 18, height: 9)
+                            .overlay(
+                                TourPointerTriangle(pointsUp: true)
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                            )
+                    }
 
-                    Text(current.description)
-                        .font(.system(size: 13))
-                        .foregroundColor(.white.opacity(0.75))
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(2)
+                    // Card body
+                    VStack(spacing: 10) {
+                        Text(current.title)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(GQColors.textPrimary)
 
-                    // Step dots + Next
-                    HStack(spacing: 16) {
-                        HStack(spacing: 5) {
-                            ForEach(0..<steps.count, id: \.self) { i in
-                                Circle()
-                                    .fill(i == step ? Color.white : Color.white.opacity(0.3))
-                                    .frame(width: i == step ? 7 : 5, height: i == step ? 7 : 5)
+                        Text(current.description)
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(2)
+
+                        HStack(spacing: 12) {
+                            // Step dots
+                            HStack(spacing: 4) {
+                                ForEach(0..<steps.count, id: \.self) { i in
+                                    Circle()
+                                        .fill(i == step
+                                              ? AnyShapeStyle(GQGradients.primary)
+                                              : AnyShapeStyle(GQColors.textTertiary.opacity(0.4)))
+                                        .frame(width: i == step ? 6 : 4, height: i == step ? 6 : 4)
+                                }
                             }
-                        }
 
-                        Spacer()
+                            Spacer()
 
-                        Button(action: onNext) {
-                            Text(isLastStep ? "Get Started" : "Next")
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 9)
-                                .background(GQGradients.primary)
-                                .clipShape(Capsule())
+                            Button(action: onSkip) {
+                                Text("Skip")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+
+                            Button(action: onNext) {
+                                Text(isLastStep ? "Done" : "Next")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 7)
+                                    .background(GQGradients.primary)
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
-                    .padding(.top, 4)
-                }
-                .padding(20)
-                .frame(maxWidth: 300)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
-                        )
-                )
-                .shadow(color: Color.black.opacity(0.3), radius: 16, y: 6)
-                .position(x: screenW * 0.5, y: min(max(tooltipY, 120), screenH - 120))
-                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: step)
-                .transition(.opacity)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                            )
+                    )
+                    .shadow(color: Color.black.opacity(0.15), radius: 12, y: 4)
 
-                // Skip button (top right)
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button(action: onSkip) {
-                            Text("Skip")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.6))
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(Color.white.opacity(0.1))
-                                .clipShape(Capsule())
-                        }
-                        .padding(.trailing, 20)
-                        .padding(.top, 12)
+                    if current.cardAbove {
+                        // Triangle pointing DOWN (card is above)
+                        TourPointerTriangle(pointsUp: false)
+                            .fill(.ultraThinMaterial)
+                            .frame(width: 18, height: 9)
+                            .overlay(
+                                TourPointerTriangle(pointsUp: false)
+                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                            )
                     }
-                    Spacer()
                 }
+                .frame(maxWidth: 280)
+                .position(x: cardX, y: cardY)
+                .animation(.spring(response: 0.7, dampingFraction: 0.85), value: step)
             }
             .contentShape(Rectangle())
             .onTapGesture { onNext() }
+            .onAppear { ringPulse = true }
         }
+    }
+
+    private func clamp(_ value: CGFloat, min: CGFloat, max: CGFloat) -> CGFloat {
+        Swift.min(Swift.max(value, min), max)
     }
 }
 
-// MARK: - Reverse Mask (spotlight cutout helper)
+// MARK: - Tour Pointer Triangle
 
-extension View {
-    func reverseMask<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        self.mask(
-            Rectangle()
-                .ignoresSafeArea()
-                .overlay(
-                    content()
-                        .blendMode(.destinationOut)
-                )
-                .compositingGroup()
-        )
+struct TourPointerTriangle: Shape {
+    let pointsUp: Bool
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        if pointsUp {
+            path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        } else {
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY))
+        }
+        path.closeSubpath()
+        return path
     }
 }
 
