@@ -1593,11 +1593,38 @@ struct WeeklyScheduleEditorSheet: View {
                                 }
                             }
 
-                            // Customize toggle + summary
-                            HStack {
+                            // Shift + Customize row
+                            HStack(spacing: 12) {
+                                // Shift schedule buttons
+                                HStack(spacing: 4) {
+                                    Button { shiftSchedule(by: -1) } label: {
+                                        Image(systemName: "arrow.left")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(GQColors.textTertiary)
+                                            .frame(width: 26, height: 26)
+                                            .background(GQColors.adaptiveOverlay(0.06))
+                                            .clipShape(Circle())
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Text("Shift")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundColor(GQColors.textTertiary)
+
+                                    Button { shiftSchedule(by: 1) } label: {
+                                        Image(systemName: "arrow.right")
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(GQColors.textTertiary)
+                                            .frame(width: 26, height: 26)
+                                            .background(GQColors.adaptiveOverlay(0.06))
+                                            .clipShape(Circle())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+
                                 let trainingDays = profile.weeklySchedule.values.filter { $0 != "Rest" }.count
-                                Text("\(trainingDays) training, \(7 - trainingDays) rest")
-                                    .font(.system(size: 11, weight: .medium))
+                                Text("\(trainingDays) on, \(7 - trainingDays) rest")
+                                    .font(.system(size: 10, weight: .medium))
                                     .foregroundColor(GQColors.textTertiary)
 
                                 Spacer()
@@ -1755,7 +1782,9 @@ struct WeeklyScheduleEditorSheet: View {
 
                             ForEach(monthDays, id: \.day) { item in
                                 let planned = plannedFor(date: item.date, weekday: item.weekday)
-                                let done = completedDates.contains(item.day)
+                                let loggedDone = completedDates.contains(item.day)
+                                let manualDone = profile.dayOverrides[dateKey(item.date)] == "_done"
+                                let done = loggedDone || manualDone
                                 let isToday = calendar.isDateInToday(item.date)
                                 let isPast = item.date < calendar.startOfDay(for: Date())
 
@@ -2028,6 +2057,28 @@ struct WeeklyScheduleEditorSheet: View {
         .buttonStyle(.plain)
     }
 
+    /// Rotate the entire weekly template by +1 or -1 day.
+    /// Shift forward = missed today, push everything to tomorrow.
+    /// Shift back = got ahead, pull everything back.
+    private func shiftSchedule(by offset: Int) {
+        let current = profile.weeklySchedule
+        guard !current.isEmpty else { return }
+        var shifted: [Int: String] = [:]
+        for (wd, type) in current {
+            var newWd = wd + offset
+            if newWd < 1 { newWd = 7 }
+            if newWd > 7 { newWd = 1 }
+            shifted[newWd] = type
+        }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            profile.weeklySchedule = shifted
+            try? modelContext.save()
+        }
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+    }
+
     private func changeMonth(_ by: Int) {
         withAnimation(.easeInOut(duration: 0.2)) {
             displayedMonth = calendar.date(byAdding: .month, value: by, to: displayedMonth) ?? displayedMonth
@@ -2255,6 +2306,26 @@ struct DayOverrideSheet: View {
                 .font(.system(size: 10))
                 .foregroundColor(GQColors.textTertiary)
                 .padding(.top, 2)
+
+            // Mark as done (past days only — "I trained but didn't log")
+            if date < Calendar.current.startOfDay(for: Date()) {
+                Button {
+                    profile.dayOverrides[dateKey(date)] = "_done"
+                    try? modelContext.save()
+                    #if canImport(UIKit)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    #endif
+                    dismiss()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("I trained, just didn't log it")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(GQColors.success)
+                }
+            }
 
             // Skip / Reset
             HStack(spacing: 16) {
