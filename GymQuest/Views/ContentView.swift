@@ -939,7 +939,7 @@ struct AppTourOverlay: View {
         // 3: You bottom tab
         TourStep(title: "Your Profile", description: "Your training record. Complete\nyour profile to get started.", tabIndex: 4, ringSize: 52, cardAbove: true, contentY: nil),
         // 4: Feed last — so user lands on the feed ready to engage
-        TourStep(title: "Feed", description: "Friends — your people's workouts\nClubs — gym communities & challenges\nExplore — discover & use any workout", tabIndex: 0, ringSize: 52, cardAbove: true, contentY: nil),
+        TourStep(title: "Feed", description: "Friends: your people's workouts\nClubs: gym communities & challenges\nExplore: discover & use any workout", tabIndex: 0, ringSize: 52, cardAbove: true, contentY: nil),
     ]
 
     private var current: TourStep { steps[min(step, steps.count - 1)] }

@@ -70,13 +70,13 @@ enum WeeklyPromptGenerator {
         let weekday = Calendar.current.component(.weekday, from: Date())
         // 1=Sun, 2=Mon, 3=Tue, 4=Wed, 5=Thu, 6=Fri, 7=Sat
         switch weekday {
-        case 2: return .weeklyPrompt(label: "Monday push day — who's showing up?", icon: "figure.strengthtraining.traditional")
-        case 3: return .weeklyPrompt(label: "Pull day check-in — post your session.", icon: "figure.strengthtraining.functional")
-        case 4: return .weeklyPrompt(label: "Midweek legs — share your sets.", icon: "figure.walk")
-        case 5: return .weeklyPrompt(label: "Thursday upper — log what you did.", icon: "dumbbell.fill")
-        case 6: return .weeklyPrompt(label: "Friday finisher — how'd the week go?", icon: "flame.fill")
-        case 7: return .weeklyPrompt(label: "Weekend session — rest or train?", icon: "figure.mind.and.body")
-        default: return .weeklyPrompt(label: "Sunday reset — rest counts too.", icon: "moon.fill")
+        case 2: return .weeklyPrompt(label: "Monday push day. Who's showing up?", icon: "figure.strengthtraining.traditional")
+        case 3: return .weeklyPrompt(label: "Pull day check-in. Post your session.", icon: "figure.strengthtraining.functional")
+        case 4: return .weeklyPrompt(label: "Midweek legs. Share your sets.", icon: "figure.walk")
+        case 5: return .weeklyPrompt(label: "Thursday upper. Log what you did.", icon: "dumbbell.fill")
+        case 6: return .weeklyPrompt(label: "Friday finisher. How'd the week go?", icon: "flame.fill")
+        case 7: return .weeklyPrompt(label: "Weekend session. Rest or train?", icon: "figure.mind.and.body")
+        default: return .weeklyPrompt(label: "Sunday reset. Rest counts too.", icon: "moon.fill")
         }
     }
 }
