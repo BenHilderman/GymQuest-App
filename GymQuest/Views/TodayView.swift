@@ -37,6 +37,8 @@ struct TodayView: View {
     @State private var selectedSubTab: TodaySubTab = .today
     @State private var consistencyState: ConsistencyState = .onTrack
     @State private var showWeeklyScheduleEditor = false
+    @State private var selectedPlanDay: Int? = nil  // weekday number for the day picker
+    @State private var showDayPicker = false
 
     private enum TodaySubTab: String, CaseIterable {
         case today = "Today"
@@ -171,6 +173,174 @@ struct TodayView: View {
         }
     }
 
+    // MARK: - Interactive Week Plan Row
+    //
+    // Tap any day to set its type. Shows colored labels under each day.
+    // The calendar IS the planner.
+
+    private let dayLabels = ["S", "M", "T", "W", "T", "F", "S"]
+    // Ordered as: Sun=1, Mon=2, ..., Sat=7
+
+    @ViewBuilder
+    private var weekPlanRow: some View {
+        VStack(spacing: 8) {
+            // Row of tappable plan chips — one per day
+            HStack(spacing: 0) {
+                ForEach(1...7, id: \.self) { weekday in
+                    let planned = profile.weeklySchedule[weekday]
+                    let type = planned.flatMap { WorkoutType(rawValue: $0) }
+                    let isToday = weekday == todayWeekday
+
+                    Button {
+                        selectedPlanDay = weekday
+                        showDayPicker = true
+                        #if canImport(UIKit)
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        #endif
+                    } label: {
+                        VStack(spacing: 3) {
+                            if let type {
+                                Text(shortLabel(type))
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(isToday ? .white : typeColor(type))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        isToday
+                                            ? AnyShapeStyle(GQGradients.primary)
+                                            : AnyShapeStyle(typeColor(type).opacity(0.12))
+                                    )
+                                    .clipShape(Capsule())
+                            } else {
+                                Text("—")
+                                    .font(.system(size: 9, weight: .medium))
+                                    .foregroundColor(GQColors.textTertiary.opacity(0.4))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 3)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            // Suggest + Templates row
+            if profile.weeklySchedule.isEmpty {
+                HStack(spacing: 8) {
+                    Button {
+                        applySuggestedPlan()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("Suggest a plan")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .foregroundColor(GQColors.vividPurple)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(GQColors.vividPurple.opacity(0.1))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button { showWeeklyScheduleEditor = true } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "list.bullet")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("Templates")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
+                        .foregroundColor(GQColors.textTertiary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(GQColors.adaptiveOverlay(0.05))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+                }
+            }
+        }
+        .sheet(isPresented: $showDayPicker) {
+            if let day = selectedPlanDay {
+                DayPlannerSheet(
+                    weekday: day,
+                    profile: profile,
+                    onSuggest: { applySuggestedPlan() }
+                )
+                .presentationDetents([.height(220)])
+            }
+        }
+    }
+
+    private func shortLabel(_ type: WorkoutType) -> String {
+        switch type {
+        case .push: return "Push"
+        case .pull: return "Pull"
+        case .legs: return "Legs"
+        case .upper: return "Upper"
+        case .lower: return "Lower"
+        case .fullBody: return "Full"
+        case .cardio: return "Cardio"
+        case .hiit: return "HIIT"
+        case .yoga: return "Yoga"
+        case .rest: return "Rest"
+        case .glutes: return "Glutes"
+        case .abs: return "Abs"
+        case .custom: return "Custom"
+        }
+    }
+
+    private func typeColor(_ type: WorkoutType) -> Color {
+        switch type {
+        case .push: return GQColors.deepBlue
+        case .pull: return GQColors.vividPurple
+        case .legs: return Color(red: 1.0, green: 0.55, blue: 0.2)
+        case .cardio: return GQColors.success
+        case .hiit: return Color.red
+        case .rest: return GQColors.textTertiary
+        case .upper: return Color(red: 0.3, green: 0.7, blue: 1.0)
+        case .lower: return Color(red: 0.9, green: 0.6, blue: 0.2)
+        default: return GQColors.deepBlue
+        }
+    }
+
+    /// AI plan suggestion — deterministic, based on daysPerWeek + experience.
+    /// Not a premium feature — just smart defaults.
+    private func applySuggestedPlan() {
+        let days = profile.daysPerWeek
+        var plan: [Int: String] = [:]
+
+        switch days {
+        case 1...2:
+            // Full body
+            plan = [2: "Full Body", 5: "Full Body"]
+        case 3:
+            // Full body 3x
+            plan = [2: "Full Body", 4: "Full Body", 6: "Full Body"]
+        case 4:
+            // Upper/Lower
+            plan = [2: "Upper", 3: "Lower", 5: "Upper", 6: "Lower"]
+        case 5:
+            // PPL + Upper/Lower
+            plan = [2: "Push", 3: "Pull", 4: "Legs", 5: "Upper", 6: "Lower"]
+        default:
+            // PPL x2
+            plan = [2: "Push", 3: "Pull", 4: "Legs", 5: "Push", 6: "Pull", 7: "Legs"]
+        }
+
+        withAnimation(.easeInOut(duration: 0.2)) {
+            profile.weeklySchedule = plan
+            try? modelContext.save()
+        }
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+    }
+
     // MARK: - Today's Plan Card
 
     private var todayWeekday: Int { Calendar.current.component(.weekday, from: Date()) }
@@ -224,39 +394,6 @@ struct TodayView: View {
                     .stroke(GQColors.borderDefault, lineWidth: 1)
             )
             .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
-        } else if profile.weeklySchedule.isEmpty {
-            // No schedule set — prompt to create one
-            Button { showWeeklyScheduleEditor = true } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "calendar.badge.plus")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(AnyShapeStyle(GQGradients.primary))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Set your weekly schedule")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(GQColors.textPrimary)
-                        Text("Plan which days you train.")
-                            .font(.system(size: 11))
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-                .padding(14)
-                .background(GQColors.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(GQColors.borderDefault, lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
-            }
-            .buttonStyle(.plain)
         } else if todayPlannedType == .rest {
             // Rest day
             HStack(spacing: 12) {
@@ -311,7 +448,10 @@ struct TodayView: View {
                 totalVolume: weeklyTotalVolume
             )
 
-            // Today's planned workout (from weekly schedule)
+            // Interactive plan row — tap any day to set its type
+            weekPlanRow
+
+            // Today's planned workout
             todayPlanCard
 
             sectionDivider
@@ -1217,6 +1357,96 @@ struct TodayChallengesSection: View {
             AchievementDetailSheet(badge: c)
                 .presentationDetents([.medium])
         }
+    }
+}
+
+// MARK: - Day Planner Sheet (compact, tap a type)
+//
+// The small bottom sheet that appears when you tap a day on the plan row.
+// Shows the day name + a grid of workout type chips. Tap one → saves
+// immediately, sheet dismisses. No "Save" button needed.
+
+struct DayPlannerSheet: View {
+    let weekday: Int
+    @Bindable var profile: UserProfile
+    var onSuggest: (() -> Void)? = nil
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    private let dayNames = ["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    private let types: [WorkoutType?] = [
+        .push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .rest, nil
+    ]
+
+    var body: some View {
+        VStack(spacing: 14) {
+            // Header
+            HStack {
+                Text(dayNames[weekday])
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                if let onSuggest, profile.weeklySchedule.isEmpty {
+                    Button {
+                        onSuggest()
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Suggest")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundColor(GQColors.vividPurple)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+
+            // Type grid
+            let columns = [GridItem(.adaptive(minimum: 70), spacing: 8)]
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(types, id: \.self) { type in
+                    let current = profile.weeklySchedule[weekday]
+                    let isSelected = (type == nil && current == nil) ||
+                        (type != nil && type?.rawValue == current)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.12)) {
+                            if let type {
+                                profile.weeklySchedule[weekday] = type.rawValue
+                            } else {
+                                profile.weeklySchedule.removeValue(forKey: weekday)
+                            }
+                            try? modelContext.save()
+                        }
+                        #if canImport(UIKit)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        #endif
+                        dismiss()
+                    } label: {
+                        Text(type?.rawValue ?? "Clear")
+                            .font(.system(size: 12, weight: isSelected ? .bold : .medium))
+                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                isSelected
+                                    ? AnyShapeStyle(GQGradients.primary)
+                                    : AnyShapeStyle(GQColors.surfaceSecondary)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+
+            Spacer()
+        }
+        .background(GQColors.background.ignoresSafeArea())
     }
 }
 
