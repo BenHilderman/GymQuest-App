@@ -201,6 +201,15 @@ struct ContentView: View {
                 default: break
                 }
             }
+            // Kill any music that auto-plays when feed posts appear
+            if showAppTour {
+                MusicPreviewService.shared.stop()
+            }
+        }
+        .onChange(of: showAppTour) { _, showing in
+            if showing {
+                MusicPreviewService.shared.stop()
+            }
         }
         .fullScreenCover(isPresented: $showWeeklyRecap) {
             if let meta = weeklyRecapMeta, let p = self.profile {
