@@ -35,6 +35,7 @@ struct PostCardV2: View {
     @State private var hasAppeared = false
     @State private var isPlayingMusic = false
     @State private var showWorkoutDetail = false
+    @State private var showStealSetSheet = false
     @State private var showFullCaption = false
     @State private var showingCopySheet = false
     @State private var copySheetWorkout: SharedWorkoutData?
@@ -227,6 +228,16 @@ struct PostCardV2: View {
                 UserProfileSheet(userId: wrapped.id, currentProfile: p)
             }
         }
+        .sheet(isPresented: $showStealSetSheet) {
+            if let shared = sharedWorkout {
+                StealSetSheet(
+                    sharedWorkout: shared,
+                    sourcePost: post,
+                    currentUserId: currentUserId
+                )
+                .presentationDetents([.medium, .large])
+            }
+        }
     }
 
     // MARK: - Extracted ViewBuilders
@@ -238,32 +249,54 @@ struct PostCardV2: View {
     @ViewBuilder
     private var useThisWorkoutBar: some View {
         if sharedWorkout != nil, post.authorId != currentUserId {
-            Button {
-                useThisWorkout()
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 13, weight: .bold))
-                    Text("Use this workout")
-                        .font(.system(size: 14, weight: .bold))
-                    if post.timesUsed > 0 {
-                        Text("· \(post.timesUsed) used")
-                            .font(.system(size: 11, weight: .semibold))
+            HStack(spacing: 8) {
+                Button {
+                    useThisWorkout()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Use this workout")
+                            .font(.system(size: 14, weight: .bold))
+                        if post.timesUsed > 0 {
+                            Text("· \(post.timesUsed) used")
+                                .font(.system(size: 11, weight: .semibold))
+                                .opacity(0.7)
+                        }
+                        Spacer()
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 12, weight: .bold))
                             .opacity(0.7)
                     }
-                    Spacer()
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 12, weight: .bold))
-                        .opacity(0.7)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(GQGradients.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 10, x: 0, y: 4)
                 }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(GQGradients.primary)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 10, x: 0, y: 4)
+                .buttonStyle(.plain)
+
+                // Secondary: Steal specific exercises from this workout.
+                // Memo directive: "Steal this set" / "Save this warm-up" as distinct
+                // atomic primitives — the user can take the whole session or just
+                // one movement.
+                Button {
+                    showStealSetSheet = true
+                } label: {
+                    Image(systemName: "square.and.arrow.down.on.square")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(Color.white.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             .padding(.horizontal, 14)
             .padding(.top, 6)
             .padding(.bottom, 2)
@@ -5086,6 +5119,261 @@ struct ClipOverlayLayer: View {
         case .bottomCenter: return .bottom
         case .bottomTrailing: return .bottomTrailing
         }
+    }
+}
+
+// MARK: - Steal Set Sheet
+//
+// The memo's atomic copy primitive: pick individual exercises from a post's
+// workout and add them to your own. Companion to "Use this workout" which
+// copies the whole session — this lets you take one movement or warm-up.
+
+struct StealSetSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var appState: AppState
+
+    let sharedWorkout: SharedWorkoutData
+    let sourcePost: Post
+    let currentUserId: UUID
+
+    @State private var selectedExerciseIds: Set<UUID> = []
+
+    private var hasActiveWorkout: Bool { appState.activeWorkout != nil }
+
+    private var selectedExercises: [SharedWorkoutData.SharedExercise] {
+        sharedWorkout.exercises.filter { selectedExerciseIds.contains($0.id) }
+    }
+
+    private var canApply: Bool {
+        !selectedExerciseIds.isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack(alignment: .bottom) {
+                Color.black.ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    // Header
+                    VStack(spacing: 6) {
+                        Text("Steal a set")
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                        Text(hasActiveWorkout
+                             ? "Tap to add to your active workout."
+                             : "Tap to start a workout with just these.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.55))
+                    }
+                    .padding(.top, 18)
+                    .padding(.bottom, 14)
+
+                    // Exercise list
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            ForEach(sharedWorkout.exercises) { exercise in
+                                exerciseRow(exercise)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 110)
+                    }
+                }
+
+                // Footer action
+                VStack(spacing: 6) {
+                    Button(action: apply) {
+                        HStack(spacing: 8) {
+                            Image(systemName: hasActiveWorkout ? "plus.circle.fill" : "play.fill")
+                                .font(.system(size: 14, weight: .bold))
+                            Text(canApply
+                                 ? (hasActiveWorkout ? "Add \(selectedExerciseIds.count) to workout" : "Start workout with \(selectedExerciseIds.count)")
+                                 : "Pick at least one")
+                                .font(.system(size: 15, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(
+                            canApply ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(Color.white.opacity(0.1))
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .disabled(!canApply)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 20)
+                .background(LinearGradient(colors: [Color.black.opacity(0), Color.black], startPoint: .top, endPoint: .bottom))
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Close") { dismiss() }
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func exerciseRow(_ exercise: SharedWorkoutData.SharedExercise) -> some View {
+        let isSelected = selectedExerciseIds.contains(exercise.id)
+        Button {
+            withAnimation(.easeInOut(duration: 0.12)) {
+                if isSelected {
+                    selectedExerciseIds.remove(exercise.id)
+                } else {
+                    selectedExerciseIds.insert(exercise.id)
+                }
+            }
+            #if canImport(UIKit)
+            UISelectionFeedbackGenerator().selectionChanged()
+            #endif
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "dumbbell.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isSelected ? .white : GQColors.vividPurple)
+                    .frame(width: 40, height: 40)
+                    .background(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(Color.white.opacity(0.06)))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(exercise.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(setsSummary(exercise))
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.55))
+                }
+                Spacer()
+                ZStack {
+                    Circle()
+                        .strokeBorder(isSelected ? Color.clear : Color.white.opacity(0.3), lineWidth: 1.5)
+                        .frame(width: 24, height: 24)
+                    if isSelected {
+                        Circle()
+                            .fill(GQGradients.primary)
+                            .frame(width: 24, height: 24)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isSelected ? Color.white.opacity(0.08) : Color.white.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(isSelected ? GQColors.vividPurple.opacity(0.5) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func setsSummary(_ exercise: SharedWorkoutData.SharedExercise) -> String {
+        guard let first = exercise.sets.first else { return exercise.muscleGroup }
+        if exercise.sets.allSatisfy({ $0.reps == first.reps && $0.weight == first.weight }) {
+            let weight = first.weight > 0 ? " @ \(Int(first.weight)) lb" : ""
+            return "\(exercise.sets.count) × \(first.reps)\(weight)"
+        }
+        return "\(exercise.sets.count) sets · \(exercise.muscleGroup)"
+    }
+
+    private func apply() {
+        guard canApply else { return }
+        StealSetService.apply(
+            exercises: selectedExercises,
+            sourcePost: sourcePost,
+            currentUserId: currentUserId,
+            appState: appState,
+            modelContext: modelContext,
+            workoutType: sharedWorkout.workoutType
+        )
+        dismiss()
+    }
+}
+
+// MARK: - Steal Set Service
+//
+// Handles the atomic-level copy primitive: adds picked exercises to the
+// current active workout (if one is running) or starts a new workout seeded
+// with just those exercises. Increments timesUsed and emits a UsedWorkoutEvent
+// so the action-from-feed metric picks it up.
+
+@MainActor
+enum StealSetService {
+    static func apply(
+        exercises: [SharedWorkoutData.SharedExercise],
+        sourcePost: Post,
+        currentUserId: UUID,
+        appState: AppState,
+        modelContext: ModelContext,
+        workoutType: String
+    ) {
+        guard !exercises.isEmpty else { return }
+
+        // Convert picked exercises into ActiveExercise
+        let actives: [ActiveExercise] = exercises.map { ex in
+            let mg = MuscleGroup(rawValue: ex.muscleGroup) ?? .chest
+            let sets = ex.sets.map { set in
+                ActiveSet(reps: set.reps, weight: set.weight)
+            }
+            return ActiveExercise(name: ex.name, muscleGroup: mg, sets: sets)
+        }
+
+        // Track the steal as an action-from-feed event
+        sourcePost.timesUsed += 1
+        let event = UsedWorkoutEvent(
+            sourcePostId: sourcePost.id,
+            sourceAuthorId: sourcePost.authorId,
+            actorId: currentUserId,
+            workoutType: workoutType,
+            createdAt: Date()
+        )
+        modelContext.insert(event)
+        try? modelContext.save()
+
+        // Notify the original author — slightly different copy than full-workout use
+        if sourcePost.authorId != currentUserId {
+            let actorName = currentActorName(userId: currentUserId, modelContext: modelContext)
+            let label = exercises.count == 1 ? exercises[0].name.lowercased() : "\(exercises.count) exercises from your workout"
+            NotificationService.shared.sendStolenSetNotification(
+                actorName: actorName,
+                exerciseLabel: label,
+                recipientId: sourcePost.authorId
+            )
+        }
+
+        #if canImport(UIKit)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+
+        // Apply to active workout or start a new one
+        if appState.activeWorkout != nil {
+            for active in actives {
+                appState.activeWorkout?.exercises.append(active)
+            }
+        } else {
+            let type = WorkoutType(rawValue: workoutType) ?? .push
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                appState.startWorkout(type: type, exercises: actives)
+            }
+        }
+    }
+
+    private static func currentActorName(userId: UUID, modelContext: ModelContext) -> String {
+        let descriptor = FetchDescriptor<UserProfile>(predicate: #Predicate { $0.id == userId })
+        return (try? modelContext.fetch(descriptor).first?.name) ?? "Someone"
     }
 }
 

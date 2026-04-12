@@ -119,6 +119,7 @@ class NotificationService: ObservableObject {
             content.body = motivationalMessages.randomElement() ?? "Whenever you're ready."
             content.sound = .default
             content.badge = 1
+            content.userInfo = ["type": "scheduled_reminder"]
 
             let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
             let request = UNNotificationRequest(
@@ -254,6 +255,27 @@ class NotificationService: ObservableObject {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false)
         let request = UNNotificationRequest(
             identifier: "usedWorkout_\(UUID().uuidString)",
+            content: content,
+            trigger: trigger
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    /// Atomic variant: someone took a specific exercise or set from your workout.
+    /// Lighter than the full "used your workout" notification but still
+    /// loop-closing — your effort produced another person's movement.
+    func sendStolenSetNotification(actorName: String, exerciseLabel: String, recipientId: UUID) {
+        guard isAuthorized else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Noticed."
+        content.body = "\(actorName) took your \(exerciseLabel)."
+        content.sound = .default
+        content.userInfo = ["recipientId": recipientId.uuidString, "type": "stolenSet"]
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 2, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: "stolenSet_\(UUID().uuidString)",
             content: content,
             trigger: trigger
         )

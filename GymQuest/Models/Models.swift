@@ -4411,6 +4411,12 @@ enum AnalyticsEventType: String, Codable {
     case mealLogged = "meal_logged"
     case comebackCardShown = "comeback_card_shown"
     case learnItemSaved = "learn_item_saved"
+
+    // Memo directive: Unprompted Return Rate is the v1 metric. These events
+    // are the atoms the tracker uses to compute it.
+    case systemPushSent = "system_push_sent"
+    case appOpenedFromPush = "app_opened_from_push"
+    case unpromptedReturn = "unprompted_return"
 }
 
 /// Local analytics event for tracking key metrics

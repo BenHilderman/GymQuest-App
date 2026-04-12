@@ -61,6 +61,9 @@ enum UseWorkoutService {
                 workoutType: shared.workoutType,
                 recipientId: post.authorId
             )
+            // URR instrumentation: this push counts as a system-authored push
+            // against the author's unprompted-return window.
+            AnalyticsService.shared.recordSystemPushSent(userId: post.authorId, pushType: "used_workout")
         }
 
         // Launch the session. Small async delay so any enclosing sheet can dismiss first.
@@ -1184,6 +1187,16 @@ struct ActiveWorkoutView: View {
             modelContext: modelContext
         )
         detectedPRMoments = prResult.moments
+
+        // URR instrumentation: log the workout completion so the Unprompted
+        // Return Rate tracker can compute whether the compounding loop fired.
+        AnalyticsService.shared.configure(modelContext: modelContext)
+        AnalyticsService.shared.trackWorkoutCompleted(
+            userId: profile.id,
+            duration: elapsedTime / 60,
+            totalSets: workout.totalSets,
+            xpEarned: earnedXP
+        )
 
         savedWorkout = workout
         showingProofCard = true
@@ -4890,95 +4903,222 @@ struct ProofCardBody: View {
     var compact: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 12 : 18) {
-            // Signature row
-            HStack {
-                Image(systemName: variantIcon)
-                    .font(.system(size: 10, weight: .heavy))
-                Text("LIFT AI · " + variantLabel)
-                    .font(.system(size: 10, weight: .heavy, design: .rounded))
-                    .tracking(1.8)
-                Spacer()
-                Text(meta.createdAt, format: .dateTime.month(.abbreviated).day())
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.45))
-            }
-            .foregroundStyle(.white.opacity(0.65))
+        VStack(alignment: .leading, spacing: 0) {
+            // Top brand bar — the variant accent stripe + brand wordmark.
+            // This is the "I recognize this app from a screenshot" signal.
+            topBrandBar
 
-            // The noticing — the headline
-            Text(meta.headline)
-                .font(.system(size: compact ? 22 : 30, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white)
-                .lineLimit(compact ? 3 : nil)
-                .fixedSize(horizontal: false, vertical: true)
+            // Core content
+            VStack(alignment: .leading, spacing: compact ? 11 : 16) {
+                // The noticing — the headline
+                Text(meta.headline)
+                    .font(.system(size: compact ? 22 : 32, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .kerning(-0.5)
+                    .lineLimit(compact ? 3 : nil)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            // Divider
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.2), Color.white.opacity(0.04)],
-                        startPoint: .leading, endPoint: .trailing
+                // Summary line
+                Text(meta.summaryLine)
+                    .font(.system(size: compact ? 12 : 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .tracking(0.3)
+
+                // Hardest moment — the "it was hard" signal at a glance
+                if let hardest = meta.hardestMoment {
+                    HStack(spacing: 10) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: compact ? 12 : 14, weight: .bold))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.orange, Color(red: 1.0, green: 0.5, blue: 0.2)],
+                                    startPoint: .top, endPoint: .bottom
+                                )
+                            )
+                        Text(hardest)
+                            .font(.system(size: compact ? 11 : 13, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                    .padding(.vertical, compact ? 9 : 12)
+                    .padding(.horizontal, compact ? 12 : 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color.white.opacity(0.05))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .strokeBorder(Color.orange.opacity(0.2), lineWidth: 1)
+                            )
                     )
-                )
-                .frame(height: 1)
-
-            // Summary line
-            Text(meta.summaryLine)
-                .font(.system(size: compact ? 12 : 14, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.78))
-
-            // Hardest moment
-            if let hardest = meta.hardestMoment {
-                HStack(spacing: 10) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: compact ? 11 : 13, weight: .bold))
-                        .foregroundStyle(Color.orange.opacity(0.95))
-                    Text(hardest)
-                        .font(.system(size: compact ? 11 : 13, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.88))
-                        .lineLimit(1)
-                    Spacer()
                 }
-                .padding(.vertical, compact ? 8 : 11)
-                .padding(.horizontal, compact ? 10 : 13)
-                .background(Color.white.opacity(0.055))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
+            .padding(.horizontal, compact ? 18 : 24)
+            .padding(.top, compact ? 16 : 20)
+            .padding(.bottom, compact ? 14 : 18)
 
-            // Signed by
-            HStack(spacing: 6) {
-                Text(meta.signedName)
-                    .font(.system(size: compact ? 11 : 13, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.78))
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: compact ? 10 : 12))
-                    .foregroundStyle(GQColors.vividPurple)
-                Spacer()
-            }
+            // Bottom signature bar — brand wordmark + signer
+            bottomSignatureBar
         }
-        .padding(compact ? 16 : 22)
-        .background(
-            LinearGradient(
-                colors: [Color(white: 0.11), Color(white: 0.05)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: compact ? 16 : 22, style: .continuous))
+        .background(cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: compact ? 18 : 24, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: compact ? 16 : 22, style: .continuous)
+            RoundedRectangle(cornerRadius: compact ? 18 : 24, style: .continuous)
                 .strokeBorder(
                     LinearGradient(
                         colors: [
-                            GQColors.deepBlue.opacity(0.75),
-                            GQColors.vividPurple.opacity(0.75)
+                            variantAccent.opacity(0.8),
+                            GQColors.deepBlue.opacity(0.6),
+                            GQColors.vividPurple.opacity(0.9)
                         ],
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     ),
-                    lineWidth: 1.5
+                    lineWidth: compact ? 1.5 : 2
                 )
         )
-        .shadow(color: GQColors.vividPurple.opacity(compact ? 0.12 : 0.28), radius: compact ? 14 : 24, y: compact ? 6 : 12)
+        .shadow(color: variantAccent.opacity(compact ? 0.18 : 0.35), radius: compact ? 16 : 28, x: 0, y: compact ? 8 : 14)
+        .shadow(color: Color.black.opacity(0.5), radius: compact ? 10 : 18, x: 0, y: compact ? 4 : 8)
     }
+
+    // MARK: - Pieces
+
+    private var topBrandBar: some View {
+        ZStack {
+            // Variant accent stripe — the one color cue that tells strangers
+            // at a glance what kind of moment this is
+            LinearGradient(
+                colors: [variantAccent.opacity(0.45), variantAccent.opacity(0.1)],
+                startPoint: .leading, endPoint: .trailing
+            )
+
+            HStack(spacing: 10) {
+                // Brand wordmark — the signature that travels
+                HStack(spacing: 4) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [GQColors.deepBlue, GQColors.vividPurple],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: compact ? 18 : 22, height: compact ? 18 : 22)
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: compact ? 9 : 11, weight: .black))
+                            .foregroundStyle(.white)
+                    }
+                    Text("LIFT AI")
+                        .font(.system(size: compact ? 11 : 13, weight: .black, design: .rounded))
+                        .tracking(2)
+                        .foregroundStyle(.white)
+                }
+
+                Spacer()
+
+                // Variant tag — the "what kind of moment" signal
+                HStack(spacing: 5) {
+                    Image(systemName: variantIcon)
+                        .font(.system(size: compact ? 9 : 11, weight: .black))
+                    Text(variantLabel)
+                        .font(.system(size: compact ? 9 : 11, weight: .black, design: .rounded))
+                        .tracking(1.5)
+                }
+                .foregroundStyle(variantAccent)
+                .padding(.horizontal, compact ? 8 : 10)
+                .padding(.vertical, compact ? 4 : 5)
+                .background(
+                    Capsule().fill(variantAccent.opacity(0.15))
+                        .overlay(Capsule().strokeBorder(variantAccent.opacity(0.4), lineWidth: 1))
+                )
+            }
+            .padding(.horizontal, compact ? 18 : 24)
+            .padding(.vertical, compact ? 12 : 14)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var bottomSignatureBar: some View {
+        HStack(spacing: 8) {
+            Text(meta.signedName.uppercased())
+                .font(.system(size: compact ? 10 : 12, weight: .black, design: .rounded))
+                .tracking(1.2)
+                .foregroundStyle(.white.opacity(0.85))
+
+            Rectangle()
+                .fill(Color.white.opacity(0.15))
+                .frame(width: 1, height: compact ? 10 : 12)
+
+            Text(meta.createdAt, format: .dateTime.month(.abbreviated).day().year())
+                .font(.system(size: compact ? 10 : 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.5))
+                .tracking(0.5)
+
+            Spacer()
+
+            // Brand checkmark seal — the "this is a verified Lift AI artifact" signal
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: compact ? 12 : 14))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [GQColors.deepBlue, GQColors.vividPurple],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                )
+        }
+        .padding(.horizontal, compact ? 18 : 24)
+        .padding(.vertical, compact ? 10 : 12)
+        .background(
+            LinearGradient(
+                colors: [Color.white.opacity(0.03), Color.white.opacity(0.07)],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
+        .overlay(
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            variantAccent.opacity(0.6),
+                            GQColors.vividPurple.opacity(0.6)
+                        ],
+                        startPoint: .leading, endPoint: .trailing
+                    )
+                )
+                .frame(height: 2),
+            alignment: .top
+        )
+    }
+
+    private var cardBackground: some View {
+        ZStack {
+            // Base deep black
+            Color(white: 0.04)
+
+            // Radial glow of variant accent
+            RadialGradient(
+                colors: [variantAccent.opacity(0.18), Color.clear],
+                center: .topLeading,
+                startRadius: 0,
+                endRadius: compact ? 240 : 380
+            )
+
+            // Secondary brand glow from bottom-right
+            RadialGradient(
+                colors: [GQColors.vividPurple.opacity(0.15), Color.clear],
+                center: .bottomTrailing,
+                startRadius: 0,
+                endRadius: compact ? 200 : 320
+            )
+
+            // Subtle diagonal overlay for depth
+            LinearGradient(
+                colors: [Color.white.opacity(0.04), Color.clear, Color.black.opacity(0.2)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+        }
+    }
+
+    // MARK: - Variant theming
 
     private var variantIcon: String {
         switch meta.variant {
@@ -4999,6 +5139,19 @@ struct ProofCardBody: View {
         case "streak": return "CONSISTENCY"
         case "longest": return "DEEPEST"
         default: return "PROOF"
+        }
+    }
+
+    /// Each variant has its own accent so screenshots carry a color signature.
+    /// PR glows gold, Streak glows orange, First glows purple, etc.
+    private var variantAccent: Color {
+        switch meta.variant {
+        case "pr": return Color(red: 1.0, green: 0.78, blue: 0.2)       // gold
+        case "first": return GQColors.vividPurple                       // purple
+        case "comeback": return Color(red: 0.25, green: 0.85, blue: 0.6) // green
+        case "streak": return Color(red: 1.0, green: 0.55, blue: 0.2)   // orange
+        case "longest": return Color(red: 0.3, green: 0.7, blue: 1.0)   // blue
+        default: return GQColors.vividPurple
         }
     }
 }
@@ -5024,8 +5177,14 @@ struct SocialGraphGateSheet: View {
     @Query private var allFriends: [Friend]
 
     @State private var selectedIds: Set<UUID> = []
+    @State private var showShareSheet = false
 
     private let minimumRequired = 3
+
+    /// The invite message sent via share sheet. Warm, concrete, no spam.
+    private var inviteText: String {
+        "I'm using Lift AI — workouts turn into proof you can see. Want to show up for each other? https://liftai.app"
+    }
 
     private var existingFollowingIds: Set<UUID> {
         Set(allFriends.filter { $0.userId == profile.id }.map(\.odId))
@@ -5069,6 +5228,32 @@ struct SocialGraphGateSheet: View {
                             .foregroundStyle(.white.opacity(0.6))
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
+
+                        // Invite a real friend via share sheet — the real-world
+                        // version of "connect with your circle." No Contacts
+                        // permission required; uses the normal iOS share flow.
+                        Button {
+                            showShareSheet = true
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 13, weight: .bold))
+                                Text("Invite a friend")
+                                    .font(.system(size: 13, weight: .bold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(0.08))
+                                    .overlay(
+                                        Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                                    )
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
                     }
                     .padding(.top, 20)
                     .padding(.bottom, 16)
@@ -5141,6 +5326,11 @@ struct SocialGraphGateSheet: View {
             .toolbarBackground(Color.black, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            #if canImport(UIKit)
+            .sheet(isPresented: $showShareSheet) {
+                ShareSheetView(items: [inviteText])
+            }
+            #endif
         }
     }
 
@@ -5232,3 +5422,21 @@ struct SocialGraphGateSheet: View {
         }
     }
 }
+
+// MARK: - Share Sheet (UIActivityViewController bridge)
+//
+// Standard iOS share sheet wrapper for the "Invite a friend" flow. No Contacts
+// framework permission needed — the user picks a recipient via iMessage, email,
+// AirDrop, or any other share target that accepts text. Real-world invite.
+
+#if canImport(UIKit)
+struct ShareSheetView: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#endif

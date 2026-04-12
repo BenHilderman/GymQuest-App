@@ -33,6 +33,24 @@ enum BookmarkStore {
     }
 }
 
+// Sort modes for the Explore feed. Memo directive: action-from-feed rate is the
+// gold metric. "Most used" surfaces it directly — posts ranked by how often
+// someone actually did the workout after seeing it.
+enum DiscoverSortMode: String, CaseIterable, Identifiable {
+    case forYou = "For you"
+    case mostUsed = "Most used"
+    case newest = "Newest"
+    var id: String { rawValue }
+
+    var iconSF: String {
+        switch self {
+        case .forYou: return "sparkles"
+        case .mostUsed: return "play.fill"
+        case .newest: return "clock.fill"
+        }
+    }
+}
+
 // MARK: - DiscoverFeedView
 
 struct DiscoverFeedView: View {
@@ -54,6 +72,7 @@ struct DiscoverFeedView: View {
     @State private var hasSeeded = false
     @State private var cachedMutualFriendIds: Set<UUID> = []
     @State private var cachedRankedPosts: [Post] = []
+    @State private var selectedSort: DiscoverSortMode = .forYou
 
     var body: some View {
         GeometryReader { geo in
@@ -92,11 +111,12 @@ struct DiscoverFeedView: View {
                     }
                 }
 
-                // Category pills pinned at top
-                VStack {
+                // Category pills + sort pill pinned at top
+                VStack(spacing: 8) {
                     CategoryFilterBar(
                         selectedCategory: $selectedCategory
                     )
+                    DiscoverSortBar(selected: $selectedSort)
                     Spacer()
                 }
 
@@ -129,6 +149,10 @@ struct DiscoverFeedView: View {
             refreshRankedPosts()
         }
         .onChange(of: selectedCategory) {
+            scrolledIndex = 0
+            refreshRankedPosts()
+        }
+        .onChange(of: selectedSort) {
             scrolledIndex = 0
             refreshRankedPosts()
         }
@@ -188,13 +212,66 @@ struct DiscoverFeedView: View {
             currentHour: Calendar.current.component(.hour, from: Date())
         )
 
-        cachedRankedPosts = FeedRankingService.shared.rankPosts(
+        let ranked = FeedRankingService.shared.rankPosts(
             eligible,
             for: profile.id,
             interests: userInterests,
             category: selectedCategory ?? "All",
             sessionContext: sessionContext
         )
+
+        // User-visible sort applied on top of algorithmic ranking
+        switch selectedSort {
+        case .forYou:
+            cachedRankedPosts = ranked
+        case .mostUsed:
+            // Action-from-feed sort: posts that have actually been copied into
+            // live sessions rank first. Ties broken by the algorithmic score.
+            cachedRankedPosts = ranked.sorted { a, b in
+                if a.timesUsed != b.timesUsed { return a.timesUsed > b.timesUsed }
+                return a.engagementScore > b.engagementScore
+            }
+        case .newest:
+            cachedRankedPosts = ranked.sorted { $0.timestamp > $1.timestamp }
+        }
+    }
+}
+
+// MARK: - DiscoverSortBar
+
+struct DiscoverSortBar: View {
+    @Binding var selected: DiscoverSortMode
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(DiscoverSortMode.allCases) { mode in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.18)) { selected = mode }
+                    #if canImport(UIKit)
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    #endif
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: mode.iconSF)
+                            .font(.system(size: 10, weight: .bold))
+                        Text(mode.rawValue)
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .foregroundColor(selected == mode ? .black : .white.opacity(0.85))
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().fill(selected == mode ? Color.white : Color.black.opacity(0.55))
+                    )
+                    .overlay(
+                        Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: selected == mode ? 0 : 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
     }
 }
 

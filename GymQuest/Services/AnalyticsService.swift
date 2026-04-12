@@ -288,6 +288,94 @@ class AnalyticsService: ObservableObject {
         return events.count
     }
 
+    // MARK: - Unprompted Return Rate (memo v1 metric)
+    //
+    // "A new user logs their second workout within 7 days of their first,
+    // without receiving any system-generated reminder." The gold metric for
+    // whether the compounding loop is actually firing. External motivation
+    // (a reminder push) doesn't count — only unprompted return.
+
+    /// Record that a system-authored push has been sent to this user.
+    func recordSystemPushSent(userId: UUID, pushType: String) {
+        track(.systemPushSent, userId: userId, metadata: ["push_type": pushType])
+    }
+
+    /// Record that the user opened the app from a push notification.
+    /// This marks the session as "prompted" for URR purposes.
+    func recordAppOpenedFromPush(userId: UUID) {
+        track(.appOpenedFromPush, userId: userId)
+    }
+
+    /// Compute whether this user's v1 activation loop fired:
+    /// did their 2nd workout happen within 7 days of their 1st, with zero
+    /// system pushes sent in between?
+    func didFireUnpromptedReturn(userId: UUID) -> Bool {
+        guard let context = modelContext else { return false }
+
+        let workoutCompletedType = AnalyticsEventType.workoutCompleted.rawValue
+        let descriptor = FetchDescriptor<AnalyticsEvent>(
+            predicate: #Predicate {
+                $0.odId == userId && $0.eventType.rawValue == workoutCompletedType
+            },
+            sortBy: [SortDescriptor(\.timestamp)]
+        )
+
+        guard let workouts = try? context.fetch(descriptor), workouts.count >= 2 else { return false }
+
+        let first = workouts[0].timestamp
+        let second = workouts[1].timestamp
+        let hoursBetween = second.timeIntervalSince(first) / 3600.0
+
+        // Must be within 7 days (168 hours)
+        guard hoursBetween <= 168 else { return false }
+
+        // Check for any system pushes sent to this user between workout #1 and #2
+        let pushType = AnalyticsEventType.systemPushSent.rawValue
+        let pushDescriptor = FetchDescriptor<AnalyticsEvent>(
+            predicate: #Predicate {
+                $0.odId == userId &&
+                $0.eventType.rawValue == pushType &&
+                $0.timestamp > first &&
+                $0.timestamp < second
+            }
+        )
+
+        let pushCount = (try? context.fetch(pushDescriptor).count) ?? 0
+        return pushCount == 0
+    }
+
+    /// Cohort-level URR — what fraction of new users in a date range returned
+    /// unprompted. Takes the pool of users whose first workout was logged in
+    /// the window, and computes the rate.
+    func unpromptedReturnRate(since: Date, until: Date = Date()) -> Double {
+        guard let context = modelContext else { return 0 }
+
+        let workoutCompletedType = AnalyticsEventType.workoutCompleted.rawValue
+        let descriptor = FetchDescriptor<AnalyticsEvent>(
+            predicate: #Predicate {
+                $0.eventType.rawValue == workoutCompletedType &&
+                $0.timestamp >= since &&
+                $0.timestamp <= until
+            }
+        )
+        guard let events = try? context.fetch(descriptor) else { return 0 }
+
+        // Group by user, find each user's first workout in the window
+        var firstByUser: [UUID: Date] = [:]
+        for event in events {
+            guard let uid = event.odId else { continue }
+            if let existing = firstByUser[uid] {
+                if event.timestamp < existing { firstByUser[uid] = event.timestamp }
+            } else {
+                firstByUser[uid] = event.timestamp
+            }
+        }
+
+        guard !firstByUser.isEmpty else { return 0 }
+        let returned = firstByUser.keys.filter { didFireUnpromptedReturn(userId: $0) }.count
+        return Double(returned) / Double(firstByUser.count)
+    }
+
     /// Calculate week-1 retention (returned within 7 days of first event)
     func week1Retention(userId: UUID) -> Bool {
         guard let context = modelContext else { return false }
