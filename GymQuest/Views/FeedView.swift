@@ -357,59 +357,61 @@ struct FeedView: View {
     // - Catalog with smart rails: intent-based discovery + search utility +
     //   action-from-feed conversion on every card
 
+    // MARK: - Explore Page (People-first workout catalog)
+    //
+    // Organized around PEOPLE first, workouts second. The social graph IS the
+    // recommendation engine. Comments are first-class content. Every element
+    // ends in an action.
+    //
+    // Layout (top → bottom):
+    //   1. Context observation (one-line noticing)
+    //   2. Search bar + suggestion chips
+    //   3. Community Pick (hero card — single most-used workout of the day)
+    //   4. Squad Summary (aggregate crew activity this week)
+    //   5. People Timeline (compact stream of friends' recent workouts)
+    //   6. Trending in Your Circle (exercise bubbles)
+    //   7. Discovery rails (Most Used, Quick Sessions, Try Something New)
+
     private var discoverFeedContent: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
-                // Search bar
+            VStack(spacing: 16) {
+                // 1. Context observation
+                contextObservation
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+
+                // 2. Search
                 catalogSearchBar
                     .padding(.horizontal, 16)
 
                 if !catalogSearchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
-                    // Search results
                     catalogSearchResults
                 } else {
-                    // Rails
-                    // Social-first rails: people you know come before algorithmic ones
-                    catalogRail(
-                        title: "From People You Follow",
-                        icon: "person.2.fill",
-                        posts: catalogFromFollowing
-                    )
-                    catalogRail(
-                        title: "Squad Picks",
-                        icon: "person.3.fill",
-                        posts: catalogFromSquad
-                    )
-                    catalogRail(
-                        title: "Most Used This Week",
-                        icon: "play.circle.fill",
-                        posts: catalogMostUsed
-                    )
-                    catalogRail(
-                        title: "Quick Sessions",
-                        icon: "bolt.fill",
-                        posts: catalogQuickSessions
-                    )
-                    catalogRail(
-                        title: "Try Something New",
-                        icon: "sparkles",
-                        posts: catalogNovelTopics
-                    )
-                    catalogRail(
-                        title: "Popular Push",
-                        icon: "figure.strengthtraining.traditional",
-                        posts: catalogByType("Push")
-                    )
-                    catalogRail(
-                        title: "Popular Pull",
-                        icon: "figure.strengthtraining.functional",
-                        posts: catalogByType("Pull")
-                    )
-                    catalogRail(
-                        title: "Leg Day",
-                        icon: "figure.walk",
-                        posts: catalogByType("Legs")
-                    )
+                    // 2b. Suggestion chips (when not searching)
+                    searchSuggestionChips
+                        .padding(.horizontal, 16)
+
+                    // 3. Community Pick
+                    if let pick = communityPick {
+                        communityPickCard(pick)
+                            .padding(.horizontal, 16)
+                    }
+
+                    // 4. Squad Summary
+                    squadSummaryCard
+                        .padding(.horizontal, 16)
+
+                    // 5. People Timeline
+                    peopleTimeline
+                        .padding(.horizontal, 16)
+
+                    // 6. Trending
+                    trendingBubbles
+
+                    // 7. Discovery rails
+                    catalogRail(title: "Most Used This Week", icon: "play.circle.fill", posts: catalogMostUsed)
+                    catalogRail(title: "Quick Sessions", icon: "bolt.fill", posts: catalogQuickSessions)
+                    catalogRail(title: "Try Something New", icon: "sparkles", posts: catalogNovelTopics)
                 }
             }
             .padding(.top, 8)
@@ -417,6 +419,391 @@ struct FeedView: View {
         }
         .scrollContentBackground(.hidden)
         .gqPageBackground()
+    }
+
+    // MARK: - 1. Context Observation
+
+    @ViewBuilder
+    private var contextObservation: some View {
+        let obs = generateContextObservation()
+        if !obs.isEmpty {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(GQColors.vividPurple.opacity(0.6))
+                    .frame(width: 5, height: 5)
+                Text(obs)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+        }
+    }
+
+    private func generateContextObservation() -> String {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        // Check for workout-type gaps
+        let recentTypes = Set(allWorkouts.prefix(10).map { $0.type.rawValue })
+        let commonTypes = ["Push", "Pull", "Legs"]
+        for type in commonTypes {
+            let lastOfType = allWorkouts.first { $0.type.rawValue == type }
+            if let last = lastOfType {
+                let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: last.date), to: today).day ?? 0
+                if days >= 7 {
+                    return "\(days) days since \(type.lowercased())"
+                }
+            } else if !recentTypes.isEmpty {
+                return "Haven't tried \(type.lowercased()) yet"
+            }
+        }
+        return ""
+    }
+
+    // MARK: - 2b. Search Suggestions
+
+    private var searchSuggestionChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                let suggestions = generateSearchSuggestions()
+                ForEach(suggestions, id: \.self) { suggestion in
+                    Button {
+                        catalogSearchQuery = suggestion
+                    } label: {
+                        Text(suggestion)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(GQColors.textSecondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule()
+                                    .strokeBorder(GQColors.borderSubtle, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func generateSearchSuggestions() -> [String] {
+        var suggestions: [String] = []
+        // Most recent exercise
+        if let recent = allWorkouts.first?.exercises.first?.name {
+            suggestions.append(recent.lowercased())
+        }
+        suggestions.append(contentsOf: ["20-min finisher", "back day", "leg workout", "superset"])
+        return Array(suggestions.prefix(5))
+    }
+
+    // MARK: - 3. Community Pick (Hero)
+
+    private var communityPick: Post? {
+        let dayAgo = Date().addingTimeInterval(-24 * 3600)
+        return workoutPosts
+            .filter { $0.timestamp > dayAgo && $0.authorId != profile.id }
+            .sorted { $0.timesUsed > $1.timesUsed }
+            .first ?? workoutPosts
+            .filter { $0.authorId != profile.id }
+            .sorted { ($0.likeCount + $0.commentCount) > ($1.likeCount + $1.commentCount) }
+            .first
+    }
+
+    @ViewBuilder
+    private func communityPickCard(_ post: Post) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Section label
+            HStack(spacing: 6) {
+                Image(systemName: "star.fill")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(GQColors.vividPurple)
+                Text("COMMUNITY PICK")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.5)
+                    .foregroundColor(GQColors.textTertiary)
+            }
+
+            // Author row
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(AnyShapeStyle(GQGradients.primary))
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Text(String(post.authorName.prefix(1)).uppercased())
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(post.authorName)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text(post.workoutType ?? "Workout")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+                Spacer()
+                if post.timesUsed > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 8))
+                        Text("\(post.timesUsed) used today")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundColor(GQColors.success)
+                }
+            }
+
+            // Exercise highlight
+            if let highlight = post.exerciseHighlight {
+                Text(highlight)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+
+            // Stats
+            HStack(spacing: 8) {
+                if let d = post.duration { statChipSmall(icon: "clock.fill", text: "\(d)m") }
+                if let s = post.setCount { statChipSmall(icon: "list.bullet", text: "\(s) sets") }
+                if post.likeCount > 0 { statChipSmall(icon: "hand.thumbsup.fill", text: "\(post.likeCount)") }
+            }
+
+            // CTA
+            if post.authorId != profile.id {
+                Button {
+                    UseWorkoutService.use(post: post, currentUserId: profile.id, appState: appState, modelContext: modelContext)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Use this workout")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(GQGradients.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .background(GQColors.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(GQColors.borderDefault, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+    }
+
+    // MARK: - 4. Squad Summary
+
+    @ViewBuilder
+    private var squadSummaryCard: some View {
+        let mySquads = allSquads.filter { $0.memberIds.contains(profile.id) }
+        if let squad = mySquads.first {
+            let memberIds = Set(squad.memberIds.filter { $0 != profile.id })
+            let weekStart = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+            let squadWorkouts = workoutPosts.filter { memberIds.contains($0.authorId) && $0.timestamp >= weekStart }
+            let sessionCount = squadWorkouts.count
+            let topExercise = squadWorkouts.compactMap(\.exerciseHighlight).mostCommon() ?? "—"
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.3.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(GQColors.deepBlue)
+                    Text(squad.name.uppercased())
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.5)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(sessionCount)")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text(sessionCount == 1 ? "session this week" : "sessions this week")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                HStack(spacing: 4) {
+                    Text("Top exercise:")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                    Text(topExercise)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+
+                // Mini avatar row
+                HStack(spacing: -6) {
+                    ForEach(Array(memberIds.prefix(5)), id: \.self) { memberId in
+                        if let member = allUserProfiles.first(where: { $0.id == memberId }) {
+                            Circle()
+                                .fill(AnyShapeStyle(GQGradients.primary))
+                                .frame(width: 24, height: 24)
+                                .overlay(
+                                    Text(String(member.name.prefix(1)).uppercased())
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(.white)
+                                )
+                                .overlay(Circle().stroke(GQColors.cardBackground, lineWidth: 2))
+                        }
+                    }
+                    if memberIds.count > 5 {
+                        Circle()
+                            .fill(GQColors.adaptiveOverlay(0.1))
+                            .frame(width: 24, height: 24)
+                            .overlay(
+                                Text("+\(memberIds.count - 5)")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundColor(GQColors.textTertiary)
+                            )
+                            .overlay(Circle().stroke(GQColors.cardBackground, lineWidth: 2))
+                    }
+                }
+            }
+            .padding(14)
+            .background(GQColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        }
+    }
+
+    // MARK: - 5. People Timeline
+
+    @ViewBuilder
+    private var peopleTimeline: some View {
+        let recentFromFollowing = catalogFromFollowing.prefix(8)
+        if !recentFromFollowing.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
+                    Image(systemName: "person.2.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(GQColors.deepBlue)
+                    Text("WHAT YOUR PEOPLE DID")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.5)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+                ForEach(Array(recentFromFollowing.enumerated()), id: \.element.id) { index, post in
+                    PeopleTimelineRow(
+                        post: post,
+                        currentUserId: profile.id,
+                        profile: profile
+                    )
+
+                    if index < recentFromFollowing.count - 1 {
+                        Rectangle()
+                            .fill(GQColors.borderSubtle)
+                            .frame(height: 0.5)
+                            .padding(.leading, 52)
+                    }
+                }
+                .padding(.bottom, 8)
+            }
+            .background(GQColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        }
+    }
+
+    // MARK: - 6. Trending Bubbles
+
+    @ViewBuilder
+    private var trendingBubbles: some View {
+        let trending = computeTrendingExercises()
+        if !trending.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(GQColors.vividPurple)
+                    Text("TRENDING IN YOUR CIRCLE")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.5)
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .padding(.horizontal, 16)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(trending, id: \.name) { item in
+                            HStack(spacing: 5) {
+                                Text(item.name)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(GQColors.textPrimary)
+                                Text("\(item.count) \(item.count == 1 ? "friend" : "friends")")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(GQColors.textTertiary)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(GQColors.cardBackground)
+                            .clipShape(Capsule())
+                            .overlay(
+                                Capsule().stroke(GQColors.borderDefault, lineWidth: 1)
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
+    private struct TrendingItem {
+        let name: String
+        let count: Int
+    }
+
+    private func computeTrendingExercises() -> [TrendingItem] {
+        let weekAgo = Date().addingTimeInterval(-7 * 86400)
+        let friendPosts = workoutPosts.filter {
+            cachedFollowingIds.contains($0.authorId) && $0.timestamp > weekAgo
+        }
+        var exerciseCounts: [String: Set<UUID>] = [:]
+        for post in friendPosts {
+            if let highlight = post.exerciseHighlight {
+                exerciseCounts[highlight, default: []].insert(post.authorId)
+            }
+        }
+        return exerciseCounts
+            .map { TrendingItem(name: $0.key, count: $0.value.count) }
+            .filter { $0.count >= 1 }
+            .sorted { $0.count > $1.count }
+            .prefix(6)
+            .map { $0 }
+    }
+
+    // MARK: - Helpers
+
+    private func statChipSmall(icon: String, text: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 8, weight: .semibold))
+            Text(text)
+                .font(.system(size: 10, weight: .medium))
+        }
+        .foregroundColor(GQColors.textTertiary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(GQColors.adaptiveOverlay(0.05))
+        .clipShape(Capsule())
     }
 
     // MARK: - Catalog Search Bar
@@ -966,6 +1353,123 @@ struct WeeklyRecapCard: View {
 // highlight, duration, author, timesUsed, and a primary "Use this" action.
 // Tapping the card body shows a detail sheet; tapping the button starts
 // the workout immediately via UseWorkoutService.
+
+// MARK: - People Timeline Row
+
+struct PeopleTimelineRow: View {
+    let post: Post
+    let currentUserId: UUID
+    let profile: UserProfile
+
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var topComment: String? = nil
+
+    private var hasPR: Bool {
+        post.getProofCard()?.variant == "pr"
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Avatar with optional PR accent
+            ZStack(alignment: .bottomTrailing) {
+                Circle()
+                    .fill(AnyShapeStyle(GQGradients.primary))
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Text(String(post.authorName.prefix(1)).uppercased())
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
+                if hasPR {
+                    Circle()
+                        .fill(Color(red: 1.0, green: 0.78, blue: 0.2))
+                        .frame(width: 10, height: 10)
+                        .overlay(
+                            Image(systemName: "trophy.fill")
+                                .font(.system(size: 5, weight: .black))
+                                .foregroundStyle(.black)
+                        )
+                        .overlay(Circle().stroke(GQColors.cardBackground, lineWidth: 1.5))
+                        .offset(x: 2, y: 2)
+                }
+            }
+
+            // Content
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text(post.authorName)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("·")
+                        .foregroundColor(GQColors.textTertiary)
+                    Text(post.workoutType ?? "Workout")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textSecondary)
+                    if let d = post.duration {
+                        Text("· \(d)m")
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+
+                if let comment = topComment {
+                    Text("\"\(comment)\"")
+                        .font(.system(size: 10))
+                        .foregroundColor(GQColors.textTertiary)
+                        .lineLimit(1)
+                        .italic()
+                } else if hasPR {
+                    Text("NEW PR")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(Color(red: 1.0, green: 0.78, blue: 0.2))
+                }
+            }
+
+            Spacer()
+
+            // Use button
+            if post.authorId != currentUserId {
+                Button {
+                    UseWorkoutService.use(post: post, currentUserId: currentUserId, appState: appState, modelContext: modelContext)
+                } label: {
+                    Text("Use")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(GQGradients.primary)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .task {
+            let postId = post.id
+            var descriptor = FetchDescriptor<Comment>(
+                predicate: #Predicate { $0.postId == postId },
+                sortBy: [SortDescriptor(\Comment.timestamp, order: .reverse)]
+            )
+            descriptor.fetchLimit = 1
+            topComment = (try? modelContext.fetch(descriptor).first)?.content
+        }
+    }
+}
+
+// MARK: - Array Helper
+
+extension Array where Element: Hashable {
+    func mostCommon() -> Element? {
+        var counts: [Element: Int] = [:]
+        for item in self { counts[item, default: 0] += 1 }
+        return counts.max(by: { $0.value < $1.value })?.key
+    }
+}
+
+// MARK: - Workout Catalog Card
 
 struct WorkoutCatalogCard: View {
     let post: Post
