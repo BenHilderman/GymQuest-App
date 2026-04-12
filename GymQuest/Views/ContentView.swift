@@ -195,9 +195,9 @@ struct ContentView: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 switch newStep {
                 case 0, 1: appState.selectedTab = .today
-                case 2: appState.selectedTab = .feed
-                case 3: appState.selectedTab = .activity
-                case 4: appState.selectedTab = .profile
+                case 2: appState.selectedTab = .activity
+                case 3: appState.selectedTab = .profile
+                case 4: appState.selectedTab = .feed  // end on Feed
                 default: break
                 }
             }
@@ -934,12 +934,12 @@ struct AppTourOverlay: View {
         TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 55, cardAbove: true, contentY: nil),
         // 1: Today bottom tab
         TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", tabIndex: 1, ringSize: 52, cardAbove: true, contentY: nil),
-        // 2: Feed bottom tab — circle the Feed icon, explain the three sub-tabs
-        TourStep(title: "Feed", description: "Friends — your people's workouts\nClubs — gym communities & challenges\nExplore — discover & use any workout", tabIndex: 0, ringSize: 52, cardAbove: true, contentY: nil),
-        // 3: Activity bottom tab
+        // 2: Activity bottom tab
         TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", tabIndex: 3, ringSize: 52, cardAbove: true, contentY: nil),
-        // 4: You bottom tab
+        // 3: You bottom tab
         TourStep(title: "Your Profile", description: "Your training record. Complete\nyour profile to get started.", tabIndex: 4, ringSize: 52, cardAbove: true, contentY: nil),
+        // 4: Feed last — so user lands on the feed ready to engage
+        TourStep(title: "Feed", description: "Friends — your people's workouts\nClubs — gym communities & challenges\nExplore — discover & use any workout", tabIndex: 0, ringSize: 52, cardAbove: true, contentY: nil),
     ]
 
     private var current: TourStep { steps[min(step, steps.count - 1)] }
@@ -962,7 +962,7 @@ struct AppTourOverlay: View {
             // Tab icon Y: empirically measured from device screenshots.
             // Using fractions of full screen height (with .ignoresSafeArea).
             let tabIconY = screenH * 0.929
-            let plusY = screenH * 0.923
+            let plusY = screenH * 0.9225
 
             // Ring center for current step
             let topSafe = geo.safeAreaInsets.top
@@ -1003,10 +1003,16 @@ struct AppTourOverlay: View {
                                 .frame(width: feedTabsWidth - 4, height: current.ringSize - 4)
                                 .position(ringCenter)
                         } else {
-                            // Slightly oversized cutout to include badges (like the green dot)
-                            Circle()
-                                .frame(width: current.ringSize + 8, height: current.ringSize + 8)
-                                .position(ringCenter)
+                            // Soft-edged cutout: radial gradient fades from clear center
+                            // into the dim, so the highlight edge is smooth not hard
+                            RadialGradient(
+                                colors: [.white, .white, .white.opacity(0)],
+                                center: .center,
+                                startRadius: current.ringSize * 0.35,
+                                endRadius: current.ringSize * 0.55
+                            )
+                            .frame(width: current.ringSize + 20, height: current.ringSize + 20)
+                            .position(ringCenter)
                         }
                     }
                     .animation(.spring(response: 0.7, dampingFraction: 0.85), value: step)
