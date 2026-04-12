@@ -944,8 +944,8 @@ struct AppTourOverlay: View {
             }
             // Tab icon Y: empirically measured from device screenshots.
             // Using fractions of full screen height (with .ignoresSafeArea).
-            let tabIconY = screenH * 0.951   // Feed/Today/Activity/You icon centers
-            let plusY = screenH * 0.941       // + button center
+            let tabIconY = screenH * 0.944   // Feed/Today/Activity/You ICON centers (above labels)
+            let plusY = screenH * 0.932       // + button icon center (above labels)
 
             // Ring center for current step
             let topSafe = geo.safeAreaInsets.top
