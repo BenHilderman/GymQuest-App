@@ -1459,6 +1459,8 @@ struct WeeklyScheduleEditorSheet: View {
     @State private var displayedMonth = Date()
     @State private var selectedDay: IdentifiableInt? = nil
     @State private var selectedDayDate: Date? = nil
+    @State private var showCustomizeEditor = false
+    @State private var showDurationPicker = false
 
     private var calendar: Calendar { Calendar.current }
 
@@ -1529,141 +1531,190 @@ struct WeeklyScheduleEditorSheet: View {
             ScrollView {
                 VStack(spacing: 16) {
 
-                    // MARK: - Split Picker + Full Day Editor
+                    // MARK: - Split Picker (progressive disclosure)
                     VStack(alignment: .leading, spacing: 12) {
                         Text("YOUR SPLIT")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(GQColors.textTertiary)
                             .tracking(1)
 
-                        // Quick-start presets (fill the editor below)
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(splits, id: \.name) { split in
-                                    Button { applySplit(split.schedule) } label: {
-                                        Text(split.name)
-                                            .font(.system(size: 11, weight: .semibold))
-                                            .foregroundColor(profile.weeklySchedule == split.schedule ? .white : GQColors.textSecondary)
-                                            .padding(.horizontal, 12)
-                                            .padding(.vertical, 7)
-                                            .background(
-                                                profile.weeklySchedule == split.schedule
-                                                    ? AnyShapeStyle(GQGradients.primary)
-                                                    : AnyShapeStyle(GQColors.surfaceSecondary)
-                                            )
-                                            .clipShape(Capsule())
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-
-                                Button { suggestPlan() } label: {
-                                    HStack(spacing: 3) {
-                                        Image(systemName: "sparkles")
-                                            .font(.system(size: 9, weight: .bold))
-                                        Text("Suggest")
-                                            .font(.system(size: 11, weight: .semibold))
-                                    }
-                                    .foregroundColor(GQColors.vividPurple)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 7)
-                                    .background(GQColors.vividPurple.opacity(0.1))
-                                    .clipShape(Capsule())
+                        // Prominent presets — the lazy path (1 tap)
+                        HStack(spacing: 8) {
+                            ForEach(splits, id: \.name) { split in
+                                Button { applySplit(split.schedule) } label: {
+                                    Text(split.name)
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(profile.weeklySchedule == split.schedule ? .white : GQColors.textPrimary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(
+                                            profile.weeklySchedule == split.schedule
+                                                ? AnyShapeStyle(GQGradients.primary)
+                                                : AnyShapeStyle(GQColors.surfaceSecondary)
+                                        )
+                                        .clipShape(RoundedRectangle(cornerRadius: 10))
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
 
-                        // Full 7-day editor — always visible, fully customizable
-                        VStack(spacing: 4) {
-                            ForEach([(2, "Mon"), (3, "Tue"), (4, "Wed"), (5, "Thu"), (6, "Fri"), (7, "Sat"), (1, "Sun")], id: \.0) { wd, name in
-                                splitDayRow(weekday: wd, name: name)
+                        // Suggest button — prominent for new users
+                        if profile.weeklySchedule.isEmpty {
+                            Button { suggestPlan() } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 12, weight: .bold))
+                                    Text("Suggest a plan based on your goals")
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(GQGradients.primary)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        // Compact week preview (always visible)
+                        if !profile.weeklySchedule.isEmpty {
+                            HStack(spacing: 0) {
+                                ForEach([2, 3, 4, 5, 6, 7, 1], id: \.self) { wd in
+                                    VStack(spacing: 2) {
+                                        Text(["", "S", "M", "T", "W", "T", "F", "S"][wd])
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .foregroundColor(GQColors.textTertiary)
+                                        Text(pShort(profile.weeklySchedule[wd] ?? ""))
+                                            .font(.system(size: 9, weight: .bold))
+                                            .foregroundColor(pColor(profile.weeklySchedule[wd] ?? ""))
+                                            .lineLimit(1)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+                            }
+
+                            // Customize toggle + summary
+                            HStack {
+                                let trainingDays = profile.weeklySchedule.values.filter { $0 != "Rest" }.count
+                                Text("\(trainingDays) training, \(7 - trainingDays) rest")
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(GQColors.textTertiary)
+
+                                Spacer()
+
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        showCustomizeEditor.toggle()
+                                    }
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Text(showCustomizeEditor ? "Collapse" : "Customize")
+                                            .font(.system(size: 11, weight: .semibold))
+                                        Image(systemName: showCustomizeEditor ? "chevron.up" : "chevron.down")
+                                            .font(.system(size: 9, weight: .semibold))
+                                    }
+                                    .foregroundColor(GQColors.vividPurple)
+                                }
                             }
                         }
 
-                        // Training day summary + clarity label
-                        HStack {
-                            let trainingDays = profile.weeklySchedule.values.filter { $0 != "Rest" }.count
-                            let restDays = 7 - trainingDays
-                            Text("\(trainingDays) training, \(restDays) rest")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(GQColors.textSecondary)
-                            Spacer()
+                        // Full 7-day editor (collapsed by default)
+                        if showCustomizeEditor {
+                            VStack(spacing: 4) {
+                                ForEach([(2, "Mon"), (3, "Tue"), (4, "Wed"), (5, "Thu"), (6, "Fri"), (7, "Sat"), (1, "Sun")], id: \.0) { wd, name in
+                                    splitDayRow(weekday: wd, name: name)
+                                }
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+
                             Text("Sets your weekly repeat")
                                 .font(.system(size: 10))
                                 .foregroundColor(GQColors.textTertiary)
                         }
-                        .padding(.top, 4)
                     }
                     .padding(14)
                     .background(GQColors.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
 
-                    // MARK: - Duration Picker (flexible)
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            Text("HOW LONG")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(GQColors.textTertiary)
-                                .tracking(1)
-                            Spacer()
-                            Text(activeDurationLabel)
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(GQColors.vividPurple)
-                        }
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                durationChip("Ongoing", weeks: nil)
-                                durationChip("4 wk", weeks: 4)
-                                durationChip("6 wk", weeks: 6)
-                                durationChip("8 wk", weeks: 8)
-                                durationChip("12 wk", weeks: 12)
-                                durationChip("16 wk", weeks: 16)
-
-                                // Custom weeks stepper
-                                HStack(spacing: 6) {
-                                    Button {
-                                        let current = customWeeks
-                                        if current > 1 { setDuration(weeks: current - 1) }
-                                    } label: {
-                                        Image(systemName: "minus")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(GQColors.textTertiary)
-                                            .frame(width: 24, height: 24)
-                                            .background(GQColors.adaptiveOverlay(0.06))
-                                            .clipShape(Circle())
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    Text("\(customWeeks)w")
-                                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                                        .foregroundColor(GQColors.textPrimary)
-                                        .frame(width: 28)
-
-                                    Button {
-                                        setDuration(weeks: customWeeks + 1)
-                                    } label: {
-                                        Image(systemName: "plus")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(GQColors.textTertiary)
-                                            .frame(width: 24, height: 24)
-                                            .background(GQColors.adaptiveOverlay(0.06))
-                                            .clipShape(Circle())
-                                    }
-                                    .buttonStyle(.plain)
+                    // MARK: - Duration (collapsed by default)
+                    if !profile.weeklySchedule.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showDurationPicker.toggle()
                                 }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(GQColors.surfaceSecondary)
-                                .clipShape(Capsule())
+                            } label: {
+                                HStack {
+                                    Text("DURATION")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundColor(GQColors.textTertiary)
+                                        .tracking(1)
+                                    Spacer()
+                                    Text(activeDurationLabel)
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(GQColors.vividPurple)
+                                    Image(systemName: showDurationPicker ? "chevron.up" : "chevron.down")
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+
+                            if showDurationPicker {
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 8) {
+                                        durationChip("Ongoing", weeks: nil)
+                                        durationChip("4 wk", weeks: 4)
+                                        durationChip("6 wk", weeks: 6)
+                                        durationChip("8 wk", weeks: 8)
+                                        durationChip("12 wk", weeks: 12)
+                                        durationChip("16 wk", weeks: 16)
+
+                                        HStack(spacing: 6) {
+                                            Button {
+                                                if customWeeks > 1 { setDuration(weeks: customWeeks - 1) }
+                                            } label: {
+                                                Image(systemName: "minus")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(GQColors.textTertiary)
+                                                    .frame(width: 24, height: 24)
+                                                    .background(GQColors.adaptiveOverlay(0.06))
+                                                    .clipShape(Circle())
+                                            }
+                                            .buttonStyle(.plain)
+
+                                            Text("\(customWeeks)w")
+                                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                                .foregroundColor(GQColors.textPrimary)
+                                                .frame(width: 28)
+
+                                            Button {
+                                                setDuration(weeks: customWeeks + 1)
+                                            } label: {
+                                                Image(systemName: "plus")
+                                                    .font(.system(size: 10, weight: .bold))
+                                                    .foregroundColor(GQColors.textTertiary)
+                                                    .frame(width: 24, height: 24)
+                                                    .background(GQColors.adaptiveOverlay(0.06))
+                                                    .clipShape(Circle())
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(GQColors.surfaceSecondary)
+                                        .clipShape(Capsule())
+                                    }
+                                }
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                             }
                         }
+                        .padding(14)
+                        .background(GQColors.cardBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
                     }
-                    .padding(14)
-                    .background(GQColors.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
 
                     // MARK: - Month Calendar
                     VStack(spacing: 10) {
