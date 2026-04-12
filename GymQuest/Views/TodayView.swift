@@ -1473,13 +1473,6 @@ struct WeeklyScheduleEditorSheet: View {
         ("Full Body", [2: "Full Body", 3: "Rest", 4: "Full Body", 5: "Rest", 6: "Full Body", 7: "Rest", 1: "Rest"]),
     ]
 
-    private let durations: [(label: String, weeks: Int?)] = [
-        ("Ongoing", nil),
-        ("4 weeks", 4),
-        ("8 weeks", 8),
-        ("12 weeks", 12),
-    ]
-
     private var activeDurationLabel: String {
         if profile.planEndDate == nil { return "Ongoing" }
         if let end = profile.planEndDate {
@@ -1581,19 +1574,32 @@ struct WeeklyScheduleEditorSheet: View {
                         }
 
                         // Full 7-day editor — always visible, fully customizable
-                        // Presets just fill this in. Change any day to anything.
                         VStack(spacing: 4) {
                             ForEach([(2, "Mon"), (3, "Tue"), (4, "Wed"), (5, "Thu"), (6, "Fri"), (7, "Sat"), (1, "Sun")], id: \.0) { wd, name in
                                 splitDayRow(weekday: wd, name: name)
                             }
                         }
+
+                        // Training day summary + clarity label
+                        HStack {
+                            let trainingDays = profile.weeklySchedule.values.filter { $0 != "Rest" }.count
+                            let restDays = 7 - trainingDays
+                            Text("\(trainingDays) training, \(restDays) rest")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(GQColors.textSecondary)
+                            Spacer()
+                            Text("Sets your weekly repeat")
+                                .font(.system(size: 10))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        .padding(.top, 4)
                     }
                     .padding(14)
                     .background(GQColors.cardBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
 
-                    // MARK: - Duration Picker
+                    // MARK: - Duration Picker (flexible)
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text("HOW LONG")
@@ -1606,26 +1612,51 @@ struct WeeklyScheduleEditorSheet: View {
                                 .foregroundColor(GQColors.vividPurple)
                         }
 
-                        HStack(spacing: 8) {
-                            ForEach(durations, id: \.label) { dur in
-                                let isActive = (dur.weeks == nil && profile.planEndDate == nil) ||
-                                    (dur.weeks != nil && profile.planEndDate != nil)
-                                Button {
-                                    setDuration(weeks: dur.weeks)
-                                } label: {
-                                    Text(dur.label)
-                                        .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(isActive ? .white : GQColors.textSecondary)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 7)
-                                        .background(
-                                            isActive
-                                                ? AnyShapeStyle(GQGradients.primary)
-                                                : AnyShapeStyle(GQColors.surfaceSecondary)
-                                        )
-                                        .clipShape(Capsule())
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                durationChip("Ongoing", weeks: nil)
+                                durationChip("4 wk", weeks: 4)
+                                durationChip("6 wk", weeks: 6)
+                                durationChip("8 wk", weeks: 8)
+                                durationChip("12 wk", weeks: 12)
+                                durationChip("16 wk", weeks: 16)
+
+                                // Custom weeks stepper
+                                HStack(spacing: 6) {
+                                    Button {
+                                        let current = customWeeks
+                                        if current > 1 { setDuration(weeks: current - 1) }
+                                    } label: {
+                                        Image(systemName: "minus")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(GQColors.textTertiary)
+                                            .frame(width: 24, height: 24)
+                                            .background(GQColors.adaptiveOverlay(0.06))
+                                            .clipShape(Circle())
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Text("\(customWeeks)w")
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundColor(GQColors.textPrimary)
+                                        .frame(width: 28)
+
+                                    Button {
+                                        setDuration(weeks: customWeeks + 1)
+                                    } label: {
+                                        Image(systemName: "plus")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(GQColors.textTertiary)
+                                            .frame(width: 24, height: 24)
+                                            .background(GQColors.adaptiveOverlay(0.06))
+                                            .clipShape(Circle())
+                                    }
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(GQColors.surfaceSecondary)
+                                .clipShape(Capsule())
                             }
                         }
                     }
@@ -1759,7 +1790,7 @@ struct WeeklyScheduleEditorSheet: View {
         }
     }
 
-    private let dayTypes: [WorkoutType?] = [nil, .push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .rest]
+    private let dayTypes: [WorkoutType?] = [nil, .push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .glutes, .abs, .rest]
 
     @ViewBuilder
     private func splitDayRow(weekday: Int, name: String) -> some View {
@@ -1808,6 +1839,36 @@ struct WeeklyScheduleEditorSheet: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    private var customWeeks: Int {
+        guard let end = profile.planEndDate else { return 4 }
+        return max(Int(end.timeIntervalSince(Date()) / (7 * 86400)), 1)
+    }
+
+    @ViewBuilder
+    private func durationChip(_ label: String, weeks: Int?) -> some View {
+        let isActive: Bool = {
+            if weeks == nil { return profile.planEndDate == nil }
+            guard let end = profile.planEndDate else { return false }
+            let currentWeeks = Int(round(end.timeIntervalSince(Date()) / (7 * 86400)))
+            return currentWeeks == weeks
+        }()
+
+        Button { setDuration(weeks: weeks) } label: {
+            Text(label)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(isActive ? .white : GQColors.textSecondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(
+                    isActive
+                        ? AnyShapeStyle(GQGradients.primary)
+                        : AnyShapeStyle(GQColors.surfaceSecondary)
+                )
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private func changeMonth(_ by: Int) {
@@ -1890,7 +1951,7 @@ struct DayOverrideSheet: View {
     @Environment(\.modelContext) private var modelContext
 
     private let dayNames = ["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-    private let types: [WorkoutType] = [.push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .rest]
+    private let types: [WorkoutType] = [.push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .glutes, .abs, .rest]
 
     private var dateLabel: String {
         date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
@@ -1954,6 +2015,11 @@ struct DayOverrideSheet: View {
                 }
             }
             .padding(.horizontal, 20)
+
+            Text("Changes only this day, not your weekly repeat.")
+                .font(.system(size: 10))
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.top, 2)
 
             // Skip / Reset
             HStack(spacing: 16) {
