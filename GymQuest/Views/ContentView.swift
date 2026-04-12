@@ -951,7 +951,7 @@ struct AppTourOverlay: View {
             // Tab icon Y: empirically measured from device screenshots.
             // Using fractions of full screen height (with .ignoresSafeArea).
             let tabIconY = screenH * 0.929
-            let plusY = screenH * 0.923
+            let plusY = screenH * 0.919
 
             // Ring center for current step
             let topSafe = geo.safeAreaInsets.top
