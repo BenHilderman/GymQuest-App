@@ -451,7 +451,166 @@ class AnalyticsService: ObservableObject {
         return Double(conversionCount) / Double(viewedEvents.count)
     }
 
-    // MARK: - Dashboard Summary
+    // MARK: - Memo 5 KPI Computations (A24, W→P, D7)
+    //
+    // The three gold metrics from the 7-leverage-patterns memo:
+    //   A24: % of new users who log a workout within 24h of first app open
+    //   W→P: % of completed workouts that produce a shared Proof Card
+    //   D7:  % of new users with ≥2 workouts in their first 7 days
+    //
+    // Targets: A24 ≥ 40%, W→P ≥ 50%, D7 ≥ 25%.
+
+    /// A24: Activation within 24 hours.
+    /// Numerator: users whose first workoutCompleted event is within 24h of their
+    /// first event of any type. Denominator: all users with at least 1 event.
+    func computeA24(since: Date = .distantPast) -> (rate: Double, total: Int, activated: Int) {
+        guard let context = modelContext else { return (0, 0, 0) }
+        let descriptor = FetchDescriptor<AnalyticsEvent>(
+            predicate: #Predicate { $0.timestamp >= since },
+            sortBy: [SortDescriptor(\.timestamp)]
+        )
+        guard let events = try? context.fetch(descriptor) else { return (0, 0, 0) }
+
+        // Group by user
+        var firstAny: [UUID: Date] = [:]
+        var firstWorkout: [UUID: Date] = [:]
+        for e in events {
+            guard let uid = e.odId else { continue }
+            if firstAny[uid] == nil || e.timestamp < firstAny[uid]! { firstAny[uid] = e.timestamp }
+            if e.eventType == .workoutCompleted {
+                if firstWorkout[uid] == nil || e.timestamp < firstWorkout[uid]! { firstWorkout[uid] = e.timestamp }
+            }
+        }
+        let total = firstAny.count
+        guard total > 0 else { return (0, 0, 0) }
+        let activated = firstAny.filter { uid, firstDate in
+            guard let wDate = firstWorkout[uid] else { return false }
+            return wDate.timeIntervalSince(firstDate) <= 24 * 3600
+        }.count
+        return (Double(activated) / Double(total), total, activated)
+    }
+
+    /// W→P: Workout-to-post rate.
+    /// Numerator: workoutCompleted events followed by a shareExported or
+    /// workoutCardCreated event within 10 minutes. Denominator: all workoutCompleted.
+    func computeWtoP(since: Date = .distantPast) -> (rate: Double, workouts: Int, posted: Int) {
+        guard let context = modelContext else { return (0, 0, 0) }
+        let wcType = AnalyticsEventType.workoutCompleted.rawValue
+        let wcDescriptor = FetchDescriptor<AnalyticsEvent>(
+            predicate: #Predicate { $0.eventType.rawValue == wcType && $0.timestamp >= since },
+            sortBy: [SortDescriptor(\.timestamp)]
+        )
+        guard let workouts = try? context.fetch(wcDescriptor), !workouts.isEmpty else { return (0, 0, 0) }
+
+        // For each workout event, check if there's a share/card within 10 minutes
+        let shareType = AnalyticsEventType.shareExported.rawValue
+        let cardType = AnalyticsEventType.workoutCardCreated.rawValue
+        let allSharesDescriptor = FetchDescriptor<AnalyticsEvent>(
+            predicate: #Predicate {
+                ($0.eventType.rawValue == shareType || $0.eventType.rawValue == cardType) && $0.timestamp >= since
+            },
+            sortBy: [SortDescriptor(\.timestamp)]
+        )
+        let allShares = (try? context.fetch(allSharesDescriptor)) ?? []
+
+        var posted = 0
+        for wc in workouts {
+            let uid = wc.odId
+            let after = wc.timestamp
+            let cutoff = after.addingTimeInterval(600) // 10 minutes
+            if allShares.contains(where: { $0.odId == uid && $0.timestamp >= after && $0.timestamp <= cutoff }) {
+                posted += 1
+            }
+        }
+        return (workouts.isEmpty ? 0 : Double(posted) / Double(workouts.count), workouts.count, posted)
+    }
+
+    /// D7: Day-7 retention with ≥2 workouts.
+    /// Numerator: users whose first workoutCompleted is in the window AND who have
+    /// ≥2 workoutCompleted events within 7 days of their first.
+    /// Denominator: users whose first workoutCompleted is in the window.
+    func computeD7(since: Date = .distantPast) -> (rate: Double, cohort: Int, retained: Int) {
+        guard let context = modelContext else { return (0, 0, 0) }
+        let wcType = AnalyticsEventType.workoutCompleted.rawValue
+        let descriptor = FetchDescriptor<AnalyticsEvent>(
+            predicate: #Predicate { $0.eventType.rawValue == wcType && $0.timestamp >= since },
+            sortBy: [SortDescriptor(\.timestamp)]
+        )
+        guard let events = try? context.fetch(descriptor) else { return (0, 0, 0) }
+
+        // Group by user, find first workout date, count workouts within 7 days
+        var userWorkouts: [UUID: [Date]] = [:]
+        for e in events {
+            guard let uid = e.odId else { continue }
+            userWorkouts[uid, default: []].append(e.timestamp)
+        }
+
+        var cohort = 0
+        var retained = 0
+        for (_, dates) in userWorkouts {
+            let sorted = dates.sorted()
+            guard let first = sorted.first else { continue }
+            cohort += 1
+            let sevenDaysLater = first.addingTimeInterval(7 * 24 * 3600)
+            let countInWindow = sorted.filter { $0 <= sevenDaysLater }.count
+            if countInWindow >= 2 { retained += 1 }
+        }
+        return (cohort == 0 ? 0 : Double(retained) / Double(cohort), cohort, retained)
+    }
+
+    // MARK: - Founder Dashboard Summary
+    //
+    // All the memo-directed metrics in one struct so the founder debug screen
+    // can render them without separate calls.
+
+    struct FounderDashboard {
+        // Memo 5 KPIs
+        let a24Rate: Double           // target ≥ 40%
+        let a24Total: Int
+        let a24Activated: Int
+        let wtopRate: Double          // target ≥ 50%
+        let wtopWorkouts: Int
+        let wtopPosted: Int
+        let d7Rate: Double            // target ≥ 25%
+        let d7Cohort: Int
+        let d7Retained: Int
+        // Memo 2 metric
+        let urrRate: Double           // target > 50%
+        // Action-from-feed
+        let totalUsedWorkouts: Int
+        // Engagement
+        let totalWorkouts: Int
+        let totalPosts: Int
+    }
+
+    func getFounderDashboard() -> FounderDashboard {
+        let thirtyDaysAgo = Date().addingTimeInterval(-30 * 24 * 3600)
+        let a24 = computeA24(since: thirtyDaysAgo)
+        let wtop = computeWtoP(since: thirtyDaysAgo)
+        let d7 = computeD7(since: thirtyDaysAgo)
+        let urr = unpromptedReturnRate(since: thirtyDaysAgo)
+
+        // Total used-workout events
+        var totalUsed = 0
+        if let ctx = modelContext {
+            let desc = FetchDescriptor<UsedWorkoutEvent>()
+            totalUsed = (try? ctx.fetch(desc).count) ?? 0
+        }
+
+        // Summary counts
+        let summary = getMetricsSummary(userId: UUID()) // fallback
+        return FounderDashboard(
+            a24Rate: a24.rate, a24Total: a24.total, a24Activated: a24.activated,
+            wtopRate: wtop.rate, wtopWorkouts: wtop.workouts, wtopPosted: wtop.posted,
+            d7Rate: d7.rate, d7Cohort: d7.cohort, d7Retained: d7.retained,
+            urrRate: urr,
+            totalUsedWorkouts: totalUsed,
+            totalWorkouts: summary.totalWorkouts,
+            totalPosts: summary.totalShares
+        )
+    }
+
+    // MARK: - Dashboard Summary (original)
 
     struct MetricsSummary {
         let totalWorkouts: Int

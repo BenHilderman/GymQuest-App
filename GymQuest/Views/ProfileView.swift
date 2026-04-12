@@ -1856,6 +1856,17 @@ struct SettingsView: View {
 
                 settingsDivider
 
+                // MARK: Founder Dashboard
+                //
+                // Memo 5 KPI surface. The three gold metrics (A24, W→P, D7)
+                // plus Unprompted Return Rate and action-from-feed count.
+                // Visible in Settings so you can check the numbers on-device
+                // without needing a backend dashboard.
+                FounderDashboardSection()
+                    .homeSocialCard(cornerRadius: 16)
+
+                settingsDivider
+
                 // Sign Out
                 Button {
                     showingLogoutAlert = true
@@ -2318,4 +2329,109 @@ struct ProfilePostBrowserView: View {
 #Preview {
     ProfileView(profile: UserProfile())
         .environmentObject(AppState())
+}
+
+// MARK: - Founder Dashboard Section
+//
+// The memo-5 KPI scorecard, rendered in Settings as a developer-grade
+// metrics surface. Shows A24, W→P, D7, URR, and action-from-feed count
+// with target thresholds and color-coded pass/fail.
+//
+// This is NOT a user-facing feature — it's a founder-grade instrument
+// panel so you can check the numbers on-device without infrastructure.
+
+struct FounderDashboardSection: View {
+    @State private var dashboard: AnalyticsService.FounderDashboard? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "gauge.with.needle.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(GQGradients.primary)
+                Text("Founder Dashboard")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Button {
+                    dashboard = AnalyticsService.shared.getFounderDashboard()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+
+            if let d = dashboard {
+                VStack(spacing: 8) {
+                    kpiRow(label: "A24 (activation <24h)", rate: d.a24Rate, target: 0.40,
+                           detail: "\(d.a24Activated)/\(d.a24Total) users")
+                    kpiRow(label: "W→P (workout→post)", rate: d.wtopRate, target: 0.50,
+                           detail: "\(d.wtopPosted)/\(d.wtopWorkouts) sessions")
+                    kpiRow(label: "D7 (≥2 workouts in 7d)", rate: d.d7Rate, target: 0.25,
+                           detail: "\(d.d7Retained)/\(d.d7Cohort) cohort")
+                    kpiRow(label: "URR (unprompted return)", rate: d.urrRate, target: 0.50,
+                           detail: "30-day window")
+
+                    Divider().background(GQColors.borderDefault)
+
+                    HStack(spacing: 16) {
+                        miniStat(label: "Used", value: "\(d.totalUsedWorkouts)")
+                        miniStat(label: "Workouts", value: "\(d.totalWorkouts)")
+                        miniStat(label: "Posts", value: "\(d.totalPosts)")
+                    }
+                }
+            } else {
+                Button {
+                    dashboard = AnalyticsService.shared.getFounderDashboard()
+                } label: {
+                    Text("Load metrics")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(GQColors.adaptiveOverlay(0.06))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private func kpiRow(label: String, rate: Double, target: Double, detail: String) -> some View {
+        let pct = Int(rate * 100)
+        let targetPct = Int(target * 100)
+        let passing = rate >= target
+        HStack(spacing: 8) {
+            Image(systemName: passing ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(passing ? GQColors.success : Color.orange)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                Text("\(pct)% / \(targetPct)% target · \(detail)")
+                    .font(.system(size: 10))
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            Spacer()
+            Text("\(pct)%")
+                .font(.system(size: 14, weight: .black, design: .rounded))
+                .foregroundColor(passing ? GQColors.success : Color.orange)
+        }
+    }
+
+    private func miniStat(label: String, value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+            Text(label)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+        }
+    }
 }

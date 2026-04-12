@@ -1019,6 +1019,20 @@ struct WeeklyRecapView: View {
                     }
                     #endif
 
+                    // Gentle monetization touchpoint — memo 5 rank 7. A soft Pro
+                    // badge that shows what premium unlocks without gating the free
+                    // recap. No urgency, no "limited time," no pressure.
+                    if !profile.isPremium {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 10, weight: .bold))
+                            Text("Pro unlocks deeper analytics + AI plans")
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundStyle(.white.opacity(0.55))
+                        .padding(.vertical, 6)
+                    }
+
                     Button(action: onDismiss) {
                         Text("Dismiss")
                             .font(.system(size: 13))

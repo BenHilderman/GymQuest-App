@@ -75,7 +75,7 @@ struct PaywallView: View {
         VStack(spacing: 14) {
             NavBarLogo()
 
-            Text("Train smarter with AI-powered workouts and advanced analytics.")
+            Text("Your effort earns deeper tools. Unlock them when you're ready.")
                 .font(.subheadline)
                 .foregroundStyle(GQColors.textSecondary)
                 .multilineTextAlignment(.center)
@@ -105,7 +105,7 @@ struct PaywallView: View {
                     .foregroundStyle(GQColors.textSecondary)
             }
 
-            Text("Join 50,000+ lifters training smarter")
+            Text("Trusted by lifters who show up.")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(GQColors.textSecondary)
         }
@@ -116,11 +116,11 @@ struct PaywallView: View {
     @ViewBuilder
     private var featuresSection: some View {
         VStack(spacing: 0) {
-            featureRow(icon: "brain.head.profile", title: "AI-Generated Workouts", desc: "Personalized programs built for your goals", color: GQColors.deepBlue)
-            featureRow(icon: "chart.line.uptrend.xyaxis", title: "Advanced Analytics", desc: "Deep insights into volume, strength, and recovery", color: GQColors.deepBlue)
-            featureRow(icon: "list.bullet.clipboard", title: "Custom Training Plans", desc: "Multi-week periodized programming", color: GQColors.textSecondary)
-            featureRow(icon: "figure.strengthtraining.traditional", title: "Form Studio", desc: "Exercise technique library with cues", color: GQColors.success)
-            featureRow(icon: "clock.arrow.circlepath", title: "Unlimited History", desc: "Access your full workout archive", color: GQColors.deepBlue)
+            featureRow(icon: "brain.head.profile", title: "AI Training Plans", desc: "Periodized programs that adapt to your sessions", color: GQColors.deepBlue)
+            featureRow(icon: "chart.line.uptrend.xyaxis", title: "Deep Analytics", desc: "Volume trends, PR history, and progress over time", color: GQColors.deepBlue)
+            featureRow(icon: "list.bullet.clipboard", title: "Custom Templates", desc: "Save and reuse your best sessions", color: GQColors.textSecondary)
+            featureRow(icon: "figure.strengthtraining.traditional", title: "Form Studio", desc: "Exercise cues and technique breakdowns", color: GQColors.success)
+            featureRow(icon: "clock.arrow.circlepath", title: "Full History", desc: "Every workout you've ever logged", color: GQColors.deepBlue)
         }
         .padding(.vertical, 8)
         .background(
