@@ -1212,6 +1212,10 @@ final class UserProfile {
     /// When the tracked week is older than now, reset graceDaysUsedThisWeek.
     var graceWeekStart: Date? = nil
 
+    /// Progressive challenge tier — only 3 challenges shown at a time.
+    /// Starts at 0 (basics), advances when all 3 in a tier are complete.
+    var currentChallengeTier: Int = 0
+
     // Nutrition & body goals
     var dailyCalorieGoal: Int = 2000
     var proteinGoalGrams: Int = 150

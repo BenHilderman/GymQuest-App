@@ -730,49 +730,137 @@ struct ProfileView: View {
         .padding(12)
     }
 
-    // MARK: - Achievement Badges
+    // MARK: - Progressive Challenges (3 at a time)
+    //
+    // Only 3 challenges visible at once. Complete all 3 → tier advances →
+    // next 3 revealed. Tier 0 is universal basics. Tier 1+ gets tailored:
+    // 1 general, 1 personalized to the user, 1 mixed.
 
-    @State private var selectedAchievement: AchievementInfo? = nil
+    @State private var selectedChallenge: ActiveChallenge? = nil
+    @State private var showTierComplete = false
 
-    struct AchievementInfo: Identifiable {
+    struct ActiveChallenge: Identifiable {
         let id = UUID()
         let icon: String
         let title: String
         let description: String
         let current: Int
         let target: Int
-        var unlocked: Bool { current >= target }
+        let category: String  // "General", "For You", "Mixed"
+        var isComplete: Bool { current >= target }
         var progress: Double { target > 0 ? min(Double(current) / Double(target), 1.0) : 0 }
     }
 
-    private var achievements: [AchievementInfo] {
-        [
-            AchievementInfo(icon: "figure.walk", title: "First Workout", description: "Log your first workout.", current: min(totalWorkoutCount, 1), target: 1),
-            AchievementInfo(icon: "flame.fill", title: "7-Day Streak", description: "Train 7 days with no more than 1 rest day between.", current: min(cachedStreak, 7), target: 7),
-            AchievementInfo(icon: "flame.circle.fill", title: "30-Day Streak", description: "Maintain a 30-day training streak.", current: min(cachedStreak, 30), target: 30),
-            AchievementInfo(icon: "trophy.fill", title: "100 Workouts", description: "Log 100 total workouts.", current: min(totalWorkoutCount, 100), target: 100),
-            AchievementInfo(icon: "star.fill", title: "PR Machine", description: "Hit 10 personal records across any exercise.", current: min(prEvents.count, 10), target: 10),
-            AchievementInfo(icon: "bubble.left.and.bubble.right.fill", title: "Social Butterfly", description: "Share 10 workout posts to the feed.", current: min(userPosts.count, 10), target: 10),
-            AchievementInfo(icon: "person.2.fill", title: "Spotter", description: "Have 5 of your workouts used by others.", current: min(cachedUsedCount, 5), target: 5),
-            AchievementInfo(icon: "calendar.badge.checkmark", title: "Month Strong", description: "Show up on 20 distinct days.", current: min(cachedDaysShownUp, 20), target: 20),
-        ].sorted { $0.unlocked && !$1.unlocked }
+    private var currentChallenges: [ActiveChallenge] {
+        let tier = profile.currentChallengeTier
+        let favoriteType = workouts.first?.type.rawValue ?? "Push"
+        let favoriteExercise = workouts.first?.exercises.first?.name ?? "Bench Press"
+
+        switch tier {
+        case 0:
+            // Universal basics
+            return [
+                ActiveChallenge(icon: "figure.walk", title: "First Workout", description: "Log your first workout.", current: min(totalWorkoutCount, 1), target: 1, category: "General"),
+                ActiveChallenge(icon: "hand.thumbsup.fill", title: "First Reaction", description: "React or comment on someone's post.", current: min(cachedWitnessCount > 0 ? 1 : 0, 1), target: 1, category: "General"),
+                ActiveChallenge(icon: "person.3.fill", title: "Join a Squad", description: "Join your first squad.", current: allSquads.contains(where: { $0.memberIds.contains(profile.id) }) ? 1 : 0, target: 1, category: "General"),
+            ]
+        case 1:
+            return [
+                ActiveChallenge(icon: "dumbbell.fill", title: "3 Workouts", description: "Log 3 total workouts.", current: min(totalWorkoutCount, 3), target: 3, category: "General"),
+                ActiveChallenge(icon: "star.fill", title: "\(favoriteType) Session", description: "Do a \(favoriteType.lowercased()) workout.", current: min(workouts.filter { $0.type.rawValue == favoriteType }.count, 1), target: 1, category: "For You"),
+                ActiveChallenge(icon: "paperplane.fill", title: "Share Proof", description: "Send a Proof Card to your people.", current: min(userPosts.filter { $0.proofCardData != nil }.count, 1), target: 1, category: "Mixed"),
+            ]
+        case 2:
+            return [
+                ActiveChallenge(icon: "flame.fill", title: "3-Day Streak", description: "Train 3 days with grace.", current: min(cachedStreak, 3), target: 3, category: "General"),
+                ActiveChallenge(icon: "trophy.fill", title: "\(favoriteExercise) PR", description: "Hit a new PR on \(favoriteExercise.lowercased()).", current: min(prEvents.filter { $0.exerciseName == favoriteExercise }.count, 1), target: 1, category: "For You"),
+                ActiveChallenge(icon: "person.2.fill", title: "Get Used", description: "Have someone use your workout.", current: min(cachedUsedCount, 1), target: 1, category: "Mixed"),
+            ]
+        case 3:
+            return [
+                ActiveChallenge(icon: "calendar.badge.checkmark", title: "10 Days", description: "Show up on 10 distinct days.", current: min(cachedDaysShownUp, 10), target: 10, category: "General"),
+                ActiveChallenge(icon: "bolt.fill", title: "5 \(favoriteType) Days", description: "Complete 5 \(favoriteType.lowercased()) sessions.", current: min(workouts.filter { $0.type.rawValue == favoriteType }.count, 5), target: 5, category: "For You"),
+                ActiveChallenge(icon: "bubble.left.and.bubble.right.fill", title: "Social 5", description: "Share 5 workout posts.", current: min(userPosts.count, 5), target: 5, category: "Mixed"),
+            ]
+        case 4:
+            return [
+                ActiveChallenge(icon: "flame.circle.fill", title: "7-Day Streak", description: "Maintain a 7-day streak.", current: min(cachedStreak, 7), target: 7, category: "General"),
+                ActiveChallenge(icon: "trophy.fill", title: "5 PRs", description: "Hit 5 personal records.", current: min(prEvents.count, 5), target: 5, category: "For You"),
+                ActiveChallenge(icon: "person.2.fill", title: "Spotter ×3", description: "Have 3 workouts used by others.", current: min(cachedUsedCount, 3), target: 3, category: "Mixed"),
+            ]
+        default:
+            return [
+                ActiveChallenge(icon: "star.circle.fill", title: "\(20 + (tier - 5) * 10) Workouts", description: "Keep showing up.", current: min(totalWorkoutCount, 20 + (tier - 5) * 10), target: 20 + (tier - 5) * 10, category: "General"),
+                ActiveChallenge(icon: "trophy.fill", title: "\(5 + (tier - 5) * 3) PRs", description: "Keep pushing records.", current: min(prEvents.count, 5 + (tier - 5) * 3), target: 5 + (tier - 5) * 3, category: "For You"),
+                ActiveChallenge(icon: "person.2.fill", title: "Spotter ×\(3 + (tier - 5) * 2)", description: "Help others train.", current: min(cachedUsedCount, 3 + (tier - 5) * 2), target: 3 + (tier - 5) * 2, category: "Mixed"),
+            ]
+        }
     }
 
-    private var achievementBadgesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("ACHIEVEMENTS")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(GQColors.textSecondary)
-                .tracking(0.6)
-                .padding(.horizontal, 4)
+    private var allCurrentComplete: Bool {
+        currentChallenges.allSatisfy(\.isComplete)
+    }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(achievements) { badge in
+    @Query private var allSquads: [Squad]
+
+    private var achievementBadgesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Header with tier indicator
+            HStack {
+                Text("CHALLENGES")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(GQColors.textSecondary)
+                    .tracking(0.6)
+                Spacer()
+                Text("Tier \(profile.currentChallengeTier + 1)")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.vividPurple)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(GQColors.vividPurple.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+            .padding(.horizontal, 4)
+
+            if allCurrentComplete {
+                // All 3 done — celebrate + advance
+                Button {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        profile.currentChallengeTier += 1
+                        try? modelContext.save()
+                    }
+                    #if canImport(UIKit)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    #endif
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 16, weight: .bold))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("All 3 complete!")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Tap to reveal next challenges")
+                                .font(.system(size: 11))
+                                .foregroundColor(GQColors.textSecondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(14)
+                    .background(GQGradients.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
+            } else {
+                // Show 3 current challenges
+                VStack(spacing: 8) {
+                    ForEach(currentChallenges) { challenge in
                         Button {
-                            selectedAchievement = badge
+                            selectedChallenge = challenge
                         } label: {
-                            achievementBadge(badge: badge)
+                            challengeRow(challenge)
                         }
                         .buttonStyle(.plain)
                     }
@@ -780,30 +868,69 @@ struct ProfileView: View {
             }
         }
         .padding(.horizontal, 4)
-        .sheet(item: $selectedAchievement) { badge in
-            AchievementDetailSheet(badge: badge)
+        .sheet(item: $selectedChallenge) { challenge in
+            AchievementDetailSheet(badge: challenge)
                 .presentationDetents([.medium])
         }
     }
 
     @ViewBuilder
-    private func achievementBadge(badge: AchievementInfo) -> some View {
-        VStack(spacing: 6) {
+    private func challengeRow(_ c: ActiveChallenge) -> some View {
+        HStack(spacing: 12) {
+            // Icon
             ZStack {
                 Circle()
-                    .fill(badge.unlocked ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
-                    .frame(width: 48, height: 48)
-                Image(systemName: badge.icon)
-                    .font(.system(size: 20))
-                    .foregroundStyle(badge.unlocked ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary.opacity(0.5)))
+                    .fill(c.isComplete ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
+                    .frame(width: 40, height: 40)
+                Image(systemName: c.isComplete ? "checkmark" : c.icon)
+                    .font(.system(size: c.isComplete ? 14 : 16, weight: .bold))
+                    .foregroundStyle(c.isComplete ? AnyShapeStyle(GQColors.success) : AnyShapeStyle(GQGradients.primary))
             }
-            Text(badge.title)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundColor(badge.unlocked ? GQColors.textPrimary : GQColors.textTertiary)
-                .lineLimit(1)
+
+            // Content
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(c.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(c.isComplete ? GQColors.textTertiary : GQColors.textPrimary)
+                        .strikethrough(c.isComplete)
+                    Text(c.category)
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(c.category == "For You" ? GQColors.vividPurple : GQColors.textTertiary)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule().fill(
+                                c.category == "For You" ? GQColors.vividPurple.opacity(0.12) : GQColors.adaptiveOverlay(0.05)
+                            )
+                        )
+                }
+
+                // Progress bar
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(GQColors.adaptiveOverlay(0.08))
+                            .frame(height: 4)
+                        Capsule()
+                            .fill(c.isComplete ? AnyShapeStyle(GQColors.success) : AnyShapeStyle(GQGradients.primary))
+                            .frame(width: max(geo.size.width * c.progress, 4), height: 4)
+                    }
+                }
+                .frame(height: 4)
+            }
+
+            // Count
+            Text("\(c.current)/\(c.target)")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundColor(c.isComplete ? GQColors.success : GQColors.textSecondary)
         }
-        .frame(width: 72)
-        .opacity(badge.unlocked ? 1 : 0.5)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(c.isComplete ? GQColors.success.opacity(0.05) : Color.clear)
+        )
     }
 
     // MARK: - (Top tab picker removed — single-level tabs now)
@@ -2347,7 +2474,7 @@ struct ProfilePostBrowserView: View {
 // MARK: - Achievement Detail Sheet
 
 struct AchievementDetailSheet: View {
-    let badge: ProfileView.AchievementInfo
+    let badge: ProfileView.ActiveChallenge
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -2355,21 +2482,33 @@ struct AchievementDetailSheet: View {
             // Icon
             ZStack {
                 Circle()
-                    .fill(badge.unlocked ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
+                    .fill(badge.isComplete ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
                     .frame(width: 72, height: 72)
-                Image(systemName: badge.icon)
+                Image(systemName: badge.isComplete ? "checkmark" : badge.icon)
                     .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(badge.unlocked ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.textTertiary))
+                    .foregroundStyle(badge.isComplete ? AnyShapeStyle(GQColors.success) : AnyShapeStyle(GQGradients.primary))
             }
 
-            // Title + status
+            // Title + status + category
             VStack(spacing: 4) {
                 Text(badge.title)
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(GQColors.textPrimary)
-                Text(badge.unlocked ? "Unlocked" : "In progress")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(badge.unlocked ? GQColors.success : GQColors.textTertiary)
+                HStack(spacing: 8) {
+                    Text(badge.isComplete ? "Complete" : "In progress")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(badge.isComplete ? GQColors.success : GQColors.textTertiary)
+                    Text(badge.category)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(badge.category == "For You" ? GQColors.vividPurple : GQColors.textTertiary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule().fill(
+                                badge.category == "For You" ? GQColors.vividPurple.opacity(0.12) : GQColors.adaptiveOverlay(0.05)
+                            )
+                        )
+                }
             }
 
             // Description
@@ -2387,8 +2526,8 @@ struct AchievementDetailSheet: View {
                             .fill(GQColors.adaptiveOverlay(0.08))
                             .frame(height: 8)
                         Capsule()
-                            .fill(AnyShapeStyle(GQGradients.primary))
-                            .frame(width: geo.size.width * badge.progress, height: 8)
+                            .fill(badge.isComplete ? AnyShapeStyle(GQColors.success) : AnyShapeStyle(GQGradients.primary))
+                            .frame(width: max(geo.size.width * badge.progress, 4), height: 8)
                     }
                 }
                 .frame(height: 8)
