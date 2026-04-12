@@ -20,9 +20,13 @@ struct ContentView: View {
     @StateObject private var aiService = AIService()
 
     // Weekly Recap Proof Card — memo 4 "anticipated cadence" driver.
-    // Fires on first app open after Sunday 6pm if user hasn't seen this week's recap.
     @State private var showWeeklyRecap = false
     @State private var weeklyRecapMeta: ProofCardMeta? = nil
+
+    // First-time app tour
+    @AppStorage("hasSeenAppTour") private var hasSeenAppTour = false
+    @State private var showAppTour = false
+    @State private var tourStep = 0
 
     private var profile: UserProfile? {
         authenticatedProfiles.first
@@ -50,6 +54,23 @@ struct ContentView: View {
     }
 
     private var allTabs: [AppState.Tab] { AppState.Tab.visibleTabs }
+
+    private func advanceTour() {
+        if tourStep < 5 {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                tourStep += 1
+            }
+        } else {
+            dismissTour()
+        }
+    }
+
+    private func dismissTour() {
+        withAnimation(.easeOut(duration: 0.25)) {
+            showAppTour = false
+        }
+        hasSeenAppTour = true
+    }
 
     @ViewBuilder
     private func mainContent(profile: UserProfile) -> some View {
@@ -84,6 +105,16 @@ struct ContentView: View {
             }
         }
         .gqPageBackground()
+        .overlay {
+            if showAppTour {
+                AppTourOverlay(
+                    step: $tourStep,
+                    onNext: { advanceTour() },
+                    onSkip: { dismissTour() }
+                )
+                .transition(.opacity)
+            }
+        }
         .sheet(isPresented: $appState.showingLogWorkout) {
             LogWorkoutView(profile: profile)
         }
@@ -129,8 +160,16 @@ struct ContentView: View {
                 }
             }
 
-            // Weekly Recap Proof Card trigger: check if it's past Sunday 6pm
-            // and the user hasn't yet seen this week's recap.
+            // First-time app tour — show after 1s delay on first launch
+            if !hasSeenAppTour {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        showAppTour = true
+                    }
+                }
+            }
+
+            // Weekly Recap Proof Card trigger
             if let p = self.profile {
                 let meta = WeeklyRecapService.checkAndBuild(
                     profile: p,
@@ -142,6 +181,18 @@ struct ContentView: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                         showWeeklyRecap = true
                     }
+                }
+            }
+        }
+        .onChange(of: tourStep) { _, newStep in
+            // Switch tabs as the tour progresses
+            withAnimation(.easeInOut(duration: 0.2)) {
+                switch newStep {
+                case 0, 1: appState.selectedTab = .today
+                case 2, 3: appState.selectedTab = .feed
+                case 4: appState.selectedTab = .activity
+                case 5: appState.selectedTab = .profile
+                default: break
                 }
             }
         }
@@ -838,6 +889,120 @@ struct WorkoutIslandPill: View {
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
         .modelContainer(for: [Workout.self, UserProfile.self], inMemory: true)
+}
+
+// MARK: - App Tour Overlay
+//
+// First-time guided tour. 6 steps, each switches the real tab behind a
+// dimmed overlay + floating card. Clean, minimal, ~15 seconds total.
+
+struct AppTourOverlay: View {
+    @Binding var step: Int
+    let onNext: () -> Void
+    let onSkip: () -> Void
+
+    private let steps: [(icon: String, title: String, description: String)] = [
+        ("plus.circle.fill", "Start a Workout", "Tap + to log a workout. When you finish, you'll get a Proof Card to share."),
+        ("calendar", "Today", "Your daily challenges, progress rings, and what to do next."),
+        ("person.2.fill", "Friends", "Your people's workouts. React with 💪🙌👀🔥 to support them."),
+        ("magnifyingglass", "Explore", "Discover workouts, search by type, and use any session in one tap."),
+        ("bell.fill", "Activity", "Reactions, follows, and when someone uses your workout."),
+        ("person.fill", "Your Profile", "Your training record and achievements. Complete your profile to get started."),
+    ]
+
+    private var current: (icon: String, title: String, description: String) {
+        steps[min(step, steps.count - 1)]
+    }
+
+    private var isLastStep: Bool { step >= steps.count - 1 }
+
+    var body: some View {
+        ZStack {
+            // Dim background — real app visible behind
+            Color.black.opacity(0.6)
+                .ignoresSafeArea()
+                .onTapGesture { onNext() }
+
+            VStack(spacing: 0) {
+                // Skip button
+                HStack {
+                    Spacer()
+                    Button(action: onSkip) {
+                        Text("Skip")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                    }
+                }
+                .padding(.top, 8)
+
+                Spacer()
+
+                // Card
+                VStack(spacing: 18) {
+                    // Icon
+                    ZStack {
+                        Circle()
+                            .fill(AnyShapeStyle(GQGradients.primary.opacity(0.15)))
+                            .frame(width: 64, height: 64)
+                        Image(systemName: current.icon)
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(AnyShapeStyle(GQGradients.primary))
+                    }
+
+                    // Title
+                    Text(current.title)
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+
+                    // Description
+                    Text(current.description)
+                        .font(.system(size: 14))
+                        .foregroundColor(GQColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+
+                    // Step dots
+                    HStack(spacing: 6) {
+                        ForEach(0..<steps.count, id: \.self) { i in
+                            Circle()
+                                .fill(i == step ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(Color.white.opacity(0.25)))
+                                .frame(width: i == step ? 8 : 6, height: i == step ? 8 : 6)
+                                .animation(.easeInOut(duration: 0.2), value: step)
+                        }
+                    }
+                    .padding(.top, 4)
+
+                    // Next / Get Started button
+                    Button(action: onNext) {
+                        Text(isLastStep ? "Get Started" : "Next")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(GQGradients.primary)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(24)
+                .frame(maxWidth: 320)
+                .background(GQColors.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(GQColors.borderDefault, lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.3), radius: 20, y: 10)
+
+                Spacer()
+                Spacer()
+            }
+        }
+    }
 }
 
 // MARK: - Weekly Recap Service
