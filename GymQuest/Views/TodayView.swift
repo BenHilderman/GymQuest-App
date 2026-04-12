@@ -1792,53 +1792,159 @@ struct WeeklyScheduleEditorSheet: View {
 
     private let dayTypes: [WorkoutType?] = [nil, .push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .glutes, .abs, .rest]
 
+    @State private var editingCustomDay: Int? = nil
+    @State private var customText: String = ""
+
     @ViewBuilder
     private func splitDayRow(weekday: Int, name: String) -> some View {
         let current = profile.weeklySchedule[weekday]
-        HStack(spacing: 0) {
-            Text(name)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(GQColors.textPrimary)
-                .frame(width: 36, alignment: .leading)
+        let isCustomValue = current != nil && !knownTypeRawValues.contains(current!)
+        let isEditingThis = editingCustomDay == weekday
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 5) {
-                    ForEach(dayTypes, id: \.self) { type in
-                        let label = type?.rawValue ?? "Off"
-                        let isSelected = (type == nil && current == nil) ||
-                            (type != nil && type?.rawValue == current)
+        VStack(spacing: 4) {
+            HStack(spacing: 0) {
+                Text(name)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .frame(width: 36, alignment: .leading)
 
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.1)) {
-                                if let type {
-                                    profile.weeklySchedule[weekday] = type.rawValue
-                                } else {
-                                    profile.weeklySchedule.removeValue(forKey: weekday)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 5) {
+                        // Preset type chips
+                        ForEach(dayTypes, id: \.self) { type in
+                            let label = type?.rawValue ?? "Off"
+                            let isSelected = (type == nil && current == nil) ||
+                                (type != nil && type?.rawValue == current)
+
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.1)) {
+                                    if let type {
+                                        profile.weeklySchedule[weekday] = type.rawValue
+                                    } else {
+                                        profile.weeklySchedule.removeValue(forKey: weekday)
+                                    }
+                                    editingCustomDay = nil
+                                    try? modelContext.save()
                                 }
-                                try? modelContext.save()
+                                #if canImport(UIKit)
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                #endif
+                            } label: {
+                                Text(label)
+                                    .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                                    .foregroundColor(isSelected ? .white : GQColors.textTertiary)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 5)
+                                    .background(
+                                        isSelected
+                                            ? AnyShapeStyle(GQGradients.primary)
+                                            : AnyShapeStyle(GQColors.adaptiveOverlay(0.04))
+                                    )
+                                    .clipShape(Capsule())
                             }
-                            #if canImport(UIKit)
-                            UISelectionFeedbackGenerator().selectionChanged()
-                            #endif
+                            .buttonStyle(.plain)
+                        }
+
+                        // Custom chip
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                editingCustomDay = isEditingThis ? nil : weekday
+                                customText = isCustomValue ? (current ?? "") : ""
+                            }
                         } label: {
-                            Text(label)
-                                .font(.system(size: 10, weight: isSelected ? .bold : .medium))
-                                .foregroundColor(isSelected ? .white : GQColors.textTertiary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
-                                .background(
-                                    isSelected
-                                        ? AnyShapeStyle(GQGradients.primary)
-                                        : AnyShapeStyle(GQColors.adaptiveOverlay(0.04))
-                                )
-                                .clipShape(Capsule())
+                            HStack(spacing: 3) {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 8, weight: .bold))
+                                Text(isCustomValue ? (current ?? "Custom") : "Custom")
+                                    .font(.system(size: 10, weight: (isCustomValue || isEditingThis) ? .bold : .medium))
+                            }
+                            .foregroundColor((isCustomValue || isEditingThis) ? .white : GQColors.textTertiary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(
+                                (isCustomValue || isEditingThis)
+                                    ? AnyShapeStyle(GQGradients.primary)
+                                    : AnyShapeStyle(GQColors.adaptiveOverlay(0.04))
+                            )
+                            .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
+
+                        // Recent custom labels as quick picks
+                        if isEditingThis {
+                            ForEach(profile.recentCustomLabels.filter { !knownTypeRawValues.contains($0) }, id: \.self) { label in
+                                Button {
+                                    profile.weeklySchedule[weekday] = label
+                                    editingCustomDay = nil
+                                    try? modelContext.save()
+                                    #if canImport(UIKit)
+                                    UISelectionFeedbackGenerator().selectionChanged()
+                                    #endif
+                                } label: {
+                                    Text(label)
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundColor(GQColors.vividPurple)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 5)
+                                        .background(GQColors.vividPurple.opacity(0.1))
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
                 }
             }
+
+            // Inline text field for custom label
+            if isEditingThis {
+                HStack(spacing: 8) {
+                    TextField("e.g. Chest & Tri, Easy Run, BJJ", text: $customText)
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(GQColors.surfaceSecondary)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .submitLabel(.done)
+                        .onSubmit { saveCustomLabel(weekday: weekday) }
+
+                    Button {
+                        saveCustomLabel(weekday: weekday)
+                    } label: {
+                        Text("Set")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(GQGradients.primary)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.leading, 36)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
         .padding(.vertical, 2)
+    }
+
+    private var knownTypeRawValues: Set<String> {
+        Set(WorkoutType.allCases.map(\.rawValue))
+    }
+
+    private func saveCustomLabel(weekday: Int) {
+        let trimmed = customText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        withAnimation(.easeInOut(duration: 0.1)) {
+            profile.weeklySchedule[weekday] = trimmed
+            profile.addRecentCustomLabel(trimmed)
+            editingCustomDay = nil
+            try? modelContext.save()
+        }
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
     }
 
     private var customWeeks: Int {
@@ -1950,6 +2056,9 @@ struct DayOverrideSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    @State private var customText: String = ""
+    @State private var showCustomField = false
+
     private let dayNames = ["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
     private let types: [WorkoutType] = [.push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .glutes, .abs, .rest]
 
@@ -1969,6 +2078,18 @@ struct DayOverrideSheet: View {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         return f.string(from: d)
+    }
+
+    private func saveCustomOverride() {
+        let trimmed = customText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        profile.dayOverrides[dateKey(date)] = trimmed
+        profile.addRecentCustomLabel(trimmed)
+        try? modelContext.save()
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+        dismiss()
     }
 
     var body: some View {
@@ -2015,6 +2136,69 @@ struct DayOverrideSheet: View {
                 }
             }
             .padding(.horizontal, 20)
+
+            // Custom label option
+            VStack(spacing: 8) {
+                Button { withAnimation { showCustomField.toggle() } } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 10, weight: .bold))
+                        Text("Custom label")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(GQColors.vividPurple)
+                }
+
+                if showCustomField {
+                    HStack(spacing: 8) {
+                        TextField("e.g. Chest & Tri, Easy Run", text: $customText)
+                            .font(.system(size: 12))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(GQColors.surfaceSecondary)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .submitLabel(.done)
+                            .onSubmit { saveCustomOverride() }
+
+                        Button { saveCustomOverride() } label: {
+                            Text("Set")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(GQGradients.primary)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 20)
+
+                    // Recent custom labels
+                    if !profile.recentCustomLabels.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(profile.recentCustomLabels, id: \.self) { label in
+                                    Button {
+                                        profile.dayOverrides[dateKey(date)] = label
+                                        try? modelContext.save()
+                                        dismiss()
+                                    } label: {
+                                        Text(label)
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundColor(GQColors.vividPurple)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 4)
+                                            .background(GQColors.vividPurple.opacity(0.1))
+                                            .clipShape(Capsule())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                        }
+                    }
+                }
+            }
 
             Text("Changes only this day, not your weekly repeat.")
                 .font(.system(size: 10))

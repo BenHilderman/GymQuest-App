@@ -1248,6 +1248,27 @@ final class UserProfile {
     /// Plan duration end date. nil = ongoing (repeats forever).
     var planEndDate: Date? = nil
 
+    /// Recent custom labels the user has typed (max 8, most recent first).
+    /// Reusable so they don't retype "Chest & Tri" every time.
+    var recentCustomLabelsJSON: String = "[]"
+
+    var recentCustomLabels: [String] {
+        get {
+            guard let data = recentCustomLabelsJSON.data(using: .utf8) else { return [] }
+            return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+        }
+        set {
+            let trimmed = Array(newValue.prefix(8))
+            recentCustomLabelsJSON = (try? String(data: JSONEncoder().encode(trimmed), encoding: .utf8)) ?? "[]"
+        }
+    }
+
+    func addRecentCustomLabel(_ label: String) {
+        var labels = recentCustomLabels.filter { $0 != label }
+        labels.insert(label, at: 0)
+        recentCustomLabels = labels
+    }
+
     // Nutrition & body goals
     var dailyCalorieGoal: Int = 2000
     var proteinGoalGrams: Int = 150
