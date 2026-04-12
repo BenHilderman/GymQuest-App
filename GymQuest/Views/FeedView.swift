@@ -224,6 +224,7 @@ struct FeedView: View {
     let profile: UserProfile
 
     @State private var selectedFeedTab: FeedFilter = .friends
+    @State private var catalogSearchQuery: String = ""
     @State private var showLearnPanel = false
     @State private var selectedExerciseForLearn: String?
     @State private var activeSquad: Squad?
@@ -344,81 +345,197 @@ struct FeedView: View {
     // MARK: - Discover Feed Content (all posts, algorithmically ranked)
 
     @ViewBuilder
+    // MARK: - Workout Catalog (Explore)
+    //
+    // Replaces the TikTok-style vertical pager with a Spotify Browse-style
+    // catalog. Intent-based horizontal rails + search bar. Every card has a
+    // "Use this" action — the feed converts viewing into doing.
+    //
+    // Design rationale (from memos 2-6):
+    // - Reels is wrong: optimizes dwell time, violates "not a scroll trap"
+    // - Pure search is wrong: requires user to already know what they want
+    // - Catalog with smart rails: intent-based discovery + search utility +
+    //   action-from-feed conversion on every card
+
     private var discoverFeedContent: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                if !SocialActivityService.shared.activeFriends.isEmpty {
-                    Rectangle()
-                        .fill(GQColors.borderSubtle)
-                        .frame(height: 1)
-                        .padding(.horizontal, 4)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 20) {
+                // Search bar
+                catalogSearchBar
+                    .padding(.horizontal, 16)
 
-                    WorkingOutNowRow(recentFriendCount: cachedFriendsPosts.filter { $0.timestamp > Date().addingTimeInterval(-86400) }.count)
+                if !catalogSearchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
+                    // Search results
+                    catalogSearchResults
+                } else {
+                    // Rails
+                    catalogRail(
+                        title: "Most Used This Week",
+                        icon: "play.circle.fill",
+                        posts: catalogMostUsed
+                    )
+                    catalogRail(
+                        title: "Quick Sessions",
+                        icon: "bolt.fill",
+                        posts: catalogQuickSessions
+                    )
+                    catalogRail(
+                        title: "Try Something New",
+                        icon: "sparkles",
+                        posts: catalogNovelTopics
+                    )
+                    catalogRail(
+                        title: "Popular Push",
+                        icon: "figure.strengthtraining.traditional",
+                        posts: catalogByType("Push")
+                    )
+                    catalogRail(
+                        title: "Popular Pull",
+                        icon: "figure.strengthtraining.functional",
+                        posts: catalogByType("Pull")
+                    )
+                    catalogRail(
+                        title: "Leg Day",
+                        icon: "figure.walk",
+                        posts: catalogByType("Legs")
+                    )
                 }
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 100)
+        }
+        .scrollContentBackground(.hidden)
+        .gqPageBackground()
+    }
 
-                if featureFlags.squadsEnabled, let squad = activeSquad, let challenge = squadChallenge {
-                    SquadChallengeCard(squad: squad, challenge: challenge)
-                        .padding(.bottom, 4)
+    // MARK: - Catalog Search Bar
+
+    private var catalogSearchBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+            TextField("Search workouts, exercises, people...", text: $catalogSearchQuery)
+                .font(.system(size: 14))
+                .foregroundColor(GQColors.textPrimary)
+                .autocorrectionDisabled()
+            if !catalogSearchQuery.isEmpty {
+                Button {
+                    catalogSearchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(GQColors.surfaceBase)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(GQColors.borderDefault, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Catalog Rails
+
+    @ViewBuilder
+    private func catalogRail(title: String, icon: String, posts: [Post]) -> some View {
+        if !posts.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(GQGradients.primary)
+                    Text(title)
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Spacer()
+                    Text("\(posts.count)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .padding(.horizontal, 16)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(posts.prefix(10)) { post in
+                            WorkoutCatalogCard(
+                                post: post,
+                                currentUserId: profile.id,
+                                profile: profile
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
+    // MARK: - Catalog Search Results
+
+    private var catalogSearchResults: some View {
+        let query = catalogSearchQuery.lowercased()
+        let results = workoutPosts.filter { post in
+            (post.exerciseHighlight?.lowercased().contains(query) ?? false) ||
+            (post.workoutType?.lowercased().contains(query) ?? false) ||
+            post.authorName.lowercased().contains(query) ||
+            post.caption.lowercased().contains(query)
+        }.prefix(20)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("\(results.count) result\(results.count == 1 ? "" : "s")")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.horizontal, 16)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(Array(results)) { post in
+                    WorkoutCatalogCard(
+                        post: post,
+                        currentUserId: profile.id,
+                        profile: profile
+                    )
                 }
             }
             .padding(.horizontal, 16)
-
-            LazyVStack(spacing: 0) {
-                if postsWithMedia.isEmpty {
-                    socialEmptyState
-                } else {
-                    let curatedFeed = FeedCurator.curate(posts: postsWithMedia, currentUserId: profile.id)
-                    ForEach(curatedFeed) { item in
-                        switch item {
-                        case .post(let post):
-                            PostCardV2(
-                                post: post,
-                                currentUserId: profile.id,
-                                currentUserName: profile.name,
-                                profile: profile
-                            )
-                        case .weeklyPrompt(let label, let icon):
-                            HStack(spacing: 12) {
-                                Image(systemName: icon)
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(GQGradients.primary)
-                                    .frame(width: 40, height: 40)
-                                    .background(GQColors.deepBlue.opacity(0.12))
-                                    .clipShape(Circle())
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(label)
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundColor(GQColors.textPrimary)
-                                    Text("Tap to log your session")
-                                        .font(.system(size: 11))
-                                        .foregroundColor(GQColors.textTertiary)
-                                }
-                                Spacer()
-                            }
-                            .padding(14)
-                            .background(GQColors.surfaceBase)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(GQColors.borderDefault, lineWidth: 1)
-                            )
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 6)
-                        case .workoutSuggestion, .communityPulse, .motivationPrompt, .inspirationChain, .streakMilestone:
-                            EmptyView()
-                        }
-
-                        Rectangle()
-                            .fill(GQColors.borderSubtle)
-                            .frame(height: 1)
-                    }
-                }
-            }
-            .padding(.bottom, 100)
         }
-        .refreshable {
-            await refreshSocialFeed()
+    }
+
+    // MARK: - Catalog Data Sources
+
+    /// All posts that have serialized workout data (the actionable ones)
+    private var workoutPosts: [Post] {
+        posts.filter { $0.sharedWorkoutData != nil }
+    }
+
+    private var catalogMostUsed: [Post] {
+        let weekAgo = Date().addingTimeInterval(-7 * 86400)
+        return workoutPosts
+            .filter { $0.timestamp > weekAgo }
+            .sorted { $0.timesUsed > $1.timesUsed }
+    }
+
+    private var catalogQuickSessions: [Post] {
+        workoutPosts.filter { ($0.duration ?? 999) <= 20 }
+    }
+
+    private var catalogNovelTopics: [Post] {
+        // Posts with workout types the current user hasn't trained recently
+        let userTypes = Set(allWorkouts.prefix(20).map { $0.type.rawValue })
+        return workoutPosts.filter { post in
+            guard let wt = post.workoutType else { return false }
+            return !userTypes.contains(wt)
         }
+    }
+
+    private func catalogByType(_ type: String) -> [Post] {
+        workoutPosts
+            .filter { $0.workoutType?.lowercased() == type.lowercased() }
+            .sorted { $0.timesUsed > $1.timesUsed }
     }
 
     // MARK: - Social Feed Content (friends only)
@@ -805,4 +922,158 @@ struct WeeklyRecapCard: View {
     FeedView(profile: UserProfile())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+}
+
+// MARK: - Workout Catalog Card
+//
+// Compact card for the Explore catalog rails. Shows workout type, exercise
+// highlight, duration, author, timesUsed, and a primary "Use this" action.
+// Tapping the card body shows a detail sheet; tapping the button starts
+// the workout immediately via UseWorkoutService.
+
+struct WorkoutCatalogCard: View {
+    let post: Post
+    let currentUserId: UUID
+    let profile: UserProfile
+
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var showDetail = false
+
+    private var workout: SharedWorkoutData? { post.getSharedWorkout() }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header: workout type icon + type name
+            HStack(spacing: 8) {
+                Image(systemName: workoutIcon)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(GQGradients.primary)
+                    .frame(width: 32, height: 32)
+                    .background(GQColors.deepBlue.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(post.workoutType ?? "Workout")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+                        .lineLimit(1)
+                    if let highlight = post.exerciseHighlight {
+                        Text(highlight)
+                            .font(.system(size: 10))
+                            .foregroundColor(GQColors.textTertiary)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer()
+            }
+
+            // Stats row
+            HStack(spacing: 8) {
+                if let d = post.duration {
+                    statChip(icon: "clock.fill", text: "\(d)m")
+                }
+                if let s = post.setCount {
+                    statChip(icon: "list.bullet", text: "\(s) sets")
+                }
+            }
+
+            // Author + used count
+            HStack(spacing: 4) {
+                Text(post.authorName)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(GQColors.textTertiary)
+                    .lineLimit(1)
+                Spacer()
+                if post.timesUsed > 0 {
+                    HStack(spacing: 2) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 7))
+                        Text("\(post.timesUsed)")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .foregroundColor(GQColors.success)
+                }
+            }
+
+            // Primary CTA
+            if post.authorId != currentUserId {
+                Button {
+                    UseWorkoutService.use(
+                        post: post,
+                        currentUserId: currentUserId,
+                        appState: appState,
+                        modelContext: modelContext
+                    )
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("Use this")
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(GQGradients.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(12)
+        .frame(width: 165)
+        .background(GQColors.surfaceBase)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(GQColors.borderDefault, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.08), radius: 6, y: 3)
+        .onTapGesture { showDetail = true }
+        .sheet(isPresented: $showDetail) {
+            if let workout {
+                WorkoutDetailSheet(
+                    workoutData: workout,
+                    onFollow: {
+                        showDetail = false
+                        UseWorkoutService.use(
+                            post: post,
+                            currentUserId: currentUserId,
+                            appState: appState,
+                            modelContext: modelContext
+                        )
+                    },
+                    onAddExercise: { _ in }
+                )
+            }
+        }
+    }
+
+    private func statChip(icon: String, text: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 8, weight: .semibold))
+            Text(text)
+                .font(.system(size: 10, weight: .medium))
+        }
+        .foregroundColor(GQColors.textTertiary)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(GQColors.adaptiveOverlay(0.05))
+        .clipShape(Capsule())
+    }
+
+    private var workoutIcon: String {
+        switch post.workoutType?.lowercased() {
+        case "push": return "figure.strengthtraining.traditional"
+        case "pull": return "figure.strengthtraining.functional"
+        case "legs": return "figure.walk"
+        case "cardio": return "figure.run"
+        case "hiit": return "bolt.heart.fill"
+        case "full body": return "figure.cross.training"
+        default: return "dumbbell.fill"
+        }
+    }
 }
