@@ -208,6 +208,11 @@ struct TodayView: View {
 
             sectionDivider
 
+            // Progressive challenges (3 at a time, tier-based)
+            TodayChallengesSection(profile: profile)
+
+            sectionDivider
+
             TodayDashboardSection(
                 profile: profile,
                 workoutsThisWeek: workoutsThisWeek,
@@ -904,6 +909,197 @@ struct ActivityRingsCard: View {
             Text("/\(goal) \(unit)")
                 .font(.system(size: 12))
                 .foregroundColor(GQColors.textTertiary)
+        }
+    }
+}
+
+// MARK: - Today Challenges Section (Progressive 3-at-a-time)
+
+struct TodayChallengesSection: View {
+    @Bindable var profile: UserProfile
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Workout.date, order: .reverse) private var workouts: [Workout]
+    @Query(sort: \PREvent.date, order: .reverse) private var prEvents: [PREvent]
+    @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
+    @Query private var squads: [Squad]
+
+    @State private var selectedChallenge: ProfileView.ActiveChallenge? = nil
+
+    private var totalWorkouts: Int { workouts.filter { $0.type != .rest }.count }
+    private var userPosts: [Post] { posts.filter { $0.authorId == profile.id } }
+    private var usedCount: Int { userPosts.reduce(0) { $0 + $1.timesUsed } }
+
+    private var streak: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let dates = Array(Set(workouts.filter { $0.type != .rest }.map { calendar.startOfDay(for: $0.date) })).sorted(by: >)
+        guard let first = dates.first else { return 0 }
+        let gap = calendar.dateComponents([.day], from: first, to: today).day ?? 0
+        guard gap <= 2 else { return 0 }
+        var s = 1
+        for i in 1..<dates.count {
+            let diff = calendar.dateComponents([.day], from: dates[i], to: dates[i - 1]).day ?? 0
+            if diff <= 2 { s += 1 } else { break }
+        }
+        return s
+    }
+
+    private var daysShownUp: Int {
+        Set(workouts.filter { $0.type != .rest }.map { Calendar.current.startOfDay(for: $0.date) }).count
+    }
+
+    private var currentChallenges: [ProfileView.ActiveChallenge] {
+        let tier = profile.currentChallengeTier
+        let favType = workouts.first?.type.rawValue ?? "Push"
+        let favExercise = workouts.first?.exercises.first?.name ?? "Bench Press"
+
+        switch tier {
+        case 0:
+            return [
+                .init(icon: "figure.walk", title: "First Workout", description: "Log your first workout.", current: min(totalWorkouts, 1), target: 1, category: "General"),
+                .init(icon: "hand.thumbsup.fill", title: "First Reaction", description: "React or comment on a post.", current: min(userPosts.isEmpty ? 0 : 1, 1), target: 1, category: "General"),
+                .init(icon: "person.3.fill", title: "Join a Squad", description: "Join your first squad.", current: squads.contains(where: { $0.memberIds.contains(profile.id) }) ? 1 : 0, target: 1, category: "General"),
+            ]
+        case 1:
+            return [
+                .init(icon: "dumbbell.fill", title: "3 Workouts", description: "Log 3 total workouts.", current: min(totalWorkouts, 3), target: 3, category: "General"),
+                .init(icon: "star.fill", title: "\(favType) Session", description: "Do a \(favType.lowercased()) workout.", current: min(workouts.filter { $0.type.rawValue == favType }.count, 1), target: 1, category: "For You"),
+                .init(icon: "paperplane.fill", title: "Share Proof", description: "Send a Proof Card.", current: min(userPosts.filter { $0.proofCardData != nil }.count, 1), target: 1, category: "Mixed"),
+            ]
+        case 2:
+            return [
+                .init(icon: "flame.fill", title: "3-Day Streak", description: "Train 3 days with grace.", current: min(streak, 3), target: 3, category: "General"),
+                .init(icon: "trophy.fill", title: "\(favExercise) PR", description: "Hit a PR on \(favExercise.lowercased()).", current: min(prEvents.filter { $0.exerciseName == favExercise }.count, 1), target: 1, category: "For You"),
+                .init(icon: "person.2.fill", title: "Get Used", description: "Have someone use your workout.", current: min(usedCount, 1), target: 1, category: "Mixed"),
+            ]
+        case 3:
+            return [
+                .init(icon: "calendar.badge.checkmark", title: "10 Days", description: "Show up on 10 distinct days.", current: min(daysShownUp, 10), target: 10, category: "General"),
+                .init(icon: "bolt.fill", title: "5 \(favType) Days", description: "Complete 5 \(favType.lowercased()) sessions.", current: min(workouts.filter { $0.type.rawValue == favType }.count, 5), target: 5, category: "For You"),
+                .init(icon: "bubble.left.and.bubble.right.fill", title: "Social 5", description: "Share 5 posts.", current: min(userPosts.count, 5), target: 5, category: "Mixed"),
+            ]
+        case 4:
+            return [
+                .init(icon: "flame.circle.fill", title: "7-Day Streak", description: "Maintain a 7-day streak.", current: min(streak, 7), target: 7, category: "General"),
+                .init(icon: "trophy.fill", title: "5 PRs", description: "Hit 5 personal records.", current: min(prEvents.count, 5), target: 5, category: "For You"),
+                .init(icon: "person.2.fill", title: "Spotter ×3", description: "Have 3 workouts used.", current: min(usedCount, 3), target: 3, category: "Mixed"),
+            ]
+        default:
+            let n = 5 + (tier - 5)
+            return [
+                .init(icon: "star.circle.fill", title: "\(10 + n * 5) Workouts", description: "Keep showing up.", current: min(totalWorkouts, 10 + n * 5), target: 10 + n * 5, category: "General"),
+                .init(icon: "trophy.fill", title: "\(n * 2) PRs", description: "Keep pushing.", current: min(prEvents.count, n * 2), target: n * 2, category: "For You"),
+                .init(icon: "person.2.fill", title: "Spotter ×\(n)", description: "Help others train.", current: min(usedCount, n), target: n, category: "Mixed"),
+            ]
+        }
+    }
+
+    private var allComplete: Bool { currentChallenges.allSatisfy(\.isComplete) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("CHALLENGES")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(GQColors.textSecondary)
+                    .tracking(0.6)
+                Spacer()
+                Text("Tier \(profile.currentChallengeTier + 1)")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.vividPurple)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(GQColors.vividPurple.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+
+            if allComplete {
+                Button {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        profile.currentChallengeTier += 1
+                        try? modelContext.save()
+                    }
+                    #if canImport(UIKit)
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    #endif
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 16, weight: .bold))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("All 3 complete!")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Tap to reveal next challenges")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.7))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(14)
+                    .background(GQGradients.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
+            } else {
+                VStack(spacing: 6) {
+                    ForEach(currentChallenges) { c in
+                        Button { selectedChallenge = c } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(c.isComplete ? AnyShapeStyle(GQGradients.primary.opacity(0.15)) : AnyShapeStyle(GQColors.surfaceSecondary))
+                                        .frame(width: 36, height: 36)
+                                    Image(systemName: c.isComplete ? "checkmark" : c.icon)
+                                        .font(.system(size: c.isComplete ? 13 : 15, weight: .bold))
+                                        .foregroundStyle(c.isComplete ? AnyShapeStyle(GQColors.success) : AnyShapeStyle(GQGradients.primary))
+                                }
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    HStack(spacing: 6) {
+                                        Text(c.title)
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(c.isComplete ? GQColors.textTertiary : GQColors.textPrimary)
+                                            .strikethrough(c.isComplete)
+                                        Text(c.category)
+                                            .font(.system(size: 8, weight: .bold))
+                                            .foregroundColor(c.category == "For You" ? GQColors.vividPurple : GQColors.textTertiary)
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 2)
+                                            .background(Capsule().fill(c.category == "For You" ? GQColors.vividPurple.opacity(0.12) : GQColors.adaptiveOverlay(0.05)))
+                                    }
+                                    GeometryReader { geo in
+                                        ZStack(alignment: .leading) {
+                                            Capsule().fill(GQColors.adaptiveOverlay(0.08)).frame(height: 4)
+                                            Capsule().fill(c.isComplete ? AnyShapeStyle(GQColors.success) : AnyShapeStyle(GQGradients.primary))
+                                                .frame(width: max(geo.size.width * c.progress, 4), height: 4)
+                                        }
+                                    }
+                                    .frame(height: 4)
+                                }
+
+                                Text("\(c.current)/\(c.target)")
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundColor(c.isComplete ? GQColors.success : GQColors.textSecondary)
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(GQColors.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
+        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .sheet(item: $selectedChallenge) { c in
+            AchievementDetailSheet(badge: c)
+                .presentationDetents([.medium])
         }
     }
 }
