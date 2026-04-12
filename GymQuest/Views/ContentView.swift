@@ -915,10 +915,12 @@ struct AppTourOverlay: View {
     }
 
     private let steps: [TourStep] = [
-        TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 56, cardAbove: true, contentY: nil),
+        TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 54, cardAbove: true, contentY: nil),
         TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", tabIndex: 1, ringSize: 44, cardAbove: true, contentY: nil),
         TourStep(title: "Friends", description: "Your people's workouts. React\nwith 💪🙌👀🔥 to support them.", tabIndex: 0, ringSize: 44, cardAbove: true, contentY: nil),
-        TourStep(title: "Explore", description: "Discover workouts, search by type,\nand use any session in one tap.", tabIndex: -1, ringSize: 44, cardAbove: false, contentY: 0.18),
+        // Explore is a sub-tab inside Feed (top of page), not a bottom tab bar icon.
+        // Ring points at the "Explore" text in the FeedView tab picker (~right third, ~110pt from top).
+        TourStep(title: "Explore", description: "Discover workouts, search by type,\nand use any session in one tap.", tabIndex: -2, ringSize: 50, cardAbove: false, contentY: nil),
         TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", tabIndex: 3, ringSize: 44, cardAbove: true, contentY: nil),
         TourStep(title: "Your Profile", description: "Your training record. Complete\nyour profile to get started.", tabIndex: 4, ringSize: 44, cardAbove: true, contentY: nil),
     ]
@@ -940,18 +942,30 @@ struct AppTourOverlay: View {
             let tabCenters: [CGFloat] = (0..<5).map { i in
                 tabBarPadding + itemWidth * (CGFloat(i) + 0.5)
             }
-            // Tab icon Y: bottom of screen - safe area - tab bar inner padding - icon center
-            let tabIconY = screenH - bottomSafe - 26
-            // The + button is offset(y: -6), so 6pt higher
-            let plusY = tabIconY - 6
+            // Tab icon Y: the tab bar sits above the safe area with internal padding.
+            // Measured from screenshots: icon centers are ~48pt above screen bottom
+            // on devices with home indicator, ~38pt on devices without.
+            let tabIconY = screenH - bottomSafe - 38
+            // The + button has .offset(y: -6) and is 44pt tall vs ~24pt icons
+            let plusY = tabIconY - 10
 
             // Ring center for current step
-            let ringX = current.tabIndex >= 0 && current.tabIndex < 5
-                ? tabCenters[current.tabIndex]
-                : screenW / 2
-            let ringY = current.tabIndex == 2
-                ? plusY
-                : (current.tabIndex >= 0 ? tabIconY : screenH * (current.contentY ?? 0.2))
+            let topSafe = geo.safeAreaInsets.top
+            // -2 = "Explore" text in FeedView's top tab picker (rightmost of 3 tabs)
+            let exploreTabX = screenW * 0.78  // "Explore" label sits in the right third
+            let exploreTabY = topSafe + 52    // below nav bar + tab picker row
+
+            let ringX: CGFloat = {
+                if current.tabIndex == -2 { return exploreTabX }
+                if current.tabIndex >= 0 && current.tabIndex < 5 { return tabCenters[current.tabIndex] }
+                return screenW / 2
+            }()
+            let ringY: CGFloat = {
+                if current.tabIndex == -2 { return exploreTabY }
+                if current.tabIndex == 2 { return plusY }
+                if current.tabIndex >= 0 { return tabIconY }
+                return screenH * (current.contentY ?? 0.2)
+            }()
             let ringCenter = CGPoint(x: ringX, y: ringY)
 
             ZStack {
