@@ -338,52 +338,126 @@ struct TodayView: View {
         return WorkoutType(rawValue: rawValue)
     }
 
+    @State private var showTodayOverride = false
+
+    /// Did the user miss yesterday's planned workout?
+    private var missedYesterday: Bool {
+        let cal = Calendar.current
+        guard let yesterday = cal.date(byAdding: .day, value: -1, to: Date()) else { return false }
+        let yd = cal.component(.weekday, from: yesterday)
+        guard profile.weeklySchedule[yd] != nil else { return false }
+        let yesterdayType = profile.weeklySchedule[yd]
+        if yesterdayType == "Rest" { return false }
+        // Check if yesterday was logged
+        let yesterdayStart = cal.startOfDay(for: yesterday)
+        let hasWorkout = nonRestWorkouts.contains { cal.isDate($0.date, inSameDayAs: yesterday) }
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+        let manualDone = profile.dayOverrides[f.string(from: yesterday)] == "_done"
+        return !hasWorkout && !manualDone
+    }
+
+    /// What's planned for today — checks override first, then template
+    private var todayPlannedLabel: String? {
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+        let key = f.string(from: Date())
+        if let override = profile.dayOverrides[key] {
+            if override == "_skip" || override == "_done" { return nil }
+            return override
+        }
+        return profile.weeklySchedule[todayWeekday]
+    }
+
     @ViewBuilder
     private var todayPlanCard: some View {
-        if let planned = todayPlannedType, planned != .rest {
+        let planned = todayPlannedLabel
+        let plannedType = planned.flatMap { WorkoutType(rawValue: $0) }
+        let isRest = planned == "Rest"
+
+        if let planned, !isRest {
             // Today has a planned workout
-            HStack(spacing: 14) {
-                Image(systemName: planned.icon)
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(AnyShapeStyle(GQGradients.primary))
-                    .frame(width: 44, height: 44)
-                    .background(GQColors.deepBlue.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            VStack(spacing: 10) {
+                HStack(spacing: 14) {
+                    Image(systemName: plannedType?.icon ?? "dumbbell.fill")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(AnyShapeStyle(GQGradients.primary))
+                        .frame(width: 44, height: 44)
+                        .background(GQColors.deepBlue.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Today: \(planned.rawValue)")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(GQColors.textPrimary)
-                    Text("From your weekly schedule")
-                        .font(.system(size: 11))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Today: \(planned)")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(GQColors.textPrimary)
+                        Text("From your schedule")
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        appState.showingWorkoutStartOptions = true
+                    } label: {
+                        Text("Start")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(GQGradients.primary)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Quick actions: Change today + Shift if missed yesterday
+                HStack(spacing: 10) {
+                    Button {
+                        selectedPlanDay = IdentifiableInt(value: todayWeekday)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.triangle.swap")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("Change")
+                                .font(.system(size: 10, weight: .semibold))
+                        }
                         .foregroundColor(GQColors.textTertiary)
-                }
-
-                Spacer()
-
-                Button {
-                    appState.showingWorkoutStartOptions = true
-                } label: {
-                    Text("Start")
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(GQGradients.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(GQColors.adaptiveOverlay(0.05))
                         .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    if missedYesterday {
+                        Button { shiftScheduleOnToday(by: 1) } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 9, weight: .bold))
+                                Text("Missed yesterday? Shift forward")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundColor(GQColors.vividPurple)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(GQColors.vividPurple.opacity(0.1))
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Spacer()
                 }
-                .buttonStyle(.plain)
             }
             .padding(14)
             .background(GQColors.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(GQColors.borderDefault, lineWidth: 1)
-            )
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
             .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
-        } else if todayPlannedType == .rest {
-            // Rest day
+            .sheet(item: $selectedPlanDay) { item in
+                DayOverrideSheet(weekday: item.value, date: Date(), profile: profile)
+                    .presentationDetents([.height(280)])
+            }
+        } else if isRest {
             HStack(spacing: 12) {
                 Image(systemName: "moon.fill")
                     .font(.system(size: 16))
@@ -392,20 +466,60 @@ struct TodayView: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(GQColors.textSecondary)
                 Spacer()
-                Button { showWeeklyScheduleEditor = true } label: {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 12))
+                Button {
+                    appState.showingWorkoutStartOptions = true
+                } label: {
+                    Text("Train anyway")
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(GQColors.textTertiary)
                 }
             }
             .padding(14)
             .background(GQColors.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(GQColors.borderDefault, lineWidth: 1)
-            )
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
+        } else if !profile.weeklySchedule.isEmpty {
+            // Has a schedule but today isn't in it (Off day)
+            HStack(spacing: 12) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 16))
+                    .foregroundColor(GQColors.textTertiary)
+                Text("No workout planned today.")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                Spacer()
+                Button {
+                    appState.showingWorkoutStartOptions = true
+                } label: {
+                    Text("Start one")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(GQColors.vividPurple)
+                }
+            }
+            .padding(14)
+            .background(GQColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
         }
+    }
+
+    private func shiftScheduleOnToday(by offset: Int) {
+        let current = profile.weeklySchedule
+        guard !current.isEmpty else { return }
+        var shifted: [Int: String] = [:]
+        for (wd, type) in current {
+            var newWd = wd + offset
+            if newWd < 1 { newWd = 7 }
+            if newWd > 7 { newWd = 1 }
+            shifted[newWd] = type
+        }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            profile.weeklySchedule = shifted
+            try? modelContext.save()
+        }
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
     }
 
     private var sectionDivider: some View {
@@ -1802,9 +1916,13 @@ struct WeeklyScheduleEditorSheet: View {
                                                 GQColors.textSecondary
                                             )
 
-                                        if done {
+                                        if loggedDone {
                                             Circle()
                                                 .fill(AnyShapeStyle(GQGradients.primary))
+                                                .frame(width: 6, height: 6)
+                                        } else if manualDone {
+                                            Circle()
+                                                .strokeBorder(AnyShapeStyle(GQGradients.primary), lineWidth: 1.5)
                                                 .frame(width: 6, height: 6)
                                         } else if let p = planned {
                                             Text(pShort(p))
