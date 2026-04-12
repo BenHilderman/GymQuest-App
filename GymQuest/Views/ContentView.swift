@@ -56,11 +56,17 @@ struct ContentView: View {
     private var allTabs: [AppState.Tab] { AppState.Tab.visibleTabs }
 
     private func advanceTour() {
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
         if tourStep < 4 {
             withAnimation(.easeInOut(duration: 0.25)) {
                 tourStep += 1
             }
         } else {
+            #if canImport(UIKit)
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            #endif
             dismissTour()
         }
     }
@@ -988,8 +994,9 @@ struct AppTourOverlay: View {
                                 .frame(width: feedTabsWidth - 4, height: current.ringSize - 4)
                                 .position(ringCenter)
                         } else {
+                            // Slightly oversized cutout to include badges (like the green dot)
                             Circle()
-                                .frame(width: current.ringSize - 4, height: current.ringSize - 4)
+                                .frame(width: current.ringSize + 8, height: current.ringSize + 8)
                                 .position(ringCenter)
                         }
                     }
