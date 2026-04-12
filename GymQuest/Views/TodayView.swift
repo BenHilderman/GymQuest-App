@@ -1448,7 +1448,7 @@ struct DayPlannerSheet: View {
     }
 }
 
-// MARK: - Calendar Planner (full month view)
+// MARK: - Calendar Planner
 
 struct WeeklyScheduleEditorSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -1458,37 +1458,54 @@ struct WeeklyScheduleEditorSheet: View {
 
     @State private var displayedMonth = Date()
     @State private var selectedDay: IdentifiableInt? = nil
+    @State private var selectedDayDate: Date? = nil
 
     private var calendar: Calendar { Calendar.current }
 
-    // Month/year label
     private var monthLabel: String {
         displayedMonth.formatted(.dateTime.month(.wide).year())
     }
 
-    // Days in the displayed month with proper grid offset
-    private var monthGrid: [(day: Int, date: Date, weekday: Int, isCurrentMonth: Bool)] {
+    // Split presets
+    private let splits: [(name: String, schedule: [Int: String])] = [
+        ("PPL", [2: "Push", 3: "Pull", 4: "Legs", 5: "Push", 6: "Pull", 7: "Legs", 1: "Rest"]),
+        ("Upper / Lower", [2: "Upper", 3: "Lower", 4: "Rest", 5: "Upper", 6: "Lower", 7: "Rest", 1: "Rest"]),
+        ("Full Body", [2: "Full Body", 3: "Rest", 4: "Full Body", 5: "Rest", 6: "Full Body", 7: "Rest", 1: "Rest"]),
+    ]
+
+    private let durations: [(label: String, weeks: Int?)] = [
+        ("Ongoing", nil),
+        ("4 weeks", 4),
+        ("8 weeks", 8),
+        ("12 weeks", 12),
+    ]
+
+    private var activeDurationLabel: String {
+        if profile.planEndDate == nil { return "Ongoing" }
+        if let end = profile.planEndDate {
+            let weeks = Int(end.timeIntervalSince(Date()) / (7 * 86400))
+            return "\(max(weeks, 0))w left"
+        }
+        return "Ongoing"
+    }
+
+    // Month grid
+    private var monthDays: [(day: Int, date: Date, weekday: Int)] {
         guard let range = calendar.range(of: .day, in: .month, for: displayedMonth),
-              let firstOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth))
+              let first = calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth))
         else { return [] }
-
-        let firstWeekday = calendar.component(.weekday, from: firstOfMonth)
-        let offset = firstWeekday - 1 // 0-indexed offset for grid padding
-
-        return range.map { day in
-            let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth)!
-            let wd = calendar.component(.weekday, from: date)
-            return (day: day, date: date, weekday: wd, isCurrentMonth: true)
+        return range.map { d in
+            let date = calendar.date(byAdding: .day, value: d - 1, to: first)!
+            return (day: d, date: date, weekday: calendar.component(.weekday, from: date))
         }
     }
 
     private var gridOffset: Int {
-        guard let firstOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth))
+        guard let first = calendar.date(from: calendar.dateComponents([.year, .month], from: displayedMonth))
         else { return 0 }
-        return calendar.component(.weekday, from: firstOfMonth) - 1
+        return calendar.component(.weekday, from: first) - 1
     }
 
-    // Completed workout dates in the displayed month
     private var completedDates: Set<Int> {
         let comps = calendar.dateComponents([.year, .month], from: displayedMonth)
         return Set(allWorkouts.filter { w in
@@ -1497,148 +1514,239 @@ struct WeeklyScheduleEditorSheet: View {
         }.map { calendar.component(.day, from: $0.date) })
     }
 
-    private let dayHeaders = ["S", "M", "T", "W", "T", "F", "S"]
+    /// What's planned for a specific date — override first, then template
+    private func plannedFor(date: Date, weekday: Int) -> String? {
+        let key = dateKey(date)
+        if let override = profile.dayOverrides[key] {
+            return override == "_skip" ? nil : override
+        }
+        // Check if plan has expired
+        if let end = profile.planEndDate, date > end { return nil }
+        return profile.weeklySchedule[weekday]
+    }
+
+    private func dateKey(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date)
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    // Month navigation
-                    HStack {
-                        Button { changeMonth(by: -1) } label: {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(GQColors.textSecondary)
-                        }
-                        Spacer()
-                        Text(monthLabel)
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(GQColors.textPrimary)
-                        Spacer()
-                        Button { changeMonth(by: 1) } label: {
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(GQColors.textSecondary)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
 
-                    // Day headers
-                    HStack(spacing: 0) {
-                        ForEach(dayHeaders, id: \.self) { h in
-                            Text(h)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(GQColors.textTertiary)
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-
-                    // Calendar grid
-                    let columns = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
-                    LazyVGrid(columns: columns, spacing: 4) {
-                        // Empty cells for grid offset
-                        ForEach(0..<gridOffset, id: \.self) { _ in
-                            Color.clear.frame(height: 52)
-                        }
-
-                        // Day cells
-                        ForEach(monthGrid, id: \.day) { item in
-                            let planned = profile.weeklySchedule[item.weekday]
-                            let isCompleted = completedDates.contains(item.day)
-                            let isToday = calendar.isDateInToday(item.date)
-
-                            Button {
-                                selectedDay = IdentifiableInt(value: item.weekday)
-                            } label: {
-                                VStack(spacing: 3) {
-                                    Text("\(item.day)")
-                                        .font(.system(size: 14, weight: isToday ? .bold : .regular, design: .rounded))
-                                        .foregroundColor(
-                                            isToday ? GQColors.textPrimary :
-                                            isCompleted ? GQColors.deepBlue :
-                                            GQColors.textSecondary
-                                        )
-
-                                    if isCompleted {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.system(size: 10))
-                                            .foregroundStyle(AnyShapeStyle(GQGradients.primary))
-                                    } else if let planned {
-                                        Text(planShort(planned))
-                                            .font(.system(size: 7, weight: .bold))
-                                            .foregroundColor(planCol(planned))
-                                            .lineLimit(1)
-                                    } else {
-                                        Color.clear.frame(height: 10)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 52)
-                                .background(
-                                    isToday
-                                        ? AnyShapeStyle(GQGradients.primary.opacity(0.08))
-                                        : AnyShapeStyle(Color.clear)
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 8)
-
-                    // Weekly repeat section
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("WEEKLY REPEAT")
+                    // MARK: - Split Picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("YOUR SPLIT")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(GQColors.textTertiary)
                             .tracking(1)
-                            .padding(.horizontal, 16)
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                templateBtn("PPL") {
-                                    apply([2: "Push", 3: "Pull", 4: "Legs", 5: "Push", 6: "Pull", 7: "Legs", 1: "Rest"])
+                        HStack(spacing: 8) {
+                            ForEach(splits, id: \.name) { split in
+                                let isActive = profile.weeklySchedule == split.schedule
+                                Button {
+                                    applySplit(split.schedule)
+                                } label: {
+                                    Text(split.name)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(isActive ? .white : GQColors.textSecondary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            isActive
+                                                ? AnyShapeStyle(GQGradients.primary)
+                                                : AnyShapeStyle(GQColors.surfaceSecondary)
+                                        )
+                                        .clipShape(Capsule())
                                 }
-                                templateBtn("Upper / Lower") {
-                                    apply([2: "Upper", 3: "Lower", 4: "Rest", 5: "Upper", 6: "Lower", 7: "Rest", 1: "Rest"])
-                                }
-                                templateBtn("Full Body 3x") {
-                                    apply([2: "Full Body", 3: "Rest", 4: "Full Body", 5: "Rest", 6: "Full Body", 7: "Rest", 1: "Rest"])
-                                }
-                                templateBtn("Suggest") {
-                                    suggestPlan()
-                                }
-                                templateBtn("Clear All") {
-                                    apply([:])
-                                }
+                                .buttonStyle(.plain)
                             }
-                            .padding(.horizontal, 16)
+
+                            Button { suggestPlan() } label: {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 9, weight: .bold))
+                                    Text("Suggest")
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundColor(GQColors.vividPurple)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(GQColors.vividPurple.opacity(0.1))
+                                .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
                         }
 
-                        // Current schedule summary
+                        // Week preview
                         if !profile.weeklySchedule.isEmpty {
                             HStack(spacing: 0) {
                                 ForEach([2, 3, 4, 5, 6, 7, 1], id: \.self) { wd in
-                                    let short = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
                                     VStack(spacing: 2) {
-                                        Text(short[wd])
+                                        Text(["", "S", "M", "T", "W", "T", "F", "S"][wd])
                                             .font(.system(size: 9, weight: .semibold))
                                             .foregroundColor(GQColors.textTertiary)
-                                        Text(planShort(profile.weeklySchedule[wd] ?? ""))
+                                        Text(pShort(profile.weeklySchedule[wd] ?? ""))
                                             .font(.system(size: 8, weight: .bold))
-                                            .foregroundColor(planCol(profile.weeklySchedule[wd] ?? ""))
+                                            .foregroundColor(pColor(profile.weeklySchedule[wd] ?? ""))
                                     }
                                     .frame(maxWidth: .infinity)
                                 }
                             }
-                            .padding(.horizontal, 16)
                             .padding(.top, 4)
                         }
                     }
-                    .padding(.top, 8)
+                    .padding(14)
+                    .background(GQColors.cardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
+
+                    // MARK: - Duration Picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("HOW LONG")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(GQColors.textTertiary)
+                                .tracking(1)
+                            Spacer()
+                            Text(activeDurationLabel)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(GQColors.vividPurple)
+                        }
+
+                        HStack(spacing: 8) {
+                            ForEach(durations, id: \.label) { dur in
+                                let isActive = (dur.weeks == nil && profile.planEndDate == nil) ||
+                                    (dur.weeks != nil && profile.planEndDate != nil)
+                                Button {
+                                    setDuration(weeks: dur.weeks)
+                                } label: {
+                                    Text(dur.label)
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(isActive ? .white : GQColors.textSecondary)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 7)
+                                        .background(
+                                            isActive
+                                                ? AnyShapeStyle(GQGradients.primary)
+                                                : AnyShapeStyle(GQColors.surfaceSecondary)
+                                        )
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(GQColors.cardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
+
+                    // MARK: - Month Calendar
+                    VStack(spacing: 10) {
+                        HStack {
+                            Button { changeMonth(-1) } label: {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                            Spacer()
+                            Text(monthLabel)
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundColor(GQColors.textPrimary)
+                            Spacer()
+                            Button { changeMonth(1) } label: {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(GQColors.textSecondary)
+                            }
+                        }
+
+                        // Day headers
+                        HStack(spacing: 0) {
+                            ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { h in
+                                Text(h)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(GQColors.textTertiary)
+                                    .frame(maxWidth: .infinity)
+                            }
+                        }
+
+                        // Grid
+                        let cols = Array(repeating: GridItem(.flexible(), spacing: 2), count: 7)
+                        LazyVGrid(columns: cols, spacing: 3) {
+                            ForEach(0..<gridOffset, id: \.self) { _ in
+                                Color.clear.frame(height: 50)
+                            }
+
+                            ForEach(monthDays, id: \.day) { item in
+                                let planned = plannedFor(date: item.date, weekday: item.weekday)
+                                let done = completedDates.contains(item.day)
+                                let isToday = calendar.isDateInToday(item.date)
+                                let isPast = item.date < calendar.startOfDay(for: Date())
+
+                                Button {
+                                    selectedDayDate = item.date
+                                    selectedDay = IdentifiableInt(value: item.weekday)
+                                } label: {
+                                    VStack(spacing: 2) {
+                                        Text("\(item.day)")
+                                            .font(.system(size: 13, weight: isToday ? .bold : .regular, design: .rounded))
+                                            .foregroundColor(
+                                                isToday ? GQColors.textPrimary :
+                                                done ? GQColors.deepBlue :
+                                                isPast ? GQColors.textTertiary :
+                                                GQColors.textSecondary
+                                            )
+
+                                        if done {
+                                            Circle()
+                                                .fill(AnyShapeStyle(GQGradients.primary))
+                                                .frame(width: 6, height: 6)
+                                        } else if let p = planned {
+                                            Text(pShort(p))
+                                                .font(.system(size: 7, weight: .bold))
+                                                .foregroundColor(isPast ? pColor(p).opacity(0.4) : pColor(p))
+                                        } else {
+                                            Color.clear.frame(height: 6)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 50)
+                                    .background(
+                                        isToday
+                                            ? AnyShapeStyle(GQGradients.primary.opacity(0.08))
+                                            : AnyShapeStyle(Color.clear)
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(GQColors.cardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
+
+                    // Clear all button
+                    if !profile.weeklySchedule.isEmpty {
+                        Button {
+                            applySplit([:])
+                            profile.dayOverrides = [:]
+                            profile.planEndDate = nil
+                            try? modelContext.save()
+                        } label: {
+                            Text("Clear plan")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                        .padding(.top, 4)
+                    }
                 }
+                .padding(.horizontal, 16)
                 .padding(.bottom, 40)
             }
             .scrollContentBackground(.hidden)
@@ -1647,67 +1755,68 @@ struct WeeklyScheduleEditorSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .fontWeight(.semibold)
+                    Button("Done") { dismiss() }.fontWeight(.semibold)
                 }
             }
             .sheet(item: $selectedDay) { item in
-                DayPlannerSheet(weekday: item.value, profile: profile)
-                    .presentationDetents([.height(240)])
+                DayOverrideSheet(
+                    weekday: item.value,
+                    date: selectedDayDate ?? Date(),
+                    profile: profile
+                )
+                .presentationDetents([.height(260)])
             }
         }
     }
 
-    private func changeMonth(by value: Int) {
+    private func changeMonth(_ by: Int) {
         withAnimation(.easeInOut(duration: 0.2)) {
-            displayedMonth = calendar.date(byAdding: .month, value: value, to: displayedMonth) ?? displayedMonth
+            displayedMonth = calendar.date(byAdding: .month, value: by, to: displayedMonth) ?? displayedMonth
         }
     }
 
-    private func apply(_ schedule: [Int: String]) {
+    private func applySplit(_ schedule: [Int: String]) {
         withAnimation(.easeInOut(duration: 0.15)) {
             profile.weeklySchedule = schedule
             try? modelContext.save()
         }
         #if canImport(UIKit)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+    }
+
+    private func setDuration(weeks: Int?) {
+        if let weeks {
+            profile.planEndDate = Calendar.current.date(byAdding: .weekOfYear, value: weeks, to: Date())
+        } else {
+            profile.planEndDate = nil
+        }
+        try? modelContext.save()
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         #endif
     }
 
     private func suggestPlan() {
         let days = profile.daysPerWeek
         switch days {
-        case 1...2: apply([2: "Full Body", 5: "Full Body"])
-        case 3: apply([2: "Full Body", 4: "Full Body", 6: "Full Body"])
-        case 4: apply([2: "Upper", 3: "Lower", 5: "Upper", 6: "Lower"])
-        case 5: apply([2: "Push", 3: "Pull", 4: "Legs", 5: "Upper", 6: "Lower"])
-        default: apply([2: "Push", 3: "Pull", 4: "Legs", 5: "Push", 6: "Pull", 7: "Legs"])
+        case 1...2: applySplit([2: "Full Body", 5: "Full Body"])
+        case 3: applySplit([2: "Full Body", 4: "Full Body", 6: "Full Body"])
+        case 4: applySplit([2: "Upper", 3: "Lower", 5: "Upper", 6: "Lower"])
+        case 5: applySplit([2: "Push", 3: "Pull", 4: "Legs", 5: "Upper", 6: "Lower"])
+        default: applySplit([2: "Push", 3: "Pull", 4: "Legs", 5: "Push", 6: "Pull", 7: "Legs"])
         }
     }
 
-    private func templateBtn(_ label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(GQColors.textSecondary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(GQColors.cardBackground)
-                .clipShape(Capsule())
-                .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func planShort(_ raw: String) -> String {
+    private func pShort(_ raw: String) -> String {
         switch raw {
         case "Push": return "Push"
         case "Pull": return "Pull"
         case "Legs": return "Legs"
-        case "Upper": return "Upper"
-        case "Lower": return "Lower"
+        case "Upper": return "Uppr"
+        case "Lower": return "Lowr"
         case "Full Body": return "Full"
-        case "Cardio": return "Cardio"
+        case "Cardio": return "Crdio"
         case "HIIT": return "HIIT"
         case "Yoga": return "Yoga"
         case "Rest": return "Rest"
@@ -1715,7 +1824,7 @@ struct WeeklyScheduleEditorSheet: View {
         }
     }
 
-    private func planCol(_ raw: String) -> Color {
+    private func pColor(_ raw: String) -> Color {
         switch raw {
         case "Push": return GQColors.deepBlue
         case "Pull": return GQColors.vividPurple
@@ -1729,3 +1838,111 @@ struct WeeklyScheduleEditorSheet: View {
         }
     }
 }
+
+// MARK: - Day Override Sheet (change just THIS day)
+
+struct DayOverrideSheet: View {
+    let weekday: Int
+    let date: Date
+    @Bindable var profile: UserProfile
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    private let dayNames = ["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    private let types: [WorkoutType] = [.push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .rest]
+
+    private var dateLabel: String {
+        date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
+    }
+
+    private var currentPlan: String? {
+        let key = dateKey(date)
+        if let override = profile.dayOverrides[key] {
+            return override == "_skip" ? nil : override
+        }
+        return profile.weeklySchedule[weekday]
+    }
+
+    private func dateKey(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: d)
+    }
+
+    var body: some View {
+        VStack(spacing: 14) {
+            // Header
+            VStack(spacing: 4) {
+                Text(dateLabel)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                if let current = currentPlan {
+                    Text("Planned: \(current)")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+            }
+            .padding(.top, 16)
+
+            // Type grid — changes ONLY this day
+            let columns = [GridItem(.adaptive(minimum: 70), spacing: 8)]
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(types, id: \.self) { type in
+                    let isSelected = type.rawValue == currentPlan
+                    Button {
+                        profile.dayOverrides[dateKey(date)] = type.rawValue
+                        try? modelContext.save()
+                        #if canImport(UIKit)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        #endif
+                        dismiss()
+                    } label: {
+                        Text(type.rawValue)
+                            .font(.system(size: 12, weight: isSelected ? .bold : .medium))
+                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                isSelected
+                                    ? AnyShapeStyle(GQGradients.primary)
+                                    : AnyShapeStyle(GQColors.surfaceSecondary)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+
+            // Skip / Reset
+            HStack(spacing: 16) {
+                Button {
+                    profile.dayOverrides[dateKey(date)] = "_skip"
+                    try? modelContext.save()
+                    dismiss()
+                } label: {
+                    Text("Skip this day")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                if profile.dayOverrides[dateKey(date)] != nil {
+                    Button {
+                        profile.dayOverrides.removeValue(forKey: dateKey(date))
+                        try? modelContext.save()
+                        dismiss()
+                    } label: {
+                        Text("Reset to template")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(GQColors.vividPurple)
+                    }
+                }
+            }
+            .padding(.top, 4)
+
+            Spacer()
+        }
+        .background(GQColors.background.ignoresSafeArea())
+    }
+}
+

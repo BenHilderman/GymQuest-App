@@ -1230,6 +1230,24 @@ final class UserProfile {
         }
     }
 
+    /// Per-day overrides. Key = "yyyy-MM-dd", value = WorkoutType rawValue.
+    /// Overrides take priority over the weeklySchedule template.
+    var dayOverridesJSON: String = "{}"
+
+    var dayOverrides: [String: String] {
+        get {
+            guard let data = dayOverridesJSON.data(using: .utf8),
+                  let dict = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
+            return dict
+        }
+        set {
+            dayOverridesJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "{}"
+        }
+    }
+
+    /// Plan duration end date. nil = ongoing (repeats forever).
+    var planEndDate: Date? = nil
+
     // Nutrition & body goals
     var dailyCalorieGoal: Int = 2000
     var proteinGoalGrams: Int = 150
