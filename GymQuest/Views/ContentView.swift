@@ -919,8 +919,8 @@ struct AppTourOverlay: View {
         TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 55, cardAbove: true, contentY: nil),
         // 1: Today bottom tab
         TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", tabIndex: 1, ringSize: 52, cardAbove: true, contentY: nil),
-        // 2: Feed tabs — wide ring covering Friends | Clubs | Explore
-        TourStep(title: "Feed", description: "Friends — your people's workouts\nClubs — gym communities & challenges\nExplore — discover & use any workout", tabIndex: -5, ringSize: 36, cardAbove: false, contentY: nil),
+        // 2: Feed bottom tab — circle the Feed icon, explain the three sub-tabs
+        TourStep(title: "Feed", description: "Friends — your people's workouts\nClubs — gym communities & challenges\nExplore — discover & use any workout", tabIndex: 0, ringSize: 52, cardAbove: true, contentY: nil),
         // 3: Activity bottom tab
         TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", tabIndex: 3, ringSize: 52, cardAbove: true, contentY: nil),
         // 4: You bottom tab
@@ -947,7 +947,7 @@ struct AppTourOverlay: View {
             // Tab icon Y: empirically measured from device screenshots.
             // Using fractions of full screen height (with .ignoresSafeArea).
             let tabIconY = screenH * 0.929
-            let plusY = screenH * 0.922
+            let plusY = screenH * 0.923
 
             // Ring center for current step
             let topSafe = geo.safeAreaInsets.top
