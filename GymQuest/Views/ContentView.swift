@@ -994,8 +994,9 @@ struct AppTourOverlay: View {
                 let cardX = Swift.min(Swift.max(ringX, cardWidth / 2 + 12), screenW - cardWidth / 2 - 12)
                 let triangleOffset = ringX - cardX  // horizontal offset so triangle tip meets ring
 
-                let gap: CGFloat = current.ringSize / 2 + 10  // distance from ring center to triangle tip
-                let cardCenterOffset: CGFloat = 75  // half-card height approx
+                let triangleH: CGFloat = 18
+                let gap: CGFloat = current.ringSize / 2 + 2  // tight to the ring
+                let cardCenterOffset: CGFloat = 68
 
                 let cardY = current.cardAbove
                     ? ringY - gap - cardCenterOffset
@@ -1005,7 +1006,7 @@ struct AppTourOverlay: View {
                     if !current.cardAbove {
                         TourPointerTriangle(pointsUp: true)
                             .fill(.ultraThinMaterial)
-                            .frame(width: 16, height: 8)
+                            .frame(width: 18, height: triangleH)
                             .offset(x: triangleOffset)
                     }
 
@@ -1015,7 +1016,7 @@ struct AppTourOverlay: View {
                     if current.cardAbove {
                         TourPointerTriangle(pointsUp: false)
                             .fill(.ultraThinMaterial)
-                            .frame(width: 16, height: 8)
+                            .frame(width: 18, height: triangleH)
                             .offset(x: triangleOffset)
                     }
                 }
