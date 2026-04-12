@@ -154,14 +154,6 @@ struct TodayView: View {
             WeeklyScheduleEditorSheet(profile: profile)
                 .presentationDetents([.medium, .large])
         }
-        .sheet(item: $selectedPlanDay) { item in
-            DayPlannerSheet(
-                weekday: item.value,
-                profile: profile,
-                onSuggest: { applySuggestedPlan() }
-            )
-            .presentationDetents([.height(240)])
-        }
         .task {
             checkForDraft()
             MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
@@ -432,21 +424,22 @@ struct TodayView: View {
                 sectionDivider
             }
 
-            WeeklyProgressRing(
-                completed: workoutsThisWeek,
-                target: $profile.daysPerWeek,
-                workoutDates: thisWeekWorkoutDates,
-                workoutIcons: thisWeekWorkoutIcons,
-                dailyStreak: dailyStreak,
-                weeklyStreak: weeklyStreak,
-                totalMinutes: weeklyWorkoutMinutes,
-                totalSets: weeklyTotalSets,
-                totalVolume: weeklyTotalVolume,
-                plannedTypes: profile.weeklySchedule,
-                onDayTap: { weekday in
-                    selectedPlanDay = IdentifiableInt(value: weekday)
-                }
-            )
+            // Tap the calendar to open the full weekly schedule editor
+            Button { showWeeklyScheduleEditor = true } label: {
+                WeeklyProgressRing(
+                    completed: workoutsThisWeek,
+                    target: $profile.daysPerWeek,
+                    workoutDates: thisWeekWorkoutDates,
+                    workoutIcons: thisWeekWorkoutIcons,
+                    dailyStreak: dailyStreak,
+                    weeklyStreak: weeklyStreak,
+                    totalMinutes: weeklyWorkoutMinutes,
+                    totalSets: weeklyTotalSets,
+                    totalVolume: weeklyTotalVolume,
+                    plannedTypes: profile.weeklySchedule
+                )
+            }
+            .buttonStyle(.plain)
 
             // Interactive plan row — tap any day to set its type
             weekPlanRow
