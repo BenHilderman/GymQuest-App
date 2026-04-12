@@ -155,6 +155,16 @@ struct TodayView: View {
             WeeklyScheduleEditorSheet(profile: profile)
                 .presentationDetents([.medium, .large])
         }
+        .sheet(isPresented: $showDayPicker) {
+            if let day = selectedPlanDay {
+                DayPlannerSheet(
+                    weekday: day,
+                    profile: profile,
+                    onSuggest: { applySuggestedPlan() }
+                )
+                .presentationDetents([.height(220)])
+            }
+        }
         .task {
             checkForDraft()
             MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
@@ -262,16 +272,6 @@ struct TodayView: View {
 
                     Spacer()
                 }
-            }
-        }
-        .sheet(isPresented: $showDayPicker) {
-            if let day = selectedPlanDay {
-                DayPlannerSheet(
-                    weekday: day,
-                    profile: profile,
-                    onSuggest: { applySuggestedPlan() }
-                )
-                .presentationDetents([.height(220)])
             }
         }
     }
@@ -445,7 +445,12 @@ struct TodayView: View {
                 weeklyStreak: weeklyStreak,
                 totalMinutes: weeklyWorkoutMinutes,
                 totalSets: weeklyTotalSets,
-                totalVolume: weeklyTotalVolume
+                totalVolume: weeklyTotalVolume,
+                plannedTypes: profile.weeklySchedule,
+                onDayTap: { weekday in
+                    selectedPlanDay = weekday
+                    showDayPicker = true
+                }
             )
 
             // Interactive plan row — tap any day to set its type

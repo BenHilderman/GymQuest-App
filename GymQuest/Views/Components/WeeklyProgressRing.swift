@@ -19,22 +19,28 @@ struct WeeklyProgressRing: View {
     var totalMinutes: Int = 0
     var totalSets: Int = 0
     var totalVolume: Double = 0
+    /// Planned workout types per weekday (1=Sun, 7=Sat). Shown as colored labels.
+    var plannedTypes: [Int: String] = [:]
+    /// Called when the user taps a day circle. Passes the weekday number (1-7).
+    var onDayTap: ((Int) -> Void)? = nil
 
     @State private var showingGoalPicker = false
 
-    init(completed: Int, target: Binding<Int>, workoutDates: [Date] = [], workoutIcons: [Date: String] = [:], dailyStreak: Int = 0, weeklyStreak: Int = 0, totalMinutes: Int = 0, totalSets: Int = 0, totalVolume: Double = 0) {
+    init(completed: Int, target: Binding<Int>, workoutDates: [Date] = [], workoutIcons: [Date: String] = [:], dailyStreak: Int = 0, weeklyStreak: Int = 0, totalMinutes: Int = 0, totalSets: Int = 0, totalVolume: Double = 0, plannedTypes: [Int: String] = [:], onDayTap: ((Int) -> Void)? = nil) {
         self.completed = completed
         self._target = target
         self.workoutDates = workoutDates
         self.workoutIcons = workoutIcons
         self.dailyStreak = dailyStreak
+        self.plannedTypes = plannedTypes
+        self.onDayTap = onDayTap
         self.weeklyStreak = weeklyStreak
         self.totalMinutes = totalMinutes
         self.totalSets = totalSets
         self.totalVolume = totalVolume
     }
 
-    private var weekDays: [(label: String, date: Date, isToday: Bool, hasWorkout: Bool, icon: String?)] {
+    private var weekDays: [(label: String, date: Date, isToday: Bool, hasWorkout: Bool, icon: String?, weekday: Int, plannedType: String?)] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today) else { return [] }
@@ -46,12 +52,15 @@ struct WeeklyProgressRing: View {
             let dayStart = calendar.startOfDay(for: date)
             let label = date.formatted(.dateTime.weekday(.narrow))
             let icon = workoutIcons.first(where: { calendar.isDate($0.key, inSameDayAs: date) })?.value
+            let wd = calendar.component(.weekday, from: date)
             return (
                 label: label,
                 date: date,
                 isToday: calendar.isDateInToday(date),
                 hasWorkout: workoutDaySet.contains(dayStart),
-                icon: icon
+                icon: icon,
+                weekday: wd,
+                plannedType: plannedTypes[wd]
             )
         }
     }
@@ -138,46 +147,59 @@ struct WeeklyProgressRing: View {
                 }
             }
 
-            // Week calendar
+            // Week calendar — interactive: tap any day to plan or log
             HStack(spacing: 0) {
                 ForEach(weekDays, id: \.date) { day in
-                    VStack(spacing: 5) {
-                        Text(day.label)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(day.isToday ? GQColors.textPrimary : GQColors.textTertiary)
+                    Button {
+                        onDayTap?(day.weekday)
+                        #if canImport(UIKit)
+                        UISelectionFeedbackGenerator().selectionChanged()
+                        #endif
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(day.label)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(day.isToday ? GQColors.textPrimary : GQColors.textTertiary)
 
-                        ZStack {
-                            if day.hasWorkout {
-                                Circle()
-                                    .fill(GQGradients.primary.opacity(0.15))
-                            } else if day.isToday {
-                                Circle()
-                                    .strokeBorder(GQGradients.primary.opacity(0.6), lineWidth: 1.5)
-                            } else {
-                                Circle()
-                                    .fill(GQColors.adaptiveOverlay(0.04))
+                            ZStack {
+                                if day.hasWorkout {
+                                    Circle()
+                                        .fill(GQGradients.primary.opacity(0.15))
+                                } else if day.isToday {
+                                    Circle()
+                                        .strokeBorder(GQGradients.primary.opacity(0.6), lineWidth: 1.5)
+                                } else {
+                                    Circle()
+                                        .fill(GQColors.adaptiveOverlay(0.04))
+                                }
+
+                                Text(day.date.formatted(.dateTime.day()))
+                                    .font(.system(size: 14, weight: day.hasWorkout || day.isToday ? .semibold : .regular, design: .rounded))
+                                    .foregroundStyle(
+                                        day.hasWorkout ? AnyShapeStyle(GQGradients.primary) :
+                                        day.isToday ? AnyShapeStyle(GQColors.textPrimary) :
+                                        AnyShapeStyle(GQColors.textTertiary)
+                                    )
                             }
+                            .frame(width: 36, height: 36)
 
-                            Text(day.date.formatted(.dateTime.day()))
-                                .font(.system(size: 14, weight: day.hasWorkout || day.isToday ? .semibold : .regular, design: .rounded))
-                                .foregroundStyle(
-                                    day.hasWorkout ? AnyShapeStyle(GQGradients.primary) :
-                                    day.isToday ? AnyShapeStyle(GQColors.textPrimary) :
-                                    AnyShapeStyle(GQColors.textTertiary)
-                                )
+                            // Plan indicator or workout icon
+                            if let icon = day.icon {
+                                Image(systemName: icon)
+                                    .font(.system(size: 8, weight: .medium))
+                                    .foregroundStyle(GQGradients.primary.opacity(0.85))
+                            } else if let planned = day.plannedType, !day.hasWorkout {
+                                Text(planShortLabel(planned))
+                                    .font(.system(size: 7, weight: .bold))
+                                    .foregroundColor(planColor(planned))
+                                    .lineLimit(1)
+                            } else {
+                                Color.clear.frame(height: 8)
+                            }
                         }
-                        .frame(width: 36, height: 36)
-
-                        // Workout type icon
-                        if let icon = day.icon {
-                            Image(systemName: icon)
-                                .font(.system(size: 8, weight: .medium))
-                                .foregroundStyle(GQGradients.primary.opacity(0.85))
-                        } else {
-                            Color.clear.frame(height: 8)
-                        }
+                        .frame(maxWidth: .infinity)
                     }
-                    .frame(maxWidth: .infinity)
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -212,6 +234,36 @@ struct WeeklyProgressRing: View {
                 .foregroundColor(GQColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func planShortLabel(_ raw: String) -> String {
+        switch raw {
+        case "Push": return "Push"
+        case "Pull": return "Pull"
+        case "Legs": return "Legs"
+        case "Upper": return "Upper"
+        case "Lower": return "Lower"
+        case "Full Body": return "Full"
+        case "Cardio": return "Cardio"
+        case "HIIT": return "HIIT"
+        case "Yoga": return "Yoga"
+        case "Rest": return "Rest"
+        default: return raw.prefix(4).description
+        }
+    }
+
+    private func planColor(_ raw: String) -> Color {
+        switch raw {
+        case "Push": return GQColors.deepBlue
+        case "Pull": return GQColors.vividPurple
+        case "Legs": return Color(red: 1.0, green: 0.55, blue: 0.2)
+        case "Cardio": return GQColors.success
+        case "HIIT": return Color.red
+        case "Rest": return GQColors.textTertiary
+        case "Upper": return Color(red: 0.3, green: 0.7, blue: 1.0)
+        case "Lower": return Color(red: 0.9, green: 0.6, blue: 0.2)
+        default: return GQColors.deepBlue
+        }
     }
 
     private func formatVol(_ v: Double) -> String {
