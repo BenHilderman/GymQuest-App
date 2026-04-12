@@ -56,7 +56,7 @@ struct ContentView: View {
     private var allTabs: [AppState.Tab] { AppState.Tab.visibleTabs }
 
     private func advanceTour() {
-        if tourStep < 5 {
+        if tourStep < 6 {
             withAnimation(.easeInOut(duration: 0.25)) {
                 tourStep += 1
             }
@@ -189,9 +189,9 @@ struct ContentView: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 switch newStep {
                 case 0, 1: appState.selectedTab = .today
-                case 2, 3: appState.selectedTab = .feed
-                case 4: appState.selectedTab = .activity
-                case 5: appState.selectedTab = .profile
+                case 2, 3, 4: appState.selectedTab = .feed  // Friends, Clubs, Explore top tabs
+                case 5: appState.selectedTab = .activity
+                case 6: appState.selectedTab = .profile
                 default: break
                 }
             }
@@ -915,13 +915,19 @@ struct AppTourOverlay: View {
     }
 
     private let steps: [TourStep] = [
+        // 0: + button
         TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 55, cardAbove: true, contentY: nil),
+        // 1: Today bottom tab
         TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", tabIndex: 1, ringSize: 52, cardAbove: true, contentY: nil),
-        TourStep(title: "Friends", description: "Your people's workouts. React\nwith 💪🙌👀🔥 to support them.", tabIndex: 0, ringSize: 52, cardAbove: true, contentY: nil),
-        // Explore is a sub-tab inside Feed (top of page), not a bottom tab bar icon.
-        // Ring points at the "Explore" text in the FeedView tab picker (~right third, ~110pt from top).
+        // 2: Friends top tab (inside Feed page)
+        TourStep(title: "Friends", description: "Your people's workouts. React\nwith 💪🙌👀🔥 to support them.", tabIndex: -3, ringSize: 50, cardAbove: false, contentY: nil),
+        // 3: Clubs top tab
+        TourStep(title: "Clubs", description: "Join gym communities. Share\nworkouts and challenges together.", tabIndex: -4, ringSize: 50, cardAbove: false, contentY: nil),
+        // 4: Explore top tab
         TourStep(title: "Explore", description: "Discover workouts, search by type,\nand use any session in one tap.", tabIndex: -2, ringSize: 50, cardAbove: false, contentY: nil),
+        // 5: Activity bottom tab
         TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", tabIndex: 3, ringSize: 52, cardAbove: true, contentY: nil),
+        // 6: You bottom tab
         TourStep(title: "Your Profile", description: "Your training record. Complete\nyour profile to get started.", tabIndex: 4, ringSize: 52, cardAbove: true, contentY: nil),
     ]
 
@@ -945,21 +951,25 @@ struct AppTourOverlay: View {
             // Tab icon Y: empirically measured from device screenshots.
             // Using fractions of full screen height (with .ignoresSafeArea).
             let tabIconY = screenH * 0.929
-            let plusY = screenH * 0.925
+            let plusY = screenH * 0.923
 
             // Ring center for current step
             let topSafe = geo.safeAreaInsets.top
-            // -2 = "Explore" text in FeedView's top tab picker (rightmost of 3 tabs)
-            let exploreTabX = screenW * 0.80  // "Explore" label in the right third
-            let exploreTabY = topSafe + 92    // below nav bar + FeedTabsView row
+            // Top tab picker positions (Friends | Clubs | Explore row in FeedView)
+            let topTabY = topSafe + 92
+            let friendsTabX = screenW * 0.17
+            let clubsTabX = screenW * 0.50
+            let exploreTabX = screenW * 0.80
 
             let ringX: CGFloat = {
+                if current.tabIndex == -3 { return friendsTabX }
+                if current.tabIndex == -4 { return clubsTabX }
                 if current.tabIndex == -2 { return exploreTabX }
                 if current.tabIndex >= 0 && current.tabIndex < 5 { return tabCenters[current.tabIndex] }
                 return screenW / 2
             }()
             let ringY: CGFloat = {
-                if current.tabIndex == -2 { return exploreTabY }
+                if current.tabIndex == -3 || current.tabIndex == -4 || current.tabIndex == -2 { return topTabY }
                 if current.tabIndex == 2 { return plusY }
                 if current.tabIndex >= 0 { return tabIconY }
                 return screenH * (current.contentY ?? 0.2)
