@@ -46,7 +46,7 @@ struct LoginView: View {
                         .font(.system(size: 36, weight: .bold))
                         .foregroundColor(GQColors.textPrimary)
 
-                    Text("Earned progress, not performed perfection.")
+                    Text("Show up, not show off.")
                         .font(.subheadline)
                         .foregroundColor(GQColors.textTertiary)
                 }

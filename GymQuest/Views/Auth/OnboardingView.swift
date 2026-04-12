@@ -354,7 +354,7 @@ struct ShowUpForStepView: View {
     @FocusState private var isFocused: Bool
 
     // Soft chip suggestions — users can tap one or type anything
-    private let suggestions = ["Myself", "My future self", "My kids", "My health", "My crew"]
+    private let suggestions = ["Myself", "My goals", "My kids", "My health", "My crew"]
 
     var body: some View {
         VStack(spacing: 18) {
@@ -368,7 +368,7 @@ struct ShowUpForStepView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
 
-            Text("One answer. You can always change it.")
+            Text("You can change this anytime.")
                 .font(.subheadline)
                 .foregroundColor(GQColors.textTertiary)
 

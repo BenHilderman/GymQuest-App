@@ -108,8 +108,8 @@ class MomentumService: ObservableObject {
                 userId: userId,
                 sourceType: .ai,
                 nudgeType: .streakRisk,
-                title: "Rest day?",
-                message: "No pressure — a light session or a walk both count.",
+                title: "Light day.",
+                message: "A walk counts. A light session counts.",
                 actionLabel: "See Options"
             )
             ctx.insert(nudge)
@@ -149,7 +149,7 @@ class MomentumService: ObservableObject {
                 suggestedWorkoutType: "Full Body",
                 suggestedDuration: daysSince >= 7 ? 20 : 30,
                 encouragement: daysSince >= 7
-                    ? "No judgment. Rest was rest. A short session is a soft landing."
+                    ? "A short session counts."
                     : "Pick up wherever. Short sessions count just as much."
             )
             ctx.insert(plan)

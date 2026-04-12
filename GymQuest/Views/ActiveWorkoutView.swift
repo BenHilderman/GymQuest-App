@@ -828,7 +828,7 @@ struct ActiveWorkoutView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(GQGradients.primary)
                 .padding(.top, 40)
-            Text("Ready to crush \(displayTitle)?")
+            Text("Ready for \(displayTitle)?")
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(GQColors.textPrimary)
             Text("Add your first exercise to get started")

@@ -164,8 +164,8 @@ class NotificationService: ObservableObject {
         guard isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "Workout Complete! 🎉"
-        content.body = "Great job on \(workoutTitle)! You earned \(xpEarned) XP."
+        content.title = "Workout Complete"
+        content.body = "Finished \(workoutTitle)."
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
@@ -225,8 +225,8 @@ class NotificationService: ObservableObject {
         guard isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "New PR! 🏆"
-        content.body = "You hit a new \(exerciseName) PR: \(improvement)"
+        content.title = "New PR"
+        content.body = "\(exerciseName): \(improvement)"
         content.sound = .default
 
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)

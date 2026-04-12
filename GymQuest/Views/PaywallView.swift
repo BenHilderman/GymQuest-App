@@ -75,7 +75,7 @@ struct PaywallView: View {
         VStack(spacing: 14) {
             NavBarLogo()
 
-            Text("Your effort earns deeper tools. Unlock them when you're ready.")
+            Text("Premium tools are ready when you are.")
                 .font(.subheadline)
                 .foregroundStyle(GQColors.textSecondary)
                 .multilineTextAlignment(.center)

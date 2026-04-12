@@ -1151,8 +1151,8 @@ struct FeedView: View {
     private var socialEmptyState: some View {
         EmptyFeedState(
             icon: "person.2.fill",
-            title: "Your Feed is Empty",
-            subtitle: "Follow friends to see their workouts here"
+            title: "Nothing here yet",
+            subtitle: "Log a workout or follow someone."
         )
     }
 
