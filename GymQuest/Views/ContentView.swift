@@ -978,9 +978,22 @@ struct AppTourOverlay: View {
             let ringCenter = CGPoint(x: ringX, y: ringY)
 
             ZStack {
-                // Subtle dim — enough to make the card pop
+                // Subtle dim with cutout inside the ring so the highlighted
+                // element shows through at full brightness
                 Color.black.opacity(0.18)
                     .ignoresSafeArea()
+                    .reverseMask {
+                        if isWideRing {
+                            RoundedRectangle(cornerRadius: current.ringSize / 2)
+                                .frame(width: feedTabsWidth - 4, height: current.ringSize - 4)
+                                .position(ringCenter)
+                        } else {
+                            Circle()
+                                .frame(width: current.ringSize - 4, height: current.ringSize - 4)
+                                .position(ringCenter)
+                        }
+                    }
+                    .animation(.spring(response: 0.7, dampingFraction: 0.85), value: step)
                     .allowsHitTesting(false)
 
                 // Gradient ring — circle for tabs, wide rounded rect for feed tabs
@@ -1030,7 +1043,7 @@ struct AppTourOverlay: View {
                 VStack(spacing: -1) {  // -1pt overlap = seamless connection
                     if !current.cardAbove {
                         TourPointerTriangle(pointsUp: true)
-                            .fill(.ultraThinMaterial)
+                            .fill(Color(UIColor.secondarySystemBackground))
                             .frame(width: 18, height: triangleH)
                             .offset(x: triangleOffset)
                     }
@@ -1040,7 +1053,7 @@ struct AppTourOverlay: View {
 
                     if current.cardAbove {
                         TourPointerTriangle(pointsUp: false)
-                            .fill(.ultraThinMaterial)
+                            .fill(Color(UIColor.secondarySystemBackground))
                             .frame(width: 18, height: triangleH)
                             .offset(x: triangleOffset)
                     }
@@ -1100,19 +1113,24 @@ struct AppTourOverlay: View {
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.thickMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [GQColors.deepBlue.opacity(0.3), GQColors.vividPurple.opacity(0.3)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1.5
-                        )
-                )
         )
-        .shadow(color: GQColors.vividPurple.opacity(0.12), radius: 16, y: 6)
-        .shadow(color: Color.black.opacity(0.15), radius: 8, y: 3)
+        .shadow(color: Color.black.opacity(0.15), radius: 10, y: 4)
+    }
+}
+
+// MARK: - Reverse Mask
+
+extension View {
+    func reverseMask<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        self.mask(
+            Rectangle()
+                .ignoresSafeArea()
+                .overlay(
+                    content()
+                        .blendMode(.destinationOut)
+                )
+                .compositingGroup()
+        )
     }
 }
 
