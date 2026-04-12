@@ -19,6 +19,11 @@ struct ContentView: View {
     @Query(filter: #Predicate<UserProfile> { $0.isAuthenticated == true }) private var authenticatedProfiles: [UserProfile]
     @StateObject private var aiService = AIService()
 
+    // Weekly Recap Proof Card — memo 4 "anticipated cadence" driver.
+    // Fires on first app open after Sunday 6pm if user hasn't seen this week's recap.
+    @State private var showWeeklyRecap = false
+    @State private var weeklyRecapMeta: ProofCardMeta? = nil
+
     private var profile: UserProfile? {
         authenticatedProfiles.first
     }
@@ -122,6 +127,35 @@ struct ContentView: View {
                 if let userId = SupabaseAuthService.shared.currentUserId {
                     SupabaseSyncService.shared.startSync(userId: userId)
                 }
+            }
+
+            // Weekly Recap Proof Card trigger: check if it's past Sunday 6pm
+            // and the user hasn't yet seen this week's recap.
+            if let p = self.profile {
+                let meta = WeeklyRecapService.checkAndBuild(
+                    profile: p,
+                    workouts: workouts,
+                    modelContext: ctx
+                )
+                if let meta {
+                    weeklyRecapMeta = meta
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        showWeeklyRecap = true
+                    }
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showWeeklyRecap) {
+            if let meta = weeklyRecapMeta, let p = self.profile {
+                WeeklyRecapView(
+                    meta: meta,
+                    profile: p,
+                    onDismiss: {
+                        p.lastWeeklyRecapSeen = Date()
+                        try? modelContext.save()
+                        showWeeklyRecap = false
+                    }
+                )
             }
         }
     }
@@ -804,4 +838,211 @@ struct WorkoutIslandPill: View {
         .environmentObject(AppState())
         .environmentObject(FeatureFlags.shared)
         .modelContainer(for: [Workout.self, UserProfile.self], inMemory: true)
+}
+
+// MARK: - Weekly Recap Service
+//
+// Memo 4 "anticipated cadence" driver. Every Sunday evening, a Weekly Recap
+// Proof Card fires. It summarizes the week's work — days trained, total
+// volume, top moment — and uses the same Proof Card visual system for
+// brand consistency. This is the first product surface that fires on a
+// *predictable cadence* independent of workout completion, making it
+// the BeReal-equivalent "anticipated moment" for Lift AI.
+
+@MainActor
+enum WeeklyRecapService {
+    /// Check if the recap is due and build the ProofCardMeta for it.
+    /// Returns nil if the user has already seen this week's recap or
+    /// if it's not yet past Sunday 6pm.
+    static func checkAndBuild(
+        profile: UserProfile,
+        workouts: [Workout],
+        modelContext: ModelContext
+    ) -> ProofCardMeta? {
+        let calendar = Calendar.current
+
+        // Find "this week's Sunday 6pm" as the trigger point.
+        // If today is before Sunday 6pm, no recap yet.
+        let now = Date()
+        let weekday = calendar.component(.weekday, from: now) // 1=Sun, 7=Sat
+        let hour = calendar.component(.hour, from: now)
+
+        // Only fire if it's Sunday (weekday==1) after 6pm, or if it's Monday+
+        // and the user still hasn't seen it.
+        let isSundayEvening = weekday == 1 && hour >= 18
+        let isPastSunday = weekday >= 2  // Mon-Sat means last Sunday is passed
+
+        guard isSundayEvening || isPastSunday else { return nil }
+
+        // Compute the start of "this week" (Monday)
+        var cal = calendar
+        cal.firstWeekday = 2  // Monday
+        guard let weekInterval = cal.dateInterval(of: .weekOfYear, for: now) else { return nil }
+        let weekStart = weekInterval.start
+
+        // Check if the user already saw this week's recap
+        if let lastSeen = profile.lastWeeklyRecapSeen, lastSeen >= weekStart {
+            return nil
+        }
+
+        // Gather this week's workouts
+        let thisWeekWorkouts = workouts.filter {
+            $0.date >= weekStart && $0.date <= now && $0.type != .rest
+        }
+
+        let daysTrainedSet = Set(thisWeekWorkouts.map { calendar.startOfDay(for: $0.date) })
+        let daysShownUp = daysTrainedSet.count
+        let totalVolume = thisWeekWorkouts.reduce(0.0) { $0 + $1.totalVolume }
+        let totalSets = thisWeekWorkouts.reduce(0) { $0 + $1.totalSets }
+
+        // Build the headline noticing — past tense, concrete, no emotion
+        let headline: String
+        if daysShownUp == 0 {
+            headline = "Rest week. That counts too."
+        } else if daysShownUp == 1 {
+            headline = "One day this week. One more than zero."
+        } else if daysShownUp >= 5 {
+            headline = "\(daysShownUp) days this week. Consistency locked."
+        } else {
+            headline = "\(daysShownUp) days shown up."
+        }
+
+        // Top moment: the heaviest set or biggest volume workout
+        var topMoment: String? = nil
+        var heaviestWeight: Double = 0
+        for workout in thisWeekWorkouts {
+            for exercise in workout.exercises {
+                for set in exercise.sets where set.weight > heaviestWeight {
+                    heaviestWeight = set.weight
+                    topMoment = "\(exercise.name) · \(Int(set.weight)) × \(set.reps)"
+                }
+            }
+        }
+
+        // Volume formatting
+        let volumeStr: String
+        if totalVolume >= 10_000 {
+            volumeStr = String(format: "%.1fk lb", totalVolume / 1000.0)
+        } else {
+            volumeStr = "\(Int(totalVolume)) lb"
+        }
+
+        let weekNumber = calendar.component(.weekOfYear, from: now)
+        let summary = "Week \(weekNumber) · \(daysShownUp) days · \(volumeStr) · \(totalSets) sets"
+
+        return ProofCardMeta(
+            headline: headline,
+            hardestMoment: topMoment,
+            summaryLine: summary,
+            workoutTypeRaw: "Weekly",
+            signedName: profile.name,
+            createdAt: now,
+            variant: "weeklyRecap",
+            verificationStatus: "verified",
+            styleVariant: ProofCardVariantPicker.pick(for: UUID())
+        )
+    }
+}
+
+// MARK: - Weekly Recap View
+
+struct WeeklyRecapView: View {
+    let meta: ProofCardMeta
+    let profile: UserProfile
+    let onDismiss: () -> Void
+
+    @State private var hasAppeared = false
+    @State private var showShareSheet = false
+    @State private var shareImage: UIImage? = nil
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Color.black, GQColors.deepBlue.opacity(0.3), Color.black],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HStack {
+                    Button(action: onDismiss) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Circle())
+                    }
+                    Spacer()
+                    Text("WEEKLY RECAP")
+                        .font(.system(size: 11, weight: .black, design: .rounded))
+                        .tracking(2)
+                        .foregroundStyle(.white.opacity(0.55))
+                    Spacer()
+                    Color.clear.frame(width: 36, height: 36) // balance
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+
+                Spacer()
+
+                ProofCardBody(meta: meta)
+                    .padding(.horizontal, 28)
+                    .scaleEffect(hasAppeared ? 1.0 : 0.85)
+                    .opacity(hasAppeared ? 1.0 : 0)
+
+                Spacer()
+
+                VStack(spacing: 12) {
+                    #if canImport(UIKit)
+                    Button {
+                        let renderer = ImageRenderer(content: ProofCardBody(meta: meta).frame(width: 380).padding(24).background(Color.black))
+                        renderer.scale = 3.0
+                        renderer.isOpaque = true
+                        if let image = renderer.uiImage {
+                            shareImage = image
+                            showShareSheet = true
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Share your week")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(GQGradients.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 14, y: 8)
+                    }
+                    #endif
+
+                    Button(action: onDismiss) {
+                        Text("Dismiss")
+                            .font(.system(size: 13))
+                            .foregroundStyle(.white.opacity(0.45))
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 36)
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
+                hasAppeared = true
+            }
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            #endif
+        }
+        #if canImport(UIKit)
+        .sheet(isPresented: $showShareSheet) {
+            if let image = shareImage {
+                ShareSheetView(items: [image])
+            }
+        }
+        #endif
+    }
 }

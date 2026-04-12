@@ -307,7 +307,10 @@ struct ProfileView: View {
         let nonRest = workouts.filter { $0.type != .rest }
         cachedWorkoutCount = nonRest.count
 
-        // Streak calculation
+        // Streak calculation — mercy-aware (memo 4 directive).
+        // A streak continues through gaps of 1 day (grace day). A gap of 2+ breaks it.
+        // This means: Mon/Tue/Thu/Fri is a 4-day streak (Wed was a grace day),
+        // but Mon/Tue/Fri is broken at Wed→Thu (2-day gap).
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let sortedDates = nonRest
@@ -316,11 +319,11 @@ struct ProfileView: View {
         let uniqueDates = Array(Set(sortedDates)).sorted(by: >)
         if let first = uniqueDates.first {
             let daysSinceFirst = calendar.dateComponents([.day], from: first, to: today).day ?? 0
-            if daysSinceFirst <= 1 {
+            if daysSinceFirst <= 2 {  // allow 1-day grace gap
                 var streak = 1
                 for i in 1..<uniqueDates.count {
                     let diff = calendar.dateComponents([.day], from: uniqueDates[i], to: uniqueDates[i - 1]).day ?? 0
-                    if diff == 1 {
+                    if diff <= 2 {  // consecutive (1) or one grace day (2)
                         streak += 1
                     } else {
                         break
@@ -617,13 +620,18 @@ struct ProfileView: View {
                     handleProfilePhotoSelection(newItem)
                 }
 
-                // Living-record stats. Memo directive: profile is a living record
-                // of training self, not a vanity portfolio. Show days shown up,
-                // current streak, and the witness signal — "others saw it."
+                // Living-record stats. Memo 4 directive: contribution signals
+                // outrank performance signals. "Workouts used" goes first when
+                // available. Then days shown up, then streak, then witnesses.
                 HStack(spacing: 0) {
+                    if cachedUsedCount > 0 {
+                        igStatColumn(value: "\(cachedUsedCount)", label: cachedUsedCount == 1 ? "Used" : "Used")
+                    }
                     igStatColumn(value: "\(cachedDaysShownUp)", label: cachedDaysShownUp == 1 ? "Day" : "Days")
-                    igStatColumn(value: "\(cachedStreak)", label: cachedStreak == 1 ? "Streak" : "Streak")
-                    igStatColumn(value: "\(cachedWitnessCount)", label: cachedWitnessCount == 1 ? "Witness" : "Witnesses")
+                    igStatColumn(value: "\(cachedStreak)", label: "Streak")
+                    if cachedUsedCount == 0 {
+                        igStatColumn(value: "\(cachedWitnessCount)", label: cachedWitnessCount == 1 ? "Witness" : "Witnesses")
+                    }
                 }
             }
 

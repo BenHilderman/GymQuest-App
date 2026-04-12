@@ -1197,6 +1197,21 @@ final class UserProfile {
     /// Set during onboarding, visible in profile header. Pure motivation anchor.
     var showUpFor: String = ""
 
+    /// Last time the user saw a Weekly Recap Proof Card. Used to avoid
+    /// re-presenting the same week's recap. Memo 4 "anticipated cadence" driver.
+    var lastWeeklyRecapSeen: Date? = nil
+
+    /// Mercy-aware streak tracking. Memo 4 directive: streaks ship with grace
+    /// days built in so they can't become anxiety machines.
+    /// Number of grace days used in the current week (resets every Monday).
+    var graceDaysUsedThisWeek: Int = 0
+    /// Timestamp of the most recently consumed grace day — used to fire the
+    /// "your streak is safe" notification and to debounce grace consumption.
+    var lastGraceDayAt: Date? = nil
+    /// Current week marker (Monday-start) for which grace has been tracked.
+    /// When the tracked week is older than now, reset graceDaysUsedThisWeek.
+    var graceWeekStart: Date? = nil
+
     // Nutrition & body goals
     var dailyCalorieGoal: Int = 2000
     var proteinGoalGrams: Int = 150

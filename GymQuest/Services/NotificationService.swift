@@ -261,6 +261,20 @@ class NotificationService: ObservableObject {
         UNUserNotificationCenter.current().add(request)
     }
 
+    /// Memo 4 streak mercy: when the system detects a user hasn't trained today
+    /// but their streak is protected by a grace day, fire this instead of any
+    /// "streak at risk" push. The user learns the system is their advocate.
+    func sendGraceDayNotification(streakDays: Int) {
+        guard isAuthorized else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Grace day."
+        content.body = "Your \(streakDays)-day streak is safe. Rest is part of showing up."
+        content.sound = .default
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        let request = UNNotificationRequest(identifier: "grace_\(UUID().uuidString)", content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request)
+    }
+
     /// Atomic variant: someone took a specific exercise or set from your workout.
     /// Lighter than the full "used your workout" notification but still
     /// loop-closing — your effort produced another person's movement.

@@ -4589,6 +4589,7 @@ struct ProofCardView: View {
     @State private var showRateLimitAlert = false
     @State private var showImageShareSheet = false
     @State private var renderedShareImage: UIImage? = nil
+    @State private var showConfettiFlourish = false
 
     var body: some View {
         ZStack {
@@ -4704,12 +4705,42 @@ struct ProofCardView: View {
                 .padding(.bottom, 36)
             }
         }
+        .overlay {
+            // Sensory polish: variant-keyed particle flourish on PR reveals.
+            // Memo 4 "make the after-workout moment feel like a reward."
+            // Restraint: one flourish, one sound, no fireworks everywhere.
+            if showConfettiFlourish {
+                ProofCardFlourish(
+                    accent: meta?.variant == "pr"
+                        ? Color(red: 1.0, green: 0.78, blue: 0.2)
+                        : GQColors.vividPurple
+                )
+                .allowsHitTesting(false)
+            }
+        }
         .onAppear {
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.75)) {
+            // Slower reveal (0.65s spring instead of 0.55) — memo 4: "ceremonial, not quick."
+            withAnimation(.spring(response: 0.65, dampingFraction: 0.72)) {
                 meta = buildMeta()
             }
+            // Staggered confetti for high-signal variants
+            if let m = meta, ["pr", "weeklyRecap", "first"].contains(m.variant) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation(.easeOut(duration: 0.4)) {
+                        showConfettiFlourish = true
+                    }
+                    // Auto-dismiss the flourish after 2s
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        withAnimation { showConfettiFlourish = false }
+                    }
+                }
+            }
             #if canImport(UIKit)
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            // Stronger haptic for the ceremonial moment
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            }
             #endif
         }
         .sheet(isPresented: $showSocialGraphGate) {
@@ -4977,6 +5008,55 @@ struct ProofCardView: View {
             #endif
         }
         #endif
+    }
+}
+
+// MARK: - Proof Card Flourish (sensory polish)
+//
+// Lightweight particle-like effect that fires on high-signal Proof Card
+// reveals (PR, weeklyRecap, first). Memo 4 directive: "the after-workout
+// moment should feel like a reward." The restraint: one flourish, variant-
+// keyed, auto-dismisses after 2 seconds. Not confetti everywhere.
+
+struct ProofCardFlourish: View {
+    let accent: Color
+    @State private var particles: [(id: Int, x: CGFloat, y: CGFloat, scale: CGFloat, opacity: Double)] = []
+
+    var body: some View {
+        ZStack {
+            ForEach(particles, id: \.id) { p in
+                Circle()
+                    .fill(accent.opacity(p.opacity))
+                    .frame(width: 6, height: 6)
+                    .scaleEffect(p.scale)
+                    .position(x: p.x, y: p.y)
+            }
+        }
+        .onAppear {
+            // Generate a burst of 18 particles that drift outward and fade
+            let screenW = UIScreen.main.bounds.width
+            let screenH = UIScreen.main.bounds.height
+            let centerX = screenW / 2
+            let centerY = screenH * 0.38 // near the top of the Proof Card
+
+            var items: [(id: Int, x: CGFloat, y: CGFloat, scale: CGFloat, opacity: Double)] = []
+            for i in 0..<18 {
+                items.append((id: i, x: centerX, y: centerY, scale: 0.3, opacity: 1.0))
+            }
+            particles = items
+
+            // Animate outward
+            withAnimation(.easeOut(duration: 1.4)) {
+                for i in 0..<particles.count {
+                    let angle = Double(i) * (360.0 / 18.0) * .pi / 180.0
+                    let radius = CGFloat.random(in: 80...220)
+                    particles[i].x = centerX + cos(angle) * radius
+                    particles[i].y = centerY + sin(angle) * radius
+                    particles[i].scale = CGFloat.random(in: 0.6...1.5)
+                    particles[i].opacity = 0
+                }
+            }
+        }
     }
 }
 
@@ -5525,6 +5605,7 @@ struct ProofCardBody: View {
         case "comeback": return "arrow.counterclockwise"
         case "streak": return "flame.fill"
         case "longest": return "clock.fill"
+        case "weeklyRecap": return "calendar.badge.checkmark"
         default: return "checkmark.seal.fill"
         }
     }
@@ -5536,12 +5617,12 @@ struct ProofCardBody: View {
         case "comeback": return "COMEBACK"
         case "streak": return "CONSISTENCY"
         case "longest": return "DEEPEST"
+        case "weeklyRecap": return "WEEKLY RECAP"
         default: return "PROOF"
         }
     }
 
     /// Each variant has its own accent so screenshots carry a color signature.
-    /// PR glows gold, Streak glows orange, First glows purple, etc.
     private var variantAccent: Color {
         switch meta.variant {
         case "pr": return Color(red: 1.0, green: 0.78, blue: 0.2)       // gold
@@ -5549,6 +5630,7 @@ struct ProofCardBody: View {
         case "comeback": return Color(red: 0.25, green: 0.85, blue: 0.6) // green
         case "streak": return Color(red: 1.0, green: 0.55, blue: 0.2)   // orange
         case "longest": return Color(red: 0.3, green: 0.7, blue: 1.0)   // blue
+        case "weeklyRecap": return Color(red: 0.55, green: 0.7, blue: 1.0) // steel blue
         default: return GQColors.vividPurple
         }
     }

@@ -41,6 +41,9 @@ enum FeedItem: Identifiable {
     case motivationPrompt(message: String, type: MotivationType)
     case inspirationChain(original: Post, followers: [String])
     case streakMilestone(userName: String, days: Int, workouts: Int)
+    /// Memo 4 "Reddit recurring thread" mechanic — a weekly prompt that invites users
+    /// to post their session. Shows at the top of the Friends feed once per day.
+    case weeklyPrompt(label: String, icon: String)
 
     var id: String {
         switch self {
@@ -50,6 +53,30 @@ enum FeedItem: Identifiable {
         case .motivationPrompt(let m, let t): return "motive-\(t.rawValue)-\(m.prefix(10))"
         case .inspirationChain(let p, _): return "chain-\(p.id)"
         case .streakMilestone(let n, let d, _): return "streak-\(n)-\(d)"
+        case .weeklyPrompt(let label, _): return "prompt-\(label)"
+        }
+    }
+}
+
+// MARK: - Weekly Prompt Generator
+//
+// Memo 4 "Reddit recurring thread" mechanic. Each day of the week has a
+// specific prompt that surfaces at the top of the Friends feed as a gentle
+// invitation to post. Not a demand — just a nudge in spotter-culture voice.
+
+enum WeeklyPromptGenerator {
+    /// Day-of-week prompt. Returns a FeedItem.weeklyPrompt.
+    static func todayPrompt() -> FeedItem {
+        let weekday = Calendar.current.component(.weekday, from: Date())
+        // 1=Sun, 2=Mon, 3=Tue, 4=Wed, 5=Thu, 6=Fri, 7=Sat
+        switch weekday {
+        case 2: return .weeklyPrompt(label: "Monday push day — who's showing up?", icon: "figure.strengthtraining.traditional")
+        case 3: return .weeklyPrompt(label: "Pull day check-in — post your session.", icon: "figure.strengthtraining.functional")
+        case 4: return .weeklyPrompt(label: "Midweek legs — share your sets.", icon: "figure.walk")
+        case 5: return .weeklyPrompt(label: "Thursday upper — log what you did.", icon: "dumbbell.fill")
+        case 6: return .weeklyPrompt(label: "Friday finisher — how'd the week go?", icon: "flame.fill")
+        case 7: return .weeklyPrompt(label: "Weekend session — rest or train?", icon: "figure.mind.and.body")
+        default: return .weeklyPrompt(label: "Sunday reset — rest counts too.", icon: "moon.fill")
         }
     }
 }
@@ -97,6 +124,9 @@ struct FeedCurator {
                 generalPosts.append(.post(post))
             }
         }
+
+        // Weekly prompt thread at the top — memo 4 "Reddit recurring thread" mechanic
+        items.append(WeeklyPromptGenerator.todayPrompt())
 
         // Build curated feed: PR posts first, then workout posts, then general
         items.append(contentsOf: prPosts)
@@ -347,6 +377,33 @@ struct FeedView: View {
                                 currentUserName: profile.name,
                                 profile: profile
                             )
+                        case .weeklyPrompt(let label, let icon):
+                            HStack(spacing: 12) {
+                                Image(systemName: icon)
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(GQGradients.primary)
+                                    .frame(width: 40, height: 40)
+                                    .background(GQColors.deepBlue.opacity(0.12))
+                                    .clipShape(Circle())
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(label)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(GQColors.textPrimary)
+                                    Text("Tap to log your session")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+                                Spacer()
+                            }
+                            .padding(14)
+                            .background(GQColors.surfaceBase)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(GQColors.borderDefault, lineWidth: 1)
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
                         case .workoutSuggestion, .communityPulse, .motivationPrompt, .inspirationChain, .streakMilestone:
                             EmptyView()
                         }
@@ -402,6 +459,33 @@ struct FeedView: View {
                                 currentUserName: profile.name,
                                 profile: profile
                             )
+                        case .weeklyPrompt(let label, let icon):
+                            HStack(spacing: 12) {
+                                Image(systemName: icon)
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(GQGradients.primary)
+                                    .frame(width: 40, height: 40)
+                                    .background(GQColors.deepBlue.opacity(0.12))
+                                    .clipShape(Circle())
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(label)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(GQColors.textPrimary)
+                                    Text("Tap to log your session")
+                                        .font(.system(size: 11))
+                                        .foregroundColor(GQColors.textTertiary)
+                                }
+                                Spacer()
+                            }
+                            .padding(14)
+                            .background(GQColors.surfaceBase)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(GQColors.borderDefault, lineWidth: 1)
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
                         case .workoutSuggestion, .communityPulse, .motivationPrompt, .inspirationChain, .streakMilestone:
                             EmptyView()
                         }
