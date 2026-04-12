@@ -369,6 +369,17 @@ struct FeedView: View {
                     catalogSearchResults
                 } else {
                     // Rails
+                    // Social-first rails: people you know come before algorithmic ones
+                    catalogRail(
+                        title: "From People You Follow",
+                        icon: "person.2.fill",
+                        posts: catalogFromFollowing
+                    )
+                    catalogRail(
+                        title: "Squad Picks",
+                        icon: "person.3.fill",
+                        posts: catalogFromSquad
+                    )
                     catalogRail(
                         title: "Most Used This Week",
                         icon: "play.circle.fill",
@@ -536,6 +547,31 @@ struct FeedView: View {
         workoutPosts
             .filter { $0.workoutType?.lowercased() == type.lowercased() }
             .sorted { $0.timesUsed > $1.timesUsed }
+    }
+
+    /// Workouts from people the user follows — the social layer
+    private var catalogFromFollowing: [Post] {
+        workoutPosts
+            .filter { cachedFollowingIds.contains($0.authorId) && $0.authorId != profile.id }
+            .sorted { $0.timestamp > $1.timestamp }
+    }
+
+    /// Workouts from the user's squad members
+    @Query private var allSquads: [Squad]
+
+    private var catalogFromSquad: [Post] {
+        let mySquadMemberIds: Set<UUID> = {
+            var ids = Set<UUID>()
+            for squad in allSquads where squad.memberIds.contains(profile.id) {
+                for memberId in squad.memberIds where memberId != profile.id {
+                    ids.insert(memberId)
+                }
+            }
+            return ids
+        }()
+        return workoutPosts
+            .filter { mySquadMemberIds.contains($0.authorId) }
+            .sorted { ($0.likeCount + $0.commentCount) > ($1.likeCount + $1.commentCount) }
     }
 
     // MARK: - Social Feed Content (friends only)
@@ -940,61 +976,97 @@ struct WorkoutCatalogCard: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var showDetail = false
+    @State private var topComment: String? = nil
+    @State private var topCommentAuthor: String? = nil
 
     private var workout: SharedWorkoutData? { post.getSharedWorkout() }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Header: workout type icon + type name
+        VStack(alignment: .leading, spacing: 6) {
+            // Author row — feel the person behind the workout
             HStack(spacing: 8) {
-                Image(systemName: workoutIcon)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(GQGradients.primary)
-                    .frame(width: 32, height: 32)
-                    .background(GQColors.deepBlue.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                Circle()
+                    .fill(AnyShapeStyle(GQGradients.primary))
+                    .frame(width: 28, height: 28)
+                    .overlay(
+                        Text(String(post.authorName.prefix(1)).uppercased())
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                    )
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(post.workoutType ?? "Workout")
-                        .font(.system(size: 12, weight: .bold))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(post.authorName)
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(GQColors.textPrimary)
                         .lineLimit(1)
-                    if let highlight = post.exerciseHighlight {
-                        Text(highlight)
-                            .font(.system(size: 10))
-                            .foregroundColor(GQColors.textTertiary)
-                            .lineLimit(1)
-                    }
+                    Text(post.workoutType ?? "Workout")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
                 }
                 Spacer()
             }
 
+            // Exercise highlight
+            if let highlight = post.exerciseHighlight {
+                Text(highlight)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .lineLimit(1)
+            }
+
             // Stats row
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 if let d = post.duration {
                     statChip(icon: "clock.fill", text: "\(d)m")
                 }
                 if let s = post.setCount {
                     statChip(icon: "list.bullet", text: "\(s) sets")
                 }
+                if post.timesUsed > 0 {
+                    statChip(icon: "play.fill", text: "\(post.timesUsed) used")
+                }
             }
 
-            // Author + used count
-            HStack(spacing: 4) {
-                Text(post.authorName)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(GQColors.textTertiary)
-                    .lineLimit(1)
-                Spacer()
-                if post.timesUsed > 0 {
-                    HStack(spacing: 2) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 7))
-                        Text("\(post.timesUsed)")
-                            .font(.system(size: 10, weight: .bold))
-                    }
-                    .foregroundColor(GQColors.success)
+            // Social layer: top comment preview — feel the community
+            if let comment = topComment, let author = topCommentAuthor {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "bubble.left.fill")
+                        .font(.system(size: 7))
+                        .foregroundColor(GQColors.textTertiary)
+                        .padding(.top, 3)
+                    Text("\"\(comment)\" — \(author)")
+                        .font(.system(size: 9))
+                        .foregroundColor(GQColors.textSecondary)
+                        .lineLimit(2)
+                        .italic()
                 }
+                .padding(.top, 2)
+            }
+
+            // Reaction summary strip — social proof
+            if post.likeCount > 0 || post.commentCount > 0 {
+                HStack(spacing: 8) {
+                    if post.likeCount > 0 {
+                        HStack(spacing: 2) {
+                            Text("💪")
+                                .font(.system(size: 9))
+                            Text("\(post.likeCount)")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(GQColors.textTertiary)
+                        }
+                    }
+                    if post.commentCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "bubble.left.fill")
+                                .font(.system(size: 7))
+                            Text("\(post.commentCount)")
+                                .font(.system(size: 9, weight: .bold))
+                        }
+                        .foregroundColor(GQColors.textTertiary)
+                    }
+                    Spacer()
+                }
+                .padding(.top, 1)
             }
 
             // Primary CTA
@@ -1023,7 +1095,7 @@ struct WorkoutCatalogCard: View {
             }
         }
         .padding(12)
-        .frame(width: 165)
+        .frame(width: 185)
         .background(GQColors.surfaceBase)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(
@@ -1032,6 +1104,7 @@ struct WorkoutCatalogCard: View {
         )
         .shadow(color: Color.black.opacity(0.08), radius: 6, y: 3)
         .onTapGesture { showDetail = true }
+        .task { fetchTopComment() }
         .sheet(isPresented: $showDetail) {
             if let workout {
                 WorkoutDetailSheet(
@@ -1048,6 +1121,19 @@ struct WorkoutCatalogCard: View {
                     onAddExercise: { _ in }
                 )
             }
+        }
+    }
+
+    private func fetchTopComment() {
+        let postId = post.id
+        var descriptor = FetchDescriptor<Comment>(
+            predicate: #Predicate { $0.postId == postId },
+            sortBy: [SortDescriptor(\Comment.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        if let comment = try? modelContext.fetch(descriptor).first {
+            topComment = comment.content
+            topCommentAuthor = comment.authorName
         }
     }
 
