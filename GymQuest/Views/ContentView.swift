@@ -944,14 +944,14 @@ struct AppTourOverlay: View {
             }
             // Tab icon Y: empirically measured from device screenshots.
             // Using fractions of full screen height (with .ignoresSafeArea).
-            let tabIconY = screenH * 0.932
+            let tabIconY = screenH * 0.929
             let plusY = screenH * 0.925
 
             // Ring center for current step
             let topSafe = geo.safeAreaInsets.top
             // -2 = "Explore" text in FeedView's top tab picker (rightmost of 3 tabs)
-            let exploreTabX = screenW * 0.78  // "Explore" label sits in the right third
-            let exploreTabY = topSafe + 52    // below nav bar + tab picker row
+            let exploreTabX = screenW * 0.80  // "Explore" label in the right third
+            let exploreTabY = topSafe + 92    // below nav bar + FeedTabsView row
 
             let ringX: CGFloat = {
                 if current.tabIndex == -2 { return exploreTabX }
