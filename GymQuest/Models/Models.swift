@@ -1213,8 +1213,22 @@ final class UserProfile {
     var graceWeekStart: Date? = nil
 
     /// Progressive challenge tier — only 3 challenges shown at a time.
-    /// Starts at 0 (basics), advances when all 3 in a tier are complete.
     var currentChallengeTier: Int = 0
+
+    /// Weekly workout schedule template. Maps weekday (1=Sun, 2=Mon, ..., 7=Sat)
+    /// to WorkoutType rawValue. Users set once, auto-repeats every week.
+    var weeklyScheduleJSON: String = "{}"
+
+    var weeklySchedule: [Int: String] {
+        get {
+            guard let data = weeklyScheduleJSON.data(using: .utf8),
+                  let dict = try? JSONDecoder().decode([Int: String].self, from: data) else { return [:] }
+            return dict
+        }
+        set {
+            weeklyScheduleJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "{}"
+        }
+    }
 
     // Nutrition & body goals
     var dailyCalorieGoal: Int = 2000

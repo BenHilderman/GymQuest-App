@@ -36,6 +36,7 @@ struct TodayView: View {
     @State private var showingPlanOptions = false
     @State private var selectedSubTab: TodaySubTab = .today
     @State private var consistencyState: ConsistencyState = .onTrack
+    @State private var showWeeklyScheduleEditor = false
 
     private enum TodaySubTab: String, CaseIterable {
         case today = "Today"
@@ -148,6 +149,10 @@ struct TodayView: View {
             .gqPageBackground()
             .navigationBarTitleDisplayMode(.inline)
         }
+        .sheet(isPresented: $showWeeklyScheduleEditor) {
+            WeeklyScheduleEditorSheet(profile: profile)
+                .presentationDetents([.medium, .large])
+        }
         .task {
             checkForDraft()
             MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
@@ -163,6 +168,118 @@ struct TodayView: View {
             // Give @Query time to pick up new enrollments from autoEnroll
             try? await Task.sleep(for: .milliseconds(100))
             consistencyState = MomentumService.shared.evaluateState(userId: profile.id)
+        }
+    }
+
+    // MARK: - Today's Plan Card
+
+    private var todayWeekday: Int { Calendar.current.component(.weekday, from: Date()) }
+
+    private var todayPlannedType: WorkoutType? {
+        guard let rawValue = profile.weeklySchedule[todayWeekday] else { return nil }
+        return WorkoutType(rawValue: rawValue)
+    }
+
+    @ViewBuilder
+    private var todayPlanCard: some View {
+        if let planned = todayPlannedType, planned != .rest {
+            // Today has a planned workout
+            HStack(spacing: 14) {
+                Image(systemName: planned.icon)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(AnyShapeStyle(GQGradients.primary))
+                    .frame(width: 44, height: 44)
+                    .background(GQColors.deepBlue.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Today: \(planned.rawValue)")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("From your weekly schedule")
+                        .font(.system(size: 11))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+
+                Spacer()
+
+                Button {
+                    appState.showingWorkoutStartOptions = true
+                } label: {
+                    Text("Start")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(GQGradients.primary)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(14)
+            .background(GQColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        } else if profile.weeklySchedule.isEmpty {
+            // No schedule set — prompt to create one
+            Button { showWeeklyScheduleEditor = true } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(AnyShapeStyle(GQGradients.primary))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Set your weekly schedule")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(GQColors.textPrimary)
+                        Text("Plan which days you train.")
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                .padding(14)
+                .background(GQColors.cardBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(GQColors.borderDefault, lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+            }
+            .buttonStyle(.plain)
+        } else if todayPlannedType == .rest {
+            // Rest day
+            HStack(spacing: 12) {
+                Image(systemName: "moon.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(GQColors.textTertiary)
+                Text("Rest day. You've earned it.")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GQColors.textSecondary)
+                Spacer()
+                Button { showWeeklyScheduleEditor = true } label: {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+            }
+            .padding(14)
+            .background(GQColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
         }
     }
 
@@ -193,6 +310,9 @@ struct TodayView: View {
                 totalSets: weeklyTotalSets,
                 totalVolume: weeklyTotalVolume
             )
+
+            // Today's planned workout (from weekly schedule)
+            todayPlanCard
 
             sectionDivider
 
@@ -1097,5 +1217,161 @@ struct TodayChallengesSection: View {
             AchievementDetailSheet(badge: c)
                 .presentationDetents([.medium])
         }
+    }
+}
+
+// MARK: - Weekly Schedule Editor
+
+struct WeeklyScheduleEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Bindable var profile: UserProfile
+
+    // Weekday names (1=Sun through 7=Sat)
+    private let weekdays = [
+        (2, "Monday"), (3, "Tuesday"), (4, "Wednesday"),
+        (5, "Thursday"), (6, "Friday"), (7, "Saturday"), (1, "Sunday")
+    ]
+
+    private let typeOptions: [WorkoutType?] = [
+        nil, .push, .pull, .legs, .upper, .lower, .fullBody, .cardio, .hiit, .yoga, .rest
+    ]
+
+    @State private var schedule: [Int: String] = [:]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 6) {
+                    Text("Set your training days. Tap a type for each day.")
+                        .font(.system(size: 12))
+                        .foregroundColor(GQColors.textTertiary)
+                        .padding(.top, 8)
+                        .padding(.horizontal, 16)
+
+                    ForEach(weekdays, id: \.0) { weekday, name in
+                        dayRow(weekday: weekday, name: name)
+                    }
+
+                    // Quick templates
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("QUICK TEMPLATES")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(GQColors.textTertiary)
+                            .tracking(1)
+                            .padding(.horizontal, 16)
+                            .padding(.top, 12)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                templateChip("PPL") {
+                                    schedule = [2: "Push", 3: "Pull", 4: "Legs", 5: "Push", 6: "Pull", 7: "Legs", 1: "Rest"]
+                                }
+                                templateChip("Upper/Lower") {
+                                    schedule = [2: "Upper", 3: "Lower", 4: "Rest", 5: "Upper", 6: "Lower", 7: "Rest", 1: "Rest"]
+                                }
+                                templateChip("Full Body 3x") {
+                                    schedule = [2: "Full Body", 3: "Rest", 4: "Full Body", 5: "Rest", 6: "Full Body", 7: "Rest", 1: "Rest"]
+                                }
+                                templateChip("5-Day Split") {
+                                    schedule = [2: "Push", 3: "Pull", 4: "Legs", 5: "Upper", 6: "Lower", 7: "Rest", 1: "Rest"]
+                                }
+                                templateChip("Clear") {
+                                    schedule = [:]
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .padding(.bottom, 40)
+            }
+            .scrollContentBackground(.hidden)
+            .gqPageBackground()
+            .navigationTitle("Weekly Schedule")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        profile.weeklySchedule = schedule
+                        try? modelContext.save()
+                        dismiss()
+                    }
+                    .fontWeight(.bold)
+                }
+            }
+            .onAppear {
+                schedule = profile.weeklySchedule
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func dayRow(weekday: Int, name: String) -> some View {
+        let selected = schedule[weekday]
+        let selectedType = selected.flatMap { WorkoutType(rawValue: $0) }
+
+        VStack(spacing: 6) {
+            HStack {
+                Text(name)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .frame(width: 90, alignment: .leading)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(typeOptions, id: \.self) { type in
+                            let isSelected = (type == nil && selected == nil) ||
+                                (type != nil && type?.rawValue == selected)
+
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.12)) {
+                                    if let type {
+                                        schedule[weekday] = type.rawValue
+                                    } else {
+                                        schedule.removeValue(forKey: weekday)
+                                    }
+                                }
+                                #if canImport(UIKit)
+                                UISelectionFeedbackGenerator().selectionChanged()
+                                #endif
+                            } label: {
+                                Text(type?.rawValue ?? "Off")
+                                    .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                                    .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        isSelected
+                                            ? AnyShapeStyle(GQGradients.primary)
+                                            : AnyShapeStyle(GQColors.surfaceSecondary)
+                                    )
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func templateChip(_ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(GQColors.textSecondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(GQColors.cardBackground)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(GQColors.borderDefault, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 }
