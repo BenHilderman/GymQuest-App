@@ -408,10 +408,8 @@ struct FeedView: View {
                     // 6. Trending
                     trendingBubbles
 
-                    // 7. Discovery rails
-                    catalogRail(title: "Most Used This Week", icon: "play.circle.fill", posts: catalogMostUsed)
-                    catalogRail(title: "Quick Sessions", icon: "bolt.fill", posts: catalogQuickSessions)
-                    catalogRail(title: "Try Something New", icon: "sparkles", posts: catalogNovelTopics)
+                    // 7. Visual explore grid (Instagram-style with workout data overlay)
+                    exploreVisualGrid
                 }
             }
             .padding(.top, 8)
@@ -804,6 +802,105 @@ struct FeedView: View {
         .padding(.vertical, 3)
         .background(GQColors.adaptiveOverlay(0.05))
         .clipShape(Capsule())
+    }
+
+    // MARK: - 7. Visual Explore Grid
+    //
+    // Instagram Explore-style 3-column thumbnail grid, but each cell has
+    // structured workout data overlaid and a "Use" action. The media layer
+    // that makes browsing FUN — you look, not read.
+
+    @State private var selectedGridFilter: String = "All"
+
+    private let gridFilterOptions = ["All", "Push", "Pull", "Legs", "Cardio", "HIIT", "Full Body"]
+
+    @ViewBuilder
+    private var exploreVisualGrid: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Section header
+            HStack(spacing: 6) {
+                Image(systemName: "square.grid.3x3.fill")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(GQColors.vividPurple)
+                Text("EXPLORE WORKOUTS")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.5)
+                    .foregroundColor(GQColors.textTertiary)
+            }
+            .padding(.horizontal, 16)
+
+            // Filter pills
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(gridFilterOptions, id: \.self) { option in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                selectedGridFilter = option
+                            }
+                        } label: {
+                            Text(option)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(selectedGridFilter == option ? .white : GQColors.textSecondary)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 7)
+                                .background(
+                                    selectedGridFilter == option
+                                        ? AnyShapeStyle(GQGradients.primary)
+                                        : AnyShapeStyle(GQColors.cardBackground)
+                                )
+                                .clipShape(Capsule())
+                                .overlay(
+                                    Capsule().stroke(
+                                        selectedGridFilter == option ? Color.clear : GQColors.borderDefault,
+                                        lineWidth: 1
+                                    )
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+            }
+
+            // Grid
+            let filteredPosts = gridFilteredPosts
+            if filteredPosts.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "dumbbell.fill")
+                        .font(.system(size: 28))
+                        .foregroundColor(GQColors.textTertiary)
+                    Text("No workouts yet")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: 3),
+                        GridItem(.flexible(), spacing: 3),
+                        GridItem(.flexible(), spacing: 3)
+                    ],
+                    spacing: 3
+                ) {
+                    ForEach(filteredPosts.prefix(30)) { post in
+                        ExploreGridCell(
+                            post: post,
+                            currentUserId: profile.id,
+                            profile: profile
+                        )
+                    }
+                }
+                .padding(.horizontal, 3)
+            }
+        }
+    }
+
+    private var gridFilteredPosts: [Post] {
+        let base = workoutPosts.sorted { $0.timestamp > $1.timestamp }
+        if selectedGridFilter == "All" { return base }
+        return base.filter { $0.workoutType?.lowercased() == selectedGridFilter.lowercased() }
     }
 
     // MARK: - Catalog Search Bar
@@ -1353,6 +1450,166 @@ struct WeeklyRecapCard: View {
 // highlight, duration, author, timesUsed, and a primary "Use this" action.
 // Tapping the card body shows a detail sheet; tapping the button starts
 // the workout immediately via UseWorkoutService.
+
+// MARK: - Explore Grid Cell
+//
+// Instagram Explore-style thumbnail cell with workout data overlay.
+// Photo fills the cell as background; a gradient overlay at the bottom
+// ensures text readability. Author name, workout type, and a "Use" pill
+// are overlaid. Posts without photos get a variant-colored gradient
+// placeholder with a large workout-type icon.
+
+struct ExploreGridCell: View {
+    let post: Post
+    let currentUserId: UUID
+    let profile: UserProfile
+
+    @EnvironmentObject private var appState: AppState
+    @Environment(\.modelContext) private var modelContext
+    @State private var showDetail = false
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // Background: photo or gradient placeholder
+            cellBackground
+                .aspectRatio(0.82, contentMode: .fill)
+                .clipped()
+
+            // Bottom gradient for text readability
+            LinearGradient(
+                colors: [Color.black.opacity(0), Color.black.opacity(0.75)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+
+            // Overlay content
+            VStack(alignment: .leading, spacing: 3) {
+                Spacer()
+
+                // Author + type
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(AnyShapeStyle(GQGradients.primary))
+                        .frame(width: 16, height: 16)
+                        .overlay(
+                            Text(String(post.authorName.prefix(1)).uppercased())
+                                .font(.system(size: 7, weight: .bold))
+                                .foregroundStyle(.white)
+                        )
+                    Text(post.authorName)
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
+
+                Text(post.exerciseHighlight ?? post.workoutType ?? "Workout")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .lineLimit(1)
+
+                // Bottom row: stats + use
+                HStack(spacing: 4) {
+                    if let d = post.duration {
+                        Text("\(d)m")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                    if post.timesUsed > 0 {
+                        HStack(spacing: 1) {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 5))
+                            Text("\(post.timesUsed)")
+                                .font(.system(size: 8, weight: .bold))
+                        }
+                        .foregroundStyle(GQColors.success)
+                    }
+                    Spacer()
+                    if post.authorId != currentUserId {
+                        Button {
+                            UseWorkoutService.use(post: post, currentUserId: currentUserId, appState: appState, modelContext: modelContext)
+                        } label: {
+                            Text("Use")
+                                .font(.system(size: 8, weight: .black))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(GQGradients.primary)
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(8)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .contentShape(Rectangle())
+        .onTapGesture { showDetail = true }
+        .sheet(isPresented: $showDetail) {
+            if let workout = post.getSharedWorkout() {
+                WorkoutDetailSheet(
+                    workoutData: workout,
+                    onFollow: {
+                        showDetail = false
+                        UseWorkoutService.use(post: post, currentUserId: currentUserId, appState: appState, modelContext: modelContext)
+                    },
+                    onAddExercise: { _ in }
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var cellBackground: some View {
+        #if canImport(UIKit)
+        if let photoData = post.photoData, let img = UIImage(data: photoData) {
+            Image(uiImage: img)
+                .resizable()
+                .scaledToFill()
+        } else {
+            gradientPlaceholder
+        }
+        #else
+        gradientPlaceholder
+        #endif
+    }
+
+    private var gradientPlaceholder: some View {
+        ZStack {
+            LinearGradient(
+                colors: [cellAccent.opacity(0.5), GQColors.deepBlue.opacity(0.3)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Image(systemName: cellIcon)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundStyle(.white.opacity(0.2))
+        }
+    }
+
+    private var cellAccent: Color {
+        switch post.workoutType?.lowercased() {
+        case "push": return GQColors.deepBlue
+        case "pull": return GQColors.vividPurple
+        case "legs": return Color(red: 1.0, green: 0.55, blue: 0.2)
+        case "cardio": return GQColors.success
+        case "hiit": return Color.red
+        default: return GQColors.vividPurple
+        }
+    }
+
+    private var cellIcon: String {
+        switch post.workoutType?.lowercased() {
+        case "push": return "figure.strengthtraining.traditional"
+        case "pull": return "figure.strengthtraining.functional"
+        case "legs": return "figure.walk"
+        case "cardio": return "figure.run"
+        case "hiit": return "bolt.heart.fill"
+        case "full body": return "figure.cross.training"
+        default: return "dumbbell.fill"
+        }
+    }
+}
 
 // MARK: - People Timeline Row
 
