@@ -942,12 +942,10 @@ struct AppTourOverlay: View {
             let tabCenters: [CGFloat] = (0..<5).map { i in
                 tabBarPadding + itemWidth * (CGFloat(i) + 0.5)
             }
-            // Tab icon Y: the tab bar sits above the safe area with internal padding.
-            // Measured from screenshots: icon centers are ~48pt above screen bottom
-            // on devices with home indicator, ~38pt on devices without.
-            let tabIconY = screenH - bottomSafe - 38
-            // The + button has .offset(y: -6) and is 44pt tall vs ~24pt icons
-            let plusY = tabIconY - 10
+            // Tab icon Y: empirically measured from device screenshots.
+            // Using fractions of full screen height (with .ignoresSafeArea).
+            let tabIconY = screenH * 0.951   // Feed/Today/Activity/You icon centers
+            let plusY = screenH * 0.941       // + button center
 
             // Ring center for current step
             let topSafe = geo.safeAreaInsets.top
