@@ -474,6 +474,17 @@ struct ProofCardMeta: Codable {
     // Interactive deep-link payload — lets the feed tap through to the linked exercise
     var linkedExerciseName: String? = nil
     var linkedWorkoutId: UUID? = nil
+
+    // Proof-gaming guardrails (memo 3: "Spam/cheat guardrails for Discover")
+    // "verified" = the claimed effort passes sanity checks against the user's history
+    // "claimed"  = it exceeds reasonable thresholds and must be visually marked
+    var verificationStatus: String = "verified"
+    /// Short reason the card was downgraded to claimed (shown in debug / admin)
+    var verificationReason: String? = nil
+
+    // A/B testing (memo 3: "A/B test 3 share-card styles until sharing is natural")
+    // Style variant applied at render time; rotates deterministically at creation.
+    var styleVariant: String = "classic" // "classic" | "minimal" | "bold"
 }
 
 // MARK: - Used Workout Event
@@ -3324,6 +3335,14 @@ final class Squad {
     var xpMultiplier: Double
     var weeklyLeaderboardData: Data?
 
+    /// Marks a squad as a "seed squad" — the memo 3 directive to hand-seed
+    /// 10-20 live micro-communities before public launch so the feed never
+    /// feels dead to a new user. Regular squads have this as false.
+    var isSeedSquad: Bool = false
+    /// Optional tag line shown in onboarding when picking a seed squad
+    /// ("Queen's gym · campus crew", "305 Bench Club", etc.)
+    var descriptor: String = ""
+
     init(
         id: UUID = UUID(),
         name: String = "",
@@ -3336,7 +3355,9 @@ final class Squad {
         createdAt: Date = Date(),
         squadVsSquadOpponentId: UUID? = nil,
         xpMultiplier: Double = 1.0,
-        weeklyLeaderboardData: Data? = nil
+        weeklyLeaderboardData: Data? = nil,
+        isSeedSquad: Bool = false,
+        descriptor: String = ""
     ) {
         self.id = id
         self.name = name
@@ -3350,6 +3371,8 @@ final class Squad {
         self.squadVsSquadOpponentId = squadVsSquadOpponentId
         self.xpMultiplier = xpMultiplier
         self.weeklyLeaderboardData = weeklyLeaderboardData
+        self.isSeedSquad = isSeedSquad
+        self.descriptor = descriptor
     }
 
     var weeklyGoal: WeeklyGoal {

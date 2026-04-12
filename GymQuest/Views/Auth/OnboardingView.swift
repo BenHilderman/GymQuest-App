@@ -34,6 +34,10 @@ struct OnboardingView: View {
     @State private var selectedEquipment: Set<EquipmentType> = []
     // The mission question that replaces the goal step
     @State private var showUpFor: String = ""
+    // Squad join — the memo 3 directive that every new user lands in a live
+    // micro-community before seeing an empty feed.
+    @State private var selectedSquadId: UUID? = nil
+    @State private var enteredInviteCode: String = ""
 
     // Password is now passed in directly, not stored in UserDefaults
     private var storedPassword: String {
@@ -75,8 +79,13 @@ struct OnboardingView: View {
                     case 3:
                         ShowUpForStepView(showUpFor: $showUpFor)
                     case 4:
-                        ExperienceStepView(selectedExperience: $selectedExperience)
+                        JoinSquadStepView(
+                            selectedSquadId: $selectedSquadId,
+                            enteredInviteCode: $enteredInviteCode
+                        )
                     case 5:
+                        ExperienceStepView(selectedExperience: $selectedExperience)
+                    case 6:
                         EquipmentStepView(selectedEquipment: $selectedEquipment)
                     default:
                         EmptyView()
@@ -131,11 +140,11 @@ struct OnboardingView: View {
     }
 
     private var totalSteps: Int {
-        6  // name, username, birthday, goal, experience, equipment
+        7  // name, username, birthday, show up for, join squad, experience, equipment
     }
 
     private var isLastStep: Bool {
-        currentStep == 5
+        currentStep == 6
     }
 
     private var canContinue: Bool {
@@ -144,8 +153,13 @@ struct OnboardingView: View {
         case 1: return !username.trimmingCharacters(in: .whitespaces).isEmpty
         case 2: return true
         case 3: return !showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
-        case 4: return true
-        case 5: return !selectedEquipment.isEmpty
+        case 4:
+            // A squad must be selected or a valid invite code entered. The
+            // memo 3 directive: every new user joins a live squad before
+            // seeing an empty feed.
+            return selectedSquadId != nil || enteredInviteCode.trimmingCharacters(in: .whitespaces).count >= 4
+        case 5: return true
+        case 6: return !selectedEquipment.isEmpty
         default: return true
         }
     }
@@ -193,6 +207,17 @@ struct OnboardingView: View {
             profile.experienceLevel = selectedExperience
             profile.availableEquipment = Array(selectedEquipment)
             profile.showUpFor = showUpFor.trimmingCharacters(in: .whitespaces)
+
+            // Memo 3 directive: drop the new user directly into a live squad
+            // before they see an empty feed. Either a picked seed squad or
+            // one resolved from the entered invite code.
+            SeedSquadService.joinSquadForOnboarding(
+                selectedSquadId: selectedSquadId,
+                inviteCode: enteredInviteCode,
+                user: profile,
+                modelContext: modelContext
+            )
+
             try? modelContext.save()
 
             // Sync onboarding profile to Supabase
@@ -530,4 +555,230 @@ struct PasswordStepView: View {
 #Preview {
     OnboardingView(authMethod: "email", email: "test@example.com", googleId: nil, tempPassword: nil)
         .environmentObject(AppState())
+}
+
+// MARK: - Join Squad Step
+//
+// Memo 3 directive: "Launch with seeded micro-communities (real friend clusters
+// / gyms) to prevent the 'dead feed' problem and ensure early users feel seen."
+// Every new user must land in a live squad before they see an empty feed.
+//
+// Users can either pick from the suggested seed squads (hand-curated clusters
+// like "Queen's ARC", "305 Bench Club", etc.) or enter an invite code from a
+// friend who's already on the app.
+
+struct JoinSquadStepView: View {
+    @Binding var selectedSquadId: UUID?
+    @Binding var enteredInviteCode: String
+
+    @Environment(\.modelContext) private var modelContext
+    @Query private var allSquads: [Squad]
+
+    @State private var didBootstrap = false
+
+    private var seedSquads: [Squad] {
+        allSquads.filter { $0.isSeedSquad }.sorted { $0.name < $1.name }
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "person.3.sequence.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(GQGradients.primary)
+
+            Text("Find your crew")
+                .font(.title)
+                .fontWeight(.bold)
+
+            Text("Pick a squad or enter a code. Your proof needs people who will see it.")
+                .font(.subheadline)
+                .foregroundColor(GQColors.textTertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            // Invite code field
+            HStack(spacing: 10) {
+                Image(systemName: "ticket.fill")
+                    .foregroundColor(GQColors.textTertiary)
+                TextField("Invite code", text: $enteredInviteCode)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+                    .onChange(of: enteredInviteCode) { _, newValue in
+                        if !newValue.trimmingCharacters(in: .whitespaces).isEmpty {
+                            selectedSquadId = nil
+                        }
+                    }
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
+            .background(GQColors.surfaceBase)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(GQColors.borderDefault, lineWidth: 1)
+            )
+            .padding(.horizontal, 32)
+
+            Text("— or pick a squad —")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+                .padding(.top, 4)
+
+            // Suggested seed squads
+            ScrollView {
+                VStack(spacing: 10) {
+                    ForEach(seedSquads) { squad in
+                        seedSquadRow(squad)
+                    }
+                    if seedSquads.isEmpty {
+                        Text("Setting up suggestions…")
+                            .font(.system(size: 12))
+                            .foregroundColor(GQColors.textTertiary)
+                            .padding(.top, 12)
+                    }
+                }
+                .padding(.horizontal, 32)
+            }
+            .frame(maxHeight: 260)
+        }
+        .onAppear {
+            if !didBootstrap {
+                SeedSquadBootstrap.seedIfNeeded(modelContext: modelContext)
+                didBootstrap = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func seedSquadRow(_ squad: Squad) -> some View {
+        let isSelected = selectedSquadId == squad.id
+        Button {
+            withAnimation(.easeInOut(duration: 0.12)) {
+                selectedSquadId = isSelected ? nil : squad.id
+                if selectedSquadId != nil { enteredInviteCode = "" }
+            }
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(AnyShapeStyle(GQGradients.primary))
+                        .frame(width: 38, height: 38)
+                    Image(systemName: "dumbbell.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(squad.name)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    if !squad.descriptor.isEmpty {
+                        Text(squad.descriptor)
+                            .font(.system(size: 11))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+                Spacer()
+                ZStack {
+                    Circle()
+                        .strokeBorder(isSelected ? Color.clear : GQColors.borderDefault, lineWidth: 1.5)
+                        .frame(width: 22, height: 22)
+                    if isSelected {
+                        Circle().fill(AnyShapeStyle(GQGradients.primary)).frame(width: 22, height: 22)
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? GQColors.deepBlue.opacity(0.1) : GQColors.surfaceBase)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? GQColors.deepBlue.opacity(0.4) : GQColors.borderDefault, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Seed Squad Bootstrap & Join Service
+
+/// Creates a fixed set of seed squads on first launch so new users always have
+/// a live cluster to land in. The memo 3 "micro-community seeding" directive
+/// turned into deterministic product state. In production these would be
+/// replaced by real founder-curated squads; for local dev / TestFlight these
+/// serve as non-empty defaults so the onboarding loop is never broken.
+enum SeedSquadBootstrap {
+    /// The hand-curated seed squads. Real-world founder seeding would replace
+    /// these — a college gym, a powerlifting crew, a 6am lifting group, etc.
+    static let seeds: [(name: String, descriptor: String, code: String)] = [
+        ("305 Bench Club", "Intermediate lifters chasing 315", "BENCH3"),
+        ("The ARC Crew", "Queen's ARC regulars", "ARCFAM"),
+        ("Push / Pull / Legs", "PPL split, 4-6 days a week", "PPLCRW"),
+        ("6 AM Lifters", "Morning gym dedicated crew", "SIX AM"),
+        ("Full-Body Founders", "3 full-body days, busy schedules", "FBFOUND"),
+        ("Strong First", "Starting Strength / Stronglifts pathway", "STRFST"),
+        ("Home Gym Brigade", "Garage & basement lifters", "HOMEGM"),
+        ("Back on the Bar", "Coming back from a break", "COMEBK"),
+        ("Lift & Run", "Hybrid strength + conditioning", "HYBRID"),
+        ("First Rep Club", "Brand new lifters, zero judgment", "FIRST1")
+    ]
+
+    @MainActor
+    static func seedIfNeeded(modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<Squad>(predicate: #Predicate { $0.isSeedSquad == true })
+        let existing = (try? modelContext.fetch(descriptor)) ?? []
+        let existingNames = Set(existing.map(\.name))
+
+        for seed in seeds where !existingNames.contains(seed.name) {
+            let squad = Squad(
+                name: seed.name,
+                creatorId: UUID(),
+                memberIds: [],
+                inviteCode: seed.code,
+                isSeedSquad: true,
+                descriptor: seed.descriptor
+            )
+            modelContext.insert(squad)
+        }
+        try? modelContext.save()
+    }
+}
+
+/// Handles the onboarding squad-join flow — either joining a picked seed squad
+/// or resolving an entered invite code to a real squad.
+@MainActor
+enum SeedSquadService {
+    static func joinSquadForOnboarding(
+        selectedSquadId: UUID?,
+        inviteCode: String,
+        user: UserProfile,
+        modelContext: ModelContext
+    ) {
+        var squad: Squad? = nil
+
+        // Prefer an explicit selection from the seed list
+        if let id = selectedSquadId {
+            let descriptor = FetchDescriptor<Squad>(predicate: #Predicate { $0.id == id })
+            squad = try? modelContext.fetch(descriptor).first
+        }
+
+        // Fall back to invite-code resolution
+        if squad == nil {
+            let trimmed = inviteCode.trimmingCharacters(in: .whitespaces).uppercased()
+            guard !trimmed.isEmpty else { return }
+            let descriptor = FetchDescriptor<Squad>(predicate: #Predicate { $0.inviteCode == trimmed })
+            squad = try? modelContext.fetch(descriptor).first
+        }
+
+        guard let squad else { return }
+        if !squad.memberIds.contains(user.id) {
+            squad.memberIds.append(user.id)
+        }
+    }
 }

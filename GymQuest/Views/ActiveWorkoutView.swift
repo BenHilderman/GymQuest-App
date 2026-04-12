@@ -4586,6 +4586,9 @@ struct ProofCardView: View {
     @State private var isSending = false
     @State private var didSend = false
     @State private var showSocialGraphGate = false
+    @State private var showRateLimitAlert = false
+    @State private var showImageShareSheet = false
+    @State private var renderedShareImage: UIImage? = nil
 
     var body: some View {
         ZStack {
@@ -4652,22 +4655,42 @@ struct ProofCardView: View {
                     }
                     .disabled(isSending || didSend)
 
-                    Button(action: onAddClip) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "video.badge.plus")
-                                .font(.system(size: 13))
-                            Text("Add a clip")
-                                .font(.system(size: 14, weight: .semibold))
+                    HStack(spacing: 10) {
+                        Button(action: onAddClip) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "video.badge.plus")
+                                    .font(.system(size: 12))
+                                Text("Add a clip")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(.white.opacity(0.78))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                            )
                         }
-                        .foregroundStyle(.white.opacity(0.78))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 13)
-                        .background(Color.white.opacity(0.06))
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-                        )
+
+                        Button(action: exportAsImage) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.system(size: 12))
+                                Text("Share image")
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(.white.opacity(0.78))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 13)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+                            )
+                        }
                     }
 
                     Button(action: onDone) {
@@ -4700,6 +4723,18 @@ struct ProofCardView: View {
             )
             .presentationDetents([.large])
         }
+        .alert("Rest your signal.", isPresented: $showRateLimitAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("You've already shared 3 Proof Cards today. Let the ones out there breathe — come back tomorrow.")
+        }
+        #if canImport(UIKit)
+        .sheet(isPresented: $showImageShareSheet) {
+            if let image = renderedShareImage {
+                ShareSheetView(items: [image])
+            }
+        }
+        #endif
     }
 
     // MARK: - Meta Construction (the "noticing" engine)
@@ -4711,6 +4746,20 @@ struct ProofCardView: View {
         // Deep-link payload: link to whichever exercise was the hardest moment,
         // or the overall workout for post-hoc navigation.
         let linkedExercise = heaviestExerciseName()
+
+        // Proof-gaming guardrail: run the verification check against the user's
+        // history. If the claimed effort is wildly outside prior bounds, the
+        // card is marked "claimed" and rendered with an unverified badge.
+        let verification = ProofVerificationService.verify(
+            workout: workout,
+            priorWorkouts: allPriorWorkouts
+        )
+
+        // A/B testing: rotate share-card styles to measure workout→post rate
+        // per variant. Deterministic per-workout so the same card doesn't
+        // change style between creations.
+        let styleVariant = ProofCardVariantPicker.pick(for: workout.id)
+
         return ProofCardMeta(
             headline: headline,
             hardestMoment: findHardestMoment(),
@@ -4720,7 +4769,10 @@ struct ProofCardView: View {
             createdAt: Date(),
             variant: variant,
             linkedExerciseName: linkedExercise,
-            linkedWorkoutId: workout.id
+            linkedWorkoutId: workout.id,
+            verificationStatus: verification.status,
+            verificationReason: verification.reason,
+            styleVariant: styleVariant
         )
     }
 
@@ -4835,6 +4887,13 @@ struct ProofCardView: View {
     private func sendToSquad() {
         guard !isSending, !didSend else { return }
 
+        // Rate limit: max 3 Proof Cards per day per user. Memo 3 directive —
+        // prevents farming and keeps the signal scarce enough to be meaningful.
+        if ProofRateLimiter.dailyCardCount(userId: profile.id, modelContext: modelContext) >= 3 {
+            showRateLimitAlert = true
+            return
+        }
+
         // Gate: before the user's first share, require at least 3 real connections.
         // This is the memo's activation-loop prerequisite — you can't have a witnessed
         // workout without someone to witness it.
@@ -4891,6 +4950,142 @@ struct ProofCardView: View {
         let descriptor = FetchDescriptor<Friend>(predicate: #Predicate { $0.userId == userId })
         return (try? modelContext.fetch(descriptor).count) ?? 0
     }
+
+    /// Render the Proof Card as a PNG and hand it to the share sheet.
+    /// Memo 3 directive: the brand travels via the artifact, so the external
+    /// share path outputs a rendered image, not a link back to the app.
+    private func exportAsImage() {
+        guard let meta else { return }
+        #if canImport(UIKit)
+        // Render the card at 3× scale for screenshot-crisp quality.
+        // Use a fixed-size container so the rendered frame matches what the
+        // user sees on screen.
+        let view = ProofCardBody(meta: meta)
+            .frame(width: 380)
+            .padding(24)
+            .background(Color.black)
+
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 3.0
+        renderer.isOpaque = true
+
+        if let image = renderer.uiImage {
+            renderedShareImage = image
+            showImageShareSheet = true
+            #if canImport(UIKit)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            #endif
+        }
+        #endif
+    }
+}
+
+// MARK: - Proof Verification Service
+//
+// Memo 3 directive: "Spam/cheat guardrails for Discover." If proof becomes
+// valuable currency, people will game it. This service runs sanity checks
+// against the user's history and downgrades cards that fail them to
+// "claimed" instead of "verified." Claimed cards still post, but are
+// visually marked so friends can read them skeptically.
+//
+// Checks applied:
+//   1. PR sanity: no claimed weight > 2× the user's prior max for that exercise
+//   2. Volume sanity: no workout volume > 3× the user's running average
+//   3. Set-count sanity: no workout with more than 30 total sets (human cap)
+
+enum ProofVerificationService {
+    struct Result {
+        let status: String      // "verified" | "claimed"
+        let reason: String?     // human-readable reason when claimed
+    }
+
+    static func verify(workout: Workout, priorWorkouts: [Workout]) -> Result {
+        let priorSameType = priorWorkouts.filter { $0.type == workout.type && $0.id != workout.id }
+
+        // 1. PR sanity check — compare heaviest set in this workout to heaviest
+        // set for the same exercise across all prior workouts. If the new lift
+        // is more than 2× the prior max, the claim is suspicious.
+        for exercise in workout.exercises {
+            let newHeaviest = exercise.sets.map(\.weight).max() ?? 0
+            guard newHeaviest > 0 else { continue }
+
+            // Find the prior max for this exercise across history
+            var priorMax: Double = 0
+            for prior in priorSameType {
+                for priorExercise in prior.exercises where priorExercise.name == exercise.name {
+                    let m = priorExercise.sets.map(\.weight).max() ?? 0
+                    if m > priorMax { priorMax = m }
+                }
+            }
+
+            if priorMax > 0 && newHeaviest > priorMax * 2.0 {
+                return Result(
+                    status: "claimed",
+                    reason: "\(exercise.name): \(Int(newHeaviest)) exceeds 2× prior max (\(Int(priorMax)))"
+                )
+            }
+        }
+
+        // 2. Volume sanity — running average across prior of same type
+        if !priorSameType.isEmpty {
+            let avgVolume = priorSameType.map(\.totalVolume).reduce(0, +) / Double(priorSameType.count)
+            if avgVolume > 0 && workout.totalVolume > avgVolume * 3.0 {
+                return Result(
+                    status: "claimed",
+                    reason: "volume \(Int(workout.totalVolume)) exceeds 3× running average"
+                )
+            }
+        }
+
+        // 3. Set-count cap — no human does more than 30 real sets in one session
+        if workout.totalSets > 30 {
+            return Result(
+                status: "claimed",
+                reason: "\(workout.totalSets) sets exceeds the human daily cap"
+            )
+        }
+
+        return Result(status: "verified", reason: nil)
+    }
+}
+
+// MARK: - Proof Rate Limiter
+//
+// Memo 3 directive: cap Proof Cards to 3 per day per user so the signal
+// stays scarce enough to mean something. Farming the feed is the main risk;
+// this is the structural guardrail against it.
+
+enum ProofRateLimiter {
+    /// Count of Proof Cards this user has sent today. Queries Post records
+    /// where the author is this user, proofCardData is set, and the post was
+    /// created in the current calendar day.
+    @MainActor
+    static func dailyCardCount(userId: UUID, modelContext: ModelContext) -> Int {
+        let startOfDay = Calendar.current.startOfDay(for: Date())
+        let descriptor = FetchDescriptor<Post>(
+            predicate: #Predicate { $0.authorId == userId && $0.timestamp >= startOfDay }
+        )
+        guard let posts = try? modelContext.fetch(descriptor) else { return 0 }
+        return posts.filter { $0.proofCardData != nil }.count
+    }
+}
+
+// MARK: - Proof Card Variant Picker
+//
+// Memo 3 directive: A/B test 3 share-card styles. Deterministic variant
+// assignment per workout so the same card always renders with the same
+// style between sessions (no flicker on reload). Variants are uniformly
+// distributed across the three styles.
+
+enum ProofCardVariantPicker {
+    static let variants = ["classic", "minimal", "bold"]
+
+    static func pick(for workoutId: UUID) -> String {
+        // Hash the UUID to an index — stable, uniform, deterministic.
+        let bytes = withUnsafeBytes(of: workoutId.uuid) { Array($0) }
+        let sum = bytes.reduce(0) { Int($0) + Int($1) }
+        return variants[sum % variants.count]
+    }
 }
 
 // MARK: - Proof Card Body (the reusable visual artifact)
@@ -4903,6 +5098,19 @@ struct ProofCardBody: View {
     var compact: Bool = false
 
     var body: some View {
+        // Memo 3 directive: A/B test 3 share-card styles. Deterministic per
+        // workout (see ProofCardVariantPicker) so the same card always looks
+        // the same, but cohort-level workout→post rate can be measured per variant.
+        switch meta.styleVariant {
+        case "minimal": minimalBody
+        case "bold": boldBody
+        default: classicBody
+        }
+    }
+
+    // MARK: - Classic variant (original polished design)
+
+    private var classicBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Top brand bar — the variant accent stripe + brand wordmark.
             // This is the "I recognize this app from a screenshot" signal.
@@ -4980,6 +5188,173 @@ struct ProofCardBody: View {
         .shadow(color: Color.black.opacity(0.5), radius: compact ? 10 : 18, x: 0, y: compact ? 4 : 8)
     }
 
+    // MARK: - Minimal variant (pared-down, low chrome, typography-forward)
+
+    private var minimalBody: some View {
+        VStack(alignment: .leading, spacing: compact ? 14 : 22) {
+            // Tiny brand wordmark — single line, no ornament
+            HStack(spacing: 4) {
+                Text("LIFT")
+                    .font(.system(size: compact ? 10 : 11, weight: .black, design: .rounded))
+                    .tracking(2.5)
+                Text("·")
+                    .font(.system(size: compact ? 10 : 11, weight: .black, design: .rounded))
+                    .opacity(0.4)
+                Text(variantLabel)
+                    .font(.system(size: compact ? 10 : 11, weight: .black, design: .rounded))
+                    .tracking(2.5)
+                    .foregroundStyle(variantAccent)
+                Spacer()
+                if meta.verificationStatus == "claimed" {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: compact ? 9 : 11, weight: .bold))
+                        .foregroundStyle(Color.yellow.opacity(0.9))
+                }
+            }
+            .foregroundStyle(.white.opacity(0.72))
+
+            // Oversized headline
+            Text(meta.headline)
+                .font(.system(size: compact ? 24 : 36, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+                .kerning(-0.7)
+                .lineLimit(compact ? 4 : nil)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Thin accent line
+            Rectangle()
+                .fill(variantAccent.opacity(0.8))
+                .frame(height: 2)
+                .frame(maxWidth: compact ? 36 : 48, alignment: .leading)
+
+            // Compact summary
+            Text(meta.summaryLine.uppercased())
+                .font(.system(size: compact ? 11 : 12, weight: .heavy, design: .rounded))
+                .tracking(1.0)
+                .foregroundStyle(.white.opacity(0.55))
+
+            if let hardest = meta.hardestMoment {
+                Text(hardest)
+                    .font(.system(size: compact ? 12 : 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 0)
+
+            // Footer: signed name
+            HStack {
+                Text(meta.signedName)
+                    .font(.system(size: compact ? 11 : 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.7))
+                Spacer()
+                Text(meta.createdAt, format: .dateTime.month(.abbreviated).day())
+                    .font(.system(size: compact ? 10 : 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+        }
+        .padding(compact ? 20 : 28)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(white: 0.05))
+        .clipShape(RoundedRectangle(cornerRadius: compact ? 16 : 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: compact ? 16 : 22, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.5), radius: compact ? 12 : 20, x: 0, y: compact ? 6 : 10)
+    }
+
+    // MARK: - Bold variant (aggressive, high-contrast, poster-style)
+
+    private var boldBody: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Bold top: variant label is the hero, huge and loud
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("LIFT AI")
+                        .font(.system(size: compact ? 9 : 11, weight: .black, design: .rounded))
+                        .tracking(2.5)
+                        .foregroundStyle(.white.opacity(0.6))
+                    Text(variantLabel)
+                        .font(.system(size: compact ? 24 : 36, weight: .black, design: .rounded))
+                        .foregroundStyle(variantAccent)
+                        .kerning(-0.5)
+                }
+                Spacer()
+                Image(systemName: variantIcon)
+                    .font(.system(size: compact ? 28 : 42, weight: .black))
+                    .foregroundStyle(variantAccent.opacity(0.85))
+            }
+            .padding(.horizontal, compact ? 20 : 26)
+            .padding(.top, compact ? 18 : 24)
+            .padding(.bottom, compact ? 14 : 18)
+
+            // Giant variant-colored bar separator
+            Rectangle()
+                .fill(variantAccent)
+                .frame(height: compact ? 4 : 6)
+
+            // Core
+            VStack(alignment: .leading, spacing: compact ? 12 : 18) {
+                Text(meta.headline)
+                    .font(.system(size: compact ? 22 : 30, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .kerning(-0.4)
+                    .lineLimit(compact ? 3 : nil)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(meta.summaryLine)
+                    .font(.system(size: compact ? 12 : 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+
+                if let hardest = meta.hardestMoment {
+                    HStack(spacing: 8) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: compact ? 11 : 13))
+                            .foregroundStyle(Color.orange)
+                        Text(hardest)
+                            .font(.system(size: compact ? 11 : 13, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .lineLimit(1)
+                        Spacer()
+                    }
+                }
+            }
+            .padding(.horizontal, compact ? 20 : 26)
+            .padding(.top, compact ? 14 : 18)
+            .padding(.bottom, compact ? 18 : 24)
+
+            // Footer
+            HStack {
+                Text(meta.signedName.uppercased())
+                    .font(.system(size: compact ? 10 : 12, weight: .black, design: .rounded))
+                    .tracking(1.3)
+                    .foregroundStyle(.black.opacity(0.75))
+                Spacer()
+                if meta.verificationStatus == "claimed" {
+                    HStack(spacing: 3) {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.system(size: compact ? 9 : 11, weight: .bold))
+                        Text("CLAIMED")
+                            .font(.system(size: compact ? 8 : 10, weight: .black, design: .rounded))
+                            .tracking(0.8)
+                    }
+                    .foregroundStyle(.black.opacity(0.75))
+                } else {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: compact ? 12 : 14))
+                        .foregroundStyle(.black.opacity(0.75))
+                }
+            }
+            .padding(.horizontal, compact ? 20 : 26)
+            .padding(.vertical, compact ? 12 : 14)
+            .background(variantAccent)
+        }
+        .background(Color(white: 0.06))
+        .clipShape(RoundedRectangle(cornerRadius: compact ? 18 : 24, style: .continuous))
+        .shadow(color: variantAccent.opacity(compact ? 0.3 : 0.45), radius: compact ? 16 : 28, x: 0, y: compact ? 8 : 14)
+    }
+
     // MARK: - Pieces
 
     private var topBrandBar: some View {
@@ -5053,17 +5428,40 @@ struct ProofCardBody: View {
                 .foregroundStyle(.white.opacity(0.5))
                 .tracking(0.5)
 
+            // "Claimed" badge — memo 3 proof-gaming guardrail. Shown when the
+            // verification check flagged this card's numbers as suspicious.
+            // Still posts, but friends see it with a grain of salt.
+            if meta.verificationStatus == "claimed" {
+                HStack(spacing: 3) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: compact ? 9 : 10, weight: .bold))
+                    Text("CLAIMED")
+                        .font(.system(size: compact ? 8 : 10, weight: .black, design: .rounded))
+                        .tracking(0.8)
+                }
+                .foregroundStyle(Color.yellow.opacity(0.9))
+                .padding(.horizontal, compact ? 6 : 7)
+                .padding(.vertical, compact ? 3 : 4)
+                .background(
+                    Capsule().fill(Color.yellow.opacity(0.12))
+                        .overlay(Capsule().strokeBorder(Color.yellow.opacity(0.4), lineWidth: 1))
+                )
+            }
+
             Spacer()
 
-            // Brand checkmark seal — the "this is a verified Lift AI artifact" signal
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: compact ? 12 : 14))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [GQColors.deepBlue, GQColors.vividPurple],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
+            // Brand checkmark seal — the "this is a verified Lift AI artifact" signal.
+            // Only shown for verified cards; claimed cards get the warning badge above.
+            if meta.verificationStatus == "verified" {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: compact ? 12 : 14))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [GQColors.deepBlue, GQColors.vividPurple],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
                     )
-                )
+            }
         }
         .padding(.horizontal, compact ? 18 : 24)
         .padding(.vertical, compact ? 10 : 12)
