@@ -893,9 +893,12 @@ struct WorkoutIslandPill: View {
 
 // MARK: - App Tour Overlay (Callout-style)
 //
-// Clean callout system: a gradient ring around the real element + a frosted
-// tooltip card with a triangular pointer connecting them. No heavy dim.
-// The triangle is part of the card — same fill, visually connected.
+// Gradient ring precisely on each tab bar icon + a frosted tooltip card
+// with a triangular pointer seamlessly connected. The triangle is part of
+// the card — same fill, -1pt overlap, zero visual gap.
+//
+// Positions are computed from the actual FloatingTabBar HStack math, not
+// approximated fractions, so the ring sits exactly on each icon.
 
 struct AppTourOverlay: View {
     @Binding var step: Int
@@ -905,42 +908,59 @@ struct AppTourOverlay: View {
     private struct TourStep {
         let title: String
         let description: String
-        let ringX: CGFloat      // center X as fraction of screen
-        let ringY: CGFloat      // center Y as fraction of screen
-        let ringSize: CGFloat   // diameter of ring
-        let cardAbove: Bool     // card appears above the ring (true) or below (false)
+        let tabIndex: Int       // 0-4 in the HStack (0=feed,1=today,2=+,3=activity,4=you), or -1 for content
+        let ringSize: CGFloat
+        let cardAbove: Bool
+        let contentY: CGFloat?  // if tabIndex == -1, use this Y fraction for content spotlight
     }
 
     private let steps: [TourStep] = [
-        TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", ringX: 0.5, ringY: 0.93, ringSize: 58, cardAbove: true),
-        TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", ringX: 0.28, ringY: 0.96, ringSize: 48, cardAbove: true),
-        TourStep(title: "Friends", description: "Your people's workouts. React\nwith 💪🙌👀🔥 to support them.", ringX: 0.1, ringY: 0.96, ringSize: 48, cardAbove: true),
-        TourStep(title: "Explore", description: "Discover workouts, search by type,\nand use any session in one tap.", ringX: 0.5, ringY: 0.2, ringSize: 48, cardAbove: false),
-        TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", ringX: 0.72, ringY: 0.96, ringSize: 48, cardAbove: true),
-        TourStep(title: "Your Profile", description: "Your training record. Complete\nyour profile to get started.", ringX: 0.9, ringY: 0.96, ringSize: 48, cardAbove: true),
+        TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 56, cardAbove: true, contentY: nil),
+        TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", tabIndex: 1, ringSize: 44, cardAbove: true, contentY: nil),
+        TourStep(title: "Friends", description: "Your people's workouts. React\nwith 💪🙌👀🔥 to support them.", tabIndex: 0, ringSize: 44, cardAbove: true, contentY: nil),
+        TourStep(title: "Explore", description: "Discover workouts, search by type,\nand use any session in one tap.", tabIndex: -1, ringSize: 44, cardAbove: false, contentY: 0.18),
+        TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", tabIndex: 3, ringSize: 44, cardAbove: true, contentY: nil),
+        TourStep(title: "Your Profile", description: "Your training record. Complete\nyour profile to get started.", tabIndex: 4, ringSize: 44, cardAbove: true, contentY: nil),
     ]
 
     private var current: TourStep { steps[min(step, steps.count - 1)] }
     private var isLastStep: Bool { step >= steps.count - 1 }
-
     @State private var ringPulse = false
 
     var body: some View {
         GeometryReader { geo in
-            let w = geo.size.width
-            let h = geo.size.height
-            let ringCenter = CGPoint(x: w * current.ringX, y: h * current.ringY)
-            let arrowTipY = current.cardAbove
-                ? ringCenter.y - current.ringSize / 2 - 6
-                : ringCenter.y + current.ringSize / 2 + 6
+            let screenW = geo.size.width
+            let screenH = geo.size.height
+            let bottomSafe = geo.safeAreaInsets.bottom
+
+            // Compute exact tab positions from the FloatingTabBar HStack layout:
+            // HStack(spacing:0) with .padding(.horizontal, 16), 5 equal-width items.
+            let tabBarPadding: CGFloat = 16
+            let itemWidth = (screenW - tabBarPadding * 2) / 5.0
+            let tabCenters: [CGFloat] = (0..<5).map { i in
+                tabBarPadding + itemWidth * (CGFloat(i) + 0.5)
+            }
+            // Tab icon Y: bottom of screen - safe area - tab bar inner padding - icon center
+            let tabIconY = screenH - bottomSafe - 26
+            // The + button is offset(y: -6), so 6pt higher
+            let plusY = tabIconY - 6
+
+            // Ring center for current step
+            let ringX = current.tabIndex >= 0 && current.tabIndex < 5
+                ? tabCenters[current.tabIndex]
+                : screenW / 2
+            let ringY = current.tabIndex == 2
+                ? plusY
+                : (current.tabIndex >= 0 ? tabIconY : screenH * (current.contentY ?? 0.2))
+            let ringCenter = CGPoint(x: ringX, y: ringY)
 
             ZStack {
-                // Very subtle dim — barely perceptible, keeps focus
+                // Very subtle dim
                 Color.black.opacity(0.08)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
 
-                // Gradient ring around the element
+                // Gradient ring — exactly on the icon
                 Circle()
                     .strokeBorder(
                         LinearGradient(
@@ -950,96 +970,43 @@ struct AppTourOverlay: View {
                         lineWidth: 2.5
                     )
                     .frame(width: current.ringSize, height: current.ringSize)
-                    .scaleEffect(ringPulse ? 1.08 : 1.0)
-                    .opacity(ringPulse ? 0.7 : 1.0)
+                    .scaleEffect(ringPulse ? 1.06 : 1.0)
+                    .opacity(ringPulse ? 0.75 : 1.0)
                     .position(ringCenter)
                     .animation(.spring(response: 0.7, dampingFraction: 0.85), value: step)
-                    .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: ringPulse)
+                    .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: ringPulse)
 
-                // Callout card with pointer triangle
-                let cardX = clamp(w * current.ringX, min: 160, max: w - 160)
-                let cardY = current.cardAbove ? arrowTipY - 100 : arrowTipY + 100
+                // Callout: card + connected triangle
+                // Card is clamped horizontally; triangle offsets to always point at ring
+                let cardWidth: CGFloat = 270
+                let cardX = Swift.min(Swift.max(ringX, cardWidth / 2 + 12), screenW - cardWidth / 2 - 12)
+                let triangleOffset = ringX - cardX  // horizontal offset so triangle tip meets ring
 
-                VStack(spacing: 0) {
+                let gap: CGFloat = current.ringSize / 2 + 10  // distance from ring center to triangle tip
+                let cardCenterOffset: CGFloat = 75  // half-card height approx
+
+                let cardY = current.cardAbove
+                    ? ringY - gap - cardCenterOffset
+                    : ringY + gap + cardCenterOffset
+
+                VStack(spacing: -1) {  // -1pt overlap = seamless connection
                     if !current.cardAbove {
-                        // Triangle pointing UP (card is below)
                         TourPointerTriangle(pointsUp: true)
                             .fill(.ultraThinMaterial)
-                            .frame(width: 18, height: 9)
-                            .overlay(
-                                TourPointerTriangle(pointsUp: true)
-                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                            )
+                            .frame(width: 16, height: 8)
+                            .offset(x: triangleOffset)
                     }
 
-                    // Card body
-                    VStack(spacing: 10) {
-                        Text(current.title)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(GQColors.textPrimary)
-
-                        Text(current.description)
-                            .font(.system(size: 12))
-                            .foregroundColor(GQColors.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .lineSpacing(2)
-
-                        HStack(spacing: 12) {
-                            // Step dots
-                            HStack(spacing: 4) {
-                                ForEach(0..<steps.count, id: \.self) { i in
-                                    Circle()
-                                        .fill(i == step
-                                              ? AnyShapeStyle(GQGradients.primary)
-                                              : AnyShapeStyle(GQColors.textTertiary.opacity(0.4)))
-                                        .frame(width: i == step ? 6 : 4, height: i == step ? 6 : 4)
-                                }
-                            }
-
-                            Spacer()
-
-                            Button(action: onSkip) {
-                                Text("Skip")
-                                    .font(.system(size: 11, weight: .medium))
-                                    .foregroundColor(GQColors.textTertiary)
-                            }
-
-                            Button(action: onNext) {
-                                Text(isLastStep ? "Done" : "Next")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 16)
-                                    .padding(.vertical, 7)
-                                    .background(GQGradients.primary)
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                            )
-                    )
-                    .shadow(color: Color.black.opacity(0.15), radius: 12, y: 4)
+                    tourCardContent
+                        .frame(width: cardWidth)
 
                     if current.cardAbove {
-                        // Triangle pointing DOWN (card is above)
                         TourPointerTriangle(pointsUp: false)
                             .fill(.ultraThinMaterial)
-                            .frame(width: 18, height: 9)
-                            .overlay(
-                                TourPointerTriangle(pointsUp: false)
-                                    .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                            )
+                            .frame(width: 16, height: 8)
+                            .offset(x: triangleOffset)
                     }
                 }
-                .frame(maxWidth: 280)
                 .position(x: cardX, y: cardY)
                 .animation(.spring(response: 0.7, dampingFraction: 0.85), value: step)
             }
@@ -1047,10 +1014,60 @@ struct AppTourOverlay: View {
             .onTapGesture { onNext() }
             .onAppear { ringPulse = true }
         }
+        .ignoresSafeArea()
     }
 
-    private func clamp(_ value: CGFloat, min: CGFloat, max: CGFloat) -> CGFloat {
-        Swift.min(Swift.max(value, min), max)
+    private var tourCardContent: some View {
+        VStack(spacing: 8) {
+            Text(current.title)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(GQColors.textPrimary)
+
+            Text(current.description)
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+
+            HStack(spacing: 10) {
+                HStack(spacing: 4) {
+                    ForEach(0..<steps.count, id: \.self) { i in
+                        Circle()
+                            .fill(i == step
+                                  ? AnyShapeStyle(GQGradients.primary)
+                                  : AnyShapeStyle(GQColors.textTertiary.opacity(0.35)))
+                            .frame(width: i == step ? 6 : 4, height: i == step ? 6 : 4)
+                    }
+                }
+                Spacer()
+                Button(action: onSkip) {
+                    Text("Skip")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                Button(action: onNext) {
+                    Text(isLastStep ? "Done" : "Next")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(GQGradients.primary)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                )
+        )
+        .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
     }
 }
 
