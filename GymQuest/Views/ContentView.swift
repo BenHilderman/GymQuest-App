@@ -56,7 +56,7 @@ struct ContentView: View {
     private var allTabs: [AppState.Tab] { AppState.Tab.visibleTabs }
 
     private func advanceTour() {
-        if tourStep < 6 {
+        if tourStep < 4 {
             withAnimation(.easeInOut(duration: 0.25)) {
                 tourStep += 1
             }
@@ -189,9 +189,9 @@ struct ContentView: View {
             withAnimation(.easeInOut(duration: 0.2)) {
                 switch newStep {
                 case 0, 1: appState.selectedTab = .today
-                case 2, 3, 4: appState.selectedTab = .feed  // Friends, Clubs, Explore top tabs
-                case 5: appState.selectedTab = .activity
-                case 6: appState.selectedTab = .profile
+                case 2: appState.selectedTab = .feed
+                case 3: appState.selectedTab = .activity
+                case 4: appState.selectedTab = .profile
                 default: break
                 }
             }
@@ -919,15 +919,11 @@ struct AppTourOverlay: View {
         TourStep(title: "Start a Workout", description: "Tap + to log a workout. When you\nfinish, you'll get a Proof Card to share.", tabIndex: 2, ringSize: 55, cardAbove: true, contentY: nil),
         // 1: Today bottom tab
         TourStep(title: "Today", description: "Your daily challenges, progress\nrings, and what to do next.", tabIndex: 1, ringSize: 52, cardAbove: true, contentY: nil),
-        // 2: Friends top tab (inside Feed page)
-        TourStep(title: "Friends", description: "Your people's workouts. React\nwith 💪🙌👀🔥 to support them.", tabIndex: -3, ringSize: 50, cardAbove: false, contentY: nil),
-        // 3: Clubs top tab
-        TourStep(title: "Clubs", description: "Join gym communities. Share\nworkouts and challenges together.", tabIndex: -4, ringSize: 50, cardAbove: false, contentY: nil),
-        // 4: Explore top tab
-        TourStep(title: "Explore", description: "Discover workouts, search by type,\nand use any session in one tap.", tabIndex: -2, ringSize: 50, cardAbove: false, contentY: nil),
-        // 5: Activity bottom tab
+        // 2: Feed tabs — wide ring covering Friends | Clubs | Explore
+        TourStep(title: "Feed", description: "Friends — your people's workouts\nClubs — gym communities & challenges\nExplore — discover & use any workout", tabIndex: -5, ringSize: 36, cardAbove: false, contentY: nil),
+        // 3: Activity bottom tab
         TourStep(title: "Activity", description: "Reactions, follows, and when\nsomeone uses your workout.", tabIndex: 3, ringSize: 52, cardAbove: true, contentY: nil),
-        // 6: You bottom tab
+        // 4: You bottom tab
         TourStep(title: "Your Profile", description: "Your training record. Complete\nyour profile to get started.", tabIndex: 4, ringSize: 52, cardAbove: true, contentY: nil),
     ]
 
@@ -951,7 +947,7 @@ struct AppTourOverlay: View {
             // Tab icon Y: empirically measured from device screenshots.
             // Using fractions of full screen height (with .ignoresSafeArea).
             let tabIconY = screenH * 0.929
-            let plusY = screenH * 0.921
+            let plusY = screenH * 0.922
 
             // Ring center for current step
             let topSafe = geo.safeAreaInsets.top
@@ -961,7 +957,11 @@ struct AppTourOverlay: View {
             let clubsTabX = screenW * 0.50
             let exploreTabX = screenW * 0.80
 
+            // -5 = wide ring spanning all three Feed top tabs
+            let feedTabsWidth = screenW * 0.88  // spans Friends + Clubs + Explore
+
             let ringX: CGFloat = {
+                if current.tabIndex == -5 { return screenW / 2 }
                 if current.tabIndex == -3 { return friendsTabX }
                 if current.tabIndex == -4 { return clubsTabX }
                 if current.tabIndex == -2 { return exploreTabX }
@@ -969,34 +969,49 @@ struct AppTourOverlay: View {
                 return screenW / 2
             }()
             let ringY: CGFloat = {
-                if current.tabIndex == -3 || current.tabIndex == -4 || current.tabIndex == -2 { return topTabY }
+                if current.tabIndex == -5 || current.tabIndex == -3 || current.tabIndex == -4 || current.tabIndex == -2 { return topTabY }
                 if current.tabIndex == 2 { return plusY }
                 if current.tabIndex >= 0 { return tabIconY }
                 return screenH * (current.contentY ?? 0.2)
             }()
+            let isWideRing = current.tabIndex == -5
             let ringCenter = CGPoint(x: ringX, y: ringY)
 
             ZStack {
-                // Very subtle dim
-                Color.black.opacity(0.08)
+                // Subtle dim — enough to make the card pop
+                Color.black.opacity(0.18)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
 
-                // Gradient ring — exactly on the icon
-                Circle()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [GQColors.deepBlue, GQColors.vividPurple],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 2.5
-                    )
-                    .frame(width: current.ringSize, height: current.ringSize)
-                    .scaleEffect(ringPulse ? 1.06 : 1.0)
-                    .opacity(ringPulse ? 0.75 : 1.0)
-                    .position(ringCenter)
-                    .animation(.spring(response: 0.7, dampingFraction: 0.85), value: step)
-                    .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: ringPulse)
+                // Gradient ring — circle for tabs, wide rounded rect for feed tabs
+                Group {
+                    if isWideRing {
+                        RoundedRectangle(cornerRadius: current.ringSize / 2)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [GQColors.deepBlue, GQColors.vividPurple],
+                                    startPoint: .leading, endPoint: .trailing
+                                ),
+                                lineWidth: 2.5
+                            )
+                            .frame(width: feedTabsWidth, height: current.ringSize)
+                    } else {
+                        Circle()
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [GQColors.deepBlue, GQColors.vividPurple],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 2.5
+                            )
+                            .frame(width: current.ringSize, height: current.ringSize)
+                    }
+                }
+                .scaleEffect(ringPulse ? 1.04 : 1.0)
+                .opacity(ringPulse ? 0.75 : 1.0)
+                .position(ringCenter)
+                .animation(.spring(response: 0.7, dampingFraction: 0.85), value: step)
+                .animation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true), value: ringPulse)
 
                 // Callout: card + connected triangle
                 // Card is clamped horizontally; triangle offsets to always point at ring
@@ -1084,13 +1099,20 @@ struct AppTourOverlay: View {
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(.thickMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [GQColors.deepBlue.opacity(0.3), GQColors.vividPurple.opacity(0.3)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1.5
+                        )
                 )
         )
-        .shadow(color: Color.black.opacity(0.12), radius: 10, y: 4)
+        .shadow(color: GQColors.vividPurple.opacity(0.12), radius: 16, y: 6)
+        .shadow(color: Color.black.opacity(0.15), radius: 8, y: 3)
     }
 }
 
