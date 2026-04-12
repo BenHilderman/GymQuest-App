@@ -37,8 +37,7 @@ struct TodayView: View {
     @State private var selectedSubTab: TodaySubTab = .today
     @State private var consistencyState: ConsistencyState = .onTrack
     @State private var showWeeklyScheduleEditor = false
-    @State private var selectedPlanDay: Int? = nil  // weekday number for the day picker
-    @State private var showDayPicker = false
+    @State private var selectedPlanDay: IdentifiableInt? = nil
 
     private enum TodaySubTab: String, CaseIterable {
         case today = "Today"
@@ -155,15 +154,13 @@ struct TodayView: View {
             WeeklyScheduleEditorSheet(profile: profile)
                 .presentationDetents([.medium, .large])
         }
-        .sheet(isPresented: $showDayPicker) {
-            if let day = selectedPlanDay {
-                DayPlannerSheet(
-                    weekday: day,
-                    profile: profile,
-                    onSuggest: { applySuggestedPlan() }
-                )
-                .presentationDetents([.height(220)])
-            }
+        .sheet(item: $selectedPlanDay) { item in
+            DayPlannerSheet(
+                weekday: item.value,
+                profile: profile,
+                onSuggest: { applySuggestedPlan() }
+            )
+            .presentationDetents([.height(240)])
         }
         .task {
             checkForDraft()
@@ -202,8 +199,7 @@ struct TodayView: View {
                     let isToday = weekday == todayWeekday
 
                     Button {
-                        selectedPlanDay = weekday
-                        showDayPicker = true
+                        selectedPlanDay = IdentifiableInt(value: weekday)
                         #if canImport(UIKit)
                         UISelectionFeedbackGenerator().selectionChanged()
                         #endif
@@ -448,8 +444,7 @@ struct TodayView: View {
                 totalVolume: weeklyTotalVolume,
                 plannedTypes: profile.weeklySchedule,
                 onDayTap: { weekday in
-                    selectedPlanDay = weekday
-                    showDayPicker = true
+                    selectedPlanDay = IdentifiableInt(value: weekday)
                 }
             )
 
@@ -1363,6 +1358,11 @@ struct TodayChallengesSection: View {
                 .presentationDetents([.medium])
         }
     }
+}
+
+struct IdentifiableInt: Identifiable {
+    let id = UUID()
+    let value: Int
 }
 
 // MARK: - Day Planner Sheet (compact, tap a type)
