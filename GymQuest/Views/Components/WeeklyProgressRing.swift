@@ -254,15 +254,8 @@ struct WeeklyProgressRing: View {
 
     private func planColor(_ raw: String) -> Color {
         switch raw {
-        case "Push": return GQColors.deepBlue
-        case "Pull": return GQColors.vividPurple
-        case "Legs": return Color(red: 1.0, green: 0.55, blue: 0.2)
-        case "Cardio": return GQColors.success
-        case "HIIT": return Color.red
         case "Rest": return GQColors.textTertiary
-        case "Upper": return Color(red: 0.3, green: 0.7, blue: 1.0)
-        case "Lower": return Color(red: 0.9, green: 0.6, blue: 0.2)
-        default: return GQColors.deepBlue
+        default: return GQColors.vividPurple
         }
     }
 

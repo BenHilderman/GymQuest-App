@@ -284,15 +284,8 @@ struct TodayView: View {
 
     private func typeColor(_ type: WorkoutType) -> Color {
         switch type {
-        case .push: return GQColors.deepBlue
-        case .pull: return GQColors.vividPurple
-        case .legs: return Color(red: 1.0, green: 0.55, blue: 0.2)
-        case .cardio: return GQColors.success
-        case .hiit: return Color.red
         case .rest: return GQColors.textTertiary
-        case .upper: return Color(red: 0.3, green: 0.7, blue: 1.0)
-        case .lower: return Color(red: 0.9, green: 0.6, blue: 0.2)
-        default: return GQColors.deepBlue
+        default: return GQColors.vividPurple
         }
     }
 
@@ -1573,6 +1566,7 @@ struct WeeklyScheduleEditorSheet: View {
     @State private var displayedMonth = Date()
     @State private var selectedDay: IdentifiableInt? = nil
     @State private var selectedDayDate: Date? = nil
+    @State private var showCustomSplitBuilder = false
 
     private var calendar: Calendar { Calendar.current }
 
@@ -1637,22 +1631,27 @@ struct WeeklyScheduleEditorSheet: View {
                 VStack(spacing: 14) {
                     // Month nav
                     HStack {
-                        Button { changeMonth(-1) } label: {
+                        Button { withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { changeMonth(-1) } } label: {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(GQColors.textSecondary)
+                                .foregroundColor(GQColors.textPrimary.opacity(0.6))
                                 .frame(width: 36, height: 36)
+                                .background(GQColors.adaptiveOverlay(0.06))
+                                .clipShape(Circle())
                         }
                         Spacer()
                         Text(monthLabel)
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
                             .foregroundColor(GQColors.textPrimary)
+                            .contentTransition(.numericText())
                         Spacer()
-                        Button { changeMonth(1) } label: {
+                        Button { withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { changeMonth(1) } } label: {
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(GQColors.textSecondary)
+                                .foregroundColor(GQColors.textPrimary.opacity(0.6))
                                 .frame(width: 36, height: 36)
+                                .background(GQColors.adaptiveOverlay(0.06))
+                                .clipShape(Circle())
                         }
                     }
                     .padding(.horizontal, 16)
@@ -1661,21 +1660,22 @@ struct WeeklyScheduleEditorSheet: View {
                     HStack(spacing: 0) {
                         ForEach(["S", "M", "T", "W", "T", "F", "S"], id: \.self) { h in
                             Text(h)
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundColor(GQColors.textTertiary)
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                                .tracking(0.5)
+                                .foregroundColor(GQColors.textTertiary.opacity(0.7))
                                 .frame(maxWidth: .infinity)
                         }
                     }
                     .padding(.horizontal, 8)
 
                     // Calendar grid — THE view. Colors tell the story.
-                    let cols = Array(repeating: GridItem(.flexible(), spacing: 3), count: 7)
-                    LazyVGrid(columns: cols, spacing: 3) {
+                    let cols = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+                    LazyVGrid(columns: cols, spacing: 4) {
                         ForEach(0..<gridOffset, id: \.self) { _ in
                             Color.clear.frame(height: 62)
                         }
 
-                        ForEach(monthDays, id: \.day) { item in
+                        ForEach(Array(monthDays.enumerated()), id: \.element.day) { idx, item in
                             let planned = plannedFor(date: item.date, weekday: item.weekday)
                             let logged = completedDates.contains(item.day)
                             let manual = manualDone(item.date)
@@ -1708,7 +1708,11 @@ struct WeeklyScheduleEditorSheet: View {
                                     } else if let p = planned {
                                         Text(shortType(p))
                                             .font(.system(size: 8, weight: .bold))
-                                            .foregroundColor(isPast ? typeCol(p).opacity(0.35) : .white.opacity(0.9))
+                                            .foregroundColor(
+                                                p == "Rest"
+                                                    ? GQColors.textTertiary.opacity(isPast ? 0.3 : 0.6)
+                                                    : (isPast ? GQColors.textTertiary.opacity(0.4) : GQColors.textSecondary)
+                                            )
                                             .lineLimit(1)
                                     } else {
                                         Color.clear.frame(height: 5)
@@ -1717,12 +1721,15 @@ struct WeeklyScheduleEditorSheet: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 62)
                                 .background(cellBackground(planned: planned, isToday: isToday, done: done, isPast: isPast))
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .overlay(
-                                    isToday
-                                        ? RoundedRectangle(cornerRadius: 10).strokeBorder(AnyShapeStyle(GQGradients.primary), lineWidth: 2)
-                                        : nil
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .conditionalAnimatedBorder(
+                                    enabled: isToday,
+                                    cornerRadius: 12,
+                                    lineWidth: 1.5,
+                                    colors: [GQColors.deepBlue, GQColors.vividPurple, GQColors.deepBlue],
+                                    duration: 6.0
                                 )
+                                .staggeredAppear(index: idx, stagger: 0.015)
                             }
                             .buttonStyle(.plain)
                         }
@@ -1732,6 +1739,7 @@ struct WeeklyScheduleEditorSheet: View {
                     // Presets
                     HStack(spacing: 8) {
                         ForEach(presets, id: \.name) { preset in
+                            let isActive = profile.weeklySchedule == preset.schedule
                             Button { applyPreset(preset.schedule, order: presetOrder(preset.name)) } label: {
                                 VStack(spacing: 4) {
                                     Image(systemName: preset.icon)
@@ -1739,15 +1747,16 @@ struct WeeklyScheduleEditorSheet: View {
                                     Text(preset.name)
                                         .font(.system(size: 11, weight: .bold))
                                 }
-                                .foregroundColor(profile.weeklySchedule == preset.schedule ? .white : GQColors.textSecondary)
+                                .foregroundColor(isActive ? .white : GQColors.textSecondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                                 .background(
-                                    profile.weeklySchedule == preset.schedule
+                                    isActive
                                         ? AnyShapeStyle(GQGradients.primary)
                                         : AnyShapeStyle(GQColors.surfaceSecondary)
                                 )
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .shadow(color: isActive ? GQColors.vividPurple.opacity(0.2) : .clear, radius: 6, y: 2)
                             }
                             .buttonStyle(.plain)
                         }
@@ -1759,11 +1768,32 @@ struct WeeklyScheduleEditorSheet: View {
                                 Text("Auto")
                                     .font(.system(size: 11, weight: .bold))
                             }
-                            .foregroundColor(GQColors.vividPurple)
+                            .foregroundColor(GQColors.textSecondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(GQColors.vividPurple.opacity(0.1))
+                            .background(GQColors.adaptiveOverlay(0.05))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+
+                        Button { showCustomSplitBuilder = true } label: {
+                            let isCustomActive = !profile.weeklySchedule.isEmpty && !presets.contains(where: { $0.schedule == profile.weeklySchedule })
+                            VStack(spacing: 4) {
+                                Image(systemName: "slider.horizontal.3")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Custom")
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .foregroundColor(isCustomActive ? .white : GQColors.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                isCustomActive
+                                    ? AnyShapeStyle(GQGradients.primary)
+                                    : AnyShapeStyle(GQColors.adaptiveOverlay(0.05))
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .shadow(color: isCustomActive ? GQColors.vividPurple.opacity(0.2) : .clear, radius: 6, y: 2)
                         }
                         .buttonStyle(.plain)
                     }
@@ -1780,13 +1810,15 @@ struct WeeklyScheduleEditorSheet: View {
                             HStack(spacing: 6) {
                                 ForEach([2, 3, 4, 5, 6, 7], id: \.self) { n in
                                     let current = profile.weeklySchedule.values.filter { $0 != "Rest" }.count
+                                    let isSelected = current == n
                                     Button { setDaysPerWeek(n) } label: {
                                         Text("\(n)")
-                                            .font(.system(size: 13, weight: current == n ? .bold : .medium, design: .rounded))
-                                            .foregroundColor(current == n ? .white : GQColors.textSecondary)
+                                            .font(.system(size: 13, weight: isSelected ? .bold : .medium, design: .rounded))
+                                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
                                             .frame(width: 34, height: 34)
-                                            .background(current == n ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                            .background(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
                                             .clipShape(Circle())
+                                            .shadow(color: isSelected ? GQColors.vividPurple.opacity(0.25) : .clear, radius: 6, y: 2)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -1809,6 +1841,7 @@ struct WeeklyScheduleEditorSheet: View {
                                             .frame(width: 34, height: 34)
                                             .background(isRest ? AnyShapeStyle(GQColors.adaptiveOverlay(0.05)) : AnyShapeStyle(GQGradients.primary.opacity(0.7)))
                                             .clipShape(Circle())
+                                            .shadow(color: !isRest ? GQColors.vividPurple.opacity(0.25) : .clear, radius: 6, y: 2)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -1834,6 +1867,7 @@ struct WeeklyScheduleEditorSheet: View {
                                         .padding(.horizontal, 14).padding(.vertical, 8)
                                         .background(!profile.isRollingSplit ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
                                         .clipShape(Capsule())
+                                        .shadow(color: !profile.isRollingSplit ? GQColors.vividPurple.opacity(0.25) : .clear, radius: 6, y: 2)
                                 }
                                 .buttonStyle(.plain)
 
@@ -1851,21 +1885,21 @@ struct WeeklyScheduleEditorSheet: View {
                                         .padding(.horizontal, 14).padding(.vertical, 8)
                                         .background(profile.isRollingSplit ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
                                         .clipShape(Capsule())
+                                        .shadow(color: profile.isRollingSplit ? GQColors.vividPurple.opacity(0.25) : .clear, radius: 6, y: 2)
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                     }
                     .padding(14)
-                    .background(GQColors.cardBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
+                    .homeSocialCard(cornerRadius: 16)
                     .padding(.horizontal, 16)
 
                     VStack(spacing: 6) {
                         Text("Tap any day to change it")
-                            .font(.system(size: 11))
+                            .font(.system(size: 10))
                             .foregroundColor(GQColors.textTertiary)
+                            .opacity(0.6)
                         if !profile.weeklySchedule.isEmpty {
                             Button {
                                 applySplit([:])
@@ -1880,6 +1914,7 @@ struct WeeklyScheduleEditorSheet: View {
                             }
                         }
                     }
+                    .padding(.top, 4)
                     .padding(.horizontal, 16)
                 }
                 .padding(.bottom, 40)
@@ -1890,7 +1925,7 @@ struct WeeklyScheduleEditorSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.fontWeight(.semibold)
+                    Button("Done") { dismiss() }.fontWeight(.semibold).foregroundColor(GQColors.textPrimary)
                 }
             }
             .sheet(item: $selectedDay) { item in
@@ -1901,19 +1936,54 @@ struct WeeklyScheduleEditorSheet: View {
                 )
                 .presentationDetents([.height(320)])
             }
+            .sheet(isPresented: $showCustomSplitBuilder) {
+                CustomSplitBuilderSheet(profile: profile, onApply: { order in
+                    applyCustomSplit(order)
+                })
+                .presentationDetents([.medium])
+            }
         }
+    }
+
+    private func applyCustomSplit(_ order: [String]) {
+        guard !order.isEmpty else { return }
+        // Keep current training day count if set, otherwise default to split length (capped at 7)
+        let currentTrainingDays = profile.weeklySchedule.values.filter { $0 != "Rest" }.count
+        let days = currentTrainingDays > 0 ? currentTrainingDays : min(order.count, 7)
+        let restCount = 7 - days
+        let defaultRestDays: [Int] = [1, 4, 7, 3, 6, 2, 5]
+        let restDays = Set(defaultRestDays.prefix(max(0, restCount)))
+
+        var schedule: [Int: String] = [:]
+        var orderIdx = 0
+        for wd in [2, 3, 4, 5, 6, 7, 1] {
+            if restDays.contains(wd) {
+                schedule[wd] = "Rest"
+            } else {
+                schedule[wd] = order[orderIdx % order.count]
+                orderIdx += 1
+            }
+        }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            profile.weeklySchedule = schedule
+            profile.splitOrder = order
+            profile.restWeekdays = restDays
+            try? modelContext.save()
+        }
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
     }
 
     private func cellBackground(planned: String?, isToday: Bool, done: Bool, isPast: Bool) -> some ShapeStyle {
         if isToday {
-            return AnyShapeStyle(GQGradients.primary.opacity(0.15))
+            return AnyShapeStyle(GQGradients.primary.opacity(0.12))
         }
         if done {
-            return AnyShapeStyle(GQColors.success.opacity(0.08))
+            return AnyShapeStyle(GQGradients.primary.opacity(0.06))
         }
-        if let p = planned {
-            let opacity = isPast ? 0.06 : 0.12
-            return AnyShapeStyle(typeCol(p).opacity(opacity))
+        if let p = planned, p != "Rest" {
+            return AnyShapeStyle(GQGradients.primary.opacity(isPast ? 0.03 : 0.07))
         }
         return AnyShapeStyle(GQColors.adaptiveOverlay(0.02))
     }
@@ -2053,20 +2123,6 @@ struct WeeklyScheduleEditorSheet: View {
         }
     }
 
-    private func typeCol(_ raw: String) -> Color {
-        switch raw {
-        case "Push": return GQColors.deepBlue
-        case "Pull": return GQColors.vividPurple
-        case "Legs": return Color(red: 1.0, green: 0.55, blue: 0.2)
-        case "Cardio": return GQColors.success
-        case "HIIT": return Color.red
-        case "Rest": return GQColors.textTertiary
-        case "Upper": return Color(red: 0.3, green: 0.7, blue: 1.0)
-        case "Lower": return Color(red: 0.9, green: 0.6, blue: 0.2)
-        case "Full Body": return Color(red: 0.4, green: 0.8, blue: 0.5)
-        default: return GQColors.vividPurple
-        }
-    }
 }
 
 struct DayOverrideSheet: View {
@@ -2166,7 +2222,7 @@ struct DayOverrideSheet: View {
                         Text("Custom label")
                             .font(.system(size: 12, weight: .semibold))
                     }
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundColor(GQColors.textSecondary)
                 }
 
                 if showCustomField {
@@ -2205,10 +2261,10 @@ struct DayOverrideSheet: View {
                                     } label: {
                                         Text(label)
                                             .font(.system(size: 10, weight: .medium))
-                                            .foregroundColor(GQColors.vividPurple)
+                                            .foregroundColor(GQColors.textSecondary)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 4)
-                                            .background(GQColors.vividPurple.opacity(0.1))
+                                            .background(GQColors.adaptiveOverlay(0.06))
                                             .clipShape(Capsule())
                                     }
                                     .buttonStyle(.plain)
@@ -2274,6 +2330,205 @@ struct DayOverrideSheet: View {
             Spacer()
         }
         .background(GQColors.background.ignoresSafeArea())
+    }
+}
+
+// MARK: - Custom Split Builder
+
+struct CustomSplitBuilderSheet: View {
+    @Bindable var profile: UserProfile
+    let onApply: ([String]) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var splitOrder: [String] = []
+    @State private var customName: String = ""
+
+    private let allTypes = ["Push", "Pull", "Legs", "Upper", "Lower", "Full Body", "Cardio", "HIIT", "Yoga", "Glutes", "Abs"]
+
+    var body: some View {
+        VStack(spacing: 16) {
+            splitHeader
+            splitOrderRow
+            typeGrid
+            customNameField
+            Spacer()
+            actionButtons
+        }
+        .background(GQColors.background.ignoresSafeArea())
+        .onAppear {
+            if !profile.splitOrder.isEmpty {
+                splitOrder = profile.splitOrder
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var splitHeader: some View {
+        VStack(spacing: 4) {
+            Text("Build Your Split")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+            Text("Tap types in the order you train them.")
+                .font(.system(size: 13))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .padding(.top, 20)
+    }
+
+    @ViewBuilder
+    private var splitOrderRow: some View {
+        if !splitOrder.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Array(splitOrder.enumerated()), id: \.offset) { idx, type in
+                        splitChip(type: type, index: idx)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            .frame(height: 34)
+        } else {
+            Text("No types selected yet")
+                .font(.system(size: 12))
+                .foregroundColor(GQColors.textTertiary)
+                .frame(height: 34)
+        }
+    }
+
+    private func splitChip(type: String, index: Int) -> some View {
+        HStack(spacing: 4) {
+            Text(type)
+                .font(.system(size: 12, weight: .semibold))
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    let i: Int = index
+                    splitOrder.remove(at: i)
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(Color.white.opacity(0.6))
+            }
+        }
+        .foregroundColor(Color.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(GQGradients.primary)
+        .clipShape(Capsule())
+    }
+
+    @ViewBuilder
+    private var typeGrid: some View {
+        let columns = [GridItem(.adaptive(minimum: 80), spacing: 8)]
+        LazyVGrid(columns: columns, spacing: 8) {
+            ForEach(allTypes, id: \.self) { type in
+                typeButton(type)
+            }
+            ForEach(profile.recentCustomLabels.filter { $0.count >= 2 }, id: \.self) { label in
+                typeButton(label)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func typeButton(_ type: String) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                splitOrder.append(type)
+            }
+            #if canImport(UIKit)
+            UISelectionFeedbackGenerator().selectionChanged()
+            #endif
+        } label: {
+            Text(type)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(GQColors.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(GQColors.adaptiveOverlay(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var customNameField: some View {
+        HStack(spacing: 8) {
+            TextField("Custom name (e.g. Chest & Tri, Run)", text: $customName)
+                .font(.system(size: 13))
+                .foregroundColor(GQColors.textPrimary)
+                .tint(Color(white: 0.25))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(GQColors.adaptiveOverlay(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .submitLabel(.done)
+                .onSubmit { addCustomName() }
+
+            Button {
+                addCustomName()
+            } label: {
+                Text("Add")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(Color.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(customName.trimmingCharacters(in: .whitespaces).isEmpty ? AnyShapeStyle(GQColors.adaptiveOverlay(0.1)) : AnyShapeStyle(GQGradients.primary))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(customName.trimmingCharacters(in: .whitespaces).isEmpty)
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private func addCustomName() {
+        let trimmed = customName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            splitOrder.append(trimmed)
+        }
+        customName = ""
+        #if canImport(UIKit)
+        UISelectionFeedbackGenerator().selectionChanged()
+        #endif
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        HStack(spacing: 12) {
+            if !splitOrder.isEmpty {
+                Button {
+                    withAnimation { splitOrder = [] }
+                } label: {
+                    Text("Clear")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(GQColors.adaptiveOverlay(0.05))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button {
+                onApply(splitOrder)
+                dismiss()
+            } label: {
+                Text("Apply")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(splitOrder.isEmpty ? AnyShapeStyle(GQColors.adaptiveOverlay(0.1)) : AnyShapeStyle(GQGradients.primary))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(splitOrder.isEmpty)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 20)
     }
 }
 
