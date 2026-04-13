@@ -1617,6 +1617,9 @@ struct WeeklyScheduleEditorSheet: View {
             return (ov == "_skip" || ov == "_done") ? nil : ov
         }
         if let end = profile.planEndDate, date > end { return nil }
+        if profile.isRollingSplit {
+            return rollingPlanFor(date: date)
+        }
         return profile.weeklySchedule[weekday]
     }
 
@@ -1726,56 +1729,149 @@ struct WeeklyScheduleEditorSheet: View {
                     }
                     .padding(.horizontal, 6)
 
-                    // Presets — clean row at the bottom
-                    VStack(spacing: 8) {
-                        HStack(spacing: 8) {
-                            ForEach(presets, id: \.name) { preset in
-                                Button { applySplit(preset.schedule) } label: {
-                                    VStack(spacing: 4) {
-                                        Image(systemName: preset.icon)
-                                            .font(.system(size: 16, weight: .semibold))
-                                        Text(preset.name)
-                                            .font(.system(size: 11, weight: .bold))
-                                    }
-                                    .foregroundColor(profile.weeklySchedule == preset.schedule ? .white : GQColors.textSecondary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .background(
-                                        profile.weeklySchedule == preset.schedule
-                                            ? AnyShapeStyle(GQGradients.primary)
-                                            : AnyShapeStyle(GQColors.surfaceSecondary)
-                                    )
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                }
-                                .buttonStyle(.plain)
-                            }
-
-                            Button { suggestPlan() } label: {
+                    // Presets
+                    HStack(spacing: 8) {
+                        ForEach(presets, id: \.name) { preset in
+                            Button { applyPreset(preset.schedule, order: presetOrder(preset.name)) } label: {
                                 VStack(spacing: 4) {
-                                    Image(systemName: "sparkles")
+                                    Image(systemName: preset.icon)
                                         .font(.system(size: 16, weight: .semibold))
-                                    Text("Auto")
+                                    Text(preset.name)
                                         .font(.system(size: 11, weight: .bold))
                                 }
-                                .foregroundColor(GQColors.vividPurple)
+                                .foregroundColor(profile.weeklySchedule == preset.schedule ? .white : GQColors.textSecondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(GQColors.vividPurple.opacity(0.1))
+                                .background(
+                                    profile.weeklySchedule == preset.schedule
+                                        ? AnyShapeStyle(GQGradients.primary)
+                                        : AnyShapeStyle(GQColors.surfaceSecondary)
+                                )
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                             }
                             .buttonStyle(.plain)
                         }
 
+                        Button { suggestPlan() } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text("Auto")
+                                    .font(.system(size: 11, weight: .bold))
+                            }
+                            .foregroundColor(GQColors.vividPurple)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(GQColors.vividPurple.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 16)
+
+                    // 3 visual controls
+                    VStack(spacing: 14) {
+                        // Days per week
+                        HStack {
+                            Text("Days")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(GQColors.textSecondary)
+                                .frame(width: 38, alignment: .leading)
+                            HStack(spacing: 6) {
+                                ForEach([2, 3, 4, 5, 6, 7], id: \.self) { n in
+                                    let current = profile.weeklySchedule.values.filter { $0 != "Rest" }.count
+                                    Button { setDaysPerWeek(n) } label: {
+                                        Text("\(n)")
+                                            .font(.system(size: 13, weight: current == n ? .bold : .medium, design: .rounded))
+                                            .foregroundColor(current == n ? .white : GQColors.textSecondary)
+                                            .frame(width: 34, height: 34)
+                                            .background(current == n ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                            .clipShape(Circle())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+
+                        // Rest days
+                        HStack {
+                            Text("Rest")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(GQColors.textSecondary)
+                                .frame(width: 38, alignment: .leading)
+                            HStack(spacing: 6) {
+                                ForEach([(1,"S"), (2,"M"), (3,"T"), (4,"W"), (5,"T"), (6,"F"), (7,"S")], id: \.0) { wd, label in
+                                    let isRest = profile.weeklySchedule[wd] == nil || profile.weeklySchedule[wd] == "Rest"
+                                    Button { toggleRestDay(wd) } label: {
+                                        Text(label)
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .foregroundColor(isRest ? GQColors.textTertiary : .white)
+                                            .frame(width: 34, height: 34)
+                                            .background(isRest ? AnyShapeStyle(GQColors.adaptiveOverlay(0.05)) : AnyShapeStyle(GQGradients.primary.opacity(0.7)))
+                                            .clipShape(Circle())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+
+                        // Mode
+                        HStack {
+                            Text("Mode")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(GQColors.textSecondary)
+                                .frame(width: 38, alignment: .leading)
+                            HStack(spacing: 6) {
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        profile.isRollingSplit = false
+                                        rebuildCalendar()
+                                    }
+                                } label: {
+                                    Text("Same weekly")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(!profile.isRollingSplit ? .white : GQColors.textSecondary)
+                                        .padding(.horizontal, 14).padding(.vertical, 8)
+                                        .background(!profile.isRollingSplit ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        profile.isRollingSplit = true
+                                        if profile.splitStartDate == nil { profile.splitStartDate = Date() }
+                                        if profile.splitOrder.isEmpty { profile.splitOrder = extractSplitOrder() }
+                                        try? modelContext.save()
+                                    }
+                                } label: {
+                                    Text("Rolling")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundColor(profile.isRollingSplit ? .white : GQColors.textSecondary)
+                                        .padding(.horizontal, 14).padding(.vertical, 8)
+                                        .background(profile.isRollingSplit ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .padding(14)
+                    .background(GQColors.cardBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
+                    .padding(.horizontal, 16)
+
+                    VStack(spacing: 6) {
                         Text("Tap any day to change it")
                             .font(.system(size: 11))
                             .foregroundColor(GQColors.textTertiary)
-
-                        // Clear
                         if !profile.weeklySchedule.isEmpty {
                             Button {
                                 applySplit([:])
                                 profile.dayOverrides = [:]
-                                profile.planEndDate = nil
+                                profile.splitOrder = []
+                                profile.isRollingSplit = false
                                 try? modelContext.save()
                             } label: {
                                 Text("Clear plan")
@@ -1820,6 +1916,106 @@ struct WeeklyScheduleEditorSheet: View {
             return AnyShapeStyle(typeCol(p).opacity(opacity))
         }
         return AnyShapeStyle(GQColors.adaptiveOverlay(0.02))
+    }
+
+    private func applyPreset(_ schedule: [Int: String], order: [String]) {
+        applySplit(schedule)
+        profile.splitOrder = order
+        profile.restWeekdays = Set(schedule.filter { $0.value == "Rest" }.map(\.key))
+        try? modelContext.save()
+    }
+
+    private func presetOrder(_ name: String) -> [String] {
+        switch name {
+        case "PPL": return ["Push", "Pull", "Legs"]
+        case "U / L": return ["Upper", "Lower"]
+        case "Full": return ["Full Body"]
+        default: return []
+        }
+    }
+
+    private func setDaysPerWeek(_ n: Int) {
+        let order = profile.splitOrder.isEmpty ? extractSplitOrder() : profile.splitOrder
+        guard !order.isEmpty else { return }
+        let restCount = 7 - n
+        // Default rest days: distribute from Sunday backward
+        let defaultRestDays: [Int] = [1, 4, 7, 3, 6, 2, 5]  // Sun, Wed, Sat...
+        let restDays = Set(defaultRestDays.prefix(restCount))
+
+        var schedule: [Int: String] = [:]
+        var orderIdx = 0
+        for wd in [2, 3, 4, 5, 6, 7, 1] { // Mon-Sun
+            if restDays.contains(wd) {
+                schedule[wd] = "Rest"
+            } else {
+                schedule[wd] = order[orderIdx % order.count]
+                orderIdx += 1
+            }
+        }
+        withAnimation(.easeInOut(duration: 0.15)) {
+            profile.weeklySchedule = schedule
+            profile.restWeekdays = restDays
+            try? modelContext.save()
+        }
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+    }
+
+    private func toggleRestDay(_ weekday: Int) {
+        let current = profile.weeklySchedule[weekday]
+        let isRest = current == nil || current == "Rest"
+        if isRest {
+            // Make it a training day — assign next in split order
+            let order = profile.splitOrder.isEmpty ? extractSplitOrder() : profile.splitOrder
+            let nextType = order.first ?? "Push"
+            profile.weeklySchedule[weekday] = nextType
+        } else {
+            profile.weeklySchedule[weekday] = "Rest"
+        }
+        try? modelContext.save()
+        #if canImport(UIKit)
+        UISelectionFeedbackGenerator().selectionChanged()
+        #endif
+    }
+
+    private func extractSplitOrder() -> [String] {
+        let trainingTypes = [2, 3, 4, 5, 6, 7, 1].compactMap { wd -> String? in
+            guard let type = profile.weeklySchedule[wd], type != "Rest" else { return nil }
+            return type
+        }
+        // Deduplicate while preserving order
+        var seen = Set<String>()
+        return trainingTypes.filter { seen.insert($0).inserted }
+    }
+
+    private func rebuildCalendar() {
+        try? modelContext.save()
+    }
+
+    /// For rolling mode: compute what workout falls on a specific date
+    func rollingPlanFor(date: Date) -> String? {
+        guard profile.isRollingSplit,
+              !profile.splitOrder.isEmpty,
+              let start = profile.splitStartDate else { return nil }
+
+        let wd = calendar.component(.weekday, from: date)
+        let isRest = profile.weeklySchedule[wd] == nil || profile.weeklySchedule[wd] == "Rest"
+        if isRest { return "Rest" }
+
+        // Count training days from start to this date
+        var trainingDayCount = 0
+        var current = calendar.startOfDay(for: start)
+        let target = calendar.startOfDay(for: date)
+
+        while current < target {
+            let cwd = calendar.component(.weekday, from: current)
+            let cIsRest = profile.weeklySchedule[cwd] == nil || profile.weeklySchedule[cwd] == "Rest"
+            if !cIsRest { trainingDayCount += 1 }
+            current = calendar.date(byAdding: .day, value: 1, to: current)!
+        }
+
+        return profile.splitOrder[trainingDayCount % profile.splitOrder.count]
     }
 
     private func changeMonth(_ by: Int) {

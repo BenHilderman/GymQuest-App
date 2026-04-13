@@ -1248,6 +1248,40 @@ final class UserProfile {
     /// Plan duration end date. nil = ongoing (repeats forever).
     var planEndDate: Date? = nil
 
+    /// Rolling split mode — the split cycles continuously across weeks
+    /// instead of repeating the same pattern every week.
+    var isRollingSplit: Bool = false
+
+    /// The split rotation order (e.g., ["Push", "Pull", "Legs"]).
+    /// Used in rolling mode to cycle through training days.
+    var splitOrderJSON: String = "[]"
+
+    var splitOrder: [String] {
+        get {
+            guard let data = splitOrderJSON.data(using: .utf8) else { return [] }
+            return (try? JSONDecoder().decode([String].self, from: data)) ?? []
+        }
+        set {
+            splitOrderJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]"
+        }
+    }
+
+    /// When the rolling split started — used to compute the offset for any date.
+    var splitStartDate: Date? = nil
+
+    /// Which weekdays are rest days (1=Sun, 7=Sat). Used with rolling mode.
+    var restWeekdaysJSON: String = "[]"
+
+    var restWeekdays: Set<Int> {
+        get {
+            guard let data = restWeekdaysJSON.data(using: .utf8) else { return [] }
+            return Set((try? JSONDecoder().decode([Int].self, from: data)) ?? [])
+        }
+        set {
+            restWeekdaysJSON = (try? String(data: JSONEncoder().encode(Array(newValue)), encoding: .utf8)) ?? "[]"
+        }
+    }
+
     /// Recent custom labels the user has typed (max 8, most recent first).
     /// Reusable so they don't retype "Chest & Tri" every time.
     var recentCustomLabelsJSON: String = "[]"
