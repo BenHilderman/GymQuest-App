@@ -290,11 +290,12 @@ class AppState: ObservableObject {
         case authenticated
     }
 
-    // 4-tab layout: Home + Today + Activity + You with center action hub
+    // 5-tab layout: Today + Feed + Coach + Stats + You with center action hub
     enum Tab: String {
         case feed = "Feed"
         case today = "Today"
         case home = "Workout"    // hidden — only used during active workouts
+        case coach = "Coach"
         case activity = "Stats"
         case profile = "You"
 
@@ -303,12 +304,13 @@ class AppState: ObservableObject {
             case .feed: return "person.2.fill"
             case .today: return "chart.bar.fill"
             case .home: return "house.fill"
+            case .coach: return "bubble.left.and.text.bubble.right.fill"
             case .activity: return "chart.line.uptrend.xyaxis"
             case .profile: return "person.fill"
             }
         }
 
-        static let visibleTabs: [Tab] = [.today, .feed, .activity, .profile]
+        static let visibleTabs: [Tab] = [.today, .feed, .coach, .activity, .profile]
     }
 }
 

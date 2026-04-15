@@ -85,6 +85,7 @@ struct ContentView: View {
                 switch appState.selectedTab {
                 case .feed: FeedView(profile: profile)
                 case .today: TodayView(profile: profile)
+                case .coach: CoachView(profile: profile, workouts: workouts, aiService: aiService)
                 case .activity: SocialActivityView(profile: profile)
                 case .profile: ProfileView(profile: profile)
                 case .home: Color.clear
@@ -1235,7 +1236,8 @@ enum WeeklyRecapService {
         // Build the headline noticing — past tense, concrete, no emotion
         let headline: String
         if daysShownUp == 0 {
-            headline = "Rest week. That counts too."
+            // No workouts this week — skip the recap entirely
+            return nil
         } else if daysShownUp == 1 {
             headline = "One day this week. One more than zero."
         } else if daysShownUp >= 5 {

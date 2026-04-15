@@ -320,7 +320,8 @@ struct ActiveWorkoutView: View {
                         onSkip: { skipRest() },
                         onHide: { withAnimation(.easeOut(duration: 0.2)) { restTimerHidden = true } },
                         onAdjust: { seconds in adjustRestDuration(seconds) },
-                        accentColor: workoutAccentColor
+                        accentColor: workoutAccentColor,
+                        exerciseName: exercises.first(where: { !$0.sets.allSatisfy(\.isCompleted) })?.name
                     )
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
@@ -1058,15 +1059,22 @@ struct ActiveWorkoutView: View {
     }
 
     private var bottomBar: some View {
-        Button { finishWorkout() } label: {
-            Text("Finish Workout")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(Capsule().fill(GQGradients.primary))
+        VStack(spacing: 8) {
+            if completedSetsCount > 0 {
+                Text("\(completedSetsCount) sets. \(formatElapsedTime(elapsedTime)).")
+                    .font(.system(size: 12))
+                    .foregroundStyle(GQColors.textTertiary)
+            }
+            Button { finishWorkout() } label: {
+                Text("Finish Workout")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(Capsule().fill(GQGradients.primary))
+            }
+            .buttonStyle(GQInteractiveStyle())
         }
-        .buttonStyle(GQInteractiveStyle())
         .padding(.horizontal, 32)
         .padding(.bottom, 80)
     }
@@ -4273,6 +4281,7 @@ struct CompactRestTimerBar: View {
     let onHide: () -> Void
     let onAdjust: (Int) -> Void
     var accentColor: Color = GQColors.textTertiary
+    var exerciseName: String? = nil
 
     @State private var showPills = false
 
@@ -4284,12 +4293,20 @@ struct CompactRestTimerBar: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
-                Text("\(restTimeRemaining)s")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(GQColors.textPrimary)
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                    .frame(minWidth: 50, alignment: .leading)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(restTimeRemaining > 0 ? "\(restTimeRemaining)s" : "Go.")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(GQColors.textPrimary)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                    if let name = exerciseName {
+                        Text(name)
+                            .font(.system(size: 11))
+                            .foregroundStyle(GQColors.textTertiary)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(minWidth: 50, alignment: .leading)
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
@@ -4724,7 +4741,7 @@ struct ProofCardView: View {
                 meta = buildMeta()
             }
             // Staggered confetti for high-signal variants
-            if let m = meta, ["pr", "weeklyRecap", "first"].contains(m.variant) {
+            if let m = meta, ["pr", "weeklyRecap", "first", "weeklyGoal"].contains(m.variant) || (meta?.weeklyGoalHit == true) {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     withAnimation(.easeOut(duration: 0.4)) {
                         showConfettiFlourish = true
@@ -4774,22 +4791,35 @@ struct ProofCardView: View {
         let headline = generateNoticing()
         let variant = inferVariant()
         let summary = "\(workout.type.rawValue) · \(elapsedSeconds / 60)m · \(workout.totalSets) sets"
-        // Deep-link payload: link to whichever exercise was the hardest moment,
-        // or the overall workout for post-hoc navigation.
         let linkedExercise = heaviestExerciseName()
 
-        // Proof-gaming guardrail: run the verification check against the user's
-        // history. If the claimed effort is wildly outside prior bounds, the
-        // card is marked "claimed" and rendered with an unverified badge.
         let verification = ProofVerificationService.verify(
             workout: workout,
             priorWorkouts: allPriorWorkouts
         )
 
-        // A/B testing: rotate share-card styles to measure workout→post rate
-        // per variant. Deterministic per-workout so the same card doesn't
-        // change style between creations.
         let styleVariant = ProofCardVariantPicker.pick(for: workout.id)
+
+        // Fetch momentum state for identity reflection.
+        // recordWorkoutCompleted hasn't fired yet, so we compute would-be values.
+        let userId = profile.id
+        let momentumDescriptor = FetchDescriptor<UserMomentumState>(
+            predicate: #Predicate { $0.userId == userId }
+        )
+        let momentum = try? modelContext.fetch(momentumDescriptor).first
+        let wouldBeStreak = (momentum?.streak ?? 0) + 1
+        let wouldBeWeekCompleted = (momentum?.currentWeekCompleted ?? 0) + 1
+        let weeklyTarget = momentum?.currentWeekTarget ?? 3
+        let weeklyGoalHit = wouldBeWeekCompleted == weeklyTarget
+
+        let reflectionLine = generateReflection(
+            streak: wouldBeStreak,
+            consistencyState: momentum?.consistencyState ?? .onTrack,
+            showUpFor: profile.showUpFor,
+            weeklyGoalHit: weeklyGoalHit,
+            rebuildingWeekCount: momentum?.rebuildingWeekCount ?? 0,
+            variant: variant
+        )
 
         return ProofCardMeta(
             headline: headline,
@@ -4798,12 +4828,14 @@ struct ProofCardView: View {
             workoutTypeRaw: workout.type.rawValue,
             signedName: profile.name,
             createdAt: Date(),
-            variant: variant,
+            variant: weeklyGoalHit ? "weeklyGoal" : variant,
             linkedExerciseName: linkedExercise,
             linkedWorkoutId: workout.id,
             verificationStatus: verification.status,
             verificationReason: verification.reason,
-            styleVariant: styleVariant
+            styleVariant: styleVariant,
+            reflectionLine: reflectionLine,
+            weeklyGoalHit: weeklyGoalHit
         )
     }
 
@@ -4877,6 +4909,55 @@ struct ProofCardView: View {
 
         // Default: the quietest but most important noticing
         return "You showed up."
+    }
+
+    /// Identity reflection: connects the workout to who they're becoming.
+    /// Returns nil when silence is better than forcing it.
+    private func generateReflection(
+        streak: Int,
+        consistencyState: ConsistencyState,
+        showUpFor: String,
+        weeklyGoalHit: Bool,
+        rebuildingWeekCount: Int,
+        variant: String
+    ) -> String? {
+        // First workouts breathe alone
+        if variant == "first" { return nil }
+
+        let hasIdentity = !showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
+
+        // Weekly goal tipping moment
+        if weeklyGoalHit && hasIdentity {
+            return "Weekly goal. Showing up for \(showUpFor)."
+        }
+        if weeklyGoalHit {
+            return "Weekly goal hit."
+        }
+
+        // Streak + identity (7+ days earns the identity anchor)
+        if streak >= 7 && hasIdentity {
+            return "Day \(streak) for \(showUpFor)."
+        }
+        if streak >= 7 {
+            return "\(streak) days in a row."
+        }
+
+        // Comeback + identity
+        if variant == "comeback" && hasIdentity {
+            return "Showing up for \(showUpFor)."
+        }
+
+        // Rebuilding progress
+        if consistencyState == .rebuilding && rebuildingWeekCount >= 1 {
+            return "Week \(rebuildingWeekCount + 1) back."
+        }
+
+        // Lower streaks (3-6) get a simpler nod
+        if streak >= 3 {
+            return "\(streak) days in a row."
+        }
+
+        return nil
     }
 
     private func ordinal(_ n: Int) -> String {
@@ -5206,6 +5287,15 @@ struct ProofCardBody: View {
                     .lineLimit(compact ? 3 : nil)
                     .fixedSize(horizontal: false, vertical: true)
 
+                // Identity reflection — the quiet second beat
+                if let reflection = meta.reflectionLine {
+                    Text(reflection)
+                        .font(.system(size: compact ? 14 : 17, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .kerning(0.2)
+                        .lineLimit(2)
+                }
+
                 // Summary line
                 Text(meta.summaryLine)
                     .font(.system(size: compact ? 12 : 14, weight: .semibold, design: .rounded))
@@ -5301,6 +5391,13 @@ struct ProofCardBody: View {
                 .lineLimit(compact ? 4 : nil)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if let reflection = meta.reflectionLine {
+                Text(reflection)
+                    .font(.system(size: compact ? 14 : 16, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .lineLimit(2)
+            }
+
             // Thin accent line
             Rectangle()
                 .fill(variantAccent.opacity(0.8))
@@ -5382,6 +5479,14 @@ struct ProofCardBody: View {
                     .kerning(-0.4)
                     .lineLimit(compact ? 3 : nil)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if let reflection = meta.reflectionLine {
+                    Text(reflection.uppercased())
+                        .font(.system(size: compact ? 12 : 14, weight: .black, design: .rounded))
+                        .tracking(0.8)
+                        .foregroundStyle(variantAccent.opacity(0.7))
+                        .lineLimit(2)
+                }
 
                 Text(meta.summaryLine)
                     .font(.system(size: compact ? 12 : 14, weight: .bold, design: .rounded))
@@ -5606,6 +5711,7 @@ struct ProofCardBody: View {
         case "streak": return "flame.fill"
         case "longest": return "clock.fill"
         case "weeklyRecap": return "calendar.badge.checkmark"
+        case "weeklyGoal": return "target"
         default: return "checkmark.seal.fill"
         }
     }
@@ -5618,6 +5724,7 @@ struct ProofCardBody: View {
         case "streak": return "CONSISTENCY"
         case "longest": return "DEEPEST"
         case "weeklyRecap": return "WEEKLY RECAP"
+        case "weeklyGoal": return "GOAL"
         default: return "PROOF"
         }
     }
@@ -5631,6 +5738,7 @@ struct ProofCardBody: View {
         case "streak": return Color(red: 1.0, green: 0.55, blue: 0.2)   // orange
         case "longest": return Color(red: 0.3, green: 0.7, blue: 1.0)   // blue
         case "weeklyRecap": return Color(red: 0.55, green: 0.7, blue: 1.0) // steel blue
+        case "weeklyGoal": return GQColors.success                       // green
         default: return GQColors.vividPurple
         }
     }

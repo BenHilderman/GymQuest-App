@@ -87,13 +87,6 @@ struct TodayView: View {
         return nonRestWorkouts.filter { $0.date >= startOfWeek }.reduce(0) { $0 + $1.duration }
     }
 
-    private var weeklyTotalVolume: Double {
-        let calendar = Calendar.current
-        let now = Date()
-        guard let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return 0 }
-        return nonRestWorkouts.filter { $0.date >= startOfWeek }.reduce(0) { $0 + $1.totalVolume }
-    }
-
     private var weeklyTotalSets: Int {
         let calendar = Calendar.current
         let now = Date()
@@ -152,11 +145,13 @@ struct TodayView: View {
         }
         .sheet(isPresented: $showWeeklyScheduleEditor) {
             WeeklyScheduleEditorSheet(profile: profile)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
         }
         .task {
             checkForDraft()
             MockDataSeeder.seedIfNeeded(modelContext: modelContext, profile: profile)
+            MockDataSeeder.fillCurrentWeek(modelContext: modelContext)
+            MockDataSeeder.resetProfilePosts(modelContext: modelContext, profile: profile)
             MomentumService.shared.checkInactivity(userId: profile.id)
             consistencyState = MomentumService.shared.evaluateState(userId: profile.id)
             ChallengeService.shared.autoEnroll(userId: profile.id, consistencyState: consistencyState)
@@ -360,139 +355,938 @@ struct TodayView: View {
         return profile.weeklySchedule[todayWeekday]
     }
 
+    private var tapHintChevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(GQColors.textTertiary.opacity(0.55))
+            .padding(.top, 12)
+            .padding(.trailing, 14)
+    }
+
+    @ViewBuilder
+    private var weeklyCalendarCard: some View {
+        let completed = workoutsThisWeek
+        let target = profile.daysPerWeek
+        let flame = dailyStreak
+        let weeks = weeklyStreak
+        let flameGrad = LinearGradient(colors: [.orange, .red.opacity(0.8)], startPoint: .bottom, endPoint: .top)
+
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("THIS WEEK").font(.system(size: 10, weight: .semibold)).tracking(1.2).foregroundColor(GQColors.textTertiary)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(completed)").font(.system(size: 24, weight: .bold, design: .rounded)).foregroundStyle(GQGradients.primary).opacity(1)
+                        Text("/ \(target)").font(.system(size: 13, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                    }
+                    Text("workouts").font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("STREAK").font(.system(size: 10, weight: .semibold)).tracking(1.2).foregroundColor(GQColors.textTertiary)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Image(systemName: "flame.fill").font(.system(size: 15)).foregroundStyle(flameGrad)
+                        Text("\(flame)").font(.system(size: 24, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                    }
+                    Text("\(weeks) week streak").font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                }
+            }
+            calAlignWeekRow()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    // MARK: - 20 Activity design alternatives
+
+    @ViewBuilder
+    private var activityVariantsPreview: some View {
+        let mins = weeklyWorkoutMinutes
+        let minGoal = 150
+        let sets = weeklyTotalSets
+        let setGoal = max(profile.daysPerWeek * 15, 60)
+        let days = dailyStreak
+        let dayGoal = 7
+        let moveP = min(Double(mins) / Double(max(minGoal, 1)), 1.0)
+        let setP = min(Double(sets) / Double(max(setGoal, 1)), 1.0)
+        let dayP = min(Double(days) / Double(max(dayGoal, 1)), 1.0)
+
+
+        let ringSize: CGFloat = 96
+        let lineW: CGFloat = 7.5
+        let gap: CGFloat = 4.5
+        let rowH = ringSize / 3
+
+
+        let chevron = Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundColor(GQColors.textTertiary.opacity(0.7))
+        let header = AnyView(
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("Activity").font(.system(size: 15, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Text("This week").font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                chevron
+            }
+        )
+
+        let moveGrad = LinearGradient(colors: [GQColors.deepBlue, GQColors.vividPurple], startPoint: .topLeading, endPoint: .bottomTrailing)
+        let setGrad = LinearGradient(colors: [GQColors.cyanSpark, GQColors.deepBlue], startPoint: .topLeading, endPoint: .bottomTrailing)
+        let dayGrad = LinearGradient(colors: [Color(hex: "5EEAD4"), Color(hex: "10B981")], startPoint: .topLeading, endPoint: .bottomTrailing)
+
+        let rings = ZStack {
+            Circle().fill(moveGrad.opacity(0.08)).frame(width: ringSize + 10, height: ringSize + 10).blur(radius: 8)
+            ringPair(progress: moveP, grad: moveGrad, diameter: ringSize, lineWidth: lineW)
+            ringPair(progress: setP, grad: setGrad, diameter: ringSize - 2 * (lineW + gap), lineWidth: lineW)
+            ringPair(progress: dayP, grad: dayGrad, diameter: ringSize - 4 * (lineW + gap), lineWidth: lineW)
+        }
+        .frame(width: ringSize, height: ringSize)
+
+        let stats = VStack(spacing: 0) {
+            tightStatRow(grad: moveGrad, value: "\(mins)", goal: minGoal, unit: "min").frame(height: rowH)
+            tightStatRow(grad: setGrad, value: "\(sets)", goal: setGoal, unit: "sets").frame(height: rowH)
+            tightStatRow(grad: dayGrad, value: "\(days)", goal: dayGoal, unit: "days").frame(height: rowH)
+        }
+
+        // Caps-style header matching THIS WEEK / CHALLENGES / TODAY'S PLAN
+        let capsHeader = AnyView(
+            HStack(alignment: .firstTextBaseline) {
+                Text("ACTIVITY").font(.system(size: 10, weight: .semibold)).tracking(1.2).foregroundColor(GQColors.textTertiary)
+                Spacer()
+                Text("THIS WEEK").font(.system(size: 10, weight: .semibold)).tracking(1.2).foregroundColor(GQColors.textTertiary)
+            }
+        )
+
+        VStack(alignment: .leading, spacing: 10) {
+            capsHeader
+            HStack(spacing: 0) {
+                labellessRingE(progress: moveP, grad: moveGrad, value: mins, goal: minGoal, unit: "min")
+                labellessRingE(progress: setP, grad: setGrad, value: sets, goal: setGoal, unit: "sets")
+                labellessRingE(progress: dayP, grad: dayGrad, value: days, goal: dayGoal, unit: "days")
+            }
+        }
+        .padding(.horizontal, 14).padding(.top, 12).padding(.bottom, 14)
+        .frame(maxWidth: .infinity)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    private func labellessRingA(progress: Double, grad: LinearGradient, value: Int, goal: Int, unit: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBase(progress: progress, grad: grad) {
+                Text("\(Int(progress * 100))%").font(.system(size: 14, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+            Text("\(value) / \(goal) \(unit)").font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func labellessRingB(progress: Double, grad: LinearGradient, value: Int, goal: Int, unit: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBase(progress: progress, grad: grad) {
+                Text("\(value)").font(.system(size: 18, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+            Text("/ \(goal) \(unit)").font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func labellessRingC(progress: Double, grad: LinearGradient, value: Int, goal: Int, unit: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBase(progress: progress, grad: grad) {
+                VStack(spacing: -1) {
+                    Text("\(value)").font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                    Text(unit).font(.system(size: 9, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Text("of \(goal)").font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func minRingBaseLarge(progress: Double, grad: LinearGradient, @ViewBuilder center: () -> some View) -> some View {
+        ZStack {
+            Circle().fill(grad.opacity(0.08)).frame(width: 80, height: 80).blur(radius: 8)
+            Circle().stroke(GQColors.deepBlue.opacity(0.08), lineWidth: 7).frame(width: 70, height: 70)
+            Circle().trim(from: 0, to: progress)
+                .stroke(grad, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: 70, height: 70)
+            center()
+        }
+    }
+
+    private func labellessRingD(progress: Double, grad: LinearGradient, value: Int, goal: Int, unit: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBaseLarge(progress: progress, grad: grad) {
+                Text("\(value)").font(.system(size: 20, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+            Text("of \(goal) \(unit)").font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func labellessRingE(progress: Double, grad: LinearGradient, value: Int, goal: Int, unit: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBase(progress: progress, grad: grad) {
+                Text("\(Int(progress * 100))%").font(.system(size: 13, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+            Text("\(value)/\(goal) \(unit)").font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func minRingColMerged(progress: Double, grad: LinearGradient, value: Int, goal: Int, unit: String, label: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBase(progress: progress, grad: grad) {
+                VStack(spacing: -1) {
+                    Text("\(value)").font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                    Text("/\(goal) \(unit)").font(.system(size: 9, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Text(label).font(.system(size: 11, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // Shared ring visual (58pt, 6pt stroke, halo + faded blue track)
+    @ViewBuilder
+    private func minRingBase(progress: Double, grad: LinearGradient, @ViewBuilder center: () -> some View) -> some View {
+        ZStack {
+            Circle().fill(grad.opacity(0.08)).frame(width: 68, height: 68).blur(radius: 8)
+            Circle().stroke(GQColors.deepBlue.opacity(0.08), lineWidth: 6).frame(width: 58, height: 58)
+            Circle().trim(from: 0, to: progress)
+                .stroke(grad, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .frame(width: 58, height: 58)
+            center()
+        }
+    }
+
+    private func minRingColA(progress: Double, grad: LinearGradient, value: Int, goal: Int, unit: String, label: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBase(progress: progress, grad: grad) {
+                Text("\(Int(progress * 100))%").font(.system(size: 13, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+            VStack(spacing: 1) {
+                Text(label).font(.system(size: 11, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                Text("\(value) / \(goal) \(unit)").font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func minRingColB(progress: Double, grad: LinearGradient, value: Int, goal: Int, label: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBase(progress: progress, grad: grad) {
+                VStack(spacing: -1) {
+                    Text("\(value)").font(.system(size: 14, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                    Text("/\(goal)").font(.system(size: 9, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Text(label).font(.system(size: 11, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func minRingColC(progress: Double, grad: LinearGradient, value: Int, goal: Int, label: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBase(progress: progress, grad: grad) {
+                Text("\(Int(progress * 100))%").font(.system(size: 13, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+            Text("\(label) · \(value)/\(goal)").font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func minRingColD(progress: Double, grad: LinearGradient, value: Int, unit: String, label: String) -> some View {
+        VStack(spacing: 8) {
+            minRingBase(progress: progress, grad: grad) {
+                VStack(spacing: -1) {
+                    Text("\(value)").font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                    Text(unit).font(.system(size: 9, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                }
+            }
+            Text(label).font(.system(size: 11, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func compactRingColumn(progress: Double, grad: LinearGradient, value: String, unit: String, label: String) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle().fill(grad.opacity(0.08)).frame(width: 62, height: 62).blur(radius: 8)
+                Circle().stroke(GQColors.deepBlue.opacity(0.08), lineWidth: 6).frame(width: 54, height: 54)
+                Circle().trim(from: 0, to: progress)
+                    .stroke(grad, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 54, height: 54)
+                Text("\(Int(progress * 100))%")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+            VStack(spacing: 1) {
+                Text(label).font(.system(size: 11, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                Text("\(value) \(unit)").font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func cleanRingColumn(progress: Double, grad: LinearGradient, value: String, unit: String, sub: String, label: String, goal: Int) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle().fill(grad.opacity(0.08)).frame(width: 68, height: 68).blur(radius: 8)
+                Circle().stroke(GQColors.deepBlue.opacity(0.08), lineWidth: 6).frame(width: 58, height: 58)
+                Circle().trim(from: 0, to: progress)
+                    .stroke(grad, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 58, height: 58)
+                VStack(spacing: -1) {
+                    Text(value).font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                    Text(sub).font(.system(size: 9, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                }
+            }
+            VStack(spacing: 1) {
+                Text(label).font(.system(size: 11, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                Text("of \(goal)").font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func separateRingColumn(progress: Double, grad: LinearGradient, value: String, unit: String, label: String) -> some View {
+        VStack(spacing: 8) {
+            ZStack {
+                Circle().fill(grad.opacity(0.08)).frame(width: 70, height: 70).blur(radius: 8)
+                Circle().stroke(GQColors.deepBlue.opacity(0.08), lineWidth: 7).frame(width: 62, height: 62)
+                Circle().trim(from: 0, to: progress)
+                    .stroke(grad, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 62, height: 62)
+                Text("\(Int(progress * 100))%")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+            VStack(spacing: 1) {
+                Text(label).font(.system(size: 11, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                Text("\(value) \(unit)").font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func statPill(grad: LinearGradient, label: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            Circle().fill(grad).frame(width: 8, height: 8)
+            Text(label).font(.system(size: 11, weight: .semibold)).foregroundColor(GQColors.textSecondary)
+            Spacer(minLength: 4)
+            Text(value).font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+        }
+    }
+
+    private func rightAlignStatRow(grad: LinearGradient, value: String, goal: Int, unit: String) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Circle().fill(grad).frame(width: 8, height: 8)
+            Text(value)
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .frame(width: 46, alignment: .trailing)
+            Text("/ \(goal) \(unit)")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+                .frame(width: 92, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func appleActivityCardFixedHeight<S: View, R: View>(header: AnyView, stats: S, rings: R, mirrored: Bool, cardHeight: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            Spacer(minLength: 8)
+            HStack(spacing: 20) {
+                Spacer(minLength: 0)
+                if mirrored {
+                    rings; stats
+                } else {
+                    stats; rings
+                }
+                Spacer(minLength: 0)
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .frame(height: cardHeight)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+
+    private func tightStatRow(grad: LinearGradient, value: String, goal: Int, unit: String) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Circle().fill(grad).frame(width: 8, height: 8)
+            Text(value)
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+                .frame(minWidth: 32, alignment: .leading)
+            Text("/ \(goal) \(unit)")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+    }
+
+    private enum ContentAlign { case leading, center, trailing }
+
+    @ViewBuilder
+    private func appleActivityCard<S: View, R: View>(
+        header: AnyView,
+        stats: S,
+        rings: R,
+        alignment: ContentAlign = .center,
+        mirrored: Bool = false,
+        verticalPad: CGFloat = 14,
+        horizontalPad: CGFloat = 14,
+        headerSpacing: CGFloat = 14
+    ) -> some View {
+        VStack(alignment: .leading, spacing: headerSpacing) {
+            header
+
+            HStack(spacing: 20) {
+                if alignment == .center || alignment == .trailing {
+                    Spacer(minLength: 0)
+                }
+                if mirrored {
+                    rings
+                    stats
+                } else {
+                    stats
+                    rings
+                }
+                if alignment == .center || alignment == .leading {
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .padding(.horizontal, horizontalPad)
+        .padding(.vertical, verticalPad)
+        .frame(maxWidth: .infinity)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    // MARK: - Activity variant helpers
+
+    @ViewBuilder
+    private func activityCurrent(mins: Int, minGoal: Int, sets: Int, setGoal: Int, days: Int, dayGoal: Int, moveGrad: LinearGradient, setGrad: LinearGradient, dayGrad: LinearGradient, moveP: Double, setP: Double, dayP: Double) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("ACTIVITY").font(.system(size: 10, weight: .semibold)).tracking(1.2).foregroundColor(GQColors.textTertiary)
+            HStack(alignment: .center, spacing: 16) {
+                ZStack {
+                    Circle().stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 6.5).frame(width: 80, height: 80)
+                    Circle().trim(from: 0, to: moveP).stroke(moveGrad, style: StrokeStyle(lineWidth: 6.5, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: 80, height: 80)
+                    Circle().stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 6.5).frame(width: 60, height: 60)
+                    Circle().trim(from: 0, to: setP).stroke(setGrad, style: StrokeStyle(lineWidth: 6.5, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: 60, height: 60)
+                    Circle().stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 6.5).frame(width: 40, height: 40)
+                    Circle().trim(from: 0, to: dayP).stroke(dayGrad, style: StrokeStyle(lineWidth: 6.5, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: 40, height: 40)
+                }
+                .frame(width: 88, height: 88)
+                VStack(alignment: .leading, spacing: 8) {
+                    statLine(grad: moveGrad, value: "\(mins)", unit: "/ \(minGoal) min")
+                    statLine(grad: setGrad, value: "\(sets)", unit: "/ \(setGoal) sets")
+                    statLine(grad: dayGrad, value: "\(days)", unit: "/ \(dayGoal) days")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func statLine(grad: LinearGradient, value: String, unit: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Circle().fill(grad).frame(width: 8, height: 8).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
+            Text(value).font(.system(size: 22, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            Text(unit).font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+        }
+    }
+
+    // Concentric-ring variant helpers
+
+    @ViewBuilder
+    private func ringPair(progress: Double, grad: LinearGradient, diameter: CGFloat, lineWidth: CGFloat) -> some View {
+        Circle().stroke(GQColors.deepBlue.opacity(0.08), lineWidth: lineWidth).frame(width: diameter, height: diameter)
+        Circle().trim(from: 0, to: progress).stroke(grad, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: diameter, height: diameter)
+    }
+
+    @ViewBuilder
+    private func ringPairDotted(progress: Double, grad: LinearGradient, diameter: CGFloat, lineWidth: CGFloat) -> some View {
+        Circle()
+            .stroke(GQColors.adaptiveOverlay(0.12), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, dash: [1, 4]))
+            .frame(width: diameter, height: diameter)
+        Circle()
+            .trim(from: 0, to: progress)
+            .stroke(grad, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .rotationEffect(.degrees(-90))
+            .frame(width: diameter, height: diameter)
+    }
+
+    private func legendCol(grad: LinearGradient, value: String, unit: String, goal: Int) -> some View {
+        VStack(spacing: 2) {
+            Circle().fill(grad).frame(width: 8, height: 8)
+            Text(value).font(.system(size: 17, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            Text("/ \(goal) \(unit)").font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func bigStatRow(grad: LinearGradient, value: String, unit: String, goal: Int) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(value).font(.system(size: 20, weight: .bold, design: .rounded)).foregroundStyle(grad)
+            Text(unit).font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            Spacer()
+            Text("of \(goal)").font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+        }
+    }
+
+    private func premStatRow(grad: LinearGradient, label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Circle().fill(grad).frame(width: 6, height: 6).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
+            Text(label).font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            Spacer()
+            Text(value).font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+        }
+    }
+
+    private func actBar(icon: String, label: String, value: String, unit: String, progress: Double, grad: LinearGradient) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                HStack(spacing: 6) {
+                    Image(systemName: icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(grad)
+                    Text(label).font(.system(size: 12, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                }
+                Spacer()
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(value).font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                    Text(unit).font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                }
+            }
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(GQColors.adaptiveOverlay(0.06))
+                    Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress))
+                }
+            }
+            .frame(height: 6)
+        }
+    }
+
+    private func actTile(title: String, value: String, goal: String, progress: Double, grad: LinearGradient) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title.uppercased()).font(.system(size: 9, weight: .semibold)).tracking(1.0).foregroundColor(GQColors.textTertiary)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value).font(.system(size: 22, weight: .bold, design: .rounded)).foregroundStyle(grad)
+                Text(goal).font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(GQColors.adaptiveOverlay(0.06))
+                    Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress))
+                }
+            }
+            .frame(height: 4)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(GQColors.adaptiveOverlay(0.03)))
+    }
+
+    private func heroRing(progress: Double, grad: LinearGradient, big: String, small: String) -> some View {
+        ZStack {
+            Circle().stroke(GQColors.adaptiveOverlay(0.05), lineWidth: 10).frame(width: 96, height: 96)
+            Circle().trim(from: 0, to: progress).stroke(grad, style: StrokeStyle(lineWidth: 10, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: 96, height: 96)
+            VStack(spacing: 0) {
+                Text(big).font(.system(size: 22, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                Text(small).font(.system(size: 9, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+        }
+        .frame(width: 96, height: 96)
+    }
+
+    private func miniRingRow(progress: Double, grad: LinearGradient, value: String, unit: String) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle().stroke(GQColors.adaptiveOverlay(0.05), lineWidth: 4).frame(width: 28, height: 28)
+                Circle().trim(from: 0, to: progress).stroke(grad, style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: 28, height: 28)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value).font(.system(size: 16, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                Text(unit).font(.system(size: 11, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+        }
+    }
+
+    private func actPercentRow(label: String, percent: Int, detail: String, grad: LinearGradient, progress: Double) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(label).font(.system(size: 12, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                Spacer()
+                Text("\(percent)%").font(.system(size: 13, weight: .bold, design: .rounded)).foregroundStyle(grad)
+            }
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(GQColors.adaptiveOverlay(0.06))
+                    Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress))
+                }
+            }
+            .frame(height: 5)
+            Text(detail).font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+        }
+    }
+
+    private func actGradRow(icon: String, title: String, value: String, progress: Double, grad: LinearGradient) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle().fill(grad.opacity(0.15)).frame(width: 32, height: 32)
+                Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(grad)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(title).font(.system(size: 12, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                    Spacer()
+                    Text(value).font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundColor(GQColors.textSecondary)
+                }
+                GeometryReader { g in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(GQColors.adaptiveOverlay(0.06))
+                        Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress))
+                    }
+                }
+                .frame(height: 4)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 10).fill(GQColors.adaptiveOverlay(0.03)))
+    }
+
+    private func actVertBar(progress: Double, grad: LinearGradient, value: String, goal: String, label: String) -> some View {
+        VStack(spacing: 6) {
+            GeometryReader { g in
+                ZStack(alignment: .bottom) {
+                    RoundedRectangle(cornerRadius: 6).fill(GQColors.adaptiveOverlay(0.05))
+                    RoundedRectangle(cornerRadius: 6).fill(grad).frame(height: g.size.height * CGFloat(progress))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value).font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                Text(goal).font(.system(size: 9, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+            Text(label).font(.system(size: 9, weight: .semibold)).tracking(1.0).foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func watchRing(progress: Double, grad: LinearGradient, diameter: CGFloat, lineWidth: CGFloat) -> some View {
+        ZStack {
+            Circle().stroke(GQColors.adaptiveOverlay(0.05), lineWidth: lineWidth).frame(width: diameter, height: diameter)
+            Circle().trim(from: 0, to: progress).stroke(grad, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: diameter, height: diameter)
+        }
+    }
+
+    private func watchLegend(grad: LinearGradient, value: String, unit: String, goal: Int) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(grad).frame(width: 8, height: 8)
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(value).font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                Text("/ \(goal) \(unit)").font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+        }
+    }
+
+    private func metricPill(icon: String, text: String, grad: LinearGradient) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 10, weight: .semibold)).foregroundStyle(grad)
+            Text(text).font(.system(size: 12, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Capsule().fill(GQColors.adaptiveOverlay(0.06)))
+    }
+
+    private func legendDot(grad: LinearGradient, text: String, sub: String) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            Circle().fill(grad).frame(width: 10, height: 10)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(text).font(.system(size: 13, weight: .semibold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                Text(sub).font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+        }
+    }
+
+    private func bigMetric(value: String, unit: String, grad: LinearGradient) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(value).font(.system(size: 22, weight: .bold, design: .rounded)).foregroundStyle(grad)
+            Text(unit).font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+        }
+    }
+
+    private func thinTrack(progress: Double, grad: LinearGradient) -> some View {
+        GeometryReader { g in
+            ZStack(alignment: .leading) {
+                Capsule().fill(GQColors.adaptiveOverlay(0.06))
+                Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress))
+            }
+        }
+        .frame(height: 4)
+    }
+
+    private func dashTile(big: Bool, title: String, value: String, goal: String, progress: Double, grad: LinearGradient) -> some View {
+        VStack(alignment: .leading, spacing: big ? 6 : 2) {
+            Text(title.uppercased()).font(.system(size: 9, weight: .semibold)).tracking(1.0).foregroundColor(GQColors.textTertiary)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value).font(.system(size: big ? 30 : 16, weight: .bold, design: .rounded)).foregroundStyle(grad)
+                Text(goal).font(.system(size: big ? 12 : 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+            if big { Spacer(minLength: 0) }
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(GQColors.adaptiveOverlay(0.06))
+                    Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress))
+                }
+            }
+            .frame(height: big ? 5 : 3)
+        }
+        .padding(big ? 12 : 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: big ? 120 : 56)
+        .background(RoundedRectangle(cornerRadius: 12).fill(GQColors.adaptiveOverlay(0.03)))
+    }
+
+    private func accentRow(title: String, value: String, unit: String, progress: Double, grad: LinearGradient) -> some View {
+        HStack(spacing: 10) {
+            RoundedRectangle(cornerRadius: 2).fill(grad).frame(width: 3, height: 36)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(title).font(.system(size: 12, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                    Spacer()
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text(value).font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                        Text(unit).font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                    }
+                }
+                GeometryReader { g in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(GQColors.adaptiveOverlay(0.06))
+                        Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress))
+                    }
+                }
+                .frame(height: 4)
+            }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 10).fill(GQColors.adaptiveOverlay(0.03)))
+    }
+
+    private func dottedTrackRow(title: String, value: String, progress: Double, grad: LinearGradient) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(title).font(.system(size: 11, weight: .semibold)).tracking(0.8).foregroundColor(GQColors.textSecondary)
+                Spacer()
+                Text(value).font(.system(size: 11, weight: .semibold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    HStack(spacing: 3) {
+                        ForEach(0..<20, id: \.self) { _ in
+                            Capsule().fill(GQColors.adaptiveOverlay(0.08)).frame(height: 4)
+                        }
+                    }
+                    Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress), height: 4)
+                    Circle().fill(grad).frame(width: 10, height: 10).offset(x: max(0, g.size.width * CGFloat(progress) - 5))
+                }
+            }
+            .frame(height: 10)
+        }
+    }
+
+    private func gaugeTile(progress: Double, grad: LinearGradient, value: String, sub: String) -> some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle().stroke(GQColors.adaptiveOverlay(0.05), lineWidth: 6).frame(width: 60, height: 60)
+                Circle().trim(from: 0, to: progress).stroke(grad, style: StrokeStyle(lineWidth: 6, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: 60, height: 60)
+                Text(value).font(.system(size: 15, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+            Text(sub).font(.system(size: 10, weight: .semibold)).tracking(1.0).foregroundColor(GQColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func pillListRow(icon: String, label: String, value: String, progress: Double, grad: LinearGradient) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(grad).frame(width: 18)
+            Text(label).font(.system(size: 12, weight: .semibold)).foregroundColor(GQColors.textPrimary).frame(width: 50, alignment: .leading)
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(GQColors.adaptiveOverlay(0.06))
+                    Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress))
+                }
+            }
+            .frame(height: 4)
+            Text(value).font(.system(size: 11, weight: .medium, design: .rounded)).foregroundColor(GQColors.textSecondary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func ringPill(progress: Double, grad: LinearGradient, title: String, detail: String) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle().stroke(GQColors.adaptiveOverlay(0.05), lineWidth: 4).frame(width: 28, height: 28)
+                Circle().trim(from: 0, to: progress).stroke(grad, style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90)).frame(width: 28, height: 28)
+                Text("\(Int(progress * 100))").font(.system(size: 9, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title).font(.system(size: 12, weight: .semibold)).foregroundColor(GQColors.textPrimary)
+                Text(detail).font(.system(size: 10, weight: .medium)).foregroundColor(GQColors.textTertiary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
+        .background(Capsule().fill(GQColors.adaptiveOverlay(0.04)))
+    }
+
+    private func denseCell(value: String, unit: String, progress: Double, grad: LinearGradient) -> some View {
+        VStack(spacing: 4) {
+            Text(value).font(.system(size: 20, weight: .bold, design: .rounded)).foregroundStyle(grad)
+            Text(unit).font(.system(size: 9, weight: .semibold)).tracking(1.0).foregroundColor(GQColors.textTertiary)
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(GQColors.adaptiveOverlay(0.06))
+                    Capsule().fill(grad).frame(width: g.size.width * CGFloat(progress))
+                }
+            }
+            .frame(height: 3)
+            .padding(.horizontal, 6)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func calAlignWeekRow() -> some View {
+        let labels = ["S", "M", "T", "W", "T", "F", "S"]
+        let todayIdx = Calendar.current.component(.weekday, from: Date()) - 1
+        let today = Calendar.current.startOfDay(for: Date())
+        let weekStart = Calendar.current.date(byAdding: .day, value: -todayIdx, to: today)!
+        HStack(spacing: 0) {
+            ForEach(0..<7, id: \.self) { i in
+                let isToday = i == todayIdx
+                let dayDate = Calendar.current.date(byAdding: .day, value: i, to: weekStart)!
+                let dayNum = Calendar.current.component(.day, from: dayDate)
+                VStack(spacing: 5) {
+                    Text(labels[i])
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .tracking(1.2)
+                        .foregroundColor(isToday ? GQColors.textPrimary : GQColors.textTertiary)
+                    ZStack {
+                        if isToday {
+                            Circle().fill(GQGradients.primary.opacity(0.06))
+                            Circle().strokeBorder(GQGradients.primary.opacity(0.85), lineWidth: 1.5)
+                        } else {
+                            Circle().fill(GQColors.adaptiveOverlay(0.045))
+                        }
+                        Text("\(dayNum)")
+                            .font(.system(size: 15, weight: isToday ? .semibold : .medium, design: .rounded))
+                            .foregroundColor(isToday ? GQColors.textPrimary : GQColors.textTertiary)
+                    }
+                    .frame(width: 36, height: 36)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func workoutTypeFor(_ label: String) -> WorkoutType? {
+        if let exact = WorkoutType(rawValue: label) { return exact }
+        switch label {
+        case "Upper": return .upper
+        case "Lower": return .lower
+        case "Full": return .fullBody
+        case "Recovery", "Rest": return .rest
+        default: return nil
+        }
+    }
+
+    @ViewBuilder
+    private func planCardShell(icon: String, title: String, action: (label: String, onTap: () -> Void)?) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(GQGradients.primary.opacity(0.08))
+                    .frame(width: 38, height: 38)
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(GQGradients.primary)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("TODAY'S PLAN")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundColor(GQColors.textTertiary)
+                Text(title)
+                    .font(.system(size: 15.8, weight: .semibold))
+                    .foregroundColor(GQColors.textPrimary)
+            }
+
+            Spacer()
+
+            if let action {
+                Button(action: action.onTap) {
+                    Text(action.label)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(GQGradients.primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(GQGradients.primary.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
     @ViewBuilder
     private var todayPlanCard: some View {
         let planned = todayPlannedLabel
-        let plannedType = planned.flatMap { WorkoutType(rawValue: $0) }
         let isRest = planned == "Rest"
 
         if let planned, !isRest {
-            // Today has a planned workout
-            VStack(spacing: 10) {
-                HStack(spacing: 14) {
-                    Image(systemName: plannedType?.icon ?? "dumbbell.fill")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(AnyShapeStyle(GQGradients.primary))
-                        .frame(width: 44, height: 44)
-                        .background(GQColors.deepBlue.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Today: \(planned)")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(GQColors.textPrimary)
-                        Text("From your schedule")
-                            .font(.system(size: 11))
-                            .foregroundColor(GQColors.textTertiary)
-                    }
-
-                    Spacer()
-
-                    Button {
-                        appState.showingWorkoutStartOptions = true
-                    } label: {
-                        Text("Start")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(GQGradients.primary)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                // Quick actions: Change today + Shift if missed yesterday
-                HStack(spacing: 10) {
-                    Button {
-                        selectedPlanDay = IdentifiableInt(value: todayWeekday)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.triangle.swap")
-                                .font(.system(size: 9, weight: .bold))
-                            Text("Change")
-                                .font(.system(size: 10, weight: .semibold))
-                        }
-                        .foregroundColor(GQColors.textTertiary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(GQColors.adaptiveOverlay(0.05))
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-
-                    if missedYesterday {
-                        Button { shiftScheduleOnToday(by: 1) } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 9, weight: .bold))
-                                Text("Missed yesterday? Shift forward")
-                                    .font(.system(size: 10, weight: .semibold))
-                            }
-                            .foregroundColor(GQColors.vividPurple)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(GQColors.vividPurple.opacity(0.1))
-                            .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-
-                    Spacer()
-                }
-            }
-            .padding(14)
-            .background(GQColors.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
-            .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+            let plannedType = workoutTypeFor(planned)
+            planCardShell(
+                icon: plannedType?.icon ?? "figure.strengthtraining.traditional",
+                title: planned,
+                action: ("Start", { appState.showingWorkoutStartOptions = true })
+            )
             .sheet(item: $selectedPlanDay) { item in
                 DayOverrideSheet(weekday: item.value, date: Date(), profile: profile)
                     .presentationDetents([.height(280)])
             }
         } else if isRest {
-            HStack(spacing: 12) {
-                Image(systemName: "moon.fill")
-                    .font(.system(size: 16))
-                    .foregroundColor(GQColors.textTertiary)
-                Text("Rest day. You've earned it.")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(GQColors.textSecondary)
-                Spacer()
-                Button {
-                    appState.showingWorkoutStartOptions = true
-                } label: {
-                    Text("Train anyway")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(GQColors.textTertiary)
-                }
-            }
-            .padding(14)
-            .background(GQColors.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
+            planCardShell(
+                icon: "moon.fill",
+                title: "Rest day",
+                action: nil
+            )
         } else if !profile.weeklySchedule.isEmpty {
-            // Has a schedule but today isn't in it (Off day)
-            HStack(spacing: 12) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 16))
-                    .foregroundColor(GQColors.textTertiary)
-                Text("No workout planned today.")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(GQColors.textSecondary)
-                Spacer()
-                Button {
-                    appState.showingWorkoutStartOptions = true
-                } label: {
-                    Text("Start one")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(GQColors.vividPurple)
-                }
-            }
-            .padding(14)
-            .background(GQColors.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
+            planCardShell(
+                icon: "plus.circle.fill",
+                title: "Nothing scheduled",
+                action: ("Start", { appState.showingWorkoutStartOptions = true })
+            )
+        } else {
+            planCardShell(
+                icon: "calendar.badge.plus",
+                title: "No plan yet",
+                action: ("Customize", { showWeeklyScheduleEditor = true })
+            )
         }
     }
 
@@ -523,55 +1317,29 @@ struct TodayView: View {
     }
 
     private var todayContent: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 12) {
             dateHeader
 
             if showDraftBanner {
                 resumeDraftBanner
-                sectionDivider
             }
 
-            // Tap the calendar to open the full weekly schedule editor
             Button { showWeeklyScheduleEditor = true } label: {
-                WeeklyProgressRing(
-                    completed: workoutsThisWeek,
-                    target: $profile.daysPerWeek,
-                    workoutDates: thisWeekWorkoutDates,
-                    workoutIcons: thisWeekWorkoutIcons,
-                    dailyStreak: dailyStreak,
-                    weeklyStreak: weeklyStreak,
-                    totalMinutes: weeklyWorkoutMinutes,
-                    totalSets: weeklyTotalSets,
-                    totalVolume: weeklyTotalVolume,
-                    plannedTypes: profile.weeklySchedule
-                )
+                weeklyCalendarCard
             }
             .buttonStyle(.plain)
 
-            // Interactive plan row — tap any day to set its type
-            weekPlanRow
-
-            // Today's planned workout
+            // Today's plan — compact companion to calendar
             todayPlanCard
 
-            sectionDivider
-
-            // Apple Fitness-style activity rings
-            ActivityRingsCard(
-                workoutMinutes: weeklyWorkoutMinutes,
-                minuteGoal: 150,
-                totalSets: weeklyTotalSets,
-                setGoal: max(profile.daysPerWeek * 15, 60),
-                streak: dailyStreak,
-                streakGoal: 7
-            )
-
-            sectionDivider
+            // Activity — taps through to Activity tab
+            Button { appState.selectedTab = .activity } label: {
+                activityVariantsPreview
+            }
+            .buttonStyle(.plain)
 
             // Progressive challenges (3 at a time, tier-based)
             TodayChallengesSection(profile: profile)
-
-            sectionDivider
 
             TodayDashboardSection(
                 profile: profile,
@@ -580,29 +1348,6 @@ struct TodayView: View {
             )
             .environment(\.modelContext, modelContext)
 
-            sectionDivider
-
-            // Pod / Find a Pod card
-            podOrOnboardingCard
-                .featureGated(FeatureFlags.shared.podSystemEnabled)
-
-            if let milestone = nextMilestone {
-                sectionDivider
-                milestoneRow(milestone)
-            }
-
-            if let todayPlan = todaysPlanDay {
-                sectionDivider
-                plannedWorkoutCard(todayPlan)
-            }
-
-            // Challenge card (e.g. Set Slayer)
-            if let firstEnrollment = activeChallengeEnrollments.first,
-               let challenge = allChallenges.first(where: { $0.id == firstEnrollment.challengeId }),
-               FeatureFlags.shared.challengeEngineEnabled {
-                sectionDivider
-                challengeCard(enrollment: firstEnrollment, challenge: challenge)
-            }
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 100)
@@ -828,6 +1573,18 @@ struct TodayView: View {
     }
 
     private var greeting: String {
+        // Context-aware noticing, not just clock
+        if consistencyState == .comeback || consistencyState == .atRisk {
+            let workedOutToday = nonRestWorkouts.contains { Calendar.current.isDateInToday($0.date) }
+            if workedOutToday { return "You came back." }
+            return "Day one is available."
+        }
+        if dailyStreak >= 7 { return "Day \(dailyStreak)." }
+        let target = profile.daysPerWeek
+        if workoutsThisWeek == target - 1 && target > 1 { return "One more this week." }
+        if workoutsThisWeek >= target && target > 0 { return "Weekly goal hit." }
+        if let last = nonRestWorkouts.first, Calendar.current.isDateInYesterday(last.date) { return "Back again." }
+        // Default: time-based
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
         case 0..<12: return "Good morning"
@@ -1028,7 +1785,7 @@ struct TodayView: View {
         } else if allClubs.isEmpty {
             podPromptRow(title: "Join a Club", subtitle: "Train with others")
         } else {
-            podPromptRow(title: "Find a Pod", subtitle: "Accountability group")
+            podPromptRow(title: "Join a Club", subtitle: "Train with others")
         }
     }
 
@@ -1194,43 +1951,70 @@ struct ActivityRingsCard: View {
 
     @State private var animate = false
 
-    private var moveProgress: CGFloat { min(CGFloat(workoutMinutes) / CGFloat(max(minuteGoal, 1)), 1.5) }
-    private var exerciseProgress: CGFloat { min(CGFloat(totalSets) / CGFloat(max(setGoal, 1)), 1.5) }
-    private var streakProgress: CGFloat { min(CGFloat(streak) / CGFloat(max(streakGoal, 1)), 1.5) }
+    private var moveProgress: CGFloat { min(CGFloat(workoutMinutes) / CGFloat(max(minuteGoal, 1)), 1.0) }
+    private var exerciseProgress: CGFloat { min(CGFloat(totalSets) / CGFloat(max(setGoal, 1)), 1.0) }
+    private var streakProgress: CGFloat { min(CGFloat(streak) / CGFloat(max(streakGoal, 1)), 1.0) }
 
-    private let moveColor = Color(hex: "FF2D55")       // Apple red
-    private let exerciseColor = Color(hex: "A8FF04")    // Apple green
-    private let streakColor = Color(hex: "00D4FF")      // Apple cyan
+    // Gradients matching Progress page ring style
+    private let moveGradient = GQGradients.primary
+    private let exerciseGradient = LinearGradient(colors: [GQColors.cyanSpark, GQColors.deepBlue], startPoint: .topLeading, endPoint: .bottomTrailing)
+    private let streakGradient = LinearGradient(colors: [GQColors.deepBlue.opacity(0.8), GQColors.vividPurple.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing)
 
     var body: some View {
-        HStack(spacing: 20) {
-            // Rings
-            ZStack {
-                // Move (outer)
-                ringTrack(size: 90)
-                ringArc(progress: animate ? moveProgress : 0, color: moveColor, size: 90, lineWidth: 10)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("ACTIVITY")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(1.2)
+                .foregroundColor(GQColors.textTertiary)
 
-                // Exercise (middle)
-                ringTrack(size: 66)
-                ringArc(progress: animate ? exerciseProgress : 0, color: exerciseColor, size: 66, lineWidth: 10)
+            HStack(alignment: .center, spacing: 16) {
+                // Concentric rings — the unified "fill it up" visual
+                ZStack {
+                    Circle()
+                        .fill(moveGradient.opacity(0.06))
+                        .frame(width: 88, height: 88)
+                        .blur(radius: 10)
 
-                // Streak (inner)
-                ringTrack(size: 42)
-                ringArc(progress: animate ? streakProgress : 0, color: streakColor, size: 42, lineWidth: 10)
+                    Circle()
+                        .stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 6.5)
+                        .frame(width: 80, height: 80)
+                    Circle()
+                        .trim(from: 0, to: animate ? moveProgress : 0)
+                        .stroke(moveGradient, style: StrokeStyle(lineWidth: 6.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 80, height: 80)
+
+                    Circle()
+                        .stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 6.5)
+                        .frame(width: 60, height: 60)
+                    Circle()
+                        .trim(from: 0, to: animate ? exerciseProgress : 0)
+                        .stroke(exerciseGradient, style: StrokeStyle(lineWidth: 6.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 60, height: 60)
+
+                    Circle()
+                        .stroke(GQColors.adaptiveOverlay(0.04), lineWidth: 6.5)
+                        .frame(width: 40, height: 40)
+                    Circle()
+                        .trim(from: 0, to: animate ? streakProgress : 0)
+                        .stroke(streakGradient, style: StrokeStyle(lineWidth: 6.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 40, height: 40)
+                }
+                .frame(width: 88, height: 88)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    statRow(gradient: moveGradient, value: "\(workoutMinutes)", goal: minuteGoal, unit: "min")
+                    statRow(gradient: exerciseGradient, value: "\(totalSets)", goal: setGoal, unit: "sets")
+                    statRow(gradient: streakGradient, value: "\(streak)", goal: streakGoal, unit: "days")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(width: 100, height: 100)
-
-            // Labels
-            VStack(alignment: .leading, spacing: 10) {
-                ringLabel(color: moveColor, value: "\(workoutMinutes)", unit: "min", label: "Move", goal: minuteGoal)
-                ringLabel(color: exerciseColor, value: "\(totalSets)", unit: "sets", label: "Exercise", goal: setGoal)
-                ringLabel(color: streakColor, value: "\(streak)", unit: "days", label: "Streak", goal: streakGoal)
-            }
-
-            Spacer()
         }
-        .padding(16)
-        .homeSocialCard(cornerRadius: 16)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .homeSocialCard(cornerRadius: 14)
         .onAppear {
             withAnimation(.spring(response: 0.8, dampingFraction: 0.7).delay(0.2)) {
                 animate = true
@@ -1238,33 +2022,25 @@ struct ActivityRingsCard: View {
         }
     }
 
-    private func ringTrack(size: CGFloat) -> some View {
-        Circle()
-            .stroke(GQColors.overlayLight, lineWidth: 10)
-            .frame(width: size, height: size)
-    }
-
-    private func ringArc(progress: CGFloat, color: Color, size: CGFloat, lineWidth: CGFloat) -> some View {
-        Circle()
-            .trim(from: 0, to: progress)
-            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-            .frame(width: size, height: size)
-            .rotationEffect(.degrees(-90))
-            .shadow(color: color.opacity(0.4), radius: 3, y: 1)
-    }
-
-    private func ringLabel(color: Color, value: String, unit: String, label: String, goal: Int) -> some View {
-        HStack(spacing: 6) {
+    private func statRow(gradient: LinearGradient, value: String, goal: Int, unit: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Circle()
-                .fill(color)
+                .fill(gradient)
                 .frame(width: 8, height: 8)
+                .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
 
             Text(value)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundColor(GQColors.textPrimary)
-            Text("/\(goal) \(unit)")
-                .font(.system(size: 12))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .layoutPriority(1)
+
+            Text("/ \(goal) \(unit)")
+                .font(.system(size: 11, weight: .medium))
                 .foregroundColor(GQColors.textTertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
     }
 }
@@ -1314,7 +2090,7 @@ struct TodayChallengesSection: View {
             return [
                 .init(icon: "figure.walk", title: "First Workout", description: "Log your first workout.", current: min(totalWorkouts, 1), target: 1, category: "General"),
                 .init(icon: "hand.thumbsup.fill", title: "First Reaction", description: "React or comment on a post.", current: min(userPosts.isEmpty ? 0 : 1, 1), target: 1, category: "General"),
-                .init(icon: "person.3.fill", title: "Join a Squad", description: "Join your first squad.", current: squads.contains(where: { $0.memberIds.contains(profile.id) }) ? 1 : 0, target: 1, category: "General"),
+                .init(icon: "person.3.fill", title: "Join a Club", description: "Join your first club.", current: squads.contains(where: { $0.memberIds.contains(profile.id) }) ? 1 : 0, target: 1, category: "General"),
             ]
         case 1:
             return [
@@ -1356,16 +2132,16 @@ struct TodayChallengesSection: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("CHALLENGES")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(GQColors.textSecondary)
-                    .tracking(0.6)
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(1.2)
+                    .foregroundColor(GQColors.textTertiary)
                 Spacer()
                 Text("Tier \(profile.currentChallengeTier + 1)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundColor(GQColors.vividPurple)
+                    .foregroundStyle(GQGradients.primary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(GQColors.vividPurple.opacity(0.12))
+                    .background(GQGradients.primary.opacity(0.1))
                     .clipShape(Capsule())
             }
 
@@ -1383,7 +2159,7 @@ struct TodayChallengesSection: View {
                         Image(systemName: "sparkles")
                             .font(.system(size: 16, weight: .bold))
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("All 3 complete!")
+                            Text("All 3 complete")
                                 .font(.system(size: 14, weight: .bold))
                             Text("Tap to reveal next challenges")
                                 .font(.system(size: 11))
@@ -1410,7 +2186,7 @@ struct TodayChallengesSection: View {
                                         .frame(width: 36, height: 36)
                                     Image(systemName: c.isComplete ? "checkmark" : c.icon)
                                         .font(.system(size: c.isComplete ? 13 : 15, weight: .bold))
-                                        .foregroundStyle(c.isComplete ? AnyShapeStyle(GQColors.success) : AnyShapeStyle(GQGradients.primary))
+                                        .foregroundStyle(c.isComplete ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQGradients.primary))
                                 }
 
                                 VStack(alignment: .leading, spacing: 3) {
@@ -1418,29 +2194,33 @@ struct TodayChallengesSection: View {
                                         Text(c.title)
                                             .font(.system(size: 13, weight: .semibold))
                                             .foregroundColor(c.isComplete ? GQColors.textTertiary : GQColors.textPrimary)
-                                            .strikethrough(c.isComplete)
-                                        Text(c.category)
-                                            .font(.system(size: 8, weight: .bold))
-                                            .foregroundColor(c.category == "For You" ? GQColors.vividPurple : GQColors.textTertiary)
-                                            .padding(.horizontal, 5)
-                                            .padding(.vertical, 2)
-                                            .background(Capsule().fill(c.category == "For You" ? GQColors.vividPurple.opacity(0.12) : GQColors.adaptiveOverlay(0.05)))
+                                        if c.category != "General" {
+                                            Text(c.category)
+                                                .font(.system(size: 8, weight: .bold))
+                                                .foregroundColor(GQColors.textTertiary)
+                                                .padding(.horizontal, 5)
+                                                .padding(.vertical, 2)
+                                                .background(Capsule().fill(GQColors.adaptiveOverlay(0.05)))
+                                        }
                                     }
                                     GeometryReader { geo in
                                         ZStack(alignment: .leading) {
-                                            Capsule().fill(GQColors.adaptiveOverlay(0.08)).frame(height: 4)
-                                            Capsule().fill(c.isComplete ? AnyShapeStyle(GQColors.success) : AnyShapeStyle(GQGradients.primary))
-                                                .frame(width: max(geo.size.width * c.progress, 4), height: 4)
+                                            Capsule().fill(GQColors.adaptiveOverlay(0.08)).frame(height: 3)
+                                            Capsule()
+                                                .fill(c.isComplete
+                                                      ? AnyShapeStyle(GQColors.textTertiary.opacity(0.4))
+                                                      : AnyShapeStyle(GQGradients.primary))
+                                                .frame(width: max(geo.size.width * c.progress, 3), height: 3)
                                         }
                                     }
-                                    .frame(height: 4)
+                                    .frame(height: 3)
                                 }
 
                                 Text("\(c.current)/\(c.target)")
                                     .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundColor(c.isComplete ? GQColors.success : GQColors.textSecondary)
+                                    .foregroundColor(GQColors.textSecondary)
                             }
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 4)
                             .padding(.horizontal, 6)
                         }
                         .buttonStyle(.plain)
@@ -1448,11 +2228,9 @@ struct TodayChallengesSection: View {
                 }
             }
         }
-        .padding(14)
-        .background(GQColors.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(GQColors.borderDefault, lineWidth: 1))
-        .shadow(color: Color.black.opacity(0.06), radius: 8, y: 3)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .homeSocialCard(cornerRadius: 14)
         .sheet(item: $selectedChallenge) { c in
             AchievementDetailSheet(badge: c)
                 .presentationDetents([.medium])
@@ -1814,11 +2592,13 @@ struct WeeklyScheduleEditorSheet: View {
                                     Button { setDaysPerWeek(n) } label: {
                                         Text("\(n)")
                                             .font(.system(size: 13, weight: isSelected ? .bold : .medium, design: .rounded))
-                                            .foregroundColor(isSelected ? .white : GQColors.textSecondary)
+                                            .foregroundColor(isSelected ? GQColors.textPrimary : GQColors.textSecondary)
                                             .frame(width: 34, height: 34)
-                                            .background(isSelected ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                            .background(isSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.08)) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
                                             .clipShape(Circle())
-                                            .shadow(color: isSelected ? GQColors.vividPurple.opacity(0.25) : .clear, radius: 6, y: 2)
+                                            .overlay(
+                                                Circle().strokeBorder(isSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.85)) : AnyShapeStyle(Color.clear), lineWidth: 1.5)
+                                            )
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -1834,14 +2614,17 @@ struct WeeklyScheduleEditorSheet: View {
                             HStack(spacing: 6) {
                                 ForEach([(1,"S"), (2,"M"), (3,"T"), (4,"W"), (5,"T"), (6,"F"), (7,"S")], id: \.0) { wd, label in
                                     let isRest = profile.weeklySchedule[wd] == nil || profile.weeklySchedule[wd] == "Rest"
+                                    let isTraining = !isRest
                                     Button { toggleRestDay(wd) } label: {
                                         Text(label)
                                             .font(.system(size: 11, weight: .semibold))
-                                            .foregroundColor(isRest ? GQColors.textTertiary : .white)
+                                            .foregroundColor(isTraining ? GQColors.textPrimary : GQColors.textTertiary)
                                             .frame(width: 34, height: 34)
-                                            .background(isRest ? AnyShapeStyle(GQColors.adaptiveOverlay(0.05)) : AnyShapeStyle(GQGradients.primary.opacity(0.7)))
+                                            .background(isTraining ? AnyShapeStyle(GQGradients.primary.opacity(0.08)) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
                                             .clipShape(Circle())
-                                            .shadow(color: !isRest ? GQColors.vividPurple.opacity(0.25) : .clear, radius: 6, y: 2)
+                                            .overlay(
+                                                Circle().strokeBorder(isTraining ? AnyShapeStyle(GQGradients.primary.opacity(0.85)) : AnyShapeStyle(Color.clear), lineWidth: 1.5)
+                                            )
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -1855,6 +2638,7 @@ struct WeeklyScheduleEditorSheet: View {
                                 .foregroundColor(GQColors.textSecondary)
                                 .frame(width: 38, alignment: .leading)
                             HStack(spacing: 6) {
+                                let sameSelected = !profile.isRollingSplit
                                 Button {
                                     withAnimation(.easeInOut(duration: 0.15)) {
                                         profile.isRollingSplit = false
@@ -1863,14 +2647,17 @@ struct WeeklyScheduleEditorSheet: View {
                                 } label: {
                                     Text("Same weekly")
                                         .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(!profile.isRollingSplit ? .white : GQColors.textSecondary)
+                                        .foregroundColor(sameSelected ? GQColors.textPrimary : GQColors.textSecondary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
-                                        .background(!profile.isRollingSplit ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                        .background(sameSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.08)) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
                                         .clipShape(Capsule())
-                                        .shadow(color: !profile.isRollingSplit ? GQColors.vividPurple.opacity(0.25) : .clear, radius: 6, y: 2)
+                                        .overlay(
+                                            Capsule().strokeBorder(sameSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.85)) : AnyShapeStyle(Color.clear), lineWidth: 1.5)
+                                        )
                                 }
                                 .buttonStyle(.plain)
 
+                                let rollingSelected = profile.isRollingSplit
                                 Button {
                                     withAnimation(.easeInOut(duration: 0.15)) {
                                         profile.isRollingSplit = true
@@ -1881,11 +2668,13 @@ struct WeeklyScheduleEditorSheet: View {
                                 } label: {
                                     Text("Rolling")
                                         .font(.system(size: 11, weight: .semibold))
-                                        .foregroundColor(profile.isRollingSplit ? .white : GQColors.textSecondary)
+                                        .foregroundColor(rollingSelected ? GQColors.textPrimary : GQColors.textSecondary)
                                         .padding(.horizontal, 14).padding(.vertical, 8)
-                                        .background(profile.isRollingSplit ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
+                                        .background(rollingSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.08)) : AnyShapeStyle(GQColors.adaptiveOverlay(0.05)))
                                         .clipShape(Capsule())
-                                        .shadow(color: profile.isRollingSplit ? GQColors.vividPurple.opacity(0.25) : .clear, radius: 6, y: 2)
+                                        .overlay(
+                                            Capsule().strokeBorder(rollingSelected ? AnyShapeStyle(GQGradients.primary.opacity(0.85)) : AnyShapeStyle(Color.clear), lineWidth: 1.5)
+                                        )
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1973,6 +2762,140 @@ struct WeeklyScheduleEditorSheet: View {
         #if canImport(UIKit)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         #endif
+    }
+
+    @ViewBuilder
+    private func selectionStylePreviewCard(styleIndex: Int) -> some View {
+        let labels: [String] = [
+            "V1 · Solid purple",
+            "V2 · Subtle tint + brand text",
+            "V3 · Outlined gradient ring",
+            "V4 · Today-card mimic",
+            "V5 · Tinted bg + dot indicator",
+            "V6 · White elevated + gradient text",
+            "V7 · Gradient text only",
+            "V8 · Solid deepBlue",
+            "V9 · Soft halo behind circle",
+            "V10 · Thin gradient border, clear fill",
+        ]
+        VStack(alignment: .leading, spacing: 8) {
+            Text(labels[styleIndex])
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.6)
+                .foregroundColor(GQColors.textTertiary)
+            HStack(spacing: 6) {
+                ForEach([2, 3, 4, 5, 6, 7], id: \.self) { n in
+                    let isSelected = (n == 4)
+                    styledDayCircle(number: n, isSelected: isSelected, style: styleIndex)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(14)
+        .homeSocialCard(cornerRadius: 14)
+    }
+
+    @ViewBuilder
+    private func styledDayCircle(number: Int, isSelected: Bool, style: Int) -> some View {
+        let size: CGFloat = 34
+        let gradient = GQGradients.primary
+        let unselectedBg = AnyShapeStyle(GQColors.adaptiveOverlay(0.05))
+        let unselectedText = GQColors.textSecondary
+        let numberText = Text("\(number)").font(.system(size: 13, weight: isSelected ? .bold : .medium, design: .rounded))
+
+        switch style {
+        case 0: // V1 · Solid flat purple
+            numberText
+                .foregroundColor(isSelected ? .white : unselectedText)
+                .frame(width: size, height: size)
+                .background(isSelected ? AnyShapeStyle(GQColors.vividPurple) : unselectedBg)
+                .clipShape(Circle())
+
+        case 1: // V2 · Subtle tint + brand text
+            numberText
+                .foregroundColor(isSelected ? GQColors.vividPurple : unselectedText)
+                .frame(width: size, height: size)
+                .background(isSelected ? AnyShapeStyle(gradient.opacity(0.14)) : unselectedBg)
+                .clipShape(Circle())
+
+        case 2: // V3 · Outlined gradient ring
+            numberText
+                .foregroundColor(isSelected ? GQColors.vividPurple : unselectedText)
+                .frame(width: size, height: size)
+                .background(isSelected ? AnyShapeStyle(Color.clear) : unselectedBg)
+                .clipShape(Circle())
+                .overlay(
+                    Circle().strokeBorder(isSelected ? AnyShapeStyle(gradient) : AnyShapeStyle(Color.clear), lineWidth: 1.5)
+                )
+
+        case 3: // V4 · Today-card mimic (thin gradient outline + tint)
+            numberText
+                .foregroundColor(isSelected ? GQColors.textPrimary : unselectedText)
+                .frame(width: size, height: size)
+                .background(isSelected ? AnyShapeStyle(gradient.opacity(0.08)) : unselectedBg)
+                .clipShape(Circle())
+                .overlay(
+                    Circle().strokeBorder(isSelected ? AnyShapeStyle(gradient.opacity(0.85)) : AnyShapeStyle(Color.clear), lineWidth: 1.5)
+                )
+
+        case 4: // V5 · Tinted bg + small dot indicator
+            VStack(spacing: 2) {
+                numberText
+                    .foregroundColor(isSelected ? GQColors.textPrimary : unselectedText)
+                Circle()
+                    .fill(isSelected ? AnyShapeStyle(gradient) : AnyShapeStyle(Color.clear))
+                    .frame(width: 4, height: 4)
+            }
+            .frame(width: size, height: size)
+            .background(isSelected ? AnyShapeStyle(gradient.opacity(0.08)) : unselectedBg)
+            .clipShape(Circle())
+
+        case 5: // V6 · White elevated + gradient text
+            numberText
+                .foregroundStyle(isSelected ? AnyShapeStyle(gradient) : AnyShapeStyle(unselectedText))
+                .frame(width: size, height: size)
+                .background(isSelected ? AnyShapeStyle(Color.white) : unselectedBg)
+                .clipShape(Circle())
+                .shadow(color: isSelected ? Color.black.opacity(0.08) : .clear, radius: 3, y: 1.5)
+
+        case 6: // V7 · Gradient text only, transparent fill
+            numberText
+                .foregroundStyle(isSelected ? AnyShapeStyle(gradient) : AnyShapeStyle(unselectedText))
+                .frame(width: size, height: size)
+                .background(unselectedBg)
+                .clipShape(Circle())
+
+        case 7: // V8 · Solid deepBlue
+            numberText
+                .foregroundColor(isSelected ? .white : unselectedText)
+                .frame(width: size, height: size)
+                .background(isSelected ? AnyShapeStyle(GQColors.deepBlue) : unselectedBg)
+                .clipShape(Circle())
+
+        case 8: // V9 · Soft halo behind circle
+            ZStack {
+                if isSelected {
+                    Circle().fill(gradient.opacity(0.15)).frame(width: size + 10, height: size + 10).blur(radius: 8)
+                }
+                numberText
+                    .foregroundColor(isSelected ? .white : unselectedText)
+                    .frame(width: size, height: size)
+                    .background(isSelected ? AnyShapeStyle(gradient) : unselectedBg)
+                    .clipShape(Circle())
+            }
+            .frame(width: size, height: size)
+
+        case 9: // V10 · Thin gradient border, clear fill
+            numberText
+                .foregroundStyle(isSelected ? AnyShapeStyle(gradient) : AnyShapeStyle(unselectedText))
+                .frame(width: size, height: size)
+                .overlay(
+                    Circle().strokeBorder(isSelected ? AnyShapeStyle(gradient) : AnyShapeStyle(Color.clear), lineWidth: 1)
+                )
+
+        default:
+            numberText.foregroundColor(unselectedText).frame(width: size, height: size).background(unselectedBg).clipShape(Circle())
+        }
     }
 
     private func cellBackground(planned: String?, isToday: Bool, done: Bool, isPast: Bool) -> some ShapeStyle {
@@ -2529,6 +3452,280 @@ struct CustomSplitBuilderSheet: View {
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 20)
+    }
+}
+
+// MARK: - Calendar Variant Previews (unused - preview removed)
+#if false
+private func calendarVariantWeekRow() -> some View {
+    let labels = ["S", "M", "T", "W", "T", "F", "S"]
+    let todayIdx = Calendar.current.component(.weekday, from: Date()) - 1
+    let today = Calendar.current.startOfDay(for: Date())
+    let weekStart = Calendar.current.date(byAdding: .day, value: -todayIdx, to: today)!
+    return HStack(spacing: 0) {
+        ForEach(0..<7, id: \.self) { i in
+            let isToday = i == todayIdx
+            let dayDate = Calendar.current.date(byAdding: .day, value: i, to: weekStart)!
+            let dayNum = Calendar.current.component(.day, from: dayDate)
+            VStack(spacing: 6) {
+                Text(labels[i])
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .tracking(1.2)
+                    .foregroundColor(isToday ? GQColors.textPrimary : GQColors.textTertiary)
+                ZStack {
+                    if isToday {
+                        Circle().fill(GQGradients.primary.opacity(0.06))
+                        Circle().strokeBorder(GQGradients.primary.opacity(0.85), lineWidth: 1.5)
+                    } else {
+                        Circle().fill(GQColors.adaptiveOverlay(0.045))
+                    }
+                    Text("\(dayNum)")
+                        .font(.system(size: 15, weight: isToday ? .semibold : .medium, design: .rounded))
+                        .foregroundColor(isToday ? GQColors.textPrimary : GQColors.textTertiary)
+                }
+                .frame(width: 36, height: 36)
+                Color.clear.frame(height: 10)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+private func calendarVariantStreak(dailyStreak: Int, weeklyStreak: Int) -> some View {
+    VStack(alignment: .trailing, spacing: 2) {
+        HStack(spacing: 5) {
+            Image(systemName: "flame.fill")
+                .font(.system(size: 13))
+                .foregroundStyle(LinearGradient(colors: [.orange, .red.opacity(0.8)], startPoint: .bottom, endPoint: .top))
+            Text("\(dailyStreak)")
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(GQColors.textPrimary)
+        }
+        if weeklyStreak > 0 {
+            Text("\(weeklyStreak) week streak")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(GQColors.textTertiary)
+        }
+    }
+}
+
+// Variant A — current
+struct CalVariantA: View {
+    let completed: Int
+    let target: Int
+    let dailyStreak: Int
+    let weeklyStreak: Int
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("THIS WEEK")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundColor(GQColors.textTertiary)
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text("\(completed)")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundStyle(GQGradients.primary)
+                        Text("/ \(target)")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+                Spacer()
+                calendarVariantStreak(dailyStreak: dailyStreak, weeklyStreak: weeklyStreak)
+            }
+            calendarVariantWeekRow()
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .homeSocialCard(cornerRadius: 14)
+    }
+}
+
+// Variant B — inline progress bar under header
+struct CalVariantB: View {
+    let completed: Int
+    let target: Int
+    let dailyStreak: Int
+    let weeklyStreak: Int
+    var progress: CGFloat { target > 0 ? min(CGFloat(completed)/CGFloat(target), 1) : 0 }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("THIS WEEK")
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(1.2)
+                        .foregroundColor(GQColors.textTertiary)
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text("\(completed)")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundStyle(GQGradients.primary)
+                        Text("/ \(target)")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(GQColors.textTertiary)
+                    }
+                }
+                Spacer()
+                calendarVariantStreak(dailyStreak: dailyStreak, weeklyStreak: weeklyStreak)
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(GQColors.adaptiveOverlay(0.06)).frame(height: 4)
+                    Capsule().fill(GQGradients.primary).frame(width: max(geo.size.width * progress, 4), height: 4)
+                }
+            }
+            .frame(height: 4)
+            calendarVariantWeekRow()
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .homeSocialCard(cornerRadius: 14)
+    }
+}
+
+// Variant C — hero stat, bigger number + softer secondary
+struct CalVariantC: View {
+    let completed: Int
+    let target: Int
+    let dailyStreak: Int
+    let weeklyStreak: Int
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(completed)")
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(GQGradients.primary)
+                    Text("of \(target) workouts")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(GQColors.textSecondary)
+                }
+                Spacer()
+                calendarVariantStreak(dailyStreak: dailyStreak, weeklyStreak: weeklyStreak)
+            }
+            calendarVariantWeekRow()
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .homeSocialCard(cornerRadius: 14)
+    }
+}
+
+// Variant D — mini progress ring
+struct CalVariantD: View {
+    let completed: Int
+    let target: Int
+    let dailyStreak: Int
+    let weeklyStreak: Int
+    var progress: CGFloat { target > 0 ? min(CGFloat(completed)/CGFloat(target), 1) : 0 }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                ZStack {
+                    Circle().stroke(GQColors.adaptiveOverlay(0.08), lineWidth: 3.5)
+                        .frame(width: 34, height: 34)
+                    Circle().trim(from: 0, to: progress)
+                        .stroke(GQGradients.primary, style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .frame(width: 34, height: 34)
+                    Text("\(completed)")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(GQColors.textPrimary)
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("This Week")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(GQColors.textPrimary)
+                    Text("\(completed) of \(target) workouts")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(GQColors.textTertiary)
+                }
+                Spacer()
+                calendarVariantStreak(dailyStreak: dailyStreak, weeklyStreak: weeklyStreak)
+            }
+            calendarVariantWeekRow()
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .homeSocialCard(cornerRadius: 14)
+    }
+}
+
+#endif
+
+struct CalAlignShell<Content: View>: View {
+    let tag: String
+    let content: Content
+    init(tag: String, @ViewBuilder content: () -> Content) {
+        self.tag = tag
+        self.content = content()
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(tag)
+                .font(.system(size: 9, weight: .bold))
+                .tracking(1.0)
+                .foregroundColor(GQColors.textTertiary.opacity(0.7))
+                .padding(.leading, 4)
+            content
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
+                .homeSocialCard(cornerRadius: 14)
+        }
+    }
+}
+
+struct SemiGauge: View {
+    let progress: Double
+    let grad: LinearGradient
+    let value: String
+    let unit: String
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                Circle()
+                    .trim(from: 0.5, to: 1.0)
+                    .stroke(GQColors.adaptiveOverlay(0.06), style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                    .rotationEffect(.degrees(180))
+                    .frame(width: 96, height: 96)
+                Circle()
+                    .trim(from: 0.5, to: 0.5 + 0.5 * progress)
+                    .stroke(grad, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                    .rotationEffect(.degrees(180))
+                    .frame(width: 96, height: 96)
+                VStack(spacing: 0) {
+                    Text(value).font(.system(size: 22, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+                    Text(unit).font(.system(size: 9, weight: .medium)).foregroundColor(GQColors.textTertiary)
+                }
+                .offset(y: 10)
+            }
+            .frame(width: 96, height: 56, alignment: .top)
+            .clipped()
+        }
+    }
+}
+
+struct SegmentedRing: View {
+    let progress: Double
+    let grad: LinearGradient
+    let diameter: CGFloat
+    let segments: Int
+    let lineWidth: CGFloat
+    var body: some View {
+        let gap = 0.02
+        let per = (1.0 - Double(segments) * gap) / Double(segments)
+        let filled = Int(Double(segments) * progress)
+        ZStack {
+            ForEach(0..<segments, id: \.self) { i in
+                let start = Double(i) * (per + gap)
+                let end = start + per
+                Circle()
+                    .trim(from: start, to: end)
+                    .stroke(i < filled ? AnyShapeStyle(grad) : AnyShapeStyle(GQColors.adaptiveOverlay(0.08)), style: StrokeStyle(lineWidth: lineWidth, lineCap: .butt))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: diameter, height: diameter)
+            }
+            Text("\(Int(progress * 100))%").font(.system(size: 16, weight: .bold, design: .rounded)).foregroundColor(GQColors.textPrimary)
+        }
     }
 }
 

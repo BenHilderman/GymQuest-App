@@ -117,7 +117,9 @@ struct WorkoutStartOptionsView: View {
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(GQGradients.primary)
 
-            Text("Pick how you want to train today.")
+            Text(profile.showUpFor.trimmingCharacters(in: .whitespaces).isEmpty
+                 ? "Pick how you want to train today."
+                 : "Showing up for \(profile.showUpFor).")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(GQColors.textSecondary)
         }

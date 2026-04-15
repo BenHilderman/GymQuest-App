@@ -239,24 +239,37 @@ class AIService: ObservableObject {
         let contextJSON = try JSONEncoder().encode(context)
         let contextString = String(data: contextJSON, encoding: .utf8) ?? "{}"
 
-        // System prompt: defines AI persona and includes user context. 
-        // Could elaborate but want to focus on whats important, avoid confusion for the AI.
+        // System prompt: technical coaching + psychological support
+        let showUpFor = profile.showUpFor.trimmingCharacters(in: .whitespaces)
+        let identityLine = showUpFor.isEmpty ? "" : "\n- Showing up for: \(showUpFor)"
         let systemPrompt = """
-        You are Lift AI Coach. Be direct, punchy, and actionable. Talk like a real coach texting their client - short sentences, no fluff.
+        You are Lift AI Coach. You handle two types of questions:
+
+        TECHNICAL (exercises, form, programming, nutrition):
+        - Be direct and specific. "Do 3x8 at RPE 7" not "consider moderate intensity."
+        - Reference their actual data (streak, sets, RPE, equipment).
+        - Max 2-3 sentences unless they ask for details.
+        - Use bullet points for lists (max 3-4 items).
+        - End with ONE clear next action when relevant.
+
+        EMOTIONAL (motivation, guilt, body image, fear, missed days):
+        - Lead with validation. Their feeling is real and allowed.
+        - Then gently reframe using their own data.
+        - Never guilt, never toxic positivity, never "just push through."
+        - Suggest the SMALLEST possible next step. "15 minutes. No plan. Just show up."
+        - If someone describes disordered eating or self-harm patterns, gently suggest professional support alongside your encouragement.
+
+        TONE: Like a wise friend who lifts. Warm but honest. Short sentences. No fluff. No emojis.
 
         User Context:
         \(contextString)
-        
-        Rules:
-        - MAX 2-3 sentences unless they ask for details
-        - Use bullet points for lists (max 3-4 items)
-        - Reference their actual numbers (streak, sets, RPE)
-        - Be specific: "Do 3x8 at RPE 7" not "consider moderate intensity"
+
+        Identity:
         - Goal: \(profile.goal.rawValue) | Injuries: \(profile.injuries.isEmpty ? "none" : profile.injuries)
         - Experience: \(profile.experienceLevel?.rawValue ?? "unknown") | Environment: \(profile.workoutEnvironment?.rawValue ?? "unknown")
         - Equipment: \(profile.availableEquipment.map(\.rawValue).joined(separator: ", ").isEmpty ? "not specified" : profile.availableEquipment.map(\.rawValue).joined(separator: ", "))
+        - Streak: \(context.stats.streak) days | Sessions this week: \(context.stats.sessionsThisWeek) | Total sessions: \(context.stats.totalSessions)\(identityLine)
         - If they need a deload, say it directly
-        - End with ONE clear next action when relevant
         \(recoveryRules(profile: profile, context: context))
         """
 
@@ -475,6 +488,36 @@ class AIService: ObservableObject {
 
     func getDemoResponse(prompt: String, context: TrainingContext) -> String {
         let lowerPrompt = prompt.lowercased()
+
+        // Emotional / psychological responses first
+        if lowerPrompt.contains("missed") || lowerPrompt.contains("guilty") || lowerPrompt.contains("skip") || lowerPrompt.contains("fell off") {
+            let total = context.stats.totalSessions
+            if total > 10 {
+                return "You've shown up \(total) times. Missing a few days doesn't undo that. Whenever you're ready, even 15 minutes counts."
+            }
+            return "Breaks happen. The door's open whenever you're ready. Start with something light."
+        }
+
+        if lowerPrompt.contains("fat") || lowerPrompt.contains("ugly") || lowerPrompt.contains("hate my") || lowerPrompt.contains("look bad") {
+            return "What your body looks like changes. What it can do compounds. You've logged \(context.stats.totalSessions) sessions. That's real."
+        }
+
+        if lowerPrompt.contains("motivat") || lowerPrompt.contains("don't want") || lowerPrompt.contains("don't feel") || lowerPrompt.contains("no energy") {
+            return "Motivation comes and goes. You don't need to feel like it. Try 15 minutes with no plan. If you want to leave after, leave. Most people don't."
+        }
+
+        if lowerPrompt.contains("scared") || lowerPrompt.contains("anxious") || lowerPrompt.contains("nervous") || lowerPrompt.contains("intimidat") {
+            return "That's real. The gym can feel like a lot. Go at an off-peak time, headphones in, do what you know. Nobody's watching you. They're watching themselves."
+        }
+
+        if lowerPrompt.contains("give up") || lowerPrompt.contains("quit") || lowerPrompt.contains("point") || lowerPrompt.contains("worth it") {
+            let total = context.stats.totalSessions
+            return "You've shown up \(total) times. That's \(total) decisions to not quit. The results are quieter than the doubt."
+        }
+
+        if lowerPrompt.contains("depress") || lowerPrompt.contains("self harm") || lowerPrompt.contains("eating disorder") || lowerPrompt.contains("purge") || lowerPrompt.contains("starv") {
+            return "I hear you. That takes courage to say. Movement can help, but please also talk to someone who specializes in this. You deserve real support, not just workout advice."
+        }
 
         if lowerPrompt.contains("warm") {
             return """

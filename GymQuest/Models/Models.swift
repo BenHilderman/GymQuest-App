@@ -485,6 +485,10 @@ struct ProofCardMeta: Codable {
     // A/B testing (memo 3: "A/B test 3 share-card styles until sharing is natural")
     // Style variant applied at render time; rotates deterministically at creation.
     var styleVariant: String = "classic" // "classic" | "minimal" | "bold"
+
+    // Identity reflection layer — connects the workout to the person's journey
+    var reflectionLine: String? = nil   // "Day 12 for your kids." — identity mirror
+    var weeklyGoalHit: Bool = false     // true when this workout tipped the weekly target
 }
 
 // MARK: - Used Workout Event
