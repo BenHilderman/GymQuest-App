@@ -1723,6 +1723,10 @@ struct PostMedia: Codable, Identifiable {
     var thumbnailData: Data?            // Video thumbnail for preview
     var caption: String?                // Optional per-media caption
     var timestamp: Date = Date()
+    /// Length of the underlying video in whole seconds. Only meaningful when
+    /// `mediaType == .video`. Drives doability scoring: long-form clips with
+    /// exercise tags read as tutorials; short cinematic loops trend Watch.
+    var videoDurationSeconds: Int?
 
     enum PostMediaType: String, Codable {
         case photo
@@ -1737,7 +1741,8 @@ struct PostMedia: Codable, Identifiable {
         data: Data? = nil,
         thumbnailData: Data? = nil,
         caption: String? = nil,
-        timestamp: Date = Date()
+        timestamp: Date = Date(),
+        videoDurationSeconds: Int? = nil
     ) {
         self.id = id
         self.exerciseName = exerciseName
@@ -1747,6 +1752,7 @@ struct PostMedia: Codable, Identifiable {
         self.thumbnailData = thumbnailData
         self.caption = caption
         self.timestamp = timestamp
+        self.videoDurationSeconds = videoDurationSeconds
     }
 }
 

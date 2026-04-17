@@ -251,7 +251,7 @@ struct FeedView: View {
 
     private func refreshFriendsPosts() {
         cachedFriendsPosts = posts.filter { post in
-            guard post.photoData != nil || post.videoData != nil else { return false }
+            guard post.photoData != nil || post.videoData != nil || !post.mediaItems.isEmpty else { return false }
             let authorId = post.authorId
             if cachedMutualIds.contains(authorId) { return true }
             if cachedFollowingIds.contains(authorId) && isUserPublic(authorId) { return true }
@@ -259,12 +259,41 @@ struct FeedView: View {
         }
     }
 
-    /// All posts that have media (photo or video)
+    /// All posts that have media (photo, video, or carousel items)
     private var postsWithMedia: [Post] {
-        posts.filter { $0.photoData != nil || $0.videoData != nil }
+        posts.filter { $0.photoData != nil || $0.videoData != nil || !$0.mediaItems.isEmpty }
+    }
+
+    /// Feed tab opens to Train (ExploreView) — the app's training-first front
+    /// door. Shorts is reachable from Explore (top pill or inline shelf), but
+    /// not the entry impression. Set `useLegacyFeedTabs` UserDefault to true
+    /// to fall back to the old 3-sub-tab layout during transition.
+    private var useTrainFirst: Bool {
+        !UserDefaults.standard.bool(forKey: "useLegacyFeedTabs")
     }
 
     var body: some View {
+        if useTrainFirst {
+            NavigationStack {
+                ExploreView(profile: profile)
+                    .toolbar(.hidden, for: .navigationBar)
+                    .onAppear {
+                        if !hasSeeded {
+                            hasSeeded = true
+                            SocialSeeder.seedIfNeeded(modelContext: modelContext)
+                        }
+                        loadActiveSquad()
+                        fetchRemotePosts()
+                        prefetchAlbumArt()
+                    }
+            }
+            .tint(GQColors.textPrimary)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 // Tab switcher pinned at top
@@ -273,7 +302,11 @@ struct FeedView: View {
                 // Tab content
                 switch selectedFeedTab {
                 case .discover:
-                    discoverFeedContent
+                    if UserDefaults.standard.bool(forKey: "useLegacyDiscover") {
+                        discoverFeedContent
+                    } else {
+                        ExploreView(profile: profile)
+                    }
                 case .friends:
                     socialFeedContent
                 case .clubs:

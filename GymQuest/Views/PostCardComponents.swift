@@ -248,58 +248,29 @@ struct PostCardV2: View {
     /// of next workouts, not a scroll of decoration.
     @ViewBuilder
     private var useThisWorkoutBar: some View {
-        if sharedWorkout != nil, post.authorId != currentUserId {
-            HStack(spacing: 8) {
-                Button {
-                    useThisWorkout()
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 13, weight: .bold))
-                        Text("Use this workout")
-                            .font(.system(size: 14, weight: .bold))
-                        if post.timesUsed > 0 {
-                            Text("· \(post.timesUsed) used")
-                                .font(.system(size: 11, weight: .semibold))
-                                .opacity(0.7)
-                        }
-                        Spacer()
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 12, weight: .bold))
-                            .opacity(0.7)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
-                    .background(GQGradients.primary)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .shadow(color: GQColors.vividPurple.opacity(0.3), radius: 10, x: 0, y: 4)
-                }
-                .buttonStyle(.plain)
+        // Save + Start are now rendered inline in the action bar (actionRow)
+        // via workoutActionButtons. This view is intentionally empty.
+        EmptyView()
+    }
 
-                // Secondary: Steal specific exercises from this workout.
-                // Memo directive: "Steal this set" / "Save this warm-up" as distinct
-                // atomic primitives — the user can take the whole session or just
-                // one movement.
-                Button {
-                    showStealSetSheet = true
-                } label: {
-                    Image(systemName: "square.and.arrow.down.on.square")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
-                        .background(Color.white.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.15), lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
+    /// Bookmark always visible. Play only when workout data exists.
+    @ViewBuilder
+    private var workoutActionButtons: some View {
+        Spacer()
+        Button {} label: {
+            Image(systemName: "bookmark")
+                .font(.system(size: 18))
+                .foregroundColor(GQColors.textTertiary)
+        }
+        .buttonStyle(.plain)
+
+        if sharedWorkout != nil, post.authorId != currentUserId {
+            Button { useThisWorkout() } label: {
+                Image(systemName: "play.circle")
+                    .font(.system(size: 20))
+                    .foregroundStyle(GQGradients.primary)
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 6)
-            .padding(.bottom, 2)
+            .buttonStyle(.plain)
         }
     }
 
@@ -495,6 +466,7 @@ struct PostCardV2: View {
                         .foregroundColor(isLiked ? GQColors.deepBlue : GQColors.textTertiary)
                     }
                     .buttonStyle(.plain)
+
                 }
                 .padding(.top, 4)
             }
@@ -680,7 +652,7 @@ struct PostCardV2: View {
 
     @ViewBuilder
     private var heroSection: some View {
-        if post.photoData != nil || post.videoData != nil {
+        if post.photoData != nil || post.videoData != nil || !post.mediaItems.isEmpty {
             photoHero
         } else if isCardioWithRoute, let points = sharedWorkout?.routePoints {
             CardioRouteView(
@@ -738,7 +710,11 @@ struct PostCardV2: View {
         ZStack {
             // The image/video
             if post.mediaItems.count > 1 {
-                ExerciseMediaCarousel(mediaItems: post.mediaItems)
+                #if canImport(UIKit)
+                PostMediaCarousel(mediaItems: post.mediaItems)
+                #else
+                PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
+                #endif
             } else {
                 PostMediaView(post: post, showVideoPlayer: $showVideoPlayer)
             }
@@ -1407,7 +1383,7 @@ struct PostCardV2: View {
                 }
             }
 
-            // Reactions right below
+            // Reactions below caption
             PostActionsRowCompact(
                 post: post,
                 isLiked: $isLiked,
@@ -2723,6 +2699,17 @@ struct PostActionsRowCompact: View {
                     reactionEmojiRow
                     compactCommentButton
                     Spacer()
+                    Image(systemName: "bookmark")
+                        .font(.system(size: 20))
+                        .foregroundColor(GQColors.textPrimary)
+                    if hasWorkout, let onFollow = onFollowWorkout {
+                        Button(action: onFollow) {
+                            Image(systemName: "arrow.right.circle")
+                                .font(.system(size: 20))
+                                .foregroundColor(GQColors.textPrimary)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.top, 4)
 
@@ -3234,9 +3221,40 @@ struct PostMediaView: View {
     #elseif canImport(AppKit)
     @State private var cachedImage: NSImage?
     #endif
+
+    /// Single-item mediaItem fallback when legacy photoData/videoData are absent.
+    /// Returns the first (and only) mediaItem when the post has exactly one.
+    private var soloMediaItem: PostMedia? {
+        guard post.photoData == nil, post.videoData == nil, post.mediaItems.count == 1 else { return nil }
+        return post.mediaItems.first
+    }
+
+    private var effectivePhotoData: Data? {
+        if let photoData = post.photoData { return photoData }
+        if let solo = soloMediaItem {
+            if solo.mediaType == .photo { return solo.data }
+            return solo.thumbnailData  // video: show thumbnail as the static hero
+        }
+        return nil
+    }
+
+    private var effectiveVideoData: Data? {
+        if let videoData = post.videoData { return videoData }
+        if let solo = soloMediaItem, solo.mediaType == .video { return solo.data }
+        return nil
+    }
+
     var body: some View {
         Group {
-            if post.photoData != nil {
+            if effectiveVideoData != nil {
+                InlineFeedVideoPlayer(videoData: effectiveVideoData!, showVideoPlayer: $showVideoPlayer)
+                    .overlay {
+                        if let metadata = post.getClipMetadata(), !metadata.overlays.isEmpty {
+                            ClipOverlayLayer(metadata: metadata)
+                                .allowsHitTesting(true)
+                        }
+                    }
+            } else if effectivePhotoData != nil {
                 #if canImport(UIKit)
                 if let uiImage = cachedImage {
                     Color.clear
@@ -3260,18 +3278,10 @@ struct PostMediaView: View {
                         .clipShape(Rectangle())
                 }
                 #endif
-            } else if post.videoData != nil {
-                InlineFeedVideoPlayer(videoData: post.videoData!, showVideoPlayer: $showVideoPlayer)
-                    .overlay {
-                        if let metadata = post.getClipMetadata(), !metadata.overlays.isEmpty {
-                            ClipOverlayLayer(metadata: metadata)
-                                .allowsHitTesting(true)
-                        }
-                    }
             }
         }
         .task {
-            guard cachedImage == nil, let data = post.photoData else { return }
+            guard cachedImage == nil, let data = effectivePhotoData else { return }
             #if canImport(UIKit)
             cachedImage = UIImage(data: data)
             #elseif canImport(AppKit)

@@ -96,15 +96,23 @@ struct ProfileView: View {
         return post.videoData != nil || post.mediaItems.contains(where: { $0.mediaType == .video })
     }
 
+    /// First media type of a post — used for tab routing. A multi-media post
+    /// goes where its opener goes. For legacy single-media posts, videoData
+    /// wins over photoData because photoData often holds a cover thumbnail
+    /// alongside the real videoData.
+    private func postPrimaryType(_ post: Post) -> PostMedia.PostMediaType? {
+        if let first = post.mediaItems.first { return first.mediaType }
+        if post.videoData != nil { return .video }
+        if post.photoData != nil { return .photo }
+        return nil
+    }
+
     private var photoPosts: [Post] {
-        userPosts.filter { post in
-            post.photoData != nil ||
-            post.mediaItems.contains { $0.mediaType == .photo }
-        }
+        userPosts.filter { postPrimaryType($0) == .photo }
     }
 
     private var clipPosts: [Post] {
-        userPosts.filter { postIsSingleVideo($0) }
+        userPosts.filter { postPrimaryType($0) == .video }
     }
 
     private var taggedPosts: [Post] {
@@ -3088,9 +3096,12 @@ struct PostDetailView: View {
                     }
                     .padding(.horizontal)
 
-                    // media
+                    // media — carousel when multiple; single render otherwise
                     #if canImport(UIKit)
-                    if let data = post.photoData, let image = UIImage(data: data) {
+                    if post.mediaItems.count > 1 {
+                        PostMediaCarousel(mediaItems: post.mediaItems)
+                            .padding(.horizontal)
+                    } else if let data = post.photoData, let image = UIImage(data: data) {
                         Image(uiImage: image)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -3240,6 +3251,9 @@ struct ProfileVideoPlayerView: View {
     }
 }
 #endif
+
+// PostMediaCarousel + SequentialVideoSlide moved to PostAccessoriesView.swift
+// so the feed hero can share sequential-video autoplay with the detail view.
 
 // account settings - name, ai provider, api keys, logout
 struct SettingsView: View {

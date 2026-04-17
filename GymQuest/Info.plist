@@ -2,10 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSCameraUsageDescription</key>
-	<string>Lift AI needs camera access to take photos for your workout posts.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Lift AI needs microphone access to record audio with your workout videos.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>
@@ -33,11 +29,13 @@
 	<string>1</string>
 	<key>GIDClientID</key>
 	<string>672887012957-98c4v99phuk4730fdnr6qvpfebmua6lo.apps.googleusercontent.com</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Lift AI tracks your location during outdoor workouts to map your route.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>GymQuest uses your health data to track workouts, activity, and fitness progress.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>GymQuest saves your workout data to Apple Health.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Lift AI uses the microphone for voice search and to record audio notes on your workouts.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Lift AI uses speech recognition so you can search for workouts hands-free at the gym.</string>
 </dict>
 </plist>

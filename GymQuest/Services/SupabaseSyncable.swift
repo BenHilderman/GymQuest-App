@@ -74,6 +74,7 @@ struct PostDTO: Codable {
     let songTitle: String?
     let artistName: String?
     let mediaUrls: [String]?
+    let mediaItems: String?
     let likeCount: Int
     let commentCount: Int
     let isDeleted: Bool
@@ -93,11 +94,35 @@ struct PostDTO: Codable {
         case songTitle = "song_title"
         case artistName = "artist_name"
         case mediaUrls = "media_urls"
+        case mediaItems = "media_items"
         case likeCount = "like_count"
         case commentCount = "comment_count"
         case isDeleted = "is_deleted"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+    }
+}
+
+// MARK: - Serialized Media Item
+
+/// JSON-serializable snapshot of a PostMedia entry for Supabase round-trips.
+/// Preserves per-clip metadata (type, caption, exercise linkage, order) alongside
+/// the uploaded media URL, so a downloaded post can reconstruct its carousel.
+struct SerializedMediaItem: Codable {
+    let id: UUID
+    let mediaType: String
+    let caption: String?
+    let exerciseName: String?
+    let exerciseIndex: Int?
+    let order: Int
+
+    init(from media: PostMedia, order: Int) {
+        self.id = media.id
+        self.mediaType = media.mediaType.rawValue
+        self.caption = media.caption
+        self.exerciseName = media.exerciseName
+        self.exerciseIndex = media.exerciseIndex
+        self.order = order
     }
 }
 
@@ -449,6 +474,50 @@ struct ExerciseSetDTO: Codable {
         case isCompleted = "is_completed"
         case rpe
         case createdAt = "created_at"
+    }
+}
+
+// MARK: - Workout Check-In DTO (Phase 8D)
+
+struct CheckInDTO: Codable {
+    let id: UUID
+    let userId: UUID
+    let userName: String
+    let userUsername: String
+    let workoutType: String
+    let durationMinutes: Int
+    let note: String?
+    let withFriends: String?
+    let createdAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case userName = "user_name"
+        case userUsername = "user_username"
+        case workoutType = "workout_type"
+        case durationMinutes = "duration_minutes"
+        case note
+        case withFriends = "with_friends"
+        case createdAt = "created_at"
+    }
+}
+
+// MARK: - Presence DTO (Phase 8A)
+
+struct PresenceDTO: Codable {
+    let userId: UUID
+    let status: String
+    let workoutType: String?
+    let startedAt: Date?
+    let updatedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case status
+        case workoutType = "workout_type"
+        case startedAt = "started_at"
+        case updatedAt = "updated_at"
     }
 }
 

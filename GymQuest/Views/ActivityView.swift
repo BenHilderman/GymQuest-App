@@ -18,6 +18,10 @@ struct ActivityItem: Identifiable {
         case comment(text: String)
         case follow
         case reaction(type: ReactionType)
+        case checkIn(workoutType: String, minutes: Int)
+        case startedTraining(workoutType: String)
+        case duoDay
+        case crewMilestone(days: Int)
 
         var description: String {
             switch self {
@@ -25,6 +29,10 @@ struct ActivityItem: Identifiable {
             case .comment(let text): return "commented: \"\(text)\""
             case .follow: return "started following you"
             case .reaction(let type): return "reacted \(type.emoji) to your post"
+            case .checkIn(let type, let mins): return "checked in · \(type.lowercased()) · \(mins) min"
+            case .startedTraining(let type): return "started \(type.lowercased())"
+            case .duoDay: return "trained with you today ✨"
+            case .crewMilestone(let days): return "crew hit \(days) of 7 days this week 🔥"
             }
         }
 
@@ -34,6 +42,10 @@ struct ActivityItem: Identifiable {
             case .comment: return "bubble.right.fill"
             case .follow: return "person.badge.plus"
             case .reaction: return "face.smiling"
+            case .checkIn: return "checkmark.circle.fill"
+            case .startedTraining: return "figure.run"
+            case .duoDay: return "sparkles"
+            case .crewMilestone: return "flame.fill"
             }
         }
 
@@ -43,6 +55,10 @@ struct ActivityItem: Identifiable {
             case .comment: return GQColors.textSecondary
             case .follow: return GQColors.vividPurple
             case .reaction: return GQColors.textSecondary
+            case .checkIn: return GQColors.success
+            case .startedTraining: return GQColors.success
+            case .duoDay: return GQColors.vividPurple
+            case .crewMilestone: return .orange
             }
         }
     }
@@ -66,6 +82,8 @@ struct SocialActivityView: View {
     @Query private var reactions: [Reaction]
     @Query(sort: \Post.timestamp, order: .reverse) private var posts: [Post]
     @Query private var userProfiles: [UserProfile]
+    @Query private var checkIns: [WorkoutCheckIn]
+    @Query private var presenceStates: [UserPresenceState]
 
     @State private var activityItems: [ActivityItem] = []
     @State private var isSearchMode = false
@@ -289,6 +307,41 @@ struct SocialActivityView: View {
                 postId: reaction.targetId,
                 post: postLookup[reaction.targetId]
             ))
+        }
+
+        // Community events: friend check-ins (last 7 days)
+        let weekAgo = Date().addingTimeInterval(-7 * 86_400)
+        for ci in checkIns where ci.userId != myId && ci.timestamp >= weekAgo {
+            let ciProfile = userLookup[ci.userId]
+            items.append(ActivityItem(
+                id: ci.id,
+                userId: ci.userId,
+                userName: ciProfile?.name ?? ci.userName,
+                username: ciProfile?.username ?? ci.userUsername,
+                action: .checkIn(workoutType: ci.workoutType, minutes: ci.durationMinutes),
+                timestamp: ci.timestamp,
+                postId: nil,
+                post: nil
+            ))
+        }
+
+        // Community events: friends currently/recently training
+        let liveFollowedIds = Set(friends.filter { $0.userId == myId }.map(\.odId))
+        for state in presenceStates where liveFollowedIds.contains(state.userId) {
+            if state.status == .training || state.status == .resting,
+               let started = state.startedAt {
+                let stateProfile = userLookup[state.userId]
+                items.append(ActivityItem(
+                    id: state.userId,
+                    userId: state.userId,
+                    userName: stateProfile?.name ?? "A friend",
+                    username: stateProfile?.username ?? "",
+                    action: .startedTraining(workoutType: state.workoutTypeRaw ?? "workout"),
+                    timestamp: started,
+                    postId: nil,
+                    post: nil
+                ))
+            }
         }
 
         activityItems = items.sorted { $0.timestamp > $1.timestamp }

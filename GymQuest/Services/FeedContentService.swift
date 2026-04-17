@@ -207,10 +207,32 @@ final class FeedContentService: ObservableObject {
         Task {
             do {
                 var mediaUrls: [String] = []
-                if let photoData = post.photoData {
+                // Upload each carousel item first (preserves order).
+                for item in post.mediaItems {
+                    guard let bytes = item.data ?? item.thumbnailData else { continue }
+                    do {
+                        let url = try await SupabaseStorageService.shared.uploadPostMedia(postId: post.id, imageData: bytes)
+                        mediaUrls.append(url)
+                    } catch {
+                        print("[FeedContentService] mediaItem upload failed: \(error)")
+                    }
+                }
+                // Fall back to legacy single photo if there are no mediaItems.
+                if mediaUrls.isEmpty, let photoData = post.photoData {
                     let url = try await SupabaseStorageService.shared.uploadPostMedia(postId: post.id, imageData: photoData)
                     mediaUrls.append(url)
                 }
+
+                // Serialize carousel metadata so per-clip captions + types
+                // survive the round trip.
+                let mediaItemsJSON: String? = {
+                    guard !post.mediaItems.isEmpty else { return nil }
+                    let serialized = post.mediaItems.enumerated().map { SerializedMediaItem(from: $1, order: $0) }
+                    guard let data = try? JSONEncoder().encode(serialized),
+                          let str = String(data: data, encoding: .utf8) else { return nil }
+                    return str
+                }()
+
                 let dto = PostDTO(
                     id: post.id,
                     authorId: SupabaseAuthService.shared.currentUserId ?? post.authorId,
@@ -224,6 +246,7 @@ final class FeedContentService: ObservableObject {
                     songTitle: post.songTitle,
                     artistName: post.artistName,
                     mediaUrls: mediaUrls.isEmpty ? nil : mediaUrls,
+                    mediaItems: mediaItemsJSON,
                     likeCount: 0,
                     commentCount: 0,
                     isDeleted: false,

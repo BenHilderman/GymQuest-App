@@ -146,62 +146,151 @@ struct PostTagBadge: View {
     }
 }
 
-// MARK: - Exercise Media Carousel (for posts with exercise-specific media)
-
-struct ExerciseMediaCarousel: View {
+// MARK: - Post Media Carousel (multi-media posts with sequential video autoplay)
+//
+// Instagram-like carousel for posts with more than one media item. Videos play
+// only when the slide is active and auto-advance to the next clip on end; tap
+// anywhere on the slide to skip forward. Per-clip captions render as a pill.
+// Used by both the feed hero and the post detail view.
+#if canImport(UIKit)
+struct PostMediaCarousel: View {
     let mediaItems: [PostMedia]
-    @State private var selectedIndex = 0
+    @State private var selectedIndex: Int = 0
 
     var body: some View {
-        if !mediaItems.isEmpty {
-            VStack(spacing: 8) {
-                TabView(selection: $selectedIndex) {
-                    ForEach(Array(mediaItems.enumerated()), id: \.element.id) { index, media in
-                        ZStack(alignment: .bottomLeading) {
-                            // Media content
-                            if let data = media.data, let image = UIImage(data: data) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .clipShape(Rectangle())
-                            }
+        VStack(spacing: 8) {
+            TabView(selection: $selectedIndex) {
+                ForEach(Array(mediaItems.enumerated()), id: \.offset) { idx, item in
+                    carouselSlide(item: item, index: idx)
+                        .tag(idx)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .aspectRatio(4.0/5.2, contentMode: .fit)
+            .clipShape(Rectangle())
 
-                            // Video indicator
-                            if media.mediaType == .video {
-                                VStack {
-                                    HStack {
-                                        Spacer()
-                                        Image(systemName: "play.circle.fill")
-                                            .font(.system(size: 24))
-                                            .foregroundColor(.white)
-                                            .shadow(radius: 4)
-                                            .padding(12)
-                                    }
-                                    Spacer()
-                                }
-                            }
-                        }
-                        .tag(index)
+            if mediaItems.count > 1 {
+                HStack(spacing: 4) {
+                    ForEach(0..<mediaItems.count, id: \.self) { i in
+                        Capsule()
+                            .fill(i == selectedIndex ? AnyShapeStyle(GQGradients.primary) : AnyShapeStyle(GQColors.adaptiveOverlay(0.2)))
+                            .frame(width: i == selectedIndex ? 18 : 6, height: 6)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.75), value: selectedIndex)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .aspectRatio(4.0/5.2, contentMode: .fit)
+                .frame(maxWidth: .infinity)
+            }
+        }
+    }
 
-                // Minimal dots like Instagram
-                if mediaItems.count > 1 {
-                    HStack(spacing: 4) {
-                        ForEach(0..<mediaItems.count, id: \.self) { i in
-                            Circle()
-                                .fill(i == selectedIndex ? GQColors.textSecondary : GQColors.textTertiary.opacity(0.3))
-                                .frame(width: 6, height: 6)
-                                .animation(.easeInOut(duration: 0.2), value: selectedIndex)
+    @ViewBuilder
+    private func carouselSlide(item: PostMedia, index: Int) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            if item.mediaType == .video, let vdata = item.data {
+                SequentialVideoSlide(
+                    videoData: vdata,
+                    isActive: index == selectedIndex,
+                    onEnded: {
+                        if index < mediaItems.count - 1 {
+                            withAnimation(.easeInOut(duration: 0.25)) { selectedIndex = index + 1 }
                         }
                     }
+                )
+            } else if let data = item.thumbnailData ?? item.data, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped()
+            } else {
+                Rectangle().fill(GQColors.surfaceSecondary)
+            }
+
+            if let caption = item.caption, !caption.isEmpty {
+                HStack(spacing: 6) {
+                    Text("\(index + 1)")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 5).padding(.vertical, 2)
+                        .background(Capsule().fill(GQGradients.primary))
+                    Text(caption)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
                 }
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Capsule().fill(.ultraThinMaterial))
+                .padding(10)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if index < mediaItems.count - 1 {
+                withAnimation(.easeInOut(duration: 0.25)) { selectedIndex = index + 1 }
             }
         }
     }
 }
+
+/// Per-slide video player used by `PostMediaCarousel`. Plays only while active
+/// and emits `onEnded` so the carousel can auto-advance to the next clip.
+struct SequentialVideoSlide: View {
+    let videoData: Data
+    let isActive: Bool
+    let onEnded: () -> Void
+
+    @State private var player: AVPlayer?
+    @State private var tempURL: URL?
+    @State private var endObserver: NSObjectProtocol?
+
+    var body: some View {
+        Group {
+            if let player = player {
+                VideoPlayer(player: player)
+            } else {
+                ZStack {
+                    Rectangle().fill(GQColors.surfaceElevated)
+                    ProgressView().tint(.white)
+                }
+            }
+        }
+        .onAppear { prepare(); if isActive { player?.play() } }
+        .onChange(of: isActive) { _, active in
+            if active { player?.seek(to: .zero); player?.play() }
+            else { player?.pause() }
+        }
+        .onDisappear { tearDown() }
+    }
+
+    private func prepare() {
+        guard player == nil else { return }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mov")
+        do {
+            try videoData.write(to: url)
+            let p = AVPlayer(url: url)
+            p.isMuted = true
+            player = p
+            tempURL = url
+            endObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: p.currentItem,
+                queue: .main
+            ) { _ in onEnded() }
+        } catch {
+            // fall through — player stays nil
+        }
+    }
+
+    private func tearDown() {
+        if let obs = endObserver {
+            NotificationCenter.default.removeObserver(obs)
+            endObserver = nil
+        }
+        player?.pause()
+        player = nil
+        if let u = tempURL { try? FileManager.default.removeItem(at: u); tempURL = nil }
+    }
+}
+#endif
 
 // MARK: - Club Event Card
 

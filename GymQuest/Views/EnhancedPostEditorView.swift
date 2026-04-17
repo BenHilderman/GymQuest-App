@@ -17,8 +17,9 @@ import UIKit
 // MARK: - Enhanced Post Editor View
 
 struct EnhancedPostEditorView: View {
-    static let maxMediaItems = 10
+    static let maxMediaItems = 6
     static let maxVideoDuration: Double = 60
+    static let draftKey = "lift_ai_post_draft_v1"
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -150,7 +151,10 @@ struct EnhancedPostEditorView: View {
             if selectedSong == nil, let song = initialSong {
                 selectedSong = song
             }
+            restoreDraft()
         }
+        .onChange(of: caption) { _, _ in saveDraft() }
+        .onChange(of: taggedUsernames) { _, _ in saveDraft() }
         .alert("Error", isPresented: $showError) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -288,6 +292,77 @@ struct EnhancedPostEditorView: View {
             mediaItems.insert(item, at: destination)
             currentMediaIndex = destination
         }
+        saveDraft()
+    }
+
+    // MARK: - Per-clip caption (multi-media only)
+
+    @ViewBuilder
+    private var perClipCaptionField: some View {
+        let idx = min(currentMediaIndex, max(mediaItems.count - 1, 0))
+        if mediaItems.indices.contains(idx) {
+            let binding = Binding<String>(
+                get: { mediaItems[idx].caption ?? "" },
+                set: { newValue in
+                    var item = mediaItems[idx]
+                    item.caption = newValue.isEmpty ? nil : newValue
+                    mediaItems[idx] = item
+                    saveDraft()
+                }
+            )
+            HStack(spacing: 6) {
+                Text("\(idx + 1)")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(GQGradients.primary))
+                TextField("Label this clip (e.g. \"Top set 225×5\")", text: binding, axis: .horizontal)
+                    .font(.system(size: 12))
+                    .foregroundColor(GQColors.textPrimary)
+                    .textInputAutocapitalization(.sentences)
+                    .autocorrectionDisabled(false)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 10).fill(GQColors.adaptiveOverlay(0.04)))
+        }
+    }
+
+    // MARK: - Post draft autosave (UserDefaults)
+
+    private struct PostDraft: Codable {
+        var caption: String
+        var taggedUsernames: [String]
+        var includeStats: Bool
+        var perClipCaptions: [String]
+    }
+
+    private func saveDraft() {
+        let draft = PostDraft(
+            caption: caption,
+            taggedUsernames: taggedUsernames,
+            includeStats: includeStats,
+            perClipCaptions: mediaItems.map { $0.caption ?? "" }
+        )
+        if let data = try? JSONEncoder().encode(draft) {
+            UserDefaults.standard.set(data, forKey: Self.draftKey)
+        }
+    }
+
+    private func restoreDraft() {
+        guard let data = UserDefaults.standard.data(forKey: Self.draftKey),
+              let draft = try? JSONDecoder().decode(PostDraft.self, from: data) else { return }
+        if caption.isEmpty { caption = draft.caption }
+        if taggedUsernames.isEmpty { taggedUsernames = draft.taggedUsernames }
+        includeStats = draft.includeStats
+        // Restore per-clip captions by index (best-effort: caption at i → media[i])
+        for (i, c) in draft.perClipCaptions.enumerated() where mediaItems.indices.contains(i) && !c.isEmpty {
+            var item = mediaItems[i]
+            if item.caption == nil { item.caption = c; mediaItems[i] = item }
+        }
+    }
+
+    private func clearDraft() {
+        UserDefaults.standard.removeObject(forKey: Self.draftKey)
     }
 
     private func navigateToCustomize() {
@@ -577,10 +652,13 @@ struct EnhancedPostEditorView: View {
             // Photo carousel
             mediaPreview
 
-            // Reorderable thumbnail strip
+            // Reorderable thumbnail strip + per-clip caption (multi-media only)
             if mediaItems.count > 1 {
                 mediaReorderStrip
                     .padding(.top, 6)
+                perClipCaptionField
+                    .padding(.top, 6)
+                    .padding(.horizontal, 14)
             }
 
             // Caption bubble
@@ -1189,6 +1267,7 @@ struct EnhancedPostEditorView: View {
         modelContext.insert(post)
         do {
             try modelContext.save()
+            clearDraft()
             FeedContentService.shared.syncPostToSupabase(post)
             #if canImport(UIKit)
             UINotificationFeedbackGenerator().notificationOccurred(.success)

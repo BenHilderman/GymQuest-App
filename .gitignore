@@ -26,6 +26,9 @@ __pycache__/
 # Build artifacts
 build_derived/
 build_out/
+build_device/
+build_release/
+build_smoke/
 _edit_recovery/
 
 # Design artifacts

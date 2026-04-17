@@ -12,6 +12,13 @@ struct SessionContext {
     var mutualFriendIds: Set<UUID> = []
     var sessionMomentum: Double = 0       // 0..n recent positive interactions in last 5 min
     var currentHour: Int = Calendar.current.component(.hour, from: Date())
+    /// Cumulative seconds the user spent on a given clip this session. Powers
+    /// the watch-time feedback loop: long-watch posts keep their authors
+    /// boosted; sub-1.5s skips get a small downrank.
+    var dwellByPost: [UUID: Double] = [:]
+    /// Cumulative seconds spent on any clip by a given author. Aggregated
+    /// upstream so the ranker doesn't have to walk posts.
+    var dwellByAuthor: [UUID: Double] = [:]
 }
 
 @MainActor
@@ -93,6 +100,8 @@ final class FeedRankingService: ObservableObject {
         let personalizationWeight = inFlow ? 0.45 : 0.35
         let engagementWeight = inFlow ? 0.20 : 0.25
 
+        let watchTime = watchTimeBoost(for: post, context: sessionContext)
+
         let baseScore =
             (engagement * engagementWeight) +
             (recency * 0.18) +
@@ -104,10 +113,29 @@ final class FeedRankingService: ObservableObject {
             socialProof +
             timeOfDay +
             wellbeing +
-            firstImpression
+            firstImpression +
+            watchTime
 
         // Content format multiplier (video-first feed)
         return baseScore * contentFormatMultiplier(for: post)
+    }
+
+    /// Per-post + per-author dwell signal. Sub-1.5s on a clip is a clear
+    /// skip signal (small downrank, post-only). Cumulative author dwell
+    /// over 60s is treated as strong interest (capped boost).
+    private func watchTimeBoost(for post: Post, context: SessionContext?) -> Double {
+        guard let ctx = context else { return 0 }
+        var boost = 0.0
+
+        if let dwell = ctx.dwellByPost[post.id], dwell > 0, dwell < 1.5 {
+            boost -= 0.05
+        }
+
+        if let authorDwell = ctx.dwellByAuthor[post.authorId], authorDwell > 0 {
+            boost += min(authorDwell / 60.0, 0.10)
+        }
+
+        return boost
     }
 
     /// Boost video and carousel posts, downrank photo-only posts

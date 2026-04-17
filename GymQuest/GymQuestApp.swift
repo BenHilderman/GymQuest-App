@@ -128,6 +128,13 @@ struct LiftAIApp: App {
             // Goals
             UserGoal.self,
 
+            // Explore (Phase 1)
+            SavedWorkout.self,
+
+            // Community presence (Phase 8)
+            UserPresenceState.self,
+            WorkoutCheckIn.self,
+
             // Form Studio
             FormExercise.self,
             FormMediaSet.self,
@@ -264,11 +271,30 @@ class AppState: ObservableObject {
         isWorkoutPaused = false
         selectedTab = .home
         showingWorkoutStartOptions = false
+        // Broadcast presence so crew's LiveNowStrip lights up. Listeners with
+        // modelContext access (ContentView) perform the actual SwiftData write.
+        NotificationCenter.default.post(
+            name: .workoutPresenceStarted,
+            object: nil,
+            userInfo: ["workoutType": type.rawValue]
+        )
     }
 
     func endWorkout() {
+        // Capture type + duration before we nil the active state — these
+        // feed the post-workout check-in prompt.
+        let type = activeWorkout?.workoutType.rawValue
+        let minutes = activeWorkout.map { Int(Date().timeIntervalSince($0.startTime) / 60) } ?? 0
         activeWorkout = nil
         isWorkoutPaused = false
+        NotificationCenter.default.post(name: .workoutPresenceEnded, object: nil)
+        if let type {
+            NotificationCenter.default.post(
+                name: .workoutFinished,
+                object: nil,
+                userInfo: ["workoutType": type, "minutes": minutes]
+            )
+        }
     }
 
     func pauseWorkout() {
@@ -318,6 +344,13 @@ class AppState: ObservableObject {
 
 extension Notification.Name {
     static let navigateToFeedTab = Notification.Name("navigateToFeedTab")
+    /// Fired when the user starts a workout. Userinfo carries `workoutType: String`.
+    static let workoutPresenceStarted = Notification.Name("workoutPresenceStarted")
+    /// Fired when the user ends a workout.
+    static let workoutPresenceEnded = Notification.Name("workoutPresenceEnded")
+    /// Fired when a workout completes — used to prompt the check-in sheet.
+    /// userInfo carries `workoutType: String` and `minutes: Int`.
+    static let workoutFinished = Notification.Name("workoutFinished")
 }
 
 // MARK: - Active Workout State

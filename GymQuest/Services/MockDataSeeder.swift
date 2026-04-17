@@ -10,6 +10,31 @@ import SwiftUI
 
 struct MockDataSeeder {
 
+    // MARK: - Cached demo video bundles (loaded once per app lifetime)
+
+    struct DemoBundle {
+        let data: Data
+        let thumb: Data?
+        let meta: DemoVideoMetadata
+    }
+
+    /// Lightweight cache: loads ONLY thumbnails at seed time (fast — ~2MB total).
+    /// Video bytes are NOT loaded during seeding. Instead, ScrollClipVideoPlayer
+    /// loads video data on-demand from the bundle at play time via the resource
+    /// name stored in the post's caption metadata. This drops Feed-tab open
+    /// time from ~20s to <1s.
+    private static let cachedDemoBundles: [DemoBundle] = {
+        DemoVideoMetadata.all.compactMap { meta in
+            let thumb = VideoThumbnailService.thumbnail(forResource: meta.resourceName)
+            // Store a tiny marker in `data` so the post registers as "has video"
+            // (passes the 1KB gate). The real video bytes load on-demand at play time.
+            guard let marker = "bundle:\(meta.resourceName)".data(using: .utf8) else { return nil }
+            // Pad marker to pass the 1KB video gate in ScrollFeedClip/ShortsShelf
+            let padded = marker + Data(repeating: 0, count: max(0, 1100 - marker.count))
+            return DemoBundle(data: padded, thumb: thumb, meta: meta)
+        }
+    }()
+
     // MARK: - Procedural thumbnail generation
 
     #if canImport(UIKit)
@@ -79,14 +104,6 @@ struct MockDataSeeder {
                     height: iconSize.height
                 )
                 symbol.draw(in: iconRect)
-            }
-
-            // Video badge mark
-            if isVideo {
-                let vidConfig = UIImage.SymbolConfiguration(pointSize: 36, weight: .bold)
-                if let vid = UIImage(systemName: "video.fill")?.withConfiguration(vidConfig).withTintColor(.white, renderingMode: .alwaysOriginal) {
-                    vid.draw(in: CGRect(x: size.width - 70, y: 34, width: 48, height: 34))
-                }
             }
 
             // Workout type label bottom
@@ -176,11 +193,18 @@ struct MockDataSeeder {
         let calendar = Calendar.current
         let now = Date()
 
-        let videoDummy = Data(repeating: 0x2, count: 16)
+        // Skip the expensive video-loading path entirely when no new posts
+        // are needed. The demoBundles cache loads 50MB+ from disk — we only
+        // pay that cost when we're actually going to insert video posts.
+        let ownNeeded = max(0, target - existing)
+        let taggedNeeded = max(0, taggedTarget - existingTagged)
+        guard ownNeeded > 0 || taggedNeeded > 0 else { return }
+
+        let demoBundles = Self.cachedDemoBundles
+        let videoDummy = demoBundles.isEmpty ? Data(repeating: 0x2, count: 16) : Data()
 
         #if canImport(UIKit)
         // 1) Seed own posts: mix of single photos, single videos, and carousels
-        let ownNeeded = max(0, target - existing)
         for i in 0..<ownNeeded {
             let dayOffset = i + Int.random(in: 0...1)
             guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: now) else { continue }
@@ -191,16 +215,35 @@ struct MockDataSeeder {
             let isCarousel = roll >= 2 && roll < 4  // 2–3 → carousel
             // else 4–9 → single photo (6/10)
 
+            // Additional distribution: 10% of rolls become video-carousels
+            // (multiple clips stitched together — the new feature).
+            let isVideoCarousel = (roll == 2 && i >= 4) // ~1/20 chance, cosmetic mix
             let post: Post
-            if isSingleVideo {
+            if isVideoCarousel {
+                let count = 3
+                var items: [PostMedia] = []
+                let clipLabels = ["Warm-up", "Top set", "Finisher"]
+                for k in 0..<count {
+                    let videoIdx = (i + k) % max(demoBundles.count, 1)
+                    let bundle = demoBundles.isEmpty ? nil : demoBundles[videoIdx]
+                    let realVideo = bundle?.data ?? videoDummy
+                    let realThumb = bundle?.thumb
+                        ?? generateThumbnail(index: i + k * 31, workoutType: wType, isVideo: false)
+                    items.append(PostMedia(
+                        exerciseIndex: k,
+                        mediaType: .video,
+                        data: realVideo,
+                        thumbnailData: realThumb,
+                        caption: clipLabels[k]
+                    ))
+                }
                 post = Post(
                     authorId: userId,
                     authorName: profile.name,
                     authorUsername: profile.username,
                     timestamp: date,
                     caption: captions[i % captions.count],
-                    photoData: nil,
-                    videoData: videoDummy,
+                    photoData: items.first?.thumbnailData,
                     workoutType: wType,
                     duration: Int.random(in: 45...75),
                     setCount: Int.random(in: 14...22),
@@ -209,9 +252,44 @@ struct MockDataSeeder {
                     commentCount: Int.random(in: 1...8),
                     workoutEmotion: emotions[i % emotions.count]
                 )
-                // Render a thumbnail and drop it on photoData so the grid
-                // shows a real image (still flagged as a video via videoData).
-                post.photoData = generateThumbnail(index: i, workoutType: wType, isVideo: true)
+                post.mediaItems = items
+            } else if isSingleVideo {
+                let videoIdx = i % max(demoBundles.count, 1)
+                let bundle = demoBundles.isEmpty ? nil : demoBundles[videoIdx]
+                let realVideo = bundle?.data ?? videoDummy
+                let realThumb = bundle?.thumb
+                // Use the video's hand-crafted metadata when available, so the
+                // caption/type/exercise actually match what's on screen.
+                let meta = bundle?.meta
+                let matchedCaption = meta?.captions[i % max(meta?.captions.count ?? 1, 1)]
+                    ?? captions[i % captions.count]
+                let matchedType = meta?.workoutType ?? wType
+                let matchedExercise = meta?.exerciseHighlight ?? exercises[i % exercises.count]
+                post = Post(
+                    authorId: userId,
+                    authorName: profile.name,
+                    authorUsername: profile.username,
+                    timestamp: date,
+                    caption: matchedCaption,
+                    photoData: nil,
+                    videoData: realVideo,
+                    workoutType: matchedType,
+                    duration: Int.random(in: 45...75),
+                    setCount: Int.random(in: 14...22),
+                    exerciseHighlight: matchedExercise,
+                    likeCount: Int.random(in: 8...45),
+                    commentCount: Int.random(in: 1...8),
+                    workoutEmotion: emotions[i % emotions.count]
+                )
+                // Real first-frame thumbnail when available; falls back to the
+                // procedural icon so the grid never looks broken.
+                post.photoData = realThumb ?? generateThumbnail(index: i, workoutType: matchedType, isVideo: true)
+                // Attach the matched song if the video has one — powers the
+                // music chip on ScrollFeedClip.
+                if let meta, let song = meta.songTitle, let artist = meta.artistName {
+                    post.songTitle = song
+                    post.artistName = artist
+                }
             } else if isCarousel {
                 let count = (i % 2 == 0) ? 3 : 2
                 var items: [PostMedia] = []
@@ -257,7 +335,6 @@ struct MockDataSeeder {
         }
 
         // 2) Seed tagged posts authored by fake users
-        let taggedNeeded = max(0, taggedTarget - existingTagged)
         let fakes = SocialSeeder.fakeUsers
         for i in 0..<taggedNeeded {
             let fake = fakes[i % fakes.count]
