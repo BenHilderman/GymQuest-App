@@ -87,7 +87,7 @@ jobs:
       #   4. Configures the AWS CLI with those temporary credentials
 
       - name: Configure AWS Credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ inputs.role-arn }}
           aws-region: ${{ inputs.aws-region }}
